@@ -140,11 +140,6 @@ body {
   padding-bottom: 0.5rem;
 }
 
-/* Pendant la saisie, la mention sous le champ s'efface (comme dans les apps de chat). */
-[data-keyboard] .composer-disclaimer {
-  display: none;
-}
-
 /*
  * Téléphone et tablette : Safari zoome sur un champ dont le texte fait moins
  * de 16 px. Hors couche, pour passer devant text-sm et text-xs.

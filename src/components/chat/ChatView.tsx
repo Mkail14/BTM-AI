@@ -359,7 +359,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             <BrandLogo size="xl" />
             <h1 className="mt-8 text-2xl font-semibold tracking-tight sm:text-3xl">Que puis-je faire pour vous ?</h1>
             <p className="mt-3 max-w-md text-sm text-fg-muted">
-              Posez votre question en français ou en shimaoré.
+              Posez votre question en français ou en shimaoré. Awa peut se tromper : vérifiez les informations
+              importantes.
             </p>
             <p className="mt-5 inline-flex items-center gap-2 rounded-full border border-[var(--persona-border,var(--border))] bg-[var(--persona-soft,var(--bg-muted))] px-3 py-1 text-xs font-medium text-[var(--persona-text,var(--fg))]">
               <span aria-hidden="true">{PERSONALITIES[persona].emoji}</span>
@@ -448,9 +449,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             onStop={() => abortRef.current?.abort()}
             leading={<PersonalitySwitcher />}
           />
-          <p className="composer-disclaimer text-center text-xs text-fg-muted">
-            Awa peut se tromper. Vérifiez les informations importantes.
-          </p>
         </div>
       </div>
 
