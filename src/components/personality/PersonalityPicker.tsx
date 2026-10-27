@@ -16,12 +16,15 @@ const gradient = (color: string) =>
 export function PersonalityPicker({
   cards,
   current,
+  preselected,
   submitLabel = "Enregistrer",
   layout = "stack",
   onSaved,
 }: {
   cards: PersonalityCard[];
   current: PersonalityId | null;
+  /** Carte cochée d'avance quand aucun choix n'est enregistré (bienvenue). */
+  preselected?: PersonalityId;
   submitLabel?: string;
   /** « row » : grandes cartes colorées côte à côte (bienvenue) ; « stack » : liste compacte (Paramètres). */
   layout?: "stack" | "row";
@@ -29,7 +32,7 @@ export function PersonalityPicker({
 }) {
   const router = useRouter();
   const name = useId();
-  const [selected, setSelected] = useState<PersonalityId | null>(current);
+  const [selected, setSelected] = useState<PersonalityId | null>(current ?? preselected ?? null);
   const [message, setMessage] = useState<{ error: boolean; text: string } | null>(null);
   const [pending, startTransition] = useTransition();
   const row = layout === "row";

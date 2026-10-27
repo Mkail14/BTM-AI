@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
-import type { PersonalityCard } from "@/lib/ai/personalities";
+import { DEFAULT_PERSONALITY, type PersonalityCard } from "@/lib/ai/personalities";
 import { PersonalityPicker } from "./PersonalityPicker";
 
 /**
@@ -47,6 +47,7 @@ export function PersonalityDialog({ cards }: { cards: PersonalityCard[] }) {
             <PersonalityPicker
               cards={cards}
               current={null}
+              preselected={DEFAULT_PERSONALITY}
               layout="row"
               submitLabel="C'est parti"
               onSaved={() => setSavedFor(user.id)}

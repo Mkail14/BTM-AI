@@ -2,6 +2,7 @@ import "server-only";
 import type { ValidatedExample } from "@/lib/language/types";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { selectKnowledge, type KnowledgeEntry } from "./knowledge";
+import type { PersonalityId } from "./personalities";
 import { selectWords, type WordEntry } from "./words";
 
 /**
@@ -51,7 +52,8 @@ export async function loadAwaBrain(): Promise<AwaBrain> {
       admin.from("awa_knowledge").select("title, content, keywords").eq("is_active", true).limit(200),
       admin
         .from("awa_lexicon")
-        .select("french, shimaore, context, validated_by, validated_at")
+        // « * » : la colonne variants peut ne pas exister encore (migration lexicon_variants).
+        .select("*")
         .eq("is_active", true)
         .limit(300),
       loadWords(admin),
@@ -69,6 +71,7 @@ export async function loadAwaBrain(): Promise<AwaBrain> {
         french: row.french,
         shimaore: row.shimaore,
         context: row.context ?? undefined,
+        variants: readVariants(row.variants),
         validatedBy: row.validated_by,
         validatedAt: row.validated_at,
       })),
@@ -92,6 +95,23 @@ export function invalidateAwaBrain() {
 /** Fiches utiles pour ce message, dans la limite du budget de caractères. */
 export function knowledgeFor(brain: AwaBrain, message: string, maxChars = 6000): KnowledgeEntry[] {
   return selectKnowledge(brain.knowledge, message, maxChars);
+}
+
+/** Versions par personnalité enregistrées en base (texte non vide uniquement). */
+export function readVariants(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  return Object.fromEntries(
+    Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].trim() !== ""),
+  );
+}
+
+/**
+ * Expressions telles que la personnalité les dit : sa version si elle existe,
+ * sinon la version générale. undefined sans expression (exemples du code).
+ */
+export function lexiconFor(brain: AwaBrain, personality: PersonalityId): ValidatedExample[] | undefined {
+  if (brain.lexicon.length === 0) return undefined;
+  return brain.lexicon.map(({ variants, ...example }) => ({ ...example, shimaore: variants?.[personality] || example.shimaore }));
 }
 
 /** Mots du dictionnaire utiles pour ce message. */

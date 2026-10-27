@@ -7,6 +7,8 @@ export type ValidatedExample = {
   shimaore: string;
   /** Contexte d'usage (salutation, administration, commerce…). */
   context?: string;
+  /** Version propre à une personnalité (identifiant → shimaoré), si elle diffère. */
+  variants?: Readonly<Record<string, string>>;
   /** Personne ou organisme ayant validé l'exemple. */
   validatedBy: string;
   validatedAt: string;

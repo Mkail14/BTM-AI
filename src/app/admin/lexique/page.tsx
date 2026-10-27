@@ -3,17 +3,28 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { MigrationWarning, PageIntro } from "@/components/admin/form";
 import { requireAdmin } from "@/lib/auth/session";
 import { LexiconEditor } from "./LexiconEditor";
-import type { LexiconRow, WordRow } from "./limits";
+import { readVariants } from "@/lib/ai/brain";
+import { PERSONALITY_IDS } from "@/lib/ai/personalities";
+import type { LexiconRow, LexiconVariants, WordRow } from "./limits";
 import { WordsPanel } from "./WordsPanel";
 
 export const metadata: Metadata = { title: "Lexique shimaoré", robots: { index: false, follow: false } };
+
+/** Les trois façons de dire l'expression ; une ancienne entrée (sans versions) passe en « professionnelle ». */
+function toVariants(shimaore: string, stored: unknown): LexiconVariants {
+  const saved = readVariants(stored);
+  const variants = Object.fromEntries(PERSONALITY_IDS.map((id) => [id, saved[id] ?? ""])) as LexiconVariants;
+  if (!Object.values(variants).some(Boolean)) variants.professionnelle = shimaore;
+  return variants;
+}
 
 export default async function AdminLexiconPage() {
   const { supabase, user } = await requireAdmin("/admin/lexique");
   const [lexicon, words] = await Promise.all([
     supabase
       .from("awa_lexicon")
-      .select("id, french, shimaore, context, validated_by, validated_at, is_active")
+      // « * » : la colonne variants peut ne pas exister encore (migration lexicon_variants).
+      .select("*")
       .order("created_at", { ascending: false })
       .limit(1000),
     supabase
@@ -28,7 +39,7 @@ export default async function AdminLexiconPage() {
   const rows: LexiconRow[] = (lexicon.data ?? []).map((r) => ({
     id: r.id,
     french: r.french,
-    shimaore: r.shimaore,
+    variants: toVariants(r.shimaore, r.variants),
     context: r.context ?? "",
     validatedBy: r.validated_by,
     validatedAt: r.validated_at,

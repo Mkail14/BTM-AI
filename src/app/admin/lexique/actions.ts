@@ -6,10 +6,14 @@ import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/ac
 import { invalidateAwaBrain } from "@/lib/ai/brain";
 import { LEXICON_LIMITS, WORD_LIMITS } from "./limits";
 
+const variant = z.string().trim().max(LEXICON_LIMITS.phrase);
+
 const schema = z.object({
   id: z.uuid().nullable(),
   french: z.string().trim().min(1, "Écrivez la phrase en français.").max(LEXICON_LIMITS.phrase),
-  shimaore: z.string().trim().min(1, "Écrivez la traduction en shimaoré.").max(LEXICON_LIMITS.phrase),
+  variants: z
+    .object({ professionnelle: variant, mechante: variant, cool: variant })
+    .refine((v) => Object.values(v).some(Boolean), "Écrivez au moins une façon de le dire en shimaoré."),
   context: z.string().trim().max(LEXICON_LIMITS.context),
   validatedBy: z.string().trim().min(1, "Indiquez qui a validé la traduction.").max(LEXICON_LIMITS.validatedBy),
   isActive: z.boolean(),
@@ -28,14 +32,23 @@ export async function saveLexiconAction(input: unknown): Promise<ActionResult> {
   const parsed = schema.safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Données invalides." };
 
-  const { id, french, shimaore, context, validatedBy, isActive } = parsed.data;
-  const row = { french, shimaore, context: context || null, validated_by: validatedBy, is_active: isActive };
+  const { id, french, variants, context, validatedBy, isActive } = parsed.data;
+  // Version générale (colonne shimaore) : la professionnelle, sinon la première écrite.
+  const shimaore = variants.professionnelle || variants.mechante || variants.cool;
+  const row = {
+    french,
+    shimaore,
+    variants: Object.fromEntries(Object.entries(variants).filter(([, text]) => text)),
+    context: context || null,
+    validated_by: validatedBy,
+    is_active: isActive,
+  };
   const { error } = id
     ? await auth.supabase.from("awa_lexicon").update(row).eq("id", id)
     : await auth.supabase.from("awa_lexicon").insert(row);
   if (error) {
     console.error("[admin] Enregistrement du lexique impossible", error);
-    return { ok: false, message: "L'enregistrement a échoué. Réessayez." };
+    return { ok: false, message: "L'enregistrement a échoué (migration 20261103010000_lexicon_variants.sql appliquée ?)." };
   }
   return done(id ? "Expression enregistrée." : "Expression ajoutée.");
 }
