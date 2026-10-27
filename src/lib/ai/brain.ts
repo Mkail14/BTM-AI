@@ -2,6 +2,7 @@ import "server-only";
 import type { ValidatedExample } from "@/lib/language/types";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { selectKnowledge, type KnowledgeEntry } from "./knowledge";
+import { selectWords, type WordEntry } from "./words";
 
 /**
  * « Cerveau » d'Awa stocké dans Supabase (réglages, connaissances, lexique).
@@ -14,9 +15,26 @@ export type AwaBrain = {
   rules: string | null;
   knowledge: KnowledgeEntry[];
   lexicon: ValidatedExample[];
+  /** Dictionnaire de mots (awa_words) ; vide si la migration n'est pas appliquée. */
+  words: WordEntry[];
 };
 
-export const EMPTY_BRAIN: AwaBrain = { name: null, identity: null, rules: null, knowledge: [], lexicon: [] };
+export const EMPTY_BRAIN: AwaBrain = { name: null, identity: null, rules: null, knowledge: [], lexicon: [], words: [] };
+
+/** Lu à part : une table absente ne prive pas Awa du reste de son cerveau. */
+async function loadWords(admin: NonNullable<ReturnType<typeof getSupabaseAdminClient>>): Promise<WordEntry[]> {
+  const { data, error } = await admin
+    .from("awa_words")
+    .select("french, shimaore, category")
+    .eq("is_active", true)
+    .order("created_at")
+    .limit(5000);
+  if (error) {
+    console.error("[awa] Dictionnaire illisible (migration awa_words appliquée ?)", error);
+    return [];
+  }
+  return (data ?? []).map((row) => ({ french: row.french, shimaore: row.shimaore, category: row.category ?? undefined }));
+}
 
 const CACHE_MS = 60_000;
 let cache: { brain: AwaBrain; expiresAt: number } | null = null;
@@ -28,7 +46,7 @@ export async function loadAwaBrain(): Promise<AwaBrain> {
   if (!admin) return EMPTY_BRAIN;
 
   try {
-    const [settings, knowledge, lexicon] = await Promise.all([
+    const [settings, knowledge, lexicon, words] = await Promise.all([
       admin.from("awa_settings").select("name, identity, rules").eq("id", 1).maybeSingle(),
       admin.from("awa_knowledge").select("title, content, keywords").eq("is_active", true).limit(200),
       admin
@@ -36,6 +54,7 @@ export async function loadAwaBrain(): Promise<AwaBrain> {
         .select("french, shimaore, context, validated_by, validated_at")
         .eq("is_active", true)
         .limit(300),
+      loadWords(admin),
     ]);
     if (settings.error) throw settings.error;
     if (knowledge.error) throw knowledge.error;
@@ -53,6 +72,7 @@ export async function loadAwaBrain(): Promise<AwaBrain> {
         validatedBy: row.validated_by,
         validatedAt: row.validated_at,
       })),
+      words,
     };
     cache = { brain, expiresAt: Date.now() + CACHE_MS };
     return brain;
@@ -72,4 +92,9 @@ export function invalidateAwaBrain() {
 /** Fiches utiles pour ce message, dans la limite du budget de caractères. */
 export function knowledgeFor(brain: AwaBrain, message: string, maxChars = 6000): KnowledgeEntry[] {
   return selectKnowledge(brain.knowledge, message, maxChars);
+}
+
+/** Mots du dictionnaire utiles pour ce message. */
+export function wordsFor(brain: AwaBrain, message: string): WordEntry[] {
+  return selectWords(brain.words, message);
 }

@@ -20,13 +20,19 @@ export const metadata: Metadata = { title: "Modèle d'IA", robots: { index: fals
 
 /** Ce que le cerveau d'Awa contient réellement en base (null : illisible). */
 async function readBrainCounts(admin: SupabaseClient) {
-  const [settings, knowledge, lexicon] = await Promise.all([
+  const [settings, knowledge, lexicon, words] = await Promise.all([
     admin.from("awa_settings").select("name, identity, rules").eq("id", 1).maybeSingle(),
     admin.from("awa_knowledge").select("id", { count: "exact", head: true }).eq("is_active", true),
     admin.from("awa_lexicon").select("id", { count: "exact", head: true }).eq("is_active", true),
+    admin.from("awa_words").select("id", { count: "exact", head: true }).eq("is_active", true),
   ]);
   for (const result of [settings, knowledge, lexicon]) if (result.error) throw result.error;
-  return { settings: settings.data as { name: string; identity: string | null; rules: string | null } | null, knowledge: knowledge.count ?? 0, lexicon: lexicon.count ?? 0 };
+  return {
+    settings: settings.data as { name: string; identity: string | null; rules: string | null } | null,
+    knowledge: knowledge.count ?? 0,
+    // Expressions et mots du dictionnaire (table absente : seulement les expressions).
+    lexicon: (lexicon.count ?? 0) + (words.error ? 0 : (words.count ?? 0)),
+  };
 }
 
 const dollars = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "USD", maximumFractionDigits: 4 });

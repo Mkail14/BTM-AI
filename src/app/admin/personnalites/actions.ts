@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { getAIProvider } from "@/lib/ai";
-import { loadAwaBrain } from "@/lib/ai/brain";
+import { loadAwaBrain, wordsFor } from "@/lib/ai/brain";
 import { composePersonalityInstructions, isPersonalityId, parseBehavior } from "@/lib/ai/personalities";
 import { savePersonalityBehavior } from "@/lib/ai/personality-store";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
@@ -68,6 +68,7 @@ export async function testPersonalityAction(id: unknown, behavior: unknown, mess
     identity: brain.identity,
     rules: brain.rules,
     lexicon: brain.lexicon.length > 0 ? brain.lexicon : undefined,
+    words: wordsFor(brain, text),
     personalityInstructions: composePersonalityInstructions(id, parsed),
   });
 

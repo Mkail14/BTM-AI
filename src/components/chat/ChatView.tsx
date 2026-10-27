@@ -17,6 +17,7 @@ import {
 import { buildModelHistory } from "@/lib/chat/history";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
 import { createStreamEventParser } from "@/lib/chat/stream-protocol";
+import { hapticReady, hapticWriting } from "@/lib/chat/haptics";
 import type { ChatStreamEvent, ChatTurn } from "@/lib/chat/types";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
 import { Composer, type ComposerHandle } from "./Composer";
@@ -167,6 +168,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       abortRef.current = controller;
       let createdConversationId: string | null = null;
       let settled = false;
+      let writing = false;
 
       const handleEvent = (event: ChatStreamEvent) => {
         switch (event.type) {
@@ -175,10 +177,14 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             setConversationId(event.conversationId);
             break;
           case "delta":
+            // Téléphone : petite vibration quand Awa se met à écrire, puis quand elle a fini.
+            if (!writing) hapticWriting();
+            writing = true;
             updateMessage(assistantId, (m) => ({ ...m, content: m.content + event.text }));
             break;
           case "done":
             settled = true;
+            hapticReady();
             updateMessage(assistantId, (m) =>
               event.finishReason === "length"
                 ? { ...m, status: "interrupted", notice: "Réponse tronquée : longueur maximale atteinte." }

@@ -2,6 +2,7 @@ import { buildLanguageGuidance } from "@/lib/language/shimaore";
 import type { ValidatedExample } from "@/lib/language/types";
 import type { KnowledgeEntry } from "./knowledge";
 import type { MemoryFact } from "./memory";
+import type { WordEntry } from "./words";
 import { DEFAULT_PERSONALITY, defaultPersonalityInstructions, type PersonalityId } from "./personalities";
 
 /** Caractère par défaut d'Awa ; remplaçable depuis Supabase (awa_settings.identity). */
@@ -33,6 +34,8 @@ export type PromptContext = {
   identity?: string | null;
   rules?: string | null;
   lexicon?: readonly ValidatedExample[];
+  /** Mots du dictionnaire (awa_words) choisis pour ce message. */
+  words?: readonly WordEntry[];
   knowledge?: readonly KnowledgeEntry[];
   memories?: readonly MemoryFact[];
   /** Consignes de personnalité assemblées depuis /admin (composePersonalityInstructions). */
@@ -64,6 +67,15 @@ export function buildSystemPrompt(
     context.lexicon ? buildLanguageGuidance(context.lexicon) : buildLanguageGuidance(),
     context.rules || DEFAULT_RULES,
   ];
+
+  if (context.words?.length) {
+    sections.push(
+      [
+        "Vocabulaire shimaoré validé par GROUPE BTM (fiable : utilise-le quand tu écris en shimaoré ou qu'on te demande un mot, plutôt que de deviner) :",
+        ...context.words.map((w) => `- ${oneLine(w.french, 80)} → ${oneLine(w.shimaore, 80)}${w.category ? ` (${oneLine(w.category, 40)})` : ""}`),
+      ].join("\n"),
+    );
+  }
 
   if (context.knowledge?.length) {
     sections.push(

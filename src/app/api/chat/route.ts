@@ -16,7 +16,7 @@ import {
   getRecentMessages,
   insertMessage,
 } from "@/lib/conversations/repository";
-import { knowledgeFor, loadAwaBrain } from "@/lib/ai/brain";
+import { knowledgeFor, loadAwaBrain, wordsFor } from "@/lib/ai/brain";
 import { AI_ERROR_LABELS } from "@/lib/ai/flow-events";
 import { startFlowTrace } from "@/lib/ai/flow-trace";
 import { extractMemories, type MemoryFact } from "@/lib/ai/memory";
@@ -213,6 +213,7 @@ export async function POST(request: NextRequest) {
     identity: brain.identity,
     rules: brain.rules,
     lexicon: brain.lexicon.length > 0 ? brain.lexicon : undefined,
+    words: wordsFor(brain, body.message),
     knowledge: knowledgeFor(brain, body.message),
     memories,
   });
