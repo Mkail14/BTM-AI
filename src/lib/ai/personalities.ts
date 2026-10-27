@@ -23,14 +23,21 @@ export type PersonalityBehavior = {
   never: string[];
   /** Répliques typiques ; la première est montrée aux utilisateurs. */
   examples: string[];
+  /** Leçons : ce qu'on lui dit, et la réponse exacte attendue d'elle. */
+  lessons: Lesson[];
 };
+
+export type Lesson = { user: string; reply: string };
 
 export const BEHAVIOR_LIMITS = {
   description: 200,
-  attitude: 1200,
+  attitude: 2400,
   speech: 1200,
   listItems: 12,
   listItem: 240,
+  lessons: 20,
+  lessonUser: 300,
+  lessonReply: 800,
 } as const;
 
 export type Personality = {
@@ -63,6 +70,7 @@ export const PERSONALITIES: Record<PersonalityId, Personality> = {
         "Encore toi ? Bon… vas-y, pose ta question, je sens que je vais souffrir.",
         "Tu as cherché deux secondes avant de me demander ? Non ? Je m'en doutais. Bref, voilà la réponse :",
       ],
+      lessons: [],
     },
   },
   professionnelle: {
@@ -85,6 +93,7 @@ export const PERSONALITIES: Record<PersonalityId, Personality> = {
         "Bonjour, je suis Awa. Comment puis-je vous aider aujourd'hui ?",
         "Très bien. Voici les trois étapes à suivre, avec les documents à préparer :",
       ],
+      lessons: [],
     },
   },
   cool: {
@@ -103,6 +112,7 @@ export const PERSONALITIES: Record<PersonalityId, Personality> = {
         "Wesh, bien ou quoi ? Raconte, c'est quoi le plan aujourd'hui ?",
         "Ah ouais, je vois le délire. Bon, voilà comment tu fais :",
       ],
+      lessons: [],
     },
   },
 };
@@ -112,6 +122,8 @@ const lines = (items: readonly string[]) =>
     .map((item) => item.replace(/\s+/g, " ").trim())
     .filter(Boolean)
     .map((item) => `- ${item}`);
+
+const oneLine = (value: string) => value.replace(/\s+/g, " ").trim();
 
 /** Assemble les champs d'une personnalité en consignes pour le modèle. */
 export function composePersonalityInstructions(id: PersonalityId, behavior: PersonalityBehavior): string {
@@ -125,6 +137,15 @@ export function composePersonalityInstructions(id: PersonalityId, behavior: Pers
   const examples = lines(behavior.examples.map((e) => `« ${e.trim()} »`));
   if (examples.length) {
     parts.push(["Exemples du ton attendu (inspire-t'en, ne les répète pas mot pour mot) :", ...examples].join("\n"));
+  }
+  const lessons = behavior.lessons.filter((l) => l.user.trim() && l.reply.trim());
+  if (lessons.length) {
+    parts.push(
+      [
+        "Leçons de ton créateur : voici exactement comment tu as répondu dans ces situations. Reprends ce caractère, ce ton et cette façon de faire dans des situations semblables (adapte les mots, ne recopie pas) :",
+        ...lessons.map((l) => `Quand on te dit : « ${oneLine(l.user)} »\nTu réponds : « ${l.reply.trim()} »`),
+      ].join("\n\n"),
+    );
   }
   return parts.join("\n");
 }
@@ -144,7 +165,7 @@ export function personalityCard(id: PersonalityId, behavior: PersonalityBehavior
     label: p.label,
     emoji: p.emoji,
     description: behavior.description.trim() || p.defaults.description,
-    sample: behavior.examples.find((e) => e.trim())?.trim() ?? "",
+    sample: behavior.examples.find((e) => e.trim())?.trim() ?? behavior.lessons[0]?.reply.trim().slice(0, 160) ?? "",
   };
 }
 
@@ -175,5 +196,19 @@ export function parseBehavior(value: unknown): PersonalityBehavior | null {
     always: cleanList(v.always),
     never: cleanList(v.never),
     examples: cleanList(v.examples),
+    lessons: cleanLessons(v.lessons),
   };
+}
+
+function cleanLessons(value: unknown): Lesson[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const l = item as Record<string, unknown>;
+      const user = cleanText(l.user, BEHAVIOR_LIMITS.lessonUser);
+      const reply = cleanText(l.reply, BEHAVIOR_LIMITS.lessonReply);
+      return user && reply ? [{ user, reply }] : [];
+    })
+    .slice(0, BEHAVIOR_LIMITS.lessons);
 }

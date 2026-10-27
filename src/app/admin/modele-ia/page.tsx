@@ -3,37 +3,33 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { slotHealthId } from "@/lib/ai";
 import { loadAIChain } from "@/lib/ai/registry";
+import { AI_ERROR_LABELS } from "@/lib/ai/flow-events";
 import { canEncrypt } from "@/lib/ai/secret-box";
 import { deriveModelStatus, freeDailyQuota, getHealth, requestsToday, type NodeStatus } from "@/lib/ai/health";
 import { checkKey } from "@/lib/ai/key-check";
+import { DEFAULT_IDENTITY, DEFAULT_RULES } from "@/lib/ai/system-prompt";
 import { requireAdmin } from "@/lib/auth/session";
+import { loadRateLimitSettings } from "@/lib/rate-limit/settings";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { AIFlow } from "./AIFlow";
 import type { ApiDetails, FlowEdge, FlowNode } from "./flow";
+
+const CHARACTER_DEFAULTS = { name: "Awa", identity: DEFAULT_IDENTITY, rules: DEFAULT_RULES };
 
 export const metadata: Metadata = { title: "Modèle d'IA", robots: { index: false, follow: false } };
 
 /** Ce que le cerveau d'Awa contient réellement en base (null : illisible). */
 async function readBrainCounts(admin: SupabaseClient) {
   const [settings, knowledge, lexicon] = await Promise.all([
-    admin.from("awa_settings").select("id").eq("id", 1).maybeSingle(),
+    admin.from("awa_settings").select("name, identity, rules").eq("id", 1).maybeSingle(),
     admin.from("awa_knowledge").select("id", { count: "exact", head: true }).eq("is_active", true),
     admin.from("awa_lexicon").select("id", { count: "exact", head: true }).eq("is_active", true),
   ]);
   for (const result of [settings, knowledge, lexicon]) if (result.error) throw result.error;
-  return { settings: Boolean(settings.data), knowledge: knowledge.count ?? 0, lexicon: lexicon.count ?? 0 };
+  return { settings: settings.data as { name: string; identity: string | null; rules: string | null } | null, knowledge: knowledge.count ?? 0, lexicon: lexicon.count ?? 0 };
 }
 
 const dollars = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "USD", maximumFractionDigits: 4 });
-const ERROR_LABELS: Record<string, string> = {
-  quota: "crédit ou quota épuisé",
-  rate_limited: "trop de requêtes",
-  auth: "clé refusée",
-  timeout: "trop lent",
-  overloaded: "serveur surchargé",
-  bad_request: "requête refusée",
-  unavailable: "injoignable",
-};
 
 function ago(at: number | null, now: number) {
   if (!at) return "jamais";
@@ -106,7 +102,7 @@ async function readModels() {
             ? [
                 {
                   label: "Dernier échec",
-                  value: `${ERROR_LABELS[health.lastFailure.code] ?? health.lastFailure.code}, ${ago(health.lastFailure.at, now)}`,
+                  value: `${AI_ERROR_LABELS[health.lastFailure.code] ?? health.lastFailure.code}, ${ago(health.lastFailure.at, now)}`,
                 },
               ]
             : []),
@@ -122,8 +118,9 @@ export default async function AdminModelPage() {
   const admin = getSupabaseAdminClient();
   const hasSalt = Boolean(process.env.RATE_LIMIT_SALT?.trim());
 
-  const [models, brain] = await Promise.all([
+  const [models, limits, brain] = await Promise.all([
     readModels(),
+    loadRateLimitSettings(),
     admin ? readBrainCounts(admin).catch((error: unknown) => (console.error("[admin] Cerveau illisible", error), null)) : null,
   ]);
 
@@ -149,7 +146,14 @@ export default async function AdminModelPage() {
       column: 2,
       icon: "settings",
       title: "Caractère et règles",
-      href: "/admin/caractere",
+      character: {
+        saved: {
+          name: brain?.settings?.name ?? CHARACTER_DEFAULTS.name,
+          identity: brain?.settings?.identity ?? CHARACTER_DEFAULTS.identity,
+          rules: brain?.settings?.rules ?? CHARACTER_DEFAULTS.rules,
+        },
+        defaults: CHARACTER_DEFAULTS,
+      },
       ...brainState(Boolean(brain?.settings)),
     },
     {
@@ -180,7 +184,7 @@ export default async function AdminModelPage() {
 
   const nodes: FlowNode[] = [
     { id: "input", column: 0, icon: "message", title: "Message reçu", status: "ok", statusLabel: "Ouvert" },
-    { id: "guard", column: 1, icon: "shield", title: "Quotas et sécurité", ...guard },
+    { id: "guard", column: 1, icon: "shield", title: "Quotas et sécurité", limits, ...guard },
     ...brainNodes,
     { id: "prompt", column: 3, icon: "prompt", title: "Message système", status: "ok", statusLabel: "Assemblé" },
     ...models.map(
@@ -227,7 +231,7 @@ export default async function AdminModelPage() {
   return (
     <div className="flex min-h-dvh flex-col bg-bg-subtle lg:h-dvh lg:overflow-hidden">
       <AdminHeader section="Modèle d'IA" email={user.email} />
-      <main id="contenu" className="mx-auto flex w-full max-w-[1600px] min-h-[32rem] flex-1 flex-col p-4">
+      <main id="contenu" className="mx-auto flex w-full max-w-[1600px] min-h-[32rem] flex-1 flex-col p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <h1 className="sr-only">Modèle d&apos;IA</h1>
         <AIFlow nodes={nodes} edges={edges} canAddApi={Boolean(admin) && canEncrypt()} />
       </main>

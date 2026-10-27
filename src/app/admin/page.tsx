@@ -14,7 +14,7 @@ import { supabaseDashboardLink } from "@/lib/admin/supabase-links";
 import { getAIProvider } from "@/lib/ai";
 import { requireAdmin } from "@/lib/auth/session";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
-import { RATE_LIMIT_POLICIES } from "@/lib/rate-limit/policies";
+import { loadRateLimitSettings, type RateLimitSettings } from "@/lib/rate-limit/settings";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { supabaseUrl } from "@/lib/supabase/config";
 import { SignOutButton } from "../parametres/SignOutButton";
@@ -322,9 +322,19 @@ function Status({ ok, okLabel = "Configurée", koLabel = "Absente" }: { ok: bool
 type AIStatus = Awaited<ReturnType<typeof getAIProvider>>;
 
 /** Réglages en vigueur. Aucune valeur secrète n'est affichée. */
-function ServiceConfig({ ai, hasSecretKey, hasSalt }: { ai: AIStatus; hasSecretKey: boolean; hasSalt: boolean }) {
-  const anonDay = RATE_LIMIT_POLICIES.anonymousDevice.find((r) => r.windowSeconds === 86_400)?.limit;
-  const userDay = RATE_LIMIT_POLICIES.user.find((r) => r.windowSeconds === 86_400)?.limit;
+function ServiceConfig({
+  ai,
+  limits,
+  hasSecretKey,
+  hasSalt,
+}: {
+  ai: AIStatus;
+  limits: RateLimitSettings;
+  hasSecretKey: boolean;
+  hasSalt: boolean;
+}) {
+  const anonDay = limits.anonymousDevice.day;
+  const userDay = limits.user.day;
   return (
     <dl className="text-sm">
       <Row label="Modèle d'IA">
@@ -392,7 +402,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
   const page = readPage((await searchParams).page);
   const admin = getSupabaseAdminClient();
   const hasSalt = Boolean(process.env.RATE_LIMIT_SALT?.trim());
-  const ai = await getAIProvider();
+  const [ai, limits] = await Promise.all([getAIProvider(), loadRateLimitSettings()]);
 
   let overview: AdminOverview | null = null;
   let usersPage: Awaited<ReturnType<typeof listAdminUsers>> | null = null;
@@ -419,20 +429,23 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
     : "Statistiques indisponibles : SUPABASE_SECRET_KEY n'est pas définie.";
 
   return (
-    <div className="flex min-h-dvh flex-col bg-bg-subtle lg:h-dvh lg:overflow-hidden">
+    // Tableau de bord sur un seul écran seulement s'il est assez haut (pas sur iPad en paysage, 768 px).
+    <div className="flex min-h-dvh flex-col bg-bg-subtle desk:h-dvh desk:overflow-hidden">
       <header className="shrink-0 border-b border-border bg-bg">
         <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-4">
           <AdminMenu />
-          <BrandLogo size="md" />
-          <span className="rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-medium text-accent">Administration</span>
-          <p className="ml-4 hidden text-xs text-fg-muted md:block">
+          <span className="hidden sm:block">
+            <BrandLogo size="md" />
+          </span>
+          <span className="shrink-0 rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-medium text-accent">Administration</span>
+          <p className="ml-4 hidden text-xs text-fg-muted lg:block">
             Mis à jour à {timeFormat.format(new Date())} (heure de Mayotte) ·{" "}
             <Link href="/admin" className="font-medium text-fg hover:underline">
               Actualiser
             </Link>
           </p>
-          <div className="ml-auto flex items-center gap-3 text-sm">
-            <span className="hidden truncate text-fg-muted sm:inline">{user.email}</span>
+          <div className="ml-auto flex shrink-0 items-center gap-3 text-sm">
+            <span className="hidden max-w-56 truncate text-fg-muted xl:inline">{user.email}</span>
             <SignOutButton />
           </div>
         </div>
@@ -440,7 +453,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
 
       <main
         id="contenu"
-        className="mx-auto grid w-full max-w-[1600px] min-h-0 flex-1 gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_22rem]"
+        className="mx-auto grid w-full max-w-[1600px] min-h-0 flex-1 gap-4 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:grid-cols-[minmax(0,1fr)_22rem]"
       >
         <h1 className="sr-only">Tableau de bord BTM AI</h1>
 
@@ -483,7 +496,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
               {overview ? <Quality stats={overview} /> : <Unavailable>—</Unavailable>}
             </Card>
             <Card id="service" title="Réglages en vigueur" aside="Variables du serveur">
-              <ServiceConfig ai={ai} hasSecretKey={Boolean(admin)} hasSalt={hasSalt} />
+              <ServiceConfig ai={ai} limits={limits} hasSecretKey={Boolean(admin)} hasSalt={hasSalt} />
             </Card>
           </div>
         </div>

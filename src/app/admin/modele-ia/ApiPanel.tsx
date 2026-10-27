@@ -94,7 +94,7 @@ export function ApiPanel({ node, onClose }: { node: FlowNode; onClose: () => voi
         aria-modal="true"
         aria-label={`API ${node.title}`}
         tabIndex={-1}
-        className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto border-l border-border bg-bg p-5 shadow-xl outline-none"
+        className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto overscroll-contain border-l border-border bg-bg p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-xl outline-none"
       >
         <div className="flex items-start gap-3">
           <span className="grid size-10 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent">

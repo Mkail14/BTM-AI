@@ -27,9 +27,13 @@ import {
 } from "@/components/ui/icons";
 import type { ActionResult } from "@/lib/admin/action-auth";
 import { deleteApiAction } from "./actions";
+import type { RateLimitSettings } from "@/lib/rate-limit/settings";
 import { AddApiDialog } from "./AddApiDialog";
+import { CharacterDialog } from "./CharacterDialog";
+import { GuardDialog } from "./GuardDialog";
 import { ApiPanel } from "./ApiPanel";
 import { STATUS_STYLES, type FlowEdge, type FlowIcon, type FlowNode } from "./flow";
+import { HOP_MS, useLiveTrace, type LiveStatus } from "./useLiveTrace";
 
 const ICONS: Record<FlowIcon, ComponentType<SVGProps<SVGSVGElement>>> = {
   message: IconMessage,
@@ -73,6 +77,12 @@ function computePaths(container: HTMLElement, nodes: Map<string, HTMLElement>, e
   });
 }
 
+const LIVE_STATUS: Record<LiveStatus, { dot: string; label: string }> = {
+  connecting: { dot: "bg-fg-muted", label: "Connexion au direct…" },
+  live: { dot: "bg-success animate-pulse", label: "En direct" },
+  unavailable: { dot: "bg-danger", label: "Direct indisponible" },
+};
+
 type Offset = { x: number; y: number };
 
 function NodeCard({
@@ -80,6 +90,7 @@ function NodeCard({
   offset,
   dragging,
   selected,
+  blocked,
   onDragStart,
   onOpen,
   register,
@@ -88,6 +99,8 @@ function NodeCard({
   offset: Offset | undefined;
   dragging: boolean;
   selected: boolean;
+  /** Un message vient d'être bloqué sur ce bloc. */
+  blocked: boolean;
   onDragStart: (event: ReactPointerEvent<HTMLDivElement>) => void;
   onOpen: () => void;
   register: (el: HTMLElement | null) => void;
@@ -95,12 +108,21 @@ function NodeCard({
   const Icon = ICONS[node.icon];
   const style = STATUS_STYLES[node.status];
   const isModel = node.slot !== undefined;
+  // Au doigt (téléphone, tablette), glisser fait défiler le schéma et toucher
+  // ouvre le bloc ; le déplacement des blocs reste réservé à la souris.
+  const touched = useRef(false);
   return (
     <div
       ref={register}
-      title={node.reason ?? (node.href ? "Cliquer pour régler" : undefined)}
-      onPointerDown={onDragStart}
-      {...((node.href || node.api) && {
+      title={node.reason ?? (node.href || node.limits || node.character ? "Cliquer pour régler" : undefined)}
+      onPointerDown={(event) => {
+        touched.current = event.pointerType === "touch";
+        if (!touched.current) onDragStart(event);
+      }}
+      onClick={() => {
+        if (touched.current) onOpen();
+      }}
+      {...((node.href || node.api || node.limits || node.character) && {
         role: node.href ? "link" : "button",
         tabIndex: 0,
         onKeyDown: (event) => {
@@ -108,10 +130,14 @@ function NodeCard({
         },
       })}
       style={offset ? { transform: `translate(${offset.x}px, ${offset.y}px)` } : undefined}
-      className={`relative w-full touch-none rounded-xl border-2 bg-bg p-2.5 select-none ${style.border} ${
+      className={`relative w-full touch-manipulation rounded-xl pointer-fine:touch-none border-2 bg-bg p-2.5 select-none ${style.border} ${
         node.status === "off" ? "opacity-70" : ""
       } ${dragging ? "z-20 cursor-grabbing shadow-lg" : "cursor-grab shadow-sm"} ${
-        selected ? "ring-2 ring-accent ring-offset-2 ring-offset-bg-subtle" : ""
+        blocked
+          ? "ring-2 ring-danger ring-offset-2 ring-offset-bg-subtle"
+          : selected
+            ? "ring-2 ring-accent ring-offset-2 ring-offset-bg-subtle"
+            : ""
       }`}
     >
       {node.inService ? (
@@ -158,8 +184,15 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
   const selected = nodes.find((n) => n.id === selectedId && n.api);
   const [adding, setAdding] = useState(false);
   const closeAdd = useCallback(() => setAdding(false), []);
+  const [editingLimits, setEditingLimits] = useState<RateLimitSettings | null>(null);
+  const closeLimits = useCallback(() => setEditingLimits(null), []);
+  const [editingCharacter, setEditingCharacter] = useState<FlowNode["character"] | null>(null);
+  const closeCharacter = useCallback(() => setEditingCharacter(null), []);
   const [toolbarStatus, setToolbarStatus] = useState<ActionResult | null>(null);
   const [removing, startTransition] = useTransition();
+  const live = useLiveTrace(edges, paths);
+  const blockedNodes = new Set(live.dots.filter((d) => d.blocked !== undefined).map((d) => d.node));
+  const titleOf = (id: string) => nodes.find((n) => n.id === id)?.title ?? id;
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -178,6 +211,12 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
     } else if (node.api) {
       setSelectedId(node.id);
       setOpenApiId(node.id);
+    } else if (node.limits) {
+      setSelectedId(null);
+      setEditingLimits(node.limits);
+    } else if (node.character) {
+      setSelectedId(null);
+      setEditingCharacter(node.character);
     } else {
       setSelectedId(null);
     }
@@ -227,6 +266,22 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
 
   return (
     <section aria-label="Schéma du modèle d'IA" className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-border">
+      {/* Suivi en direct, en haut à gauche du canevas */}
+      <div
+        role="status"
+        className="absolute top-3 left-3 z-10 flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-xl border border-border bg-bg/95 px-3 py-1.5 text-xs shadow-lg backdrop-blur"
+      >
+        <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${LIVE_STATUS[live.status].dot}`} />
+        <span className="font-medium">{LIVE_STATUS[live.status].label}</span>
+        {live.outcome ? (
+          <span className={`truncate ${live.outcome.ok ? "text-success" : "text-danger"}`}>
+            · Dernier message :{" "}
+            {live.outcome.ok
+              ? "réponse envoyée"
+              : `bloqué à « ${titleOf(live.outcome.node)} »${live.outcome.reason ? ` (${live.outcome.reason})` : ""}`}
+          </span>
+        ) : null}
+      </div>
       {/* Barre d'outils, en bas à droite du canevas */}
       <div
         role="toolbar"
@@ -238,7 +293,8 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
             {toolbarStatus.message}
           </span>
         ) : null}
-        {selected ? (
+        {/* Seules les API ajoutées depuis cette page peuvent être supprimées. */}
+        {selected?.deletable ? (
           <>
             <span className="max-w-48 truncate px-2 text-xs text-fg-muted">
               Sélection : <span className="font-medium text-fg">{selected.title}</span>
@@ -246,9 +302,8 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
             <button
               type="button"
               onClick={removeSelected}
-              disabled={!selected.deletable || removing}
-              title={selected.deletable ? undefined : "Déclarée dans les variables du serveur : retirez-la de .env.local"}
-              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-danger hover:bg-danger-soft disabled:opacity-50"
+              disabled={removing}
+              className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-danger pointer-coarse:py-2.5 hover:bg-danger-soft disabled:opacity-50"
             >
               <IconTrash width={14} height={14} />
               {removing ? "Suppression…" : "Supprimer"}
@@ -264,7 +319,7 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
           }}
           disabled={!canAddApi}
           title={canAddApi ? undefined : "Nécessite SUPABASE_SECRET_KEY sur le serveur"}
-          className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-accent-fg pointer-coarse:py-2.5 hover:bg-accent-hover disabled:opacity-50"
         >
           <IconPlus width={14} height={14} />
           Ajouter une API
@@ -277,21 +332,37 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
             {paths.map(({ key, d, edge, start, end }) => {
               const stroke = edge.live ? "var(--accent)" : "var(--fg-muted)";
               return (
-                <g key={key} opacity={edge.muted ? 0.35 : edge.live ? 1 : 0.55}>
-                  <path
-                    d={d}
-                    fill="none"
-                    stroke={stroke}
-                    strokeWidth={edge.live ? 2 : 1.5}
-                    strokeDasharray={edge.muted ? "4 5" : undefined}
-                    className={edge.live && !edge.muted ? "flow-live" : undefined}
-                  />
+                <g key={key} opacity={edge.muted ? 0.3 : edge.live ? 1 : 0.55}>
+                  <path d={d} fill="none" stroke={stroke} strokeWidth={edge.live ? 2 : 1.5} />
                   <circle cx={start[0]} cy={start[1]} r={4} fill="var(--bg)" stroke={stroke} strokeWidth={1.5} />
                   <circle cx={end[0]} cy={end[1]} r={4} fill="var(--bg)" stroke={stroke} strokeWidth={1.5} />
                 </g>
               );
             })}
           </svg>
+
+          {/* Messages en cours : un point par arête, arrêté en rouge là où ça bloque */}
+          {live.dots.map((dot) =>
+            dot.blocked !== undefined ? (
+              <div
+                key={dot.id}
+                className="pointer-events-none absolute z-10"
+                style={{ left: dot.at[0], top: dot.at[1] }}
+              >
+                <span className="flow-blocked absolute size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-bg bg-danger" />
+                <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-md bg-danger px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap text-white shadow-md">
+                  Bloqué : {dot.blocked}
+                </span>
+              </div>
+            ) : (
+              <span
+                key={dot.id}
+                aria-hidden="true"
+                className="flow-dot pointer-events-none absolute top-0 left-0 z-10 size-3 rounded-full border-2 border-bg bg-accent"
+                style={{ offsetPath: `path("${dot.d}")`, animationDuration: `${HOP_MS}ms` }}
+              />
+            ),
+          )}
 
           <div className="relative grid w-full grid-cols-6 gap-14">
             {Array.from({ length: COLUMNS }, (_, column) => (
@@ -305,6 +376,7 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
                       offset={offsets[node.id]}
                       dragging={draggingId === node.id}
                       selected={selectedId === node.id}
+                      blocked={blockedNodes.has(node.id)}
                       onDragStart={(event) => startDrag(node, event)}
                       onOpen={() => open(node)}
                       register={(el) => {
@@ -320,6 +392,8 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
       </div>
       {openApi ? <ApiPanel node={openApi} onClose={closeApi} /> : null}
       {adding ? <AddApiDialog onClose={closeAdd} /> : null}
+      {editingLimits ? <GuardDialog limits={editingLimits} onClose={closeLimits} /> : null}
+      {editingCharacter ? <CharacterDialog {...editingCharacter} onClose={closeCharacter} /> : null}
     </section>
   );
 }

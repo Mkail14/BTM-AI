@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Écran large ET assez haut pour une page d'administration sans défilement (pas un iPad en paysage). */
+@custom-variant desk (@media (min-width: 1024px) and (min-height: 800px));
+
 :root {
   --bg: #ffffff;
   --bg-subtle: #f7f7f5;
@@ -126,6 +129,21 @@ html {
 body {
   background: var(--bg);
   color: var(--fg);
+  /* iPhone en paysage : rien sous l'encoche (viewport-fit=cover, voir layout.tsx). */
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/*
+ * Téléphone et tablette : Safari zoome sur un champ dont le texte fait moins
+ * de 16 px. Hors couche, pour passer devant text-sm et text-xs.
+ */
+@media (max-width: 767px), (pointer: coarse) {
+  input:not([type="checkbox"], [type="radio"], [type="range"], [type="color"]),
+  textarea,
+  select {
+    font-size: 16px;
+  }
 }
 
 /* Dans la couche « base » : les classes Tailwind (ex. outline-none) peuvent la remplacer. */
@@ -267,26 +285,93 @@ input::-ms-clear {
   display: none;
 }
 
-/* Schéma du modèle d'IA (/admin/modele-ia) : fond pointillé et liens animés. */
+/*
+ * Schéma du modèle d'IA (/admin/modele-ia) : fond pointillé, point qui suit
+ * chaque message le long des liens, et point rouge pulsant là où il bloque.
+ */
 .flow-canvas {
   background-color: var(--bg-subtle);
   background-image: radial-gradient(circle, var(--border) 1px, transparent 1.2px);
   background-size: 18px 18px;
 }
 
-.flow-live {
-  stroke-dasharray: 6 6;
-  animation: flow-dash 0.9s linear infinite;
+.flow-dot {
+  offset-rotate: 0deg;
+  offset-distance: 0%;
+  box-shadow: 0 0 10px 2px color-mix(in oklab, var(--accent) 60%, transparent);
+  animation: flow-dot-move ease-in-out forwards;
 }
 
-@keyframes flow-dash {
+@keyframes flow-dot-move {
   to {
-    stroke-dashoffset: -12;
+    offset-distance: 100%;
+  }
+}
+
+.flow-blocked {
+  animation: flow-blocked 1s ease-out infinite;
+}
+
+@keyframes flow-blocked {
+  from {
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--danger) 60%, transparent);
+  }
+  to {
+    box-shadow: 0 0 0 12px transparent;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .flow-live {
+  .flow-dot {
+    animation: none;
+    offset-distance: 100%;
+  }
+  .flow-blocked {
+    animation: none;
+  }
+}
+
+/*
+ * Fenêtre de connexion / inscription : sur téléphone, panneau qui monte du bas ;
+ * sur ordinateur, fenêtre qui apparaît au centre. Le fond flouté apparaît en fondu.
+ */
+.auth-sheet[open] {
+  animation: auth-sheet-up 280ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.auth-sheet[open]::backdrop {
+  animation: auth-backdrop-in 200ms ease-out;
+}
+
+@media (min-width: 40rem) {
+  .auth-sheet[open] {
+    animation-name: auth-pop-in;
+    animation-duration: 180ms;
+  }
+}
+
+@keyframes auth-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes auth-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+@keyframes auth-backdrop-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-sheet[open],
+  .auth-sheet[open]::backdrop {
     animation: none;
   }
 }

@@ -29,7 +29,7 @@ export default async function AdminLexiconPage() {
   return (
     <div className="flex min-h-dvh flex-col bg-bg-subtle">
       <AdminHeader section="Lexique shimaoré" email={user.email} />
-      <main id="contenu" className="mx-auto w-full max-w-[1600px] flex-1 p-4">
+      <main id="contenu" className="mx-auto w-full max-w-[1600px] flex-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <PageIntro title="Lexique shimaoré">
           Des expressions relues par un locuteur. Awa s&apos;en sert comme exemples quand elle parle shimaoré ; sans
           entrée active, elle utilise les exemples intégrés au code.

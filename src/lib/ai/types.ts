@@ -9,6 +9,8 @@ export type AIStreamInput = {
   messages: ChatTurn[];
   maxOutputTokens: number;
   signal: AbortSignal;
+  /** Chaîne de secours : chaque API essayée, avec le code d'erreur si elle a échoué. */
+  onAttempt?: (slotId: string, error?: AIErrorCode) => void;
 };
 
 /** Contrat commun à tous les fournisseurs de modèle. */

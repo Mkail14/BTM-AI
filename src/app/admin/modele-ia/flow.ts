@@ -1,4 +1,6 @@
 import type { NodeStatus } from "@/lib/ai/health";
+import type { RateLimitSettings } from "@/lib/rate-limit/settings";
+import type { CharacterDraft } from "../caractere/limits";
 
 /** Données du schéma, construites côté serveur et transmises telles quelles au canevas. */
 export type FlowIcon = "message" | "shield" | "sparkle" | "settings" | "book" | "language" | "memory" | "prompt" | "chip" | "reply";
@@ -26,6 +28,10 @@ export type FlowNode = {
   inService?: boolean;
   /** Nœuds d'API : fiche affichée au clic (valeurs déjà formatées, clé masquée). */
   api?: ApiDetails;
+  /** Bloc « Quotas et sécurité » : quotas en vigueur, modifiables au clic. */
+  limits?: RateLimitSettings;
+  /** Bloc « Caractère et règles » : textes enregistrés et textes du code. */
+  character?: { saved: CharacterDraft; defaults: CharacterDraft };
 };
 
 export type ApiDetails = {

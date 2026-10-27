@@ -25,6 +25,10 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  // Pleine surface sur iPhone (encoche, barre d'accueil : marges env(safe-area-inset-*)) ;
+  // sur Android, le clavier réduit la page au lieu de masquer la zone de saisie.
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#ffffff" },
     { media: "(prefers-color-scheme: dark)", color: "#131516" },

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import type { AuthUser } from "@/components/auth/AuthProvider";
 import { IconChevronUpDown, IconLock, IconLogout, IconSettings, IconShield } from "@/components/ui/icons";
 
@@ -18,32 +19,38 @@ export function AccountMenu({
   onNavigate: () => void;
   onSignOut: () => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement>(null);
+  // Position du menu (au-dessus du bouton), mesurée à l'ouverture.
+  const [anchor, setAnchor] = useState<{ left: number; width: number; bottom: number } | null>(null);
+  const open = anchor !== null;
+  const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuId = useId();
 
   const name = user.displayName || user.email || "Mon compte";
   const initial = name.trim().charAt(0).toUpperCase() || "?";
 
-  // Fermeture : clic à l'extérieur ou Échap (le focus revient sur le bouton).
+  const setOpen = (value: boolean) => {
+    const rect = triggerRef.current?.getBoundingClientRect();
+    setAnchor(value && rect ? { left: rect.left, width: rect.width, bottom: window.innerHeight - rect.top + 8 } : null);
+  };
+
+  // Fermeture : clic sur la page floutée, Échap (le focus revient sur le bouton)
+  // ou redimensionnement (la position mesurée ne serait plus juste).
   useEffect(() => {
     if (!open) return;
-    function onPointerDown(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    }
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        setOpen(false);
+        setAnchor(null);
         triggerRef.current?.focus();
       }
     }
-    document.addEventListener("pointerdown", onPointerDown);
+    const onResize = () => setAnchor(null);
     document.addEventListener("keydown", onKeyDown);
-    rootRef.current?.querySelector<HTMLElement>("[role=menuitem]")?.focus();
+    window.addEventListener("resize", onResize);
+    menuRef.current?.querySelector<HTMLElement>("[role=menuitem]")?.focus();
     return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("resize", onResize);
     };
   }, [open]);
 
@@ -55,14 +62,28 @@ export function AccountMenu({
   const itemClass = "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-bg-muted";
 
   return (
-    <div ref={rootRef} className="relative">
-      {open ? (
-        <div
-          id={menuId}
-          role="menu"
-          aria-label="Mon compte"
-          className="absolute inset-x-0 bottom-full z-50 mb-2 rounded-xl border border-border bg-bg p-1.5 shadow-lg"
-        >
+    <div className="relative">
+      {/*
+       * Rendu dans <body> : la barre latérale est décalée (translate), ce qui
+       * enfermerait un fond « fixed » dans sa largeur au lieu de couvrir la page.
+       */}
+      {anchor
+        ? createPortal(
+            <>
+              {/* Page floutée derrière le menu ; un clic dessus le ferme. */}
+              <div
+                aria-hidden="true"
+                onClick={() => setAnchor(null)}
+                className="fixed inset-0 z-[60] bg-black/25 backdrop-blur-sm"
+              />
+              <div
+                ref={menuRef}
+                id={menuId}
+                role="menu"
+                aria-label="Mon compte"
+                style={{ left: anchor.left, width: anchor.width, bottom: anchor.bottom }}
+                className="fixed z-[61] rounded-xl border border-border bg-bg p-1.5 shadow-xl"
+              >
           {user.email && user.displayName ? (
             <p className="truncate px-3 pt-1.5 pb-2 text-xs text-fg-muted" title={user.email}>
               {user.email}
@@ -91,13 +112,16 @@ export function AccountMenu({
           >
             <IconLogout /> Se déconnecter
           </button>
-        </div>
-      ) : null}
+              </div>
+            </>,
+            document.body,
+          )
+        : null}
 
       <button
         ref={triggerRef}
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(!open)}
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}

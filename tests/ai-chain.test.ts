@@ -112,6 +112,19 @@ describe("createFallbackProvider", () => {
     assert.deepEqual(calls, ["b"]);
   });
 
+  it("signale chaque API essayée, pour le trajet en direct", async () => {
+    const attempts: string[] = [];
+    const provider = createFallbackProvider([
+      { slotId: "a", healthId: "t4-a", provider: fakeProvider("a", new AIProviderError("quota", "épuisé")) },
+      { slotId: "b", healthId: "t4-b", provider: fakeProvider("b", "ok", "relais") },
+    ]);
+    const input = { system: "", messages: [], maxOutputTokens: 10, signal: new AbortController().signal };
+    for await (const chunk of provider.stream({ ...input, onAttempt: (id, error) => attempts.push(`${id}:${error ?? "ok"}`) })) {
+      void chunk;
+    }
+    assert.deepEqual(attempts, ["a:quota", "b:ok"]);
+  });
+
   it("renvoie la dernière erreur quand toutes échouent", async () => {
     const provider = createFallbackProvider([
       { healthId: "t3-a", provider: fakeProvider("a", new AIProviderError("auth", "clé")) },

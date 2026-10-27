@@ -17,11 +17,14 @@ import {
   insertMessage,
 } from "@/lib/conversations/repository";
 import { knowledgeFor, loadAwaBrain } from "@/lib/ai/brain";
+import { AI_ERROR_LABELS } from "@/lib/ai/flow-events";
+import { startFlowTrace } from "@/lib/ai/flow-trace";
 import { extractMemories, type MemoryFact } from "@/lib/ai/memory";
 import { getMemories, saveMemories } from "@/lib/ai/memory-store";
 import { DEFAULT_PERSONALITY, type PersonalityId } from "@/lib/ai/personalities";
 import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
-import { consumeRateLimits, RATE_LIMIT_POLICIES, type RateLimitSubject } from "@/lib/rate-limit";
+import { consumeRateLimits, type RateLimitSubject } from "@/lib/rate-limit";
+import { loadRateLimitPolicies } from "@/lib/rate-limit/settings";
 import { getClientIp, hashIdentifier, isSameOrigin } from "@/lib/security/request";
 
 export const maxDuration = 120;
@@ -49,31 +52,40 @@ function providerErrorCode(error: unknown): ChatErrorCode {
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return errorResponse(403, "invalid_request");
+  // Trajet du message, affiché en direct sur /admin/modele-ia.
+  const flow = startFlowTrace();
 
   // 1. Fournisseur d'IA configuré ? Aucune réponse simulée sinon.
   const ai = await getAIProvider();
   if (!ai.ok) {
     console.error(`[chat] Fournisseur d'IA non configuré : ${ai.reason}`);
+    flow.step("input", false, "aucune API configurée");
     return errorResponse(503, "ai_not_configured");
   }
 
   // 2. Lecture et validation du corps.
   const raw = await request.text();
-  if (raw.length > MAX_BODY_BYTES) return errorResponse(413, "invalid_request");
+  if (raw.length > MAX_BODY_BYTES) {
+    flow.step("input", false, "message trop lourd");
+    return errorResponse(413, "invalid_request");
+  }
   let json: unknown;
   try {
     json = JSON.parse(raw);
   } catch {
+    flow.step("input", false, "requête illisible");
     return errorResponse(400, "invalid_request");
   }
   const parsed = chatRequestSchema.safeParse(json);
   if (!parsed.success) {
+    flow.step("input", false, "message invalide");
     return NextResponse.json(
       chatErrorBody("invalid_request", parsed.error.issues[0]?.message),
       { status: 400 },
     );
   }
   const body = parsed.data;
+  flow.step("input", true);
 
   // 3. Identité et quotas.
   const { supabase, user } = await getAuthContext();
@@ -81,24 +93,27 @@ export async function POST(request: NextRequest) {
   const newDeviceId = !user && (!deviceId || !/^[0-9a-f-]{36}$/.test(deviceId));
   if (newDeviceId) deviceId = randomUUID();
 
-  const subjects: RateLimitSubject[] = user
-    ? [{ key: user.id, rules: RATE_LIMIT_POLICIES.user }]
-    : [
-        { key: hashIdentifier(`device:${deviceId}`), rules: RATE_LIMIT_POLICIES.anonymousDevice },
-        { key: hashIdentifier(`ip:${getClientIp(request.headers)}`), rules: RATE_LIMIT_POLICIES.anonymousIp },
-      ];
-
   try {
+    const policies = await loadRateLimitPolicies();
+    const subjects: RateLimitSubject[] = user
+      ? [{ key: user.id, rules: policies.user }]
+      : [
+          { key: hashIdentifier(`device:${deviceId}`), rules: policies.anonymousDevice },
+          { key: hashIdentifier(`ip:${getClientIp(request.headers)}`), rules: policies.anonymousIp },
+        ];
     const decision = await consumeRateLimits(subjects);
     if (!decision.allowed) {
+      flow.step("guard", false, "quota de messages atteint");
       return errorResponse(429, "rate_limited", {
         "Retry-After": String(decision.retryAfterSeconds),
       });
     }
   } catch (error) {
     console.error("[chat] Limitation de débit indisponible", error);
+    flow.step("guard", false, "limitation de débit indisponible");
     return errorResponse(503, "service_unavailable");
   }
+  flow.step("guard", true);
 
   // 4. Construction du contexte.
   // Chaque requête Supabase coûte un aller-retour réseau : les lectures
@@ -139,8 +154,12 @@ export async function POST(request: NextRequest) {
           countMessages(supabase, body.conversationId),
           getRecentMessages(supabase, body.conversationId, CHAT_LIMITS.historyFetchLimit),
         ]);
-        if (!conversation) return errorResponse(404, "not_found");
+        if (!conversation) {
+          flow.step("prompt", false, "conversation introuvable");
+          return errorResponse(404, "not_found");
+        }
         if (count >= CHAT_LIMITS.conversationMaxMessages) {
+          flow.step("prompt", false, "conversation trop longue");
           return errorResponse(409, "conversation_too_long");
         }
         conversationId = conversation.id;
@@ -162,13 +181,18 @@ export async function POST(request: NextRequest) {
       });
     } catch (error) {
       console.error("[chat] Erreur base de données", error);
+      flow.step("prompt", false, "base de données indisponible");
       return errorResponse(500, "internal");
     }
     [personality, memories] = await Promise.all([personalityTask, memoriesTask]);
   } else {
-    if (body.conversationId) return errorResponse(401, "unauthorized");
+    if (body.conversationId) {
+      flow.step("prompt", false, "session expirée");
+      return errorResponse(401, "unauthorized");
+    }
     history = body.history ?? [];
     if (history.length >= CHAT_LIMITS.anonymousMaxMessages) {
+      flow.step("prompt", false, "conversation trop longue");
       return errorResponse(409, "conversation_too_long");
     }
   }
@@ -192,6 +216,7 @@ export async function POST(request: NextRequest) {
     knowledge: knowledgeFor(brain, body.message),
     memories,
   });
+  flow.step("prompt", true);
 
   // 5. Génération en flux. L'arrêt côté client ou le délai maximal annulent l'appel.
   const abort = new AbortController();
@@ -212,6 +237,8 @@ export async function POST(request: NextRequest) {
       let text = "";
       let status: MessageStatus = "complete";
       let finish: FinishReason = "other";
+      // API qui a pris le message : la réponse part d'elle vers la sortie.
+      let answeredBy: string | null = null;
 
       if (conversationId) send({ type: "meta", conversationId });
 
@@ -221,6 +248,10 @@ export async function POST(request: NextRequest) {
           messages,
           maxOutputTokens: ai.config.maxOutputTokens,
           signal,
+          onAttempt: (slotId, error) => {
+            if (!error) answeredBy = slotId;
+            flow.step(`model-${slotId}`, !error, error ? (AI_ERROR_LABELS[error] ?? error) : undefined);
+          },
         })) {
           if (chunk.type === "text") {
             text += chunk.text;
@@ -232,18 +263,23 @@ export async function POST(request: NextRequest) {
 
         if (finish === "refusal" && !text) {
           status = "error";
+          flow.step("output", false, "refus du modèle");
           send({ type: "error", code: "refusal", message: chatErrorBody("refusal").error.message });
         } else {
           if (finish === "length") status = "interrupted";
+          flow.step("output", true);
           send({ type: "done", finishReason: finish });
         }
       } catch (error) {
         const clientGone = abort.signal.aborted || request.signal.aborted;
         if (clientGone) {
           status = "interrupted";
+          if (answeredBy) flow.step("output", false, "arrêtée par l'utilisateur");
         } else {
           const code = timeout.aborted ? "timeout" : providerErrorCode(error);
           console.error(`[chat] Erreur du fournisseur (${code})`, error);
+          // Toutes les API en échec : le blocage est déjà montré sur chacune.
+          if (answeredBy) flow.step("output", false, code === "timeout" ? "réponse trop lente" : "réponse interrompue");
           status = text ? "interrupted" : "error";
           send({ type: "error", code, message: chatErrorBody(code).error.message });
         }

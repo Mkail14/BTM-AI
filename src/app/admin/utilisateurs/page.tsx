@@ -141,7 +141,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
     <div className="flex min-h-dvh flex-col bg-bg-subtle">
       <AdminHeader section="Utilisateurs" email={user.email} />
 
-      <main id="contenu" className="mx-auto w-full max-w-[1600px] flex-1 space-y-5 p-4">
+      <main id="contenu" className="mx-auto w-full max-w-[1600px] flex-1 space-y-5 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Utilisateurs</h1>
           <p className="mt-1 text-sm text-fg-muted">

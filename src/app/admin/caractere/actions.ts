@@ -40,5 +40,6 @@ export async function saveCharacterAction(input: unknown): Promise<ActionResult>
 
   invalidateAwaBrain();
   revalidatePath("/admin/caractere");
+  revalidatePath("/admin/modele-ia");
   return { ok: true, message: "Enregistré. Awa l'applique dans la minute." };
 }

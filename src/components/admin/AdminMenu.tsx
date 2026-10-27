@@ -129,7 +129,7 @@ export function AdminMenu() {
               </button>
             </div>
 
-            <nav aria-label="Administration" className="flex-1 px-3 pb-4">
+            <nav aria-label="Administration" className="flex-1 px-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
               {SECTIONS.map((section) => (
                 <div key={section.title} className="mt-4">
                   <h2 className="px-3 pb-1.5 text-xs font-medium tracking-wide text-fg-muted uppercase">{section.title}</h2>

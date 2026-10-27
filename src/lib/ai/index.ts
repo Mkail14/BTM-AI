@@ -39,7 +39,11 @@ export async function getAIProvider(): Promise<
   const key = JSON.stringify(usable.map((s) => [s.id, s.result.config]));
   if (cached?.key !== key) {
     const provider = createFallbackProvider(
-      usable.map((s) => ({ healthId: slotHealthId(s.id, s.result.config), provider: createProvider(s.result.config) })),
+      usable.map((s) => ({
+        slotId: s.id,
+        healthId: slotHealthId(s.id, s.result.config),
+        provider: createProvider(s.result.config),
+      })),
     );
     // Délai et plafond de la première API utilisable : ils bornent toute la chaîne.
     cached = { key, provider, config: usable[0].result.config };

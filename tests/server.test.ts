@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { readAIConfig } from "@/lib/ai/config";
 import { createSseDataParser } from "@/lib/ai/sse";
-import { composePersonalityInstructions, isPersonalityId, parseBehavior } from "@/lib/ai/personalities";
+import { BEHAVIOR_LIMITS, composePersonalityInstructions, isPersonalityId, parseBehavior } from "@/lib/ai/personalities";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { isProtectedPath, safeNextPath } from "@/lib/auth/redirect";
 import { hasAdminRole } from "@/lib/auth/roles";
@@ -152,9 +152,27 @@ describe("message système", () => {
     assert.equal(parseBehavior("texte"), null);
     assert.equal(parseBehavior([]), null);
     const long = parseBehavior({ attitude: "x".repeat(5000), always: Array(50).fill("a") });
-    assert.equal(long?.attitude.length, 1200);
+    assert.equal(long?.attitude.length, BEHAVIOR_LIMITS.attitude);
     assert.equal(long?.always.length, 12);
     assert.deepEqual(long?.examples, []);
+    assert.deepEqual(long?.lessons, []);
+  });
+
+  it("garde les leçons complètes et les transmet au modèle", () => {
+    const behavior = parseBehavior({
+      attitude: "Une grande sœur moqueuse.",
+      lessons: [
+        { user: "T'es nulle comme IA.", reply: "Nulle ? Dit celui qui me parle depuis une heure." },
+        { user: "Réponse manquante", reply: "  " },
+        "pas une leçon",
+      ],
+    });
+    assert.deepEqual(behavior?.lessons, [
+      { user: "T'es nulle comme IA.", reply: "Nulle ? Dit celui qui me parle depuis une heure." },
+    ]);
+    const instructions = composePersonalityInstructions("mechante", behavior!);
+    assert.match(instructions, /Leçons de ton créateur/);
+    assert.match(instructions, /Quand on te dit : « T'es nulle comme IA\. »\nTu réponds : « Nulle \? Dit celui/);
   });
 
   it("n'accepte que les identifiants de personnalité connus", () => {

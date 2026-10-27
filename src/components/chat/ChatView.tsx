@@ -336,8 +336,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       <div className="flex flex-1 flex-col">
         {messages.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center px-6 pb-16 text-center">
-            <BrandLogo size="lg" />
-            <h1 className="mt-6 text-2xl font-semibold tracking-tight sm:text-3xl">Que puis-je faire pour vous ?</h1>
+            <BrandLogo size="xl" />
+            <h1 className="mt-8 text-2xl font-semibold tracking-tight sm:text-3xl">Que puis-je faire pour vous ?</h1>
             <p className="mt-3 max-w-md text-sm text-fg-muted">
               Posez votre question en français ou en shimaoré.
             </p>
@@ -360,7 +360,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       </div>
 
       {/* Fondu vers la teinte de la conversation : les messages passent dessous en douceur. */}
-      <div className="sticky bottom-0 z-10 shrink-0 bg-[linear-gradient(to_top,var(--persona-surface,var(--bg))_80%,transparent)] px-3 pt-4 pb-3 sm:px-6">
+      <div className="sticky bottom-0 z-10 shrink-0 bg-[linear-gradient(to_top,var(--persona-surface,var(--bg))_80%,transparent)] px-3 pt-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
         <div className="mx-auto w-full max-w-3xl space-y-2">
           {!online ? (
             <p role="status" className="flex items-center gap-2 rounded-lg bg-warning-soft px-3 py-2 text-sm">

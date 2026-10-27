@@ -9,8 +9,8 @@ import { PersonalityWorkbench } from "./PersonalityWorkbench";
 export const metadata: Metadata = { title: "Personnalités d'Awa", robots: { index: false, follow: false } };
 
 const dateFormat = new Intl.DateTimeFormat("fr-FR", {
-  dateStyle: "short",
-  timeStyle: "short",
+  day: "numeric",
+  month: "long",
   timeZone: "Indian/Mayotte",
 });
 
@@ -30,57 +30,48 @@ export default async function AdminPersonalitiesPage({ searchParams }: PageProps
   const record = records?.[selected];
 
   return (
-    <div className="flex min-h-dvh flex-col bg-bg-subtle">
+    <div className="flex min-h-dvh flex-col bg-bg-subtle lg:h-dvh lg:overflow-hidden">
       <AdminHeader section="Personnalités d'Awa" email={user.email} />
-
-      <main id="contenu" className="mx-auto w-full max-w-[1600px] flex-1 p-4">
-        <div className="max-w-3xl">
-          <h1 className="text-2xl font-semibold tracking-tight">Personnalités d&apos;Awa</h1>
-          <p className="mt-1 text-sm text-fg-muted">
-            Chaque utilisateur choisit l&apos;une de ces trois personnalités à la création de son compte. Réglez ici
-            comment Awa se comporte dans chacune, essayez, puis mettez en ligne.
-          </p>
-        </div>
-
+      <main
+        id="contenu"
+        className="mx-auto flex w-full max-w-[1600px] min-h-0 flex-1 flex-col p-4 pb-[max(1rem,env(safe-area-inset-bottom))]"
+      >
+        <h1 className="sr-only">Personnalités d&apos;Awa</h1>
         {records ? null : (
-          <p role="alert" className="mt-4 rounded-lg bg-warning-soft px-3 py-2 text-sm">
-            Les réglages ne peuvent pas être lus : appliquez la migration{" "}
-            <code className="font-mono">20261029180000_awa_personality_behavior.sql</code> dans Supabase. En attendant,
-            les réglages d&apos;origine s&apos;affichent et l&apos;enregistrement échouera.
+          <p role="alert" className="mb-3 rounded-xl bg-warning-soft px-4 py-2.5 text-sm">
+            Réglages illisibles : appliquez la migration{" "}
+            <code className="font-mono">20261029180000_awa_personality_behavior.sql</code> dans Supabase.
           </p>
         )}
 
-        <nav aria-label="Choisir une personnalité" className="mt-5 grid gap-2 sm:grid-cols-3">
-          {PERSONALITY_IDS.map((id) => {
-            const p = PERSONALITIES[id];
-            const r = records?.[id];
-            const active = id === selected;
-            return (
-              <Link
-                key={id}
-                href={`/admin/personnalites?p=${id}`}
-                aria-current={active ? "page" : undefined}
-                className={`flex items-center gap-3 rounded-xl border p-3 transition-colors ${
-                  active ? "border-accent bg-accent-soft" : "border-border bg-bg hover:bg-bg-muted"
-                }`}
-              >
-                <span aria-hidden="true" className="text-2xl leading-none">
-                  {p.emoji}
-                </span>
-                <span className="min-w-0">
-                  <span className="block font-semibold">{p.label}</span>
-                  <span className="block truncate text-xs text-fg-muted">
-                    {r?.behavior
-                      ? `Personnalisée${r.updatedAt ? ` · ${dateFormat.format(new Date(r.updatedAt))}` : ""}`
-                      : "Réglages d'origine"}
-                  </span>
-                </span>
-              </Link>
-            );
-          })}
-        </nav>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-bg-subtle">
+          <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-border bg-bg px-4 py-2.5">
+            <nav aria-label="Choisir une personnalité" className="inline-flex rounded-lg bg-bg-muted p-1">
+              {PERSONALITY_IDS.map((id) => {
+                const p = PERSONALITIES[id];
+                const active = id === selected;
+                return (
+                  <Link
+                    key={id}
+                    href={`/admin/personnalites?p=${id}`}
+                    aria-current={active ? "page" : undefined}
+                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium whitespace-nowrap transition-colors ${
+                      active ? "bg-bg text-fg shadow-sm" : "text-fg-muted hover:text-fg"
+                    }`}
+                  >
+                    <span aria-hidden="true">{p.emoji}</span>
+                    {p.label}
+                  </Link>
+                );
+              })}
+            </nav>
+            <p className="text-xs text-fg-muted">
+              {record?.behavior
+                ? `Personnalisée${record.updatedAt ? ` le ${dateFormat.format(new Date(record.updatedAt))}` : ""}`
+                : "Réglages d'origine"}
+            </p>
+          </div>
 
-        <div className="mt-4">
           <PersonalityWorkbench
             key={`${selected}-${record?.updatedAt ?? ""}`}
             id={selected}

@@ -58,7 +58,7 @@ export function AddApiDialog({ onClose }: { onClose: () => void }) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="add-api-title"
-        className="fixed top-1/2 left-1/2 z-50 max-h-[90dvh] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-border bg-bg p-5 shadow-xl"
+        className="fixed top-1/2 left-1/2 z-50 w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 max-h-[calc(100dvh-2rem)] overflow-y-auto overscroll-contain rounded-2xl border border-border bg-bg p-5 shadow-xl"
       >
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -79,7 +79,7 @@ export function AddApiDialog({ onClose }: { onClose: () => void }) {
             e.preventDefault();
             submit();
           }}
-          className="mt-4 space-y-4"
+          className="mt-4 space-y-3"
         >
           <Field label="Fournisseur" htmlFor="api-preset">
             <select id="api-preset" value={presetId} onChange={(e) => choosePreset(e.target.value)} className={inputClass}>
@@ -91,7 +91,7 @@ export function AddApiDialog({ onClose }: { onClose: () => void }) {
             </select>
           </Field>
 
-          <Field label="Nom affiché" hint="Pour la reconnaître dans le schéma." htmlFor="api-label">
+          <Field label="Nom affiché" htmlFor="api-label">
             <input
               id="api-label"
               value={label}
@@ -103,7 +103,7 @@ export function AddApiDialog({ onClose }: { onClose: () => void }) {
           </Field>
 
           {preset.provider === "openai-compatible" ? (
-            <Field label="Adresse de l'API" hint="Se termine en général par /v1." htmlFor="api-url">
+            <Field label="Adresse de l'API" htmlFor="api-url">
               <input
                 id="api-url"
                 type="url"
@@ -117,7 +117,7 @@ export function AddApiDialog({ onClose }: { onClose: () => void }) {
             </Field>
           ) : null}
 
-          <Field label="Modèle" hint="L'identifiant exact donné par le fournisseur." htmlFor="api-model">
+          <Field label="Modèle" htmlFor="api-model">
             <input
               id="api-model"
               value={model}
@@ -138,8 +138,7 @@ export function AddApiDialog({ onClose }: { onClose: () => void }) {
               className={`${inputClass} font-mono text-xs`}
             />
             <p className="mt-1 text-xs text-fg-muted">
-              Vérifiée auprès du fournisseur, puis chiffrée avant d&apos;être enregistrée. Elle ne sera plus jamais
-              affichée en entier.
+              Vérifiée puis chiffrée.
               {preset.keyUrl ? (
                 <>
                   {" "}

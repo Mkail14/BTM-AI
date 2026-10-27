@@ -44,7 +44,7 @@ export default async function AdminMemoryPage() {
   return (
     <div className="flex min-h-dvh flex-col bg-bg-subtle">
       <AdminHeader section="Mémoire d'Awa" email={user.email} />
-      <main id="contenu" className="mx-auto w-full max-w-[1600px] flex-1 p-4">
+      <main id="contenu" className="mx-auto w-full max-w-[1600px] flex-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <PageIntro title="Mémoire d'Awa">
           Ce que les comptes connectés ont dit d&apos;eux-mêmes (prénom, lieu, travail, âge), repéré automatiquement dans
           leurs messages. Une valeur par sorte et par compte ; la plus récente remplace l&apos;ancienne. Vous pouvez

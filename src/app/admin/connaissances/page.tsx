@@ -27,7 +27,7 @@ export default async function AdminKnowledgePage() {
   return (
     <div className="flex min-h-dvh flex-col bg-bg-subtle">
       <AdminHeader section="Connaissances" email={user.email} />
-      <main id="contenu" className="mx-auto w-full max-w-[1600px] flex-1 p-4">
+      <main id="contenu" className="mx-auto w-full max-w-[1600px] flex-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <PageIntro title="Connaissances">
           Des fiches vérifiées qu&apos;Awa utilise en priorité (démarches, lieux, BTM…). Pour chaque message, elle reçoit
           les fiches dont un mot-clé ou un mot du titre apparaît dans la question, dans la limite de 6 000 caractères.

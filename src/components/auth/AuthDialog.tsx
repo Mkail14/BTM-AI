@@ -29,8 +29,9 @@ type View = "signin" | "signup" | "confirm";
 type SignedInHandler = (user: AuthUser, next?: string) => void;
 
 const RESEND_COOLDOWN_SECONDS = 60;
+// text-base (16 px) : en dessous, Safari sur iPhone zoome sur le champ touché.
 const INPUT_CLASS =
-  "w-full rounded-lg border border-border bg-bg px-3 py-2 text-base outline-none focus:border-accent";
+  "w-full rounded-xl border border-border bg-bg px-3.5 py-3 text-base outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 sm:py-2.5";
 
 function describeAuthError(error: AuthError): string {
   switch (error.code) {
@@ -84,8 +85,11 @@ export function AuthDialog({
     if (open && !dialog.open) {
       dialog.showModal();
       // showModal() place le focus sur le premier bouton (Fermer) : on le
-      // déplace sur le premier champ du formulaire.
-      dialog.querySelector<HTMLElement>("[data-autofocus]")?.focus();
+      // déplace sur le premier champ du formulaire. Pas sur écran tactile, où
+      // le clavier surgirait et masquerait la moitié de la fenêtre.
+      if (window.matchMedia("(pointer: fine)").matches) {
+        dialog.querySelector<HTMLElement>("[data-autofocus]")?.focus();
+      }
     }
     if (!open && dialog.open) dialog.close();
   }, [open]);
@@ -98,7 +102,9 @@ export function AuthDialog({
       onClick={(event) => {
         if (event.target === ref.current) onClose();
       }}
-      className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-md scrollbar-none overflow-y-auto rounded-2xl border border-border bg-bg p-0 text-fg shadow-xl"
+      // Téléphone : panneau qui monte du bas, pleine largeur. Ordinateur : fenêtre centrée.
+      // Dans les deux cas, la page derrière est assombrie et floutée.
+      className="auth-sheet mx-0 mt-auto mb-0 max-h-[92dvh] w-full max-w-none scrollbar-none overflow-y-auto overscroll-contain rounded-t-3xl border-t border-border bg-bg p-0 pb-[env(safe-area-inset-bottom)] text-fg shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-sm sm:m-auto sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100%-2rem)] sm:max-w-md sm:rounded-2xl sm:border sm:pb-0"
     >
       {open ? (
         <AuthPanel
@@ -139,20 +145,22 @@ function AuthPanel({
   };
 
   return (
-    <div className="p-5 sm:p-6">
-      <div className="flex items-start justify-between gap-4">
+    <div className="px-5 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6">
+      {/* Poignée du panneau, sur téléphone seulement */}
+      <div aria-hidden="true" className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-border sm:hidden" />
+      <div className="flex items-center justify-between gap-4">
         <BrandLogo size="sm" />
         <button
           type="button"
           onClick={onClose}
-          className="-m-2 rounded-lg p-2 text-fg-muted hover:bg-bg-muted hover:text-fg"
+          className="-m-2 grid size-11 place-items-center rounded-full text-fg-muted hover:bg-bg-muted hover:text-fg sm:size-9 sm:rounded-lg"
           aria-label="Fermer"
         >
           <IconClose />
         </button>
       </div>
 
-      <h2 id={titleId} className="mt-4 text-xl font-semibold">
+      <h2 id={titleId} className="mt-4 text-2xl font-semibold tracking-tight sm:text-xl">
         {titles[view]}
       </h2>
       {view !== "confirm" ? (
@@ -177,14 +185,14 @@ function AuthPanel({
         />
       ) : (
         <>
-          <div className="mt-4 grid grid-cols-2 rounded-lg bg-bg-muted p-1 text-sm" role="group" aria-label="Type de formulaire">
+          <div className="mt-5 grid grid-cols-2 rounded-xl bg-bg-muted p-1 text-sm" role="group" aria-label="Type de formulaire">
             {(["signin", "signup"] as const).map((value) => (
               <button
                 key={value}
                 type="button"
                 aria-pressed={view === value}
                 onClick={() => setView(value)}
-                className={`rounded-md px-3 py-1.5 font-medium ${
+                className={`rounded-lg px-3 py-2.5 font-medium transition-colors sm:py-1.5 ${
                   view === value ? "bg-bg text-fg shadow-sm" : "text-fg-muted hover:text-fg"
                 }`}
               >
@@ -237,7 +245,7 @@ function SubmitButton({ pending, label }: { pending: boolean; label: string }) {
     <button
       type="submit"
       disabled={pending}
-      className="w-full rounded-lg bg-accent px-4 py-2.5 font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-60"
+      className="mt-2 w-full rounded-xl bg-accent px-4 py-3.5 text-base font-semibold text-accent-fg transition hover:bg-accent-hover active:scale-[0.99] disabled:opacity-60 sm:py-2.5 sm:text-sm"
     >
       {pending ? "Veuillez patienter…" : label}
     </button>
@@ -294,7 +302,7 @@ function SignInForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 space-y-3">
+    <form onSubmit={handleSubmit} className="mt-5 space-y-4 sm:mt-4 sm:space-y-3">
       <Field id="signin-email" label="Adresse e-mail">
         <input
           id="signin-email"
@@ -316,7 +324,7 @@ function SignInForm({
           <Link
             href="/auth/mot-de-passe-oublie"
             onClick={onClose}
-            className="text-sm text-accent underline-offset-2 hover:underline"
+            className="-my-2 py-2 text-sm text-accent underline-offset-2 hover:underline"
           >
             Mot de passe oublié ?
           </Link>
@@ -433,7 +441,7 @@ function SignUpForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-4 space-y-3" noValidate>
+    <form onSubmit={handleSubmit} className="mt-5 space-y-4 sm:mt-4 sm:space-y-3" noValidate>
       <Field id="signup-name" label="Comment souhaitez-vous qu'on vous appelle ?">
         <input
           id="signup-name"
@@ -508,13 +516,13 @@ function SignUpForm({
         </ul>
       </div>
 
-      <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+      <label className="flex cursor-pointer items-start gap-3 py-1 text-sm">
         <input
           type="checkbox"
           checked={consent}
           onChange={(e) => setConsent(e.target.checked)}
           aria-invalid={submitted && !consent ? true : undefined}
-          className="mt-0.5 size-4 shrink-0 accent-[var(--accent)]"
+          className="mt-0.5 size-5 shrink-0 accent-[var(--accent)] sm:size-4"
         />
         <span className="text-fg-muted">
           J&apos;ai lu et j&apos;accepte les{" "}

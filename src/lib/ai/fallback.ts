@@ -1,7 +1,7 @@
 import { getHealth, isCoolingDown, recordFailure, recordSuccess } from "./health";
 import { AIProviderError, type AIProvider, type AIStreamChunk, type AIStreamInput } from "./types";
 
-export type ChainEntry = { healthId: string; provider: AIProvider };
+export type ChainEntry = { healthId: string; provider: AIProvider; slotId?: string };
 
 function normalize(error: unknown): AIProviderError {
   return error instanceof AIProviderError
@@ -24,21 +24,29 @@ export function createFallbackProvider(entries: readonly ChainEntry[]): AIProvid
       const cooling = entries.filter((e) => isCoolingDown(getHealth(e.healthId), now));
 
       let lastError: AIProviderError | null = null;
-      for (const { healthId, provider } of [...ready, ...cooling]) {
+      for (const { healthId, provider, slotId } of [...ready, ...cooling]) {
         if (input.signal.aborted) break;
         const startedAt = Date.now();
         let produced = false;
+        let answered = false;
+        const answer = () => {
+          if (!answered && slotId) input.onAttempt?.(slotId);
+          answered = true;
+        };
         try {
           for await (const chunk of provider.stream(input)) {
+            answer();
             if (chunk.type === "text") produced = true;
             yield chunk;
           }
+          answer();
           recordSuccess(healthId, Date.now() - startedAt);
           return;
         } catch (error) {
           const normalized = normalize(error);
           if (normalized.code === "aborted" || input.signal.aborted) throw normalized;
           recordFailure(healthId, normalized.code, normalized.message);
+          if (!answered && slotId) input.onAttempt?.(slotId, normalized.code);
           if (produced) throw normalized;
           lastError = normalized;
         }

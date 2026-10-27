@@ -54,7 +54,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   return (
     <>
       {open ? (
-        <div className="fixed inset-0 z-30 bg-black/40 md:hidden" onClick={onClose} aria-hidden="true" />
+        <div className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm md:hidden" onClick={onClose} aria-hidden="true" />
       ) : null}
       <div
         ref={panelRef}
@@ -115,7 +115,8 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                         onClick={() => handleDelete(conversation.id, conversation.title)}
                         disabled={deletingId === conversation.id}
                         aria-label={`Supprimer « ${conversation.title} »`}
-                        className="absolute top-1/2 right-1 -translate-y-1/2 rounded-md p-1.5 text-fg-muted opacity-100 hover:bg-bg hover:text-danger focus:opacity-100 md:opacity-0 md:group-hover:opacity-100"
+                        // Souris : visible au survol. Tactile (téléphone, iPad) : toujours visible, sinon introuvable.
+                        className="absolute top-1/2 right-1 -translate-y-1/2 rounded-md p-1.5 text-fg-muted opacity-100 hover:bg-bg hover:text-danger focus:opacity-100 pointer-coarse:p-2 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100"
                       >
                         <IconTrash width={15} height={15} />
                       </button>
@@ -150,7 +151,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           )}
         </nav>
 
-        <div className="border-t border-border p-3 text-sm">
+        <div className="border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-sm">
           {user ? (
             <AccountMenu user={user} onNavigate={onClose} onSignOut={signOut} />
           ) : (

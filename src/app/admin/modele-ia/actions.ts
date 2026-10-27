@@ -10,6 +10,7 @@ import { checkKey } from "@/lib/ai/key-check";
 import { invalidateAIChain, loadAIChain, storedSlot } from "@/lib/ai/registry";
 import { canEncrypt, encryptSecret } from "@/lib/ai/secret-box";
 import { AIProviderError } from "@/lib/ai/types";
+import { invalidateRateLimits, rateLimitSettingsSchema } from "@/lib/rate-limit/settings";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { API_LIMITS } from "./presets";
 
@@ -135,4 +136,28 @@ export async function deleteApiAction(slotId: unknown): Promise<ActionResult> {
   invalidateAIChain();
   revalidatePath("/admin/modele-ia");
   return { ok: true, message: "API supprimée." };
+}
+
+/** Enregistre les quotas de messages (bloc « Quotas et sécurité »). */
+export async function saveRateLimitsAction(input: unknown): Promise<ActionResult> {
+  const auth = await requireAdminAction();
+  if (!auth) return NOT_ADMIN;
+  const admin = getSupabaseAdminClient();
+  if (!admin) return { ok: false, message: "SUPABASE_SECRET_KEY n'est pas définie sur le serveur." };
+  const parsed = rateLimitSettingsSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Valeurs invalides." };
+
+  const { error } = await admin
+    .from("awa_settings")
+    .update({ rate_limits: parsed.data, updated_by: auth.user.id })
+    .eq("id", 1);
+  if (error) {
+    console.error("[admin] Enregistrement des quotas impossible", error);
+    return { ok: false, message: "L'enregistrement a échoué (migration 20261101000000_rate_limit_settings.sql appliquée ?)." };
+  }
+
+  invalidateRateLimits();
+  revalidatePath("/admin/modele-ia");
+  revalidatePath("/admin");
+  return { ok: true, message: "Quotas enregistrés." };
 }

@@ -1,7 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { RATE_LIMIT_POLICIES } from "@/lib/rate-limit/policies";
-import type { RateLimitRule } from "@/lib/rate-limit/types";
+import { loadRateLimitSettings } from "@/lib/rate-limit/settings";
 
 /**
  * Données de la page d'administration, lues avec le client à clé secrète
@@ -59,14 +58,11 @@ async function count(
   return value ?? 0;
 }
 
-function dailyLimit(rules: readonly RateLimitRule[]): number {
-  return rules.find((rule) => rule.windowSeconds === 86_400)?.limit ?? 0;
-}
-
 /** Statistiques agrégées (fonction SQL public.admin_platform_stats). */
 export async function getAdminOverview(admin: SupabaseClient): Promise<AdminOverview> {
-  const anonDailyLimit = dailyLimit(RATE_LIMIT_POLICIES.anonymousDevice);
-  const userDailyLimit = dailyLimit(RATE_LIMIT_POLICIES.user);
+  const limits = await loadRateLimitSettings();
+  const anonDailyLimit = limits.anonymousDevice.day;
+  const userDailyLimit = limits.user.day;
   const { data, error } = await admin.rpc("admin_platform_stats", {
     p_anon_daily_limit: anonDailyLimit,
     p_user_daily_limit: userDailyLimit,

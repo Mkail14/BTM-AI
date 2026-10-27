@@ -8,7 +8,7 @@ export function SignOutButton() {
     <button
       type="button"
       onClick={signOut}
-      className="rounded-lg border border-border px-3 py-2 font-medium hover:bg-bg-muted"
+      className="rounded-lg border border-border px-3 py-2 font-medium whitespace-nowrap hover:bg-bg-muted"
     >
       Se déconnecter
     </button>

@@ -12,7 +12,7 @@
   Durée de validité : « Email OTP Expiration » (Authentication → Providers → Email), 1 heure par défaut.
 
   Mise en page en tableaux et styles en ligne : c'est ce que les messageries affichent de façon fiable.
-  Logo typographique (pas d'image) : « BTM » noir, « AI » rose #c8295f, comme sur l'application.
+  Logo : image /brand/groupe-btm-encre.png servie par le site (Site URL), texte « Groupe BTM » si les images sont bloquées.
 -->
 <!doctype html>
 <html lang="fr">
@@ -32,11 +32,13 @@
       <td align="center" style="padding:32px 16px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
 
-          <!-- En-tête : logo typographique -->
+          <!-- En-tête : logo du Groupe BTM (image hébergée sur le site) + badge AI -->
           <tr>
             <td style="padding:28px 32px 0;background-color:#ffffff;border-radius:20px 20px 0 0;border-top:4px solid #c8295f;">
-              <span style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:24px;font-weight:700;letter-spacing:-0.3px;color:#16191b;">BTM</span><span style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:24px;font-weight:400;color:#c8295f;">&nbsp;AI</span>
-              <div style="margin-top:4px;font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#5d6468;">Groupe BTM</div>
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                <td style="vertical-align:bottom;"><img src="{{ .SiteURL }}/brand/groupe-btm-encre.png" width="120" height="56" alt="Groupe BTM" style="display:block;border:0;outline:none;text-decoration:none;width:120px;height:56px;font-family:Segoe UI,Helvetica,Arial,sans-serif;font-size:18px;font-weight:700;color:#111111;"></td>
+                <td style="vertical-align:bottom;padding-left:8px;padding-bottom:2px;"><span style="display:inline-block;background-color:#c8295f;color:#ffffff;border-radius:4px;padding:3px 6px;font-family:Segoe UI,Helvetica,Arial,sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;line-height:1;">AI</span></td>
+              </tr></table>
             </td>
           </tr>
 

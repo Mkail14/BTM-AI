@@ -1,34 +1,51 @@
+import type { CSSProperties } from "react";
 import { BRAND } from "./brand";
 
 type BrandLogoProps = {
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "xl";
+  /** Masque le badge « AI » (logo du groupe seul). */
+  groupOnly?: boolean;
   className?: string;
 };
 
-const SIZES = {
-  sm: { text: "text-base", symbol: 20 },
-  md: { text: "text-lg", symbol: 24 },
-  lg: { text: "text-3xl", symbol: 36 },
-} as const;
+/** Hauteur du logo en pixels ; la largeur suit les proportions du fichier. */
+const HEIGHTS = { sm: 22, md: 28, lg: 44, xl: 72 } as const;
 
 /**
- * Logo provisoire, purement typographique. Pour intégrer le futur symbole,
- * renseignez BRAND.symbolSrc : il s'affichera devant le nom sans autre changement.
+ * Logo du Groupe BTM suivi du badge « AI ». La forme détourée sert de masque :
+ * elle prend la couleur du texte (`currentColor`), donc s'adapte seule aux
+ * thèmes clair et sombre.
  */
-export function BrandLogo({ size = "md", className = "" }: BrandLogoProps) {
-  const { text, symbol } = SIZES[size];
+export function BrandLogo({ size = "md", groupOnly = false, className = "" }: BrandLogoProps) {
+  const height = HEIGHTS[size];
+  const mask: CSSProperties = {
+    width: Math.round(height * BRAND.logo.ratio),
+    height,
+    backgroundColor: "currentColor",
+    WebkitMaskImage: `url(${BRAND.logo.src})`,
+    maskImage: `url(${BRAND.logo.src})`,
+    WebkitMaskSize: "contain",
+    maskSize: "contain",
+    WebkitMaskRepeat: "no-repeat",
+    maskRepeat: "no-repeat",
+  };
 
   return (
-    <span className={`inline-flex items-center gap-2 select-none ${className}`}>
-      {BRAND.symbolSrc ? (
-        // eslint-disable-next-line @next/next/no-img-element -- fichier SVG local, taille fixe
-        <img src={BRAND.symbolSrc} alt="" width={symbol} height={symbol} aria-hidden="true" />
-      ) : null}
-      <span className={`${text} font-semibold tracking-tight leading-none`}>
-        <span>{BRAND.wordmark.primary}</span>
-        <span className="ml-[0.28em] font-normal text-accent">{BRAND.wordmark.secondary}</span>
-      </span>
-      <span className="sr-only">{` — ${BRAND.parent}`}</span>
+    <span
+      role="img"
+      aria-label={groupOnly ? BRAND.parent : `${BRAND.name} — ${BRAND.parent}`}
+      className={`inline-flex shrink-0 items-end gap-[0.35em] text-fg select-none ${className}`}
+      style={{ fontSize: height }}
+    >
+      <span aria-hidden="true" className="block" style={mask} />
+      {groupOnly ? null : (
+        <span
+          aria-hidden="true"
+          className="mb-[0.02em] rounded-[0.18em] bg-accent px-[0.22em] py-[0.06em] text-[0.36em] leading-none font-bold tracking-wide text-accent-fg"
+        >
+          {BRAND.wordmark.secondary}
+        </span>
+      )}
     </span>
   );
 }

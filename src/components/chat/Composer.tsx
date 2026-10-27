@@ -104,7 +104,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           aria-label="Arrêter la génération"
           aria-keyshortcuts="Escape"
           title="Arrêter (Échap)"
-          className="grid size-9 shrink-0 place-items-center rounded-full bg-fg text-bg hover:opacity-85"
+          className="grid size-9 shrink-0 place-items-center rounded-full pointer-coarse:size-10 bg-fg text-bg hover:opacity-85"
         >
           <IconStop />
         </button>
@@ -113,7 +113,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           type="submit"
           disabled={!canSend}
           aria-label="Envoyer le message"
-          className="grid size-9 shrink-0 place-items-center rounded-full bg-[var(--persona,var(--accent))] text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:brightness-100"
+          className="grid size-9 shrink-0 place-items-center rounded-full pointer-coarse:size-10 bg-[var(--persona,var(--accent))] text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:brightness-100"
         >
           <IconSend />
         </button>
