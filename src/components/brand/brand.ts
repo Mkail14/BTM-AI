@@ -1,8 +1,11 @@
 /**
  * Éléments de marque de BTM AI, séparés des composants fonctionnels.
- * Le logo du Groupe BTM est détouré (fond transparent) dans /public/brand/ :
- *   groupe-btm-encre.png : encre #111111, pour les fonds clairs (e-mails) ;
- *   groupe-btm-creme.png : crème #F5EAD9, pour les fonds sombres.
+ * Logos détourés (fond transparent) dans /public/brand/ :
+ *   btm-ai-encre.png / btm-ai-creme.png : variante BTM AI — dans le « b », les
+ *     îles de Mayotte sont remplacées par des étincelles (signe de l'IA) et le
+ *     « t » est redressé ;
+ *   btm-b.png : le « b » seul de cette variante (icône, écran de lancement) ;
+ *   groupe-btm-encre.png / groupe-btm-creme.png : logo d'origine du Groupe BTM.
  * Sur le site, la forme sert de masque et prend la couleur du texte (thème clair ou sombre).
  */
 export const BRAND = {
@@ -11,7 +14,7 @@ export const BRAND = {
   parent: "GROUPE BTM",
   tagline: "L'intelligence artificielle pour Mayotte",
   logo: {
-    src: "/brand/groupe-btm-encre.png",
+    src: "/brand/btm-ai-encre.png",
     /** Largeur / hauteur du fichier détouré (1039 × 483). */
     ratio: 1039 / 483,
   },

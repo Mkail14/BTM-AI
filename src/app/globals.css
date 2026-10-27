@@ -136,7 +136,13 @@ body {
 
 /* Clavier ouvert (voir useKeyboardViewport) : zone de saisie collée au clavier. */
 [data-keyboard] .composer-dock {
+  padding-top: 0.5rem;
   padding-bottom: 0.5rem;
+}
+
+/* Pendant la saisie, la mention sous le champ s'efface (comme dans les apps de chat). */
+[data-keyboard] .composer-disclaimer {
+  display: none;
 }
 
 /*

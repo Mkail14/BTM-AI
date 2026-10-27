@@ -97,7 +97,7 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* À surveiller                                                               */
+/* Problèmes à régler (bandeau affiché seulement s il y en a)                 */
 /* -------------------------------------------------------------------------- */
 
 const ALERT_STYLES: Record<AdminAlert["level"], { label: string; icon: string; box: string; badge: string }> = {
@@ -107,18 +107,8 @@ const ALERT_STYLES: Record<AdminAlert["level"], { label: string; icon: string; b
 };
 
 function Alerts({ alerts }: { alerts: AdminAlert[] }) {
-  if (alerts.length === 0) {
-    return (
-      <p className="flex items-center gap-2.5 text-sm">
-        <span aria-hidden="true" className="grid size-6 shrink-0 place-items-center rounded-full bg-accent text-xs text-accent-fg">
-          ✓
-        </span>
-        Tout fonctionne normalement.
-      </p>
-    );
-  }
   return (
-    <ul className="max-h-56 space-y-2 overflow-y-auto">
+    <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
       {alerts.map((alert) => {
         const style = ALERT_STYLES[alert.level];
         return (
@@ -453,9 +443,18 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
 
       <main
         id="contenu"
-        className="mx-auto grid w-full max-w-[1600px] min-h-0 flex-1 gap-4 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:grid-cols-[minmax(0,1fr)_22rem]"
+        className={`mx-auto grid w-full max-w-[1600px] min-h-0 flex-1 gap-4 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:grid-cols-[minmax(0,1fr)_22rem] ${
+          alerts.length > 0 ? "lg:grid-rows-[auto_minmax(0,1fr)]" : ""
+        }`}
       >
         <h1 className="sr-only">Tableau de bord BTM AI</h1>
+
+        {/* Rien quand tout va bien ; un bandeau sur toute la largeur seulement en cas de problème. */}
+        {alerts.length > 0 ? (
+          <section aria-label="Problèmes à régler" className="lg:col-span-2">
+            <Alerts alerts={alerts} />
+          </section>
+        ) : null}
 
         {/* Colonne principale : chiffres, activité, qualité, réglages */}
         <div className="flex min-h-0 flex-col gap-4">
@@ -501,12 +500,8 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
           </div>
         </div>
 
-        {/* Colonne latérale : alertes, comptes, raccourcis */}
+        {/* Colonne latérale : comptes, raccourcis */}
         <div className="flex min-h-0 flex-col gap-4">
-          <Card id="surveiller" title="À surveiller" className="shrink-0">
-            <Alerts alerts={alerts} />
-          </Card>
-
           <Card
             id="comptes"
             title={usersPage ? `Comptes (${fmt(usersPage.total)})` : "Comptes"}

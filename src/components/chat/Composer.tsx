@@ -66,7 +66,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         submit();
       }}
       // Couleurs de la personnalité (--persona) si elles sont définies, sinon celles du site.
-      className={`flex items-end gap-2 rounded-[1.75rem] border border-[var(--persona-border,var(--border))] bg-bg py-2 pr-2 shadow-sm transition-[border-color,box-shadow] focus-within:border-[var(--persona,var(--accent))] focus-within:ring-4 focus-within:ring-[color-mix(in_srgb,var(--persona,var(--accent))_15%,transparent)] ${
+      className={`flex items-end gap-2 rounded-[1.75rem] border border-[var(--persona-border,var(--border))] bg-bg py-2 pr-2 shadow-sm transition-[border-color,box-shadow] focus-within:border-[var(--persona,var(--accent))] pointer-fine:focus-within:ring-4 pointer-fine:focus-within:ring-[color-mix(in_srgb,var(--persona,var(--accent))_15%,transparent)] ${
         leading ? "pl-2" : "pl-5"
       }`}
     >

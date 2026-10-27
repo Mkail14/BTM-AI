@@ -27,7 +27,9 @@ export function useKeyboardViewport(ref: RefObject<HTMLElement | null>) {
         target.style.height = `${visual.height}px`;
         target.style.transform = visual.offsetTop > 0 ? `translateY(${visual.offsetTop}px)` : "";
         // Clavier ouvert : la marge de la barre d'accueil de l'iPhone n'a plus lieu d'être.
-        target.toggleAttribute("data-keyboard", window.innerHeight - visual.height > 120);
+        // Référence : la hauteur de la page sans clavier (sur Safari, window.innerHeight
+        // rétrécit avec le clavier et ne permet pas de le détecter).
+        target.toggleAttribute("data-keyboard", document.documentElement.clientHeight - visual.height > 120);
       });
     }
 

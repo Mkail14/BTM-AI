@@ -448,7 +448,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             onStop={() => abortRef.current?.abort()}
             leading={<PersonalitySwitcher />}
           />
-          <p className="text-center text-xs text-fg-muted">
+          <p className="composer-disclaimer text-center text-xs text-fg-muted">
             Awa peut se tromper. Vérifiez les informations importantes.
           </p>
         </div>
