@@ -121,6 +121,24 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     if (el && stickToBottom.current) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
+  // Clavier du téléphone ouvert ou fermé (la zone visible change de hauteur) :
+  // le bas de la conversation reste collé à la zone de saisie, comme dans une app.
+  const distanceFromBottom = useRef(0);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    let height = el.clientHeight;
+    const observer = new ResizeObserver(() => {
+      if (el.clientHeight === height) return;
+      height = el.clientHeight;
+      el.scrollTop = stickToBottom.current
+        ? el.scrollHeight
+        : el.scrollHeight - el.clientHeight - distanceFromBottom.current;
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
   // Échap : arrêter la génération.
   useEffect(() => {
     if (!isStreaming) return;
@@ -297,9 +315,11 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       ref={scrollRef}
       onScroll={(e) => {
         const el = e.currentTarget;
-        stickToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
+        distanceFromBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight;
+        stickToBottom.current = distanceFromBottom.current < 80;
       }}
-      className="relative flex h-full min-h-0 flex-col overflow-y-auto"
+      // overscroll-contain : l'effet élastique en bout de liste ne fait pas bouger toute la page.
+      className="relative flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain"
     >
       <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 persona-backdrop border-b border-border px-3 md:border-transparent md:px-5">
         <button
@@ -360,7 +380,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       </div>
 
       {/* Fondu vers la teinte de la conversation : les messages passent dessous en douceur. */}
-      <div className="sticky bottom-0 z-10 shrink-0 bg-[linear-gradient(to_top,var(--persona-surface,var(--bg))_80%,transparent)] px-3 pt-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
+      <div className="composer-dock sticky bottom-0 z-10 shrink-0 bg-[linear-gradient(to_top,var(--persona-surface,var(--bg))_80%,transparent)] px-3 pt-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
         <div className="mx-auto w-full max-w-3xl space-y-2">
           {!online ? (
             <p role="status" className="flex items-center gap-2 rounded-lg bg-warning-soft px-3 py-2 text-sm">

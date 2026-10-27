@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { createContext, use, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import {
   personaStyle,
@@ -13,6 +13,7 @@ import type { PersonalityCard } from "@/lib/ai/personalities";
 import { clearAnonymousDraft } from "@/lib/chat/anonymous-draft";
 import type { ConversationSummary } from "@/lib/chat/types";
 import { Sidebar } from "./Sidebar";
+import { useKeyboardViewport } from "./useKeyboardViewport";
 
 type ChatShellValue = {
   conversations: ConversationSummary[];
@@ -48,6 +49,8 @@ export function ChatShell({
   const [newChatSignal, setNewChatSignal] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const userId = user?.id ?? null;
+  const frameRef = useRef<HTMLDivElement>(null);
+  useKeyboardViewport(frameRef);
 
   // Liste des conversations : uniquement pour un utilisateur connecté.
   useEffect(() => {
@@ -106,7 +109,11 @@ export function ChatShell({
   return (
     <ChatShellContext value={value}>
       <PersonalityProvider>
-        <div className="relative flex h-dvh overflow-hidden">
+        {/* Fixe et calé sur la zone visible : le clavier du téléphone ne fait plus glisser la page. */}
+        <div
+          ref={frameRef}
+          className="fixed top-0 right-[env(safe-area-inset-right)] left-[env(safe-area-inset-left)] flex h-dvh overflow-hidden"
+        >
           <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
           <PersonaMain>{children}</PersonaMain>
         </div>

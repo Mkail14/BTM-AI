@@ -2,6 +2,8 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { AuthProvider, type AuthUser } from "@/components/auth/AuthProvider";
 import { BRAND } from "@/components/brand/brand";
+import { SplashReady } from "@/components/brand/SplashReady";
+import { SplashScreen } from "@/components/brand/SplashScreen";
 import { getAuthContext } from "@/lib/auth/session";
 import { getProfile } from "@/lib/conversations/repository";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -52,8 +54,11 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const initialUser = await loadInitialUser();
 
   return (
-    <html lang="fr" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+    // suppressHydrationWarning : l'écran de lancement pose la classe « chargement » avant l'hydratation.
+    <html lang="fr" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full font-sans">
+        <SplashScreen />
+        <SplashReady />
         <a
           href="#contenu"
           className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-bg focus:px-3 focus:py-2"

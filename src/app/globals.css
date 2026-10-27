@@ -134,6 +134,11 @@ body {
   padding-right: env(safe-area-inset-right);
 }
 
+/* Clavier ouvert (voir useKeyboardViewport) : zone de saisie collée au clavier. */
+[data-keyboard] .composer-dock {
+  padding-bottom: 0.5rem;
+}
+
 /*
  * Téléphone et tablette : Safari zoome sur un champ dont le texte fait moins
  * de 16 px. Hors couche, pour passer devant text-sm et text-xs.
@@ -373,5 +378,112 @@ input::-ms-clear {
   .auth-sheet[open],
   .auth-sheet[open]::backdrop {
     animation: none;
+  }
+}
+
+/*
+ * Écran de lancement (téléphone), sur le modèle du site BTM : fond noir, le « b »
+ * en filigrane crème se remplit de ROSE de bas en haut (--p, de 0 à 1, posé par le
+ * script de SplashScreen), puis grandit un peu et s'efface. Le « b » est un masque :
+ * l'île de Mayotte reste découpée dans la couleur.
+ */
+#ecran-chargement {
+  --splash-rose: #c8295f;
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: grid;
+  place-items: center;
+  background: #111111;
+  transition:
+    opacity 0.7s cubic-bezier(0.4, 0, 0.2, 1),
+    visibility 0.7s;
+  /* Sécurité : quoi qu'il arrive au script, l'écran s'efface seul au bout de 9 s. */
+  animation: ecran-secours 0.6s 9s forwards;
+}
+
+#ecran-chargement.fini {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* Réservé au téléphone : ordinateur et tablette ne l'affichent jamais. */
+@media (min-width: 640px) {
+  #ecran-chargement {
+    display: none;
+  }
+}
+
+@keyframes ecran-secours {
+  to {
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+  }
+}
+
+/* Pas de défilement derrière l'écran de lancement. */
+html.chargement,
+html.chargement body {
+  overflow: hidden;
+}
+
+#ecran-chargement .logo {
+  position: relative;
+  width: 70px;
+  height: 84px;
+  transition: transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+#ecran-chargement .logo .ombre,
+#ecran-chargement .logo .plein {
+  position: absolute;
+  inset: 0;
+  -webkit-mask: url(/brand/btm-b.png) center / contain no-repeat;
+  mask: url(/brand/btm-b.png) center / contain no-repeat;
+}
+
+/* Le « b » en filigrane crème… */
+#ecran-chargement .logo .ombre {
+  background: #f5ead9;
+  opacity: 0.14;
+}
+
+/* …puis le même « b », rose, découvert de bas en haut. */
+#ecran-chargement .logo .plein {
+  background: var(--splash-rose);
+  clip-path: inset(calc((1 - var(--p, 0)) * 100%) 0 0 0);
+  transition: clip-path 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Lueur rose qui respire derrière le logo pendant l'attente. */
+#ecran-chargement .logo::before {
+  content: "";
+  position: absolute;
+  inset: -60%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(200 41 95 / 0.22), rgb(200 41 95 / 0));
+  animation: ecran-respire 2.4s ease-in-out infinite;
+}
+
+@keyframes ecran-respire {
+  50% {
+    transform: scale(1.15);
+    opacity: 0.55;
+  }
+}
+
+#ecran-chargement.fini .logo {
+  transform: scale(1.12);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #ecran-chargement .logo::before {
+    animation: none;
+  }
+  #ecran-chargement .logo,
+  #ecran-chargement .logo .plein {
+    transition: none;
   }
 }
