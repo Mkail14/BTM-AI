@@ -1,0 +1,115 @@
+<!--
+  E-mail « Confirmez votre inscription » de BTM AI — gabarit Supabase Auth.
+  À coller dans : Supabase → Authentication → Emails → Templates → « Confirm signup ».
+  Objet conseillé : Activez votre compte BTM AI
+
+  Lien : {{ .SiteURL }}/auth/callback?token_hash=…&type=email&bienvenue=1
+    - token_hash : fonctionne même si le lien est ouvert dans un autre navigateur que celui
+      de l'inscription (application Gmail/Outlook sur téléphone) ; la personne est connectée directement ;
+    - bienvenue=1 : affiche « Votre compte est activé » à l'arrivée.
+  « Site URL » (Authentication → URL Configuration) doit être l'adresse publique de BTM AI.
+  {{ .Email }} : adresse du compte.
+  Durée de validité : « Email OTP Expiration » (Authentication → Providers → Email), 1 heure par défaut.
+
+  Mise en page en tableaux et styles en ligne : c'est ce que les messageries affichent de façon fiable.
+  Logo typographique (pas d'image) : « BTM » noir, « AI » rose #c8295f, comme sur l'application.
+-->
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title>Activez votre compte BTM AI</title>
+</head>
+<body style="margin:0;padding:0;background-color:#f7f7f5;font-family:'Segoe UI',Helvetica,Arial,sans-serif;color:#16191b;">
+  <!-- aperçu affiché à côté de l'objet dans la boîte de réception -->
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">Plus qu'une étape : cliquez sur le lien pour activer votre compte BTM AI.</div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#f7f7f5;">
+    <tr>
+      <td align="center" style="padding:32px 16px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
+
+          <!-- En-tête : logo typographique -->
+          <tr>
+            <td style="padding:28px 32px 0;background-color:#ffffff;border-radius:20px 20px 0 0;border-top:4px solid #c8295f;">
+              <span style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:24px;font-weight:700;letter-spacing:-0.3px;color:#16191b;">BTM</span><span style="font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:24px;font-weight:400;color:#c8295f;">&nbsp;AI</span>
+              <div style="margin-top:4px;font-size:11px;font-weight:600;letter-spacing:2px;text-transform:uppercase;color:#5d6468;">Groupe BTM</div>
+            </td>
+          </tr>
+
+          <!-- Message -->
+          <tr>
+            <td style="padding:28px 32px 8px;background-color:#ffffff;">
+              <h1 style="margin:0 0 14px;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:24px;font-weight:700;line-height:1.25;color:#16191b;">Activez votre compte</h1>
+              <p style="margin:0;font-size:15px;line-height:1.6;color:#5d6468;">
+                Bienvenue sur BTM AI&nbsp;! Pour terminer la cr&eacute;ation du compte <strong style="color:#16191b;">{{ .Email }}</strong>,
+                confirmez votre adresse e-mail&nbsp;:
+              </p>
+            </td>
+          </tr>
+
+          <!-- Bouton rose -->
+          <tr>
+            <td align="center" style="padding:28px 32px 8px;background-color:#ffffff;">
+              <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td align="center" style="border-radius:14px;background-color:#c8295f;">
+                    <a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&amp;type=email&amp;bienvenue=1" style="display:inline-block;padding:16px 30px;font-family:'Segoe UI',Helvetica,Arial,sans-serif;font-size:16px;font-weight:700;color:#ffffff;text-decoration:none;border-radius:14px;">Activer mon compte</a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:14px 0 0;font-size:13px;line-height:1.5;color:#5d6468;">Valable 1 heure &middot; utilisable une seule fois</p>
+            </td>
+          </tr>
+
+          <!-- Ce que permet le compte -->
+          <tr>
+            <td style="padding:24px 32px 8px;background-color:#ffffff;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="padding:16px 18px;background-color:#fceaf1;border-radius:14px;font-size:14px;line-height:1.6;color:#16191b;">
+                    Avec votre compte, vos conversations sont enregistr&eacute;es et vous les retrouvez sur tous vos appareils.
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Lien en clair (si le bouton ne s'affiche pas) -->
+          <tr>
+            <td style="padding:16px 32px 8px;background-color:#ffffff;">
+              <p style="margin:0;font-size:13px;line-height:1.55;color:#5d6468;word-break:break-all;">
+                Le bouton ne fonctionne pas&nbsp;? Copiez ce lien dans votre navigateur&nbsp;:<br>
+                <a href="{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&amp;type=email&amp;bienvenue=1" style="color:#c8295f;text-decoration:underline;">{{ .SiteURL }}/auth/callback?token_hash={{ .TokenHash }}&amp;type=email&amp;bienvenue=1</a>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Sécurité -->
+          <tr>
+            <td style="padding:20px 32px 34px;background-color:#ffffff;border-radius:0 0 20px 20px;">
+              <p style="margin:0;padding-top:20px;border-top:1px solid #e3e3df;font-size:13px;line-height:1.6;color:#5d6468;">
+                Vous n&rsquo;avez pas cr&eacute;&eacute; de compte BTM AI&nbsp;? Ignorez cet e-mail&nbsp;: aucun compte ne sera activ&eacute;.
+                Ne transmettez jamais ce lien, l&rsquo;&eacute;quipe BTM ne vous le demandera pas.
+              </p>
+            </td>
+          </tr>
+
+          <!-- Pied -->
+          <tr>
+            <td align="center" style="padding:22px 16px 0;font-size:12px;line-height:1.6;color:#5d6468;">
+              BTM AI &mdash; Groupe BTM<br>
+              <a href="{{ .SiteURL }}" style="color:#5d6468;text-decoration:underline;">Ouvrir BTM AI</a> &middot;
+              <a href="mailto:contact@btm.yt" style="color:#5d6468;text-decoration:underline;">contact@btm.yt</a>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

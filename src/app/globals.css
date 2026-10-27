@@ -1,0 +1,292 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #ffffff;
+  --bg-subtle: #f7f7f5;
+  --bg-muted: #efefec;
+  --fg: #16191b;
+  --fg-muted: #5d6468;
+  --border: #e3e3df;
+  --accent: #c8295f;
+  --accent-hover: #a91f4f;
+  --accent-fg: #ffffff;
+  --accent-soft: #fceaf1;
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --warning-soft: #fff6e0;
+  --warning: #b45309;
+  --success: #15803d;
+  --success-soft: #e8f6ed;
+  --focus: #c8295f;
+  /* Graphiques : teinte validée (outil dataviz) pour chaque thème */
+  --chart-1: #c8295f;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #131516;
+    --bg-subtle: #1a1d1e;
+    --bg-muted: #24282a;
+    --fg: #ecedee;
+    --fg-muted: #9ba3a7;
+    --border: #2d3234;
+    --accent: #f06a9b;
+    --accent-hover: #f58bb2;
+    --accent-fg: #2a0815;
+    --accent-soft: #3a1626;
+    --danger: #f97066;
+    --danger-soft: #3a1b18;
+    --warning-soft: #352c14;
+    --warning: #f5b84a;
+    --success: #4ccb7a;
+    --success-soft: #14301f;
+    --focus: #f58bb2;
+    --chart-1: #e8588f;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-subtle: var(--bg-subtle);
+  --color-bg-muted: var(--bg-muted);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-border: var(--border);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning-soft: var(--warning-soft);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-chart-1: var(--chart-1);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html {
+  color-scheme: light dark;
+}
+
+/*
+ * Ambiance de la conversation selon la personnalité d'Awa (--persona, posée sur
+ * la zone de conversation). Teinte très légère : la marque reste lisible et le
+ * passage d'une personnalité à l'autre est animé (propriété enregistrée).
+ */
+@property --persona {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #c8295f;
+}
+
+.persona-surface {
+  --persona-surface: color-mix(in srgb, var(--persona) 4%, var(--bg));
+  --persona-soft: color-mix(in srgb, var(--persona) 11%, var(--bg));
+  --persona-border: color-mix(in srgb, var(--persona) 30%, var(--border));
+  --persona-text: color-mix(in srgb, var(--persona) 85%, var(--fg));
+  --persona-glow: color-mix(in srgb, var(--persona) 11%, transparent);
+  transition: --persona 600ms ease;
+}
+
+/*
+ * Fond teinté + halo en haut. Halo de taille fixe, ancré en haut au centre :
+ * l'en-tête collant (même largeur, même haut) reçoit exactement le même fond,
+ * sans bande visible à la jonction.
+ */
+.persona-surface,
+.persona-backdrop {
+  background-color: var(--persona-surface);
+  background-image: radial-gradient(70rem 26rem at 50% 0, var(--persona-glow), transparent 70%);
+}
+
+.persona-line {
+  background: linear-gradient(90deg, transparent, var(--persona) 25%, var(--persona) 75%, transparent);
+  opacity: 0.85;
+}
+
+@media (prefers-color-scheme: dark) {
+  .persona-surface {
+    --persona-surface: color-mix(in srgb, var(--persona) 7%, var(--bg));
+    --persona-soft: color-mix(in srgb, var(--persona) 22%, var(--bg));
+    --persona-border: color-mix(in srgb, var(--persona) 45%, var(--border));
+    --persona-text: color-mix(in srgb, var(--persona) 45%, var(--fg));
+    --persona-glow: color-mix(in srgb, var(--persona) 20%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .persona-surface {
+    transition: none;
+  }
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+}
+
+/* Dans la couche « base » : les classes Tailwind (ex. outline-none) peuvent la remplacer. */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+}
+
+/* Barres de défilement fines et roses. Dans la couche « base » pour que des
+   utilitaires comme scrollbar-none puissent les remplacer. */
+@layer base {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: color-mix(in srgb, var(--accent) 55%, transparent) transparent;
+  }
+}
+
+/* Safari (ignore scrollbar-width / scrollbar-color) */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+dialog::backdrop {
+  background: rgb(0 0 0 / 0.3);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Rendu Markdown des réponses */
+.markdown {
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.markdown > * + * {
+  margin-top: 0.85em;
+}
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  font-weight: 600;
+  line-height: 1.3;
+  margin-top: 1.3em;
+}
+.markdown h1 { font-size: 1.35em; }
+.markdown h2 { font-size: 1.2em; }
+.markdown h3 { font-size: 1.05em; }
+.markdown ul,
+.markdown ol {
+  padding-left: 1.4em;
+}
+.markdown ul { list-style: disc; }
+.markdown ol { list-style: decimal; }
+.markdown li + li { margin-top: 0.3em; }
+.markdown a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.markdown blockquote {
+  border-left: 3px solid var(--border);
+  padding-left: 1em;
+  color: var(--fg-muted);
+}
+.markdown code {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.88em;
+  background: var(--bg-muted);
+  padding: 0.15em 0.35em;
+  border-radius: 4px;
+}
+.markdown pre {
+  background: var(--bg-muted);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.9em 1em;
+  overflow-x: auto;
+}
+.markdown pre code {
+  background: none;
+  padding: 0;
+  font-size: 0.85em;
+}
+.markdown table {
+  border-collapse: collapse;
+  display: block;
+  overflow-x: auto;
+  font-size: 0.92em;
+}
+.markdown th,
+.markdown td {
+  border: 1px solid var(--border);
+  padding: 0.4em 0.7em;
+  text-align: left;
+}
+.markdown th {
+  background: var(--bg-subtle);
+  font-weight: 600;
+}
+.markdown hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+/* Défilement possible mais sans barre visible (ex. fenêtre de connexion sur petit écran). */
+@utility scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Edge/Chrome sous Windows ajoutent leur propre œil aux champs mot de passe :
+   on le masque, PasswordInput fournit déjà le bouton afficher/masquer. */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
+/* Schéma du modèle d'IA (/admin/modele-ia) : fond pointillé et liens animés. */
+.flow-canvas {
+  background-color: var(--bg-subtle);
+  background-image: radial-gradient(circle, var(--border) 1px, transparent 1.2px);
+  background-size: 18px 18px;
+}
+
+.flow-live {
+  stroke-dasharray: 6 6;
+  animation: flow-dash 0.9s linear infinite;
+}
+
+@keyframes flow-dash {
+  to {
+    stroke-dashoffset: -12;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-live {
+    animation: none;
+  }
+}
