@@ -3,7 +3,7 @@ import { BRAND } from "@/components/brand/brand";
 
 /**
  * Application installée (« Ajouter à l'écran d'accueil ») : nom et icônes au
- * logo complet BTM AI, crème sur noir comme l'écran de lancement.
+ * « b » BTM AI (étincelles), crème sur noir comme l'écran de lancement.
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
