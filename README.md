@@ -112,6 +112,7 @@ src/
     (chat)/page.tsx            Accueil = conversation immédiate
     (chat)/c/[id]/page.tsx     Conversation enregistrée (privée)
     api/chat/route.ts          Validation → quotas → contexte → flux NDJSON → persistance
+    api/awa/route.ts           Awa pour les autres sites de GROUPE BTM (btm.yt), secret par site (awa_partner_keys)
     api/conversations/…        Liste, import après connexion, suppression
     auth/…                     Callback e-mail, mot de passe oublié / nouveau, lien invalide
     parametres/                Profil (Server Action)
