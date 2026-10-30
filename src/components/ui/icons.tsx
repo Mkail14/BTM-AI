@@ -193,3 +193,10 @@ export const IconMessage = (p: IconProps) => (
     <path d="M4 5h16v11H9l-5 4z" />
   </Icon>
 );
+
+export const IconMic = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="9" y="3" width="6" height="11" rx="3" />
+    <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
+  </Icon>
+);

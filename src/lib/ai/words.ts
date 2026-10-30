@@ -28,7 +28,11 @@ const SHIMAORE_TOPIC = /shimaor|shimaore|maore|mahorais/;
 export function selectWords(
   entries: readonly WordEntry[],
   message: string,
-  { maxMatched = 80, maxTopic = 300 }: { maxMatched?: number; maxTopic?: number } = {},
+  {
+    maxMatched = 80,
+    maxTopic = 300,
+    topic = false,
+  }: { maxMatched?: number; maxTopic?: number; /** Toujours compléter (Awa parle shimaoré). */ topic?: boolean } = {},
 ): WordEntry[] {
   const words = tokens(message);
   const matched: WordEntry[] = [];
@@ -38,6 +42,6 @@ export function selectWords(
     else rest.push(entry);
   }
   const kept = matched.slice(0, maxMatched);
-  if (SHIMAORE_TOPIC.test(normalize(message))) kept.push(...rest.slice(0, Math.max(0, maxTopic - kept.length)));
+  if (topic || SHIMAORE_TOPIC.test(normalize(message))) kept.push(...rest.slice(0, Math.max(0, maxTopic - kept.length)));
   return kept;
 }

@@ -3,6 +3,7 @@ import type { AIConfig, AISlot } from "./config";
 import { createFallbackProvider } from "./fallback";
 import { createAnthropicProvider } from "./providers/anthropic";
 import { createOpenAICompatibleProvider } from "./providers/openai-compatible";
+import { ALL_APIS_CUT, loadFlowCuts } from "./flow-cuts";
 import { loadAIChain } from "./registry";
 import type { AIProvider } from "./types";
 
@@ -26,12 +27,16 @@ let cached: { key: string; provider: AIProvider; config: AIConfig } | null = nul
  * prennent le relais quand la précédente est épuisée ou en panne.
  * Aucune réponse simulée n'est produite en l'absence de configuration.
  */
-export async function getAIProvider(): Promise<
-  { ok: true; provider: AIProvider; config: AIConfig } | { ok: false; reason: string }
-> {
-  const chain = await loadAIChain();
+export async function getAIProvider(
+  /** Liens coupés déjà lus pour ce message (évite une seconde lecture). */
+  knownCuts?: Set<string>,
+): Promise<{ ok: true; provider: AIProvider; config: AIConfig } | { ok: false; reason: string }> {
+  const [fullChain, cuts] = await Promise.all([loadAIChain(), knownCuts ?? loadFlowCuts()]);
+  // API débranchées sur le schéma de /admin/modele-ia : hors de la chaîne de secours.
+  const chain = fullChain.filter((s) => !cuts.has(s.id));
   const usable = chain.filter((s): s is AISlot & { result: { ok: true } } => s.result.ok);
   if (usable.length === 0) {
+    if (chain.length === 0 && fullChain.length > 0) return { ok: false, reason: ALL_APIS_CUT };
     const first = chain[0]?.result;
     return first && !first.ok ? first : { ok: false, reason: "Aucune API utilisable." };
   }

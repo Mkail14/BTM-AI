@@ -22,12 +22,14 @@ type ComposerProps = {
   onStop: () => void;
   /** Élément affiché à gauche du champ (sélecteur de personnalité). */
   leading?: ReactNode;
+  /** Élément affiché juste avant le bouton d'envoi (micro). */
+  trailing?: ReactNode;
 };
 
 const MAX_HEIGHT_PX = 220;
 
 export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
-  { isStreaming, disabled, disabledReason, onSend, onStop, leading },
+  { isStreaming, disabled, disabledReason, onSend, onStop, leading, trailing },
   ref,
 ) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -97,6 +99,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           ) : null}
         </p>
       </div>
+      {trailing}
       {isStreaming ? (
         <button
           type="button"

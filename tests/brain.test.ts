@@ -2,7 +2,17 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { EMPTY_BRAIN, lexiconFor, readVariants } from "@/lib/ai/brain";
 import { selectKnowledge } from "@/lib/ai/knowledge";
-import { extractMemories } from "@/lib/ai/memory";
+import { extractMemories, parseMemoryUpdates, shouldLearnFrom } from "@/lib/ai/memory";
+import { mayBeTeaching, parseTaughtWords, parseTeaching, parseWordList } from "@/lib/language/teaching";
+import { speakableText } from "@/lib/chat/voice";
+import {
+  enforceShimaore,
+  fillKnownWords,
+  markUnknownWords,
+  splitUnknownWords,
+  stripTranslation,
+  translationTable,
+} from "@/lib/language/unknown-words";
 import { buildSystemPrompt, DEFAULT_IDENTITY, DEFAULT_RULES } from "@/lib/ai/system-prompt";
 import { selectWords } from "@/lib/ai/words";
 
@@ -134,5 +144,142 @@ describe("lexiconFor", () => {
     assert.deepEqual(readVariants({ cool: "Kwezi", mechante: "  ", x: 3 }), { cool: "Kwezi" });
     assert.deepEqual(readVariants(null), {});
     assert.deepEqual(readVariants(["a"]), {});
+  });
+});
+
+describe("leçons de shimaoré", () => {
+  it("lit une leçon donnée dans le chat", () => {
+    assert.deepEqual(parseTeaching("apprends\nbonjour = jéjé\n- merci → marahaba"), {
+      words: [
+        { french: "bonjour", shimaore: "jéjé" },
+        { french: "merci", shimaore: "marahaba" },
+      ],
+      rejected: [],
+    });
+    assert.deepEqual(parseTeaching("Apprends : maison = nyumba")?.words, [{ french: "maison", shimaore: "nyumba" }]);
+  });
+
+  it("laisse passer les messages ordinaires", () => {
+    assert.equal(parseTeaching("apprends-moi à dire bonjour = ?"), null);
+    assert.equal(parseTeaching("apprends moi le shimaoré"), null);
+    assert.equal(parseTeaching("bonjour = jéjé"), null);
+  });
+
+  it("accepte deux colonnes de tableur, retire les doublons et signale les lignes incomprises", () => {
+    const list = parseWordList("chat\tpaha\nChat = paha\n« eau » = « maji »\nn'importe quoi\n\n");
+    assert.deepEqual(list.words, [
+      { french: "chat", shimaore: "paha" },
+      { french: "eau", shimaore: "maji" },
+    ]);
+    assert.deepEqual(list.rejected, ["n'importe quoi"]);
+  });
+});
+
+describe("mémoire tenue par le modèle", () => {
+  it("ne sollicite le modèle que si la personne parle d'elle", () => {
+    assert.equal(shouldLearnFrom("j'ai deux enfants, Inaya et Soufiane"), true);
+    assert.equal(shouldLearnFrom("Quelle est la capitale de Mayotte ?"), false);
+    assert.equal(shouldLearnFrom("ok"), false);
+  });
+
+  it("garde les mises à jour valides, y compris les oublis", () => {
+    const output = 'Voici : [{"kind":"enfants","content":"A deux enfants"},{"kind":"lieu","content":null},{"kind":"Mauvais Kind","content":"x"},{"kind":"vide","content":"  "}]';
+    assert.deepEqual(parseMemoryUpdates(output), [
+      { kind: "enfants", content: "A deux enfants" },
+      { kind: "lieu", content: null },
+    ]);
+    assert.deepEqual(parseMemoryUpdates("rien à retenir"), []);
+    assert.deepEqual(parseMemoryUpdates("[oups"), []);
+  });
+
+  it("Awa reste Awa quelle que soit l'API", () => {
+    assert.match(buildSystemPrompt(), /Continuité : tu es toujours la même Awa/);
+    assert.match(buildSystemPrompt("cool", { identity: "Caractère : autre." }), /Ne te présente jamais comme ChatGPT/);
+  });
+});
+
+describe("leçon à la voix avec le maître d'Awa", () => {
+  it("repère une leçon dans le message ou dans la question d'Awa", () => {
+    assert.equal(mayBeTeaching("chez nous bonjour se dit jéjé", null), true);
+    assert.equal(mayBeTeaching("nyumba", "Et comment on dit maison en shimaoré ?"), true);
+    assert.equal(mayBeTeaching("tu peux m'aider pour un CV ?", "Bien sûr !"), false);
+  });
+
+  it("lit les mots relevés par le modèle", () => {
+    assert.deepEqual(parseTaughtWords('[{"french":"maison","shimaore":"nyumba"},{"french":"x"},{"french":"a;b","shimaore":"c"}]'), [
+      { french: "maison", shimaore: "nyumba" },
+    ]);
+    assert.deepEqual(parseTaughtWords("[]"), []);
+  });
+
+  it("le mode maître n'apparaît qu'avec le maître", () => {
+    assert.doesNotMatch(buildSystemPrompt(), /MODE MAÎTRE/);
+    assert.match(buildSystemPrompt("cool", { teacher: true }), /MODE MAÎTRE/);
+  });
+
+  it("lit les réponses sans Markdown ni emojis", () => {
+    assert.equal(speakableText("**Noté** ✅ !\n- maison → `nyumba`"), "Noté ! maison → nyumba");
+  });
+});
+
+describe("mode vocal", () => {
+  it("prévient Awa que le message est dicté, et finit par lui rappeler qui elle est", () => {
+    const prompt = buildSystemPrompt("cool", { voice: true });
+    assert.match(prompt, /« chinois »[^\n]*« shimaoré »/);
+    assert.match(prompt, /Rappel : tu es Awa, de GROUPE BTM\.[^\n]*$/);
+    assert.doesNotMatch(buildSystemPrompt(), /dictée automatique/);
+  });
+});
+
+describe("mode maître : Awa parle shimaoré", () => {
+  it("remplace « français par défaut » par le shimaoré, sans traduction", () => {
+    const prompt = buildSystemPrompt("cool", { teacher: true });
+    assert.doesNotMatch(prompt, /réponds en français par défaut/);
+    assert.match(prompt, /UNIQUEMENT en shimaoré/);
+    assert.match(prompt, /\[\[marché\]\]/);
+    assert.match(buildSystemPrompt(), /réponds en français par défaut/);
+  });
+
+  it("repère les mots inconnus pour les afficher en couleur", () => {
+    assert.deepEqual(splitUnknownWords("Jéjé ! [[marché]] ?"), [
+      { text: "Jéjé ! ", french: false },
+      { text: "marché", french: true },
+      { text: " ?", french: false },
+    ]);
+    assert.equal(markUnknownWords("Jéjé [[le marché]]"), "Jéjé [le marché](#fr)");
+  });
+
+  it("coupe la traduction ajoutée en bas, et seulement elle", () => {
+    assert.equal(stripTranslation("Jéjé, wawé ?\n\n(Traduction : Bonjour, ça va ?)"), "Jéjé, wawé ?");
+    assert.equal(stripTranslation("Jéjé !\nTraduction: Bonjour !"), "Jéjé !");
+    assert.equal(stripTranslation("Jéjé, wawé ?"), "Jéjé, wawé ?");
+  });
+
+  it("une leçon peut répondre à un [[mot]] d'Awa", () => {
+    assert.equal(mayBeTeaching("bazari", "Ngamwenda [[marché]]"), true);
+  });
+});
+
+describe("enforceShimaore", () => {
+  it("corrige la réponse de la capture : traduction retirée, français en couleur", () => {
+    const reply =
+      "D'accord, c'est noté ! À partir de maintenant, je réponds uniquement en shimaoré.\n\n**Kwezi, wa fetché ?** — *Bonjour, comment vas-tu ?*\n\nToi, ça va comment ?";
+    assert.equal(
+      enforceShimaore(reply),
+      "[[D'accord, c'est noté]] ! [[À partir de maintenant, je réponds uniquement en shimaoré]].\n\n**Kwezi, wa fetché ?**\n\n[[Toi, ça va comment]] ?",
+    );
+  });
+
+  it("laisse le shimaoré et les [[mots]] tels quels", () => {
+    assert.equal(enforceShimaore("Jéjé ! Wa [[marché]] ?"), "Jéjé ! Wa [[marché]] ?");
+    assert.equal(enforceShimaore("Toi, wa fetché ? (Toi, comment vas-tu ?)"), "Toi, wa fetché ?");
+  });
+});
+
+describe("traduction d'un [[mot]] par le maître", () => {
+  it("remplace les mots appris, sans tenir compte des majuscules, et garde les autres", () => {
+    const table = translationTable([{ french: "Marché", shimaore: "bazari" }]);
+    assert.equal(fillKnownWords("Ngamwenda [[marché]] na [[école]].", table), "Ngamwenda bazari na [[école]].");
+    assert.equal(fillKnownWords("Rien à remplacer", table), "Rien à remplacer");
   });
 });

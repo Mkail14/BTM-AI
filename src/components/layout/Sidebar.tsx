@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { BrandLogo } from "@/components/brand/BrandLogo";
-import { IconClose, IconLock, IconPlus, IconSettings, IconTrash } from "@/components/ui/icons";
+import { IconClose, IconDashboard, IconLock, IconPlus, IconSettings, IconTrash } from "@/components/ui/icons";
 import { AccountMenu } from "./AccountMenu";
 import { useChatShell } from "./ChatShell";
 
@@ -89,6 +89,16 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
             <IconPlus />
             Nouvelle conversation
           </button>
+          {user?.isAdmin ? (
+            <Link
+              href="/admin"
+              onClick={onClose}
+              className="mt-2 flex w-full items-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-fg hover:bg-accent-hover"
+            >
+              <IconDashboard />
+              Tableau de bord
+            </Link>
+          ) : null}
         </div>
 
         <nav aria-label="Conversations récentes" className="mt-5 min-h-0 flex-1 overflow-y-auto px-3">

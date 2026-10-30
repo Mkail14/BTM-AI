@@ -8,7 +8,8 @@ const securityHeaders = [
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
   {
     key: "Permissions-Policy",
-    value: "camera=(), microphone=(), geolocation=(), payment=()",
+    // microphone=(self) : le micro du chat (leçons de shimaoré), pour le site lui-même uniquement.
+    value: "camera=(), microphone=(self), geolocation=(), payment=()",
   },
 ];
 

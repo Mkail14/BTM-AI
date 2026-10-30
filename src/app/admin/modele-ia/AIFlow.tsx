@@ -26,7 +26,7 @@ import {
   IconTrash,
 } from "@/components/ui/icons";
 import type { ActionResult } from "@/lib/admin/action-auth";
-import { deleteApiAction } from "./actions";
+import { deleteApiAction, setFlowCutAction } from "./actions";
 import type { RateLimitSettings } from "@/lib/rate-limit/settings";
 import { AddApiDialog } from "./AddApiDialog";
 import { CharacterDialog } from "./CharacterDialog";
@@ -51,31 +51,49 @@ const ICONS: Record<FlowIcon, ComponentType<SVGProps<SVGSVGElement>>> = {
 const COLUMNS = 6;
 const CLICK_TOLERANCE_PX = 4;
 
-type Path = { key: string; d: string; edge: FlowEdge; start: [number, number]; end: [number, number] };
+/** Distance autour d'un bloc où lâcher un fil le branche quand même. */
+const DROP_MARGIN_PX = 24;
 
-/** Courbe de Bézier horizontale entre le bord droit de la source et le bord gauche de la cible. */
-function computePaths(container: HTMLElement, nodes: Map<string, HTMLElement>, edges: FlowEdge[]): Path[] {
-  const box = container.getBoundingClientRect();
-  return edges.flatMap((edge) => {
-    const a = nodes.get(edge.from)?.getBoundingClientRect();
-    const b = nodes.get(edge.to)?.getBoundingClientRect();
-    if (!a || !b) return [];
-    const x1 = a.right - box.left;
-    const y1 = a.top + a.height / 2 - box.top;
-    const x2 = b.left - box.left;
-    const y2 = b.top + b.height / 2 - box.top;
-    const dx = Math.max(30, (x2 - x1) / 2);
-    return [
-      {
-        key: `${edge.from}->${edge.to}`,
-        d: `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`,
-        edge,
-        start: [x1, y1],
-        end: [x2, y2],
-      },
-    ];
-  });
+type Point = [number, number];
+type Path = { key: string; d: string; edge: FlowEdge; start: Point; end: Point };
+/** Prise ronde d'un bloc : entrée à gauche, sortie à droite (comme dans n8n). */
+type Port = { node: string; side: "in" | "out"; at: Point };
+type Layout = { paths: Path[]; ports: Port[] };
+
+/** Courbe de Bézier horizontale, de la sortie d'un bloc vers l'entrée d'un autre. */
+function curve([x1, y1]: Point, [x2, y2]: Point) {
+  const dx = Math.max(30, Math.abs(x2 - x1) / 2);
+  return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
 }
+
+function computeLayout(container: HTMLElement, nodes: Map<string, HTMLElement>, edges: FlowEdge[]): Layout {
+  const box = container.getBoundingClientRect();
+  const portAt = (id: string, side: Port["side"]): Point | null => {
+    const r = nodes.get(id)?.getBoundingClientRect();
+    if (!r) return null;
+    return [(side === "out" ? r.right : r.left) - box.left, r.top + r.height / 2 - box.top];
+  };
+  const paths = edges.flatMap((edge) => {
+    const start = portAt(edge.from, "out");
+    const end = portAt(edge.to, "in");
+    return start && end ? [{ key: `${edge.from}->${edge.to}`, d: curve(start, end), edge, start, end }] : [];
+  });
+  const ports = [
+    ...new Set(edges.map((e) => `out:${e.from}`)),
+    ...new Set(edges.map((e) => `in:${e.to}`)),
+  ].flatMap((key) => {
+    const [side, node] = key.split(":") as [Port["side"], string];
+    const at = portAt(node, side);
+    return at ? [{ node, side, at }] : [];
+  });
+  return { paths, ports };
+}
+
+/**
+ * Fil tenu à la souris : un bout reste accroché à son bloc (`fixed`), l'autre
+ * suit le pointeur. `edge` : lien existant qu'on a décroché, sinon nouveau fil.
+ */
+type Wire = { fixedNode: string; fixedSide: "out" | "in"; fixed: Point; at: Point; edge?: FlowEdge };
 
 const LIVE_STATUS: Record<LiveStatus, { dot: string; label: string }> = {
   connecting: { dot: "bg-fg-muted", label: "Connexion au direct…" },
@@ -172,7 +190,7 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef(new Map<string, HTMLElement>());
-  const [paths, setPaths] = useState<Path[]>([]);
+  const [{ paths, ports }, setLayout] = useState<Layout>({ paths: [], ports: [] });
   // Déplacements des blocs : gardés en mémoire seulement, la page rechargée
   // revient à la disposition d'origine.
   const [offsets, setOffsets] = useState<Record<string, Offset>>({});
@@ -190,6 +208,16 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
   const closeCharacter = useCallback(() => setEditingCharacter(null), []);
   const [toolbarStatus, setToolbarStatus] = useState<ActionResult | null>(null);
   const [removing, startTransition] = useTransition();
+  // Lien survolé : ses deux moitiés (vers le bloc et depuis le bloc) s'éclairent ensemble.
+  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  const hoveredCut = paths.find((p) => p.key === hoveredKey)?.edge.cutId;
+  const [wire, setWire] = useState<Wire | null>(null);
+  // Coupures et rebranchements affichés tout de suite, en attendant la réponse du serveur
+  // (oubliés dès que le serveur renvoie les liens à jour).
+  const [pending, setPending] = useState<{ edges: FlowEdge[]; cuts: Record<string, boolean> }>({ edges, cuts: {} });
+  const pendingCuts = pending.edges === edges ? pending.cuts : {};
+  const isCut = (edge: FlowEdge) => (edge.cutId && edge.cutId in pendingCuts ? pendingCuts[edge.cutId] : Boolean(edge.cut));
+  const [, startCut] = useTransition();
   const live = useLiveTrace(edges, paths);
   const blockedNodes = new Set(live.dots.filter((d) => d.blocked !== undefined).map((d) => d.node));
   const titleOf = (id: string) => nodes.find((n) => n.id === id)?.title ?? id;
@@ -197,7 +225,7 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
   useLayoutEffect(() => {
     const container = containerRef.current;
     if (!container) return;
-    const update = () => setPaths(computePaths(container, nodeRefs.current, edges));
+    const update = () => setLayout(computeLayout(container, nodeRefs.current, edges));
     update();
     const observer = new ResizeObserver(update);
     observer.observe(container);
@@ -234,6 +262,109 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
         router.refresh();
       }
     });
+  }
+
+  /** Coupe ou rebranche des blocs, dans l'ordre (le bloc sort du trajet des messages, ou y revient). */
+  function applyCuts(changes: [cutId: string, cut: boolean][]) {
+    if (changes.length === 0) return;
+    setPending({ edges, cuts: { ...pendingCuts, ...Object.fromEntries(changes) } });
+    startCut(async () => {
+      let result: ActionResult = { ok: true, message: "" };
+      for (const [cutId, cut] of changes) {
+        result = await setFlowCutAction(cutId, cut).catch((error: unknown) => {
+          console.error("[admin] Lien non enregistré", error);
+          return { ok: false, message: "Le serveur n'a pas répondu : réessayez." } satisfies ActionResult;
+        });
+        if (!result.ok) break;
+      }
+      setToolbarStatus(result);
+      if (!result.ok) setPending({ edges, cuts: {} });
+      router.refresh();
+    });
+  }
+
+  /** Position du pointeur dans le canevas. */
+  function toCanvas(e: { clientX: number; clientY: number }): Point {
+    const box = containerRef.current!.getBoundingClientRect();
+    return [e.clientX - box.left, e.clientY - box.top];
+  }
+
+  /** Bloc sous le pointeur (avec une marge), autre que celui qui tient le fil. */
+  function nodeAt(e: { clientX: number; clientY: number }, except: string): string | null {
+    for (const [id, el] of nodeRefs.current) {
+      if (id === except) continue;
+      const r = el.getBoundingClientRect();
+      if (
+        e.clientX >= r.left - DROP_MARGIN_PX &&
+        e.clientX <= r.right + DROP_MARGIN_PX &&
+        e.clientY >= r.top - DROP_MARGIN_PX &&
+        e.clientY <= r.bottom + DROP_MARGIN_PX
+      ) {
+        return id;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Tire un fil (comme dans n8n) : depuis la prise de sortie d'un bloc pour en
+   * brancher un autre, ou par le bout d'un lien existant pour le décrocher.
+   * Lâché dans le vide, le lien est coupé ; lâché sur un bloc, il y est branché.
+   */
+  function startWire(event: ReactPointerEvent<Element>, initial: Wire) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    let current = initial;
+    setWire(current);
+
+    const move = (e: PointerEvent) => {
+      current = { ...current, at: toCanvas(e) };
+      setWire(current);
+    };
+    const end = (e: PointerEvent) => {
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+      setWire(null);
+      if (e.type === "pointerup") dropWire(current, nodeAt(e, current.fixedNode));
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+  }
+
+  function dropWire(dropped: Wire, target: string | null) {
+    const original = dropped.edge;
+    const candidate = target
+      ? edges.find((e) =>
+          dropped.fixedSide === "out" ? e.from === dropped.fixedNode && e.to === target : e.to === dropped.fixedNode && e.from === target,
+        )
+      : undefined;
+    // Reposé à sa place : rien ne change.
+    if (original && candidate === original) return;
+
+    const changes: [string, boolean][] = [];
+    if (original?.cutId && !isCut(original)) changes.push([original.cutId, true]);
+    if (candidate?.cutId && isCut(candidate) && candidate.cutId !== original?.cutId) changes.push([candidate.cutId, false]);
+    else if (target && !candidate) {
+      setToolbarStatus({ ok: false, message: `Pas de lien possible entre « ${titleOf(dropped.fixedNode)} » et « ${titleOf(target)} ».` });
+    } else if (candidate && !candidate.cutId) {
+      setToolbarStatus({ ok: false, message: "Ce lien est indispensable : il ne se coupe pas." });
+    }
+    applyCuts(changes);
+  }
+
+  /** Saisie d'un lien : le bout le plus proche du pointeur se décroche, l'autre reste en place. */
+  function grabPath(path: Path, event: ReactPointerEvent<SVGPathElement>) {
+    const at = toCanvas(event);
+    const nearEnd = Math.hypot(at[0] - path.end[0], at[1] - path.end[1]) < Math.hypot(at[0] - path.start[0], at[1] - path.start[1]);
+    startWire(
+      event,
+      nearEnd
+        ? { fixedNode: path.edge.from, fixedSide: "out", fixed: path.start, at, edge: path.edge }
+        : { fixedNode: path.edge.to, fixedSide: "in", fixed: path.end, at, edge: path.edge },
+    );
   }
 
   function startDrag(node: FlowNode, event: ReactPointerEvent<HTMLDivElement>) {
@@ -288,8 +419,12 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
         aria-label="Outils du schéma"
         className="absolute right-3 bottom-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-1 rounded-xl border border-border bg-bg/95 p-1 shadow-lg backdrop-blur"
       >
-        {toolbarStatus && !toolbarStatus.ok ? (
-          <span role="alert" className="max-w-64 truncate px-2 text-xs text-danger" title={toolbarStatus.message}>
+        {toolbarStatus ? (
+          <span
+            role={toolbarStatus.ok ? "status" : "alert"}
+            className={`max-w-64 truncate px-2 text-xs ${toolbarStatus.ok ? "text-success" : "text-danger"}`}
+            title={toolbarStatus.message}
+          >
             {toolbarStatus.message}
           </span>
         ) : null}
@@ -329,17 +464,58 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
       <div className="flow-canvas size-full overflow-auto">
         <div ref={containerRef} className="relative flex min-h-full min-w-[1100px] items-center p-10">
           <svg className="pointer-events-none absolute inset-0 size-full overflow-visible" aria-hidden="true">
-            {paths.map(({ key, d, edge, start, end }) => {
-              const stroke = edge.live ? "var(--accent)" : "var(--fg-muted)";
+            {paths.map((path) => {
+              const { key, d, edge } = path;
+              // Lien coupé : il disparaît, comme dans n8n. Lien tenu à la souris : remplacé par le fil.
+              if (isCut(edge) || (wire?.edge && wire.edge === edge)) return null;
+              const hovered = edge.cutId !== undefined && edge.cutId === hoveredCut;
+              const stroke = edge.live || hovered ? "var(--accent)" : "var(--fg-muted)";
               return (
-                <g key={key} opacity={edge.muted ? 0.3 : edge.live ? 1 : 0.55}>
-                  <path d={d} fill="none" stroke={stroke} strokeWidth={edge.live ? 2 : 1.5} />
-                  <circle cx={start[0]} cy={start[1]} r={4} fill="var(--bg)" stroke={stroke} strokeWidth={1.5} />
-                  <circle cx={end[0]} cy={end[1]} r={4} fill="var(--bg)" stroke={stroke} strokeWidth={1.5} />
+                <g key={key} opacity={hovered ? 1 : edge.muted ? 0.3 : edge.live ? 1 : 0.55}>
+                  <path d={d} fill="none" stroke={stroke} strokeWidth={edge.live || hovered ? 2.5 : 1.5} />
+                  {/* Zone de saisie large et invisible : la courbe fine serait difficile à attraper. */}
+                  {edge.cutId ? (
+                    <path
+                      d={d}
+                      fill="none"
+                      stroke="transparent"
+                      strokeWidth={16}
+                      pointerEvents="stroke"
+                      className="cursor-grab touch-none"
+                      onPointerEnter={() => setHoveredKey(key)}
+                      onPointerLeave={() => setHoveredKey((k) => (k === key ? null : k))}
+                      onPointerDown={(event) => grabPath(path, event)}
+                    >
+                      <title>Tirer le bout du lien pour le débrancher</title>
+                    </path>
+                  ) : null}
                 </g>
               );
             })}
+            {wire ? (
+              <path
+                d={wire.fixedSide === "out" ? curve(wire.fixed, wire.at) : curve(wire.at, wire.fixed)}
+                fill="none"
+                stroke="var(--accent)"
+                strokeWidth={2.5}
+              />
+            ) : null}
           </svg>
+
+          {/* Prises des blocs : la sortie (à droite) se tire vers un autre bloc pour le brancher */}
+          {ports.map(({ node, side, at }) => (
+            <span
+              key={`${side}:${node}`}
+              style={{ left: at[0], top: at[1] }}
+              title={side === "out" ? "Tirer vers un bloc pour le brancher" : undefined}
+              onPointerDown={
+                side === "out" ? (event) => startWire(event, { fixedNode: node, fixedSide: "out", fixed: at, at }) : undefined
+              }
+              className={`absolute z-10 size-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 bg-bg transition-transform ${
+                side === "out" ? "cursor-crosshair touch-none border-fg-muted hover:scale-150 hover:border-accent" : "pointer-events-none border-fg-muted"
+              } ${wire && wire.fixedNode !== node && (side === "in") === (wire.fixedSide === "out") ? "scale-125 border-accent" : ""}`}
+            />
+          ))}
 
           {/* Messages en cours : un point par arête, arrêté en rouge là où ça bloque */}
           {live.dots.map((dot) =>
@@ -364,9 +540,10 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
             ),
           )}
 
-          <div className="relative grid w-full grid-cols-6 gap-14">
+          {/* Grille transparente aux pointeurs : seuls les blocs l'interceptent, les liens restent survolables. */}
+          <div className="pointer-events-none relative grid w-full grid-cols-6 gap-14">
             {Array.from({ length: COLUMNS }, (_, column) => (
-              <div key={column} className="flex flex-col justify-center gap-4">
+              <div key={column} className="flex flex-col justify-center gap-4 [&>*]:pointer-events-auto">
                 {nodes
                   .filter((n) => n.column === column)
                   .map((node) => (

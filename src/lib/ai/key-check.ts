@@ -64,3 +64,40 @@ export async function checkKey(config: AIConfig): Promise<KeyCheck> {
     },
   };
 }
+
+// Modèles qui ne savent pas discuter (voix, images, embeddings…) : jamais proposés.
+const NOT_CHAT = /embed|tts|whisper|dall-e|audio|realtime|image|moderation|transcribe|search|rerank|guard|safety|davinci|babbage/i;
+
+/**
+ * Modèles de discussion auxquels la clé donne accès (gratuit, rien n'est
+ * généré). En cas d'échec, le message dit pourquoi (clé refusée, panne…).
+ */
+export async function listModels(config: Pick<AIConfig, "provider" | "baseUrl" | "apiKey">): Promise<
+  { ok: true; models: string[] } | { ok: false; message: string }
+> {
+  const base = (config.baseUrl ?? "").replace(/\/+$/, "");
+  const anthropic = config.provider === "anthropic";
+  const url = anthropic ? `${base || "https://api.anthropic.com"}/v1/models?limit=1000` : `${base}/models`;
+  const headers: Record<string, string> = anthropic
+    ? { "x-api-key": config.apiKey, "anthropic-version": "2023-06-01" }
+    : { Authorization: `Bearer ${config.apiKey}` };
+
+  let response: Response;
+  try {
+    response = await fetch(url, { headers, signal: AbortSignal.timeout(CHECK_TIMEOUT_MS), cache: "no-store" });
+  } catch {
+    return { ok: false, message: "Le fournisseur ne répond pas." };
+  }
+  if (!response.ok) {
+    const error = errorFromStatus(response.status, await response.text().catch(() => ""));
+    return { ok: false, message: error.code === "auth" ? "Clé refusée par le fournisseur." : error.message };
+  }
+  const json = (await response.json().catch(() => ({}))) as { data?: { id?: unknown }[] };
+  const models = (json.data ?? [])
+    .map((m) => m.id)
+    .filter((id): id is string => typeof id === "string" && !NOT_CHAT.test(id))
+    // Gemini préfixe ses modèles par « models/ » ; l'API compatible OpenAI les attend sans.
+    .map((id) => id.replace(/^models\//, ""))
+    .sort((a, b) => a.localeCompare(b));
+  return models.length > 0 ? { ok: true, models } : { ok: false, message: "Aucun modèle de discussion trouvé pour cette clé." };
+}

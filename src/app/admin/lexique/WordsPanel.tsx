@@ -5,7 +5,8 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
 import { IconBook, IconClose, IconPlus, IconTrash } from "@/components/ui/icons";
 import type { ActionResult } from "@/lib/admin/action-auth";
-import { deleteWordAction, saveWordAction } from "./actions";
+import { parseWordList } from "@/lib/language/teaching";
+import { deleteWordAction, importWordsAction, saveWordAction } from "./actions";
 import { WORD_LIMITS, type WordRow } from "./limits";
 
 type Draft = Omit<WordRow, "id"> & { id: string | null };
@@ -232,11 +233,161 @@ function WordDialog({
   );
 }
 
+/**
+ * Import d'une liste entière : notes du téléphone, tableur (deux colonnes
+ * copiées), ou liste dictée à quelqu'un. Aperçu en direct de ce qui est compris.
+ */
+function ImportDialog({ categories, onClose }: { categories: string[]; onClose: () => void }) {
+  const router = useRouter();
+  const textRef = useRef<HTMLTextAreaElement>(null);
+  const [text, setText] = useState("");
+  const [category, setCategory] = useState("");
+  const [status, setStatus] = useState<ActionResult | null>(null);
+  const [pending, startTransition] = useTransition();
+  const { words, rejected } = parseWordList(text);
+
+  useEffect(() => {
+    textRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
+  function submit() {
+    startTransition(async () => {
+      const result = await importWordsAction({ text, category });
+      setStatus(result);
+      if (!result.ok) return;
+      router.refresh();
+      setText("");
+    });
+  }
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="import-title"
+        className="fixed top-1/2 left-1/2 z-50 max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-2xl border border-border bg-bg shadow-2xl"
+      >
+        <div className="flex items-center gap-3 border-b border-border px-5 py-4">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent">
+            <IconBook width={20} height={20} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 id="import-title" className="text-lg leading-tight font-semibold">
+              Coller une liste
+            </h2>
+            <p className="mt-0.5 text-sm text-fg-muted">Un mot par ligne : français = shimaoré.</p>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Fermer"
+            className="rounded-lg p-2 text-fg-muted hover:bg-bg-muted hover:text-fg"
+          >
+            <IconClose />
+          </button>
+        </div>
+
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (words.length > 0 && !pending) submit();
+          }}
+        >
+          <div className="space-y-4 p-5">
+            <div>
+              <label htmlFor="import-text" className="text-sm font-medium">
+                Liste
+              </label>
+              <textarea
+                ref={textRef}
+                id="import-text"
+                value={text}
+                rows={10}
+                spellCheck={false}
+                placeholder={"bonjour = jéjé\nmerci = marahaba\nmaison = nyumba"}
+                onChange={(e) => {
+                  setText(e.target.value);
+                  setStatus(null);
+                }}
+                className={`${inputClass} mt-1.5 font-mono text-[13px]`}
+              />
+              <p className="mt-1 text-xs text-fg-muted">
+                Aussi accepté : « → », « -&gt; », ou deux colonnes copiées d&apos;un tableur. Un mot déjà connu prend la
+                nouvelle traduction.
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="import-cat" className="text-sm font-medium">
+                Catégorie pour toute la liste <span className="font-normal text-fg-muted">(facultatif)</span>
+              </label>
+              <input
+                id="import-cat"
+                list="word-categories"
+                value={category}
+                maxLength={WORD_LIMITS.category}
+                autoComplete="off"
+                onChange={(e) => setCategory(e.target.value)}
+                className={`${inputClass} mt-1.5`}
+              />
+              <datalist id="word-categories">
+                {categories.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            </div>
+
+            {rejected.length > 0 ? (
+              <p className="rounded-lg bg-warning-soft px-3 py-2 text-sm">
+                {rejected.length} ligne{rejected.length > 1 ? "s" : ""} non comprise{rejected.length > 1 ? "s" : ""} (ignorée
+                {rejected.length > 1 ? "s" : ""}) : {rejected.slice(0, 3).join(" · ")}
+                {rejected.length > 3 ? "…" : ""}
+              </p>
+            ) : null}
+
+            {status ? (
+              <p
+                role={status.ok ? "status" : "alert"}
+                className={`rounded-lg px-3 py-2 text-sm ${status.ok ? "bg-success-soft" : "bg-danger-soft"}`}
+              >
+                {status.ok ? "✓ " : ""}
+                {status.message}
+              </p>
+            ) : null}
+          </div>
+
+          <div className="flex items-center gap-2 border-t border-border bg-bg-subtle px-5 py-3">
+            <span className="text-sm text-fg-muted">
+              {words.length} mot{words.length > 1 ? "s" : ""} compris
+            </span>
+            <span className="flex-1" />
+            <button type="button" onClick={onClose} disabled={pending} className={secondaryButton}>
+              Fermer
+            </button>
+            <button type="submit" disabled={pending || words.length === 0} className={primaryButton}>
+              {pending ? "Import…" : "Apprendre à Awa"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </>
+  );
+}
+
 /** Dictionnaire de mots français ↔ shimaoré, à droite des expressions. */
 export function WordsPanel({ rows, unavailable }: { rows: WordRow[]; unavailable: boolean }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
   const [query, setQuery] = useState("");
   const close = useCallback(() => setOpenId(null), []);
+  const closeImport = useCallback(() => setImporting(false), []);
 
   const q = query.trim().toLowerCase();
   const shown = q ? rows.filter((r) => `${r.french} ${r.shimaore} ${r.category}`.toLowerCase().includes(q)) : rows;
@@ -263,11 +414,20 @@ export function WordsPanel({ rows, unavailable }: { rows: WordRow[]; unavailable
         </div>
         <button
           type="button"
+          onClick={() => setImporting(true)}
+          disabled={unavailable}
+          className={`${secondaryButton} shrink-0`}
+        >
+          Coller une liste
+        </button>
+        <button
+          type="button"
           onClick={() => setOpenId("new")}
           disabled={unavailable}
+          aria-label="Ajouter un mot"
           className={`${primaryButton} inline-flex shrink-0 items-center gap-1.5 px-3`}
         >
-          <IconPlus width={16} height={16} /> Ajouter un mot
+          <IconPlus width={16} height={16} /> <span className="hidden sm:inline">Ajouter un mot</span>
         </button>
       </div>
 
@@ -280,7 +440,9 @@ export function WordsPanel({ rows, unavailable }: { rows: WordRow[]; unavailable
         <div className="grid flex-1 place-items-center p-8 text-center">
           <div>
             <p className="font-medium">Aucun mot pour l&apos;instant</p>
-            <p className="mt-1 text-sm text-fg-muted">Ajoutez des mots un par un : Awa les apprend aussitôt.</p>
+            <p className="mt-1 text-sm text-fg-muted">
+              Collez une liste entière, ou écrivez à Awa dans le chat : « apprends » puis une ligne « bonjour = jéjé » par mot.
+            </p>
           </div>
         </div>
       ) : (
@@ -325,6 +487,7 @@ export function WordsPanel({ rows, unavailable }: { rows: WordRow[]; unavailable
     </section>
     {/* Hors du panneau « sticky » : la fenêtre doit couvrir toute la page, en-tête compris. */}
     {opened ? <WordDialog key={openId} initial={{ ...opened }} categories={categories} onClose={close} /> : null}
+    {importing ? <ImportDialog categories={categories} onClose={closeImport} /> : null}
     </>
   );
 }

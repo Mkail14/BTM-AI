@@ -6,10 +6,19 @@ import { Field, inputClass, primaryButton, secondaryButton } from "@/components/
 import { IconClose } from "@/components/ui/icons";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import type { ActionResult } from "@/lib/admin/action-auth";
-import { addApiAction } from "./actions";
-import { API_LIMITS, API_PRESETS } from "./presets";
+import { addApiAction, listModelsAction } from "./actions";
+import { API_LIMITS, API_PRESETS, detectPreset } from "./presets";
 
-/** Fenêtre d'ajout d'une API : fournisseur, modèle, clé (vérifiée avant l'enregistrement). */
+type ModelList =
+  | { state: "idle" | "loading" }
+  | { state: "ready"; models: string[]; freeOnly: boolean }
+  | { state: "error"; message: string };
+
+/**
+ * Fenêtre d'ajout d'une API : il suffit de coller la clé. Le fournisseur est
+ * reconnu à son début, puis le modèle est choisi dans la liste que donne la
+ * clé (personne ne connaît leurs noms par cœur). Tout reste modifiable.
+ */
 export function AddApiDialog({ onClose }: { onClose: () => void }) {
   const router = useRouter();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -21,9 +30,36 @@ export function AddApiDialog({ onClose }: { onClose: () => void }) {
   const [apiKey, setApiKey] = useState("");
   const [status, setStatus] = useState<ActionResult | null>(null);
   const [pending, startTransition] = useTransition();
+  const [list, setList] = useState<ModelList>({ state: "idle" });
+  const [detected, setDetected] = useState(false);
+
+  // Clé collée : on demande au fournisseur ses modèles (gratuit), un instant après la saisie.
+  const keyReady = apiKey.trim().length >= 20;
+  useEffect(() => {
+    if (!keyReady) return;
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setList({ state: "loading" });
+      const result = await listModelsAction({ provider: preset.provider, baseUrl, apiKey });
+      if (cancelled) return;
+      if (!result.ok) return setList({ state: "error", message: result.message });
+      setList({ state: "ready", models: result.models, freeOnly: result.freeOnly });
+      // Premier modèle recommandé disponible (gratuit si le compte n'a pas de crédit), sinon on laisse choisir.
+      const usable = (id: string) => result.models.includes(id) && (!result.freeOnly || id.endsWith(":free"));
+      setModel((current) => (usable(current) ? current : (preset.suggested?.find(usable) ?? "")));
+    }, 500);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [apiKey, baseUrl, keyReady, preset]);
+
+  const suggested = list.state === "ready" ? (preset.suggested ?? []).filter((id) => list.models.includes(id)) : [];
+  /** « (gratuit) » / « (payant) » quand le compte OpenRouter n'a pas de crédit : on voit ce qui marche. */
+  const priceTag = (id: string) => (list.state === "ready" && list.freeOnly ? (id.endsWith(":free") ? " (gratuit)" : " (crédit requis)") : "");
 
   useEffect(() => {
-    dialogRef.current?.querySelector<HTMLElement>("select")?.focus();
+    dialogRef.current?.querySelector<HTMLElement>("#api-key")?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") onClose();
     };
@@ -36,7 +72,21 @@ export function AddApiDialog({ onClose }: { onClose: () => void }) {
     setPresetId(next.id);
     setLabel(next.id === "other" ? "" : next.label);
     setBaseUrl(next.baseUrl);
+    setModel("");
+    setList({ state: "idle" });
+    setDetected(false);
     setStatus(null);
+  }
+
+  function changeKey(value: string) {
+    setApiKey(value);
+    setList({ state: "idle" });
+    setStatus(null);
+    const found = detectPreset(value);
+    if (found && found.id !== presetId) {
+      choosePreset(found.id);
+      setDetected(true);
+    }
   }
 
   function submit() {
@@ -81,6 +131,30 @@ export function AddApiDialog({ onClose }: { onClose: () => void }) {
           }}
           className="mt-4 space-y-3"
         >
+          <Field label="Clé API" htmlFor="api-key">
+            <PasswordInput
+              id="api-key"
+              value={apiKey}
+              maxLength={API_LIMITS.apiKey}
+              autoComplete="off"
+              placeholder="Collez votre clé : le reste se remplit tout seul"
+              onChange={(e) => changeKey(e.target.value)}
+              className={`${inputClass} font-mono text-xs`}
+            />
+            <p className="mt-1 text-xs text-fg-muted">
+              {detected ? <span className="font-medium text-success">✓ Clé {preset.label} reconnue. </span> : null}
+              Vérifiée puis chiffrée.
+              {preset.keyUrl ? (
+                <>
+                  {" "}
+                  <a href={preset.keyUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-accent hover:underline">
+                    Obtenir une clé ↗
+                  </a>
+                </>
+              ) : null}
+            </p>
+          </Field>
+
           <Field label="Fournisseur" htmlFor="api-preset">
             <select id="api-preset" value={presetId} onChange={(e) => choosePreset(e.target.value)} className={inputClass}>
               {API_PRESETS.map((p) => (
@@ -117,36 +191,53 @@ export function AddApiDialog({ onClose }: { onClose: () => void }) {
             </Field>
           ) : null}
 
-          <Field label="Modèle" htmlFor="api-model">
-            <input
-              id="api-model"
-              value={model}
-              maxLength={API_LIMITS.model}
-              placeholder={preset.modelPlaceholder}
-              onChange={(e) => setModel(e.target.value)}
-              className={`${inputClass} font-mono text-xs`}
-            />
-          </Field>
 
-          <Field label="Clé API" htmlFor="api-key">
-            <PasswordInput
-              id="api-key"
-              value={apiKey}
-              maxLength={API_LIMITS.apiKey}
-              autoComplete="off"
-              onChange={(e) => setApiKey(e.target.value)}
-              className={`${inputClass} font-mono text-xs`}
-            />
-            <p className="mt-1 text-xs text-fg-muted">
-              Vérifiée puis chiffrée.
-              {preset.keyUrl ? (
-                <>
-                  {" "}
-                  <a href={preset.keyUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-accent hover:underline">
-                    Obtenir une clé ↗
-                  </a>
-                </>
-              ) : null}
+
+          <Field label="Modèle" htmlFor="api-model">
+            {list.state === "ready" ? (
+              <select id="api-model" value={model} onChange={(e) => setModel(e.target.value)} className={`${inputClass} font-mono text-xs`}>
+                <option value="" disabled>
+                  Choisissez un modèle…
+                </option>
+                {suggested.length > 0 ? (
+                  <optgroup label="Recommandés pour Awa">
+                    {suggested.map((id) => (
+                      <option key={id} value={id}>
+                        {id}
+                        {priceTag(id)}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null}
+                <optgroup label={`Tous les modèles de cette clé (${list.models.length})`}>
+                  {list.models.map((id) => (
+                    <option key={id} value={id}>
+                      {id}
+                      {priceTag(id)}
+                    </option>
+                  ))}
+                </optgroup>
+              </select>
+            ) : (
+              <input
+                id="api-model"
+                value={model}
+                maxLength={API_LIMITS.model}
+                placeholder={preset.modelPlaceholder}
+                onChange={(e) => setModel(e.target.value)}
+                className={`${inputClass} font-mono text-xs`}
+              />
+            )}
+            <p className={`mt-1 text-xs ${list.state === "error" ? "text-danger" : "text-fg-muted"}`}>
+              {list.state === "loading"
+                ? "Recherche des modèles de cette clé…"
+                : list.state === "error"
+                  ? `${list.message} Vous pouvez écrire le nom du modèle à la main.`
+                  : list.state === "ready"
+                    ? list.freeOnly
+                      ? "Compte OpenRouter sans crédit : seuls les modèles « :free » marchent (50 messages par jour)."
+                      : "« anthropic/… » = Claude, « openai/… » = GPT, « google/… » = Gemini : passés par OpenRouter, avec la même clé."
+                    : "Collez d'abord la clé : la liste de ses modèles s'affichera ici."}
             </p>
           </Field>
 

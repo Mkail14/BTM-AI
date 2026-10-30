@@ -4,6 +4,7 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { slotHealthId } from "@/lib/ai";
 import { loadAIChain } from "@/lib/ai/registry";
 import { AI_ERROR_LABELS } from "@/lib/ai/flow-events";
+import { flowCutStop, loadFlowCuts } from "@/lib/ai/flow-cuts";
 import { canEncrypt } from "@/lib/ai/secret-box";
 import { deriveModelStatus, freeDailyQuota, getHealth, requestsToday, type NodeStatus } from "@/lib/ai/health";
 import { checkKey } from "@/lib/ai/key-check";
@@ -124,14 +125,29 @@ export default async function AdminModelPage() {
   const admin = getSupabaseAdminClient();
   const hasSalt = Boolean(process.env.RATE_LIMIT_SALT?.trim());
 
-  const [models, limits, brain] = await Promise.all([
+  const [models, limits, brain, cuts] = await Promise.all([
     readModels(),
     loadRateLimitSettings(),
     admin ? readBrainCounts(admin).catch((error: unknown) => (console.error("[admin] Cerveau illisible", error), null)) : null,
+    loadFlowCuts(),
   ]);
 
-  // Même ordre que le secours automatique : la première API ni épuisée ni en panne répond.
-  const servingIndex = models.findIndex((m) => m.status.status === "ok" || m.status.status === "unknown");
+  // Un fil coupé avant les API arrête tous les messages : aucune API ne répond.
+  const stoppedAt = flowCutStop(cuts);
+  // Même ordre que le secours automatique : la première API branchée, ni épuisée ni en panne, répond.
+  const servingIndex = stoppedAt
+    ? -1
+    : models.findIndex((m) => !cuts.has(m.slot.id) && (m.status.status === "ok" || m.status.status === "unknown"));
+  const unplugged: Pick<FlowNode, "status" | "statusLabel" | "reason"> = {
+    status: "error",
+    statusLabel: "Débranché",
+    reason: "Lien coupé : les messages s'arrêtent ici, Awa ne répond plus.",
+  };
+  const unpluggedApi: Pick<FlowNode, "status" | "statusLabel" | "reason"> = {
+    status: "off",
+    statusLabel: "Débranchée",
+    reason: "Lien coupé : cette API n'est plus utilisée.",
+  };
 
   const brainState = (filled: boolean): Pick<FlowNode, "status" | "statusLabel" | "reason"> =>
     !brain
@@ -189,9 +205,15 @@ export default async function AdminModelPage() {
   ];
 
   const nodes: FlowNode[] = [
-    { id: "input", column: 0, icon: "message", title: "Message reçu", status: "ok", statusLabel: "Ouvert" },
+    {
+      id: "input",
+      column: 0,
+      icon: "message",
+      title: "Message reçu",
+      ...(cuts.has("input") ? unplugged : { status: "ok" as const, statusLabel: "Ouvert" }),
+    },
     { id: "guard", column: 1, icon: "shield", title: "Quotas et sécurité", limits, ...guard },
-    ...brainNodes,
+    ...brainNodes.map((n) => (cuts.has(n.id) ? { ...n, ...unplugged } : n)),
     { id: "prompt", column: 3, icon: "prompt", title: "Message système", status: "ok", statusLabel: "Assemblé" },
     ...models.map(
       ({ slot, config, status, api }, index): FlowNode => ({
@@ -208,6 +230,7 @@ export default async function AdminModelPage() {
         apiId: slot.id,
         deletable: slot.source === "db",
         inService: index === servingIndex,
+        ...(cuts.has(slot.id) && unpluggedApi),
       }),
     ),
     {
@@ -217,19 +240,34 @@ export default async function AdminModelPage() {
       title: "Réponse d'Awa",
       status: servingIndex >= 0 ? "ok" : "error",
       statusLabel: servingIndex >= 0 ? "Disponible" : "Bloquée",
+      ...(stoppedAt && { reason: "Un lien est coupé : rebranchez-le pour qu'Awa réponde de nouveau." }),
     },
   ];
 
+  // Chaque lien se coupe (ceux d'un bloc du cerveau vont par deux) ; seul un
+  // fil d'API coupé laisse passer les messages par les autres API.
+  const flowing = !stoppedAt;
   const edges: FlowEdge[] = [
-    { from: "input", to: "guard", live: true },
-    ...brainNodes.map((n) => ({ from: "guard", to: n.id, live: true, muted: n.status === "off" })),
-    ...brainNodes.map((n) => ({ from: n.id, to: "prompt", live: true, muted: n.status === "off" })),
-    ...models.flatMap((m, index) => {
-      const live = index === servingIndex;
-      const muted = m.status.status !== "ok" && m.status.status !== "unknown";
+    { from: "input", to: "guard", live: flowing, cutId: "input", cut: cuts.has("input") },
+    ...brainNodes.flatMap((n) => {
+      const cut = cuts.has(n.id);
+      const link = { live: flowing, muted: cut || n.status === "off", cutId: n.id, cut };
       return [
-        { from: "prompt", to: `model-${m.slot.id}`, live, muted },
-        { from: `model-${m.slot.id}`, to: "output", live, muted },
+        { from: "guard", to: n.id, ...link },
+        { from: n.id, to: "prompt", ...link },
+      ];
+    }),
+    ...models.flatMap((m, index) => {
+      const cut = cuts.has(m.slot.id);
+      const link = {
+        live: index === servingIndex,
+        muted: cut || (m.status.status !== "ok" && m.status.status !== "unknown"),
+        cutId: m.slot.id,
+        cut,
+      };
+      return [
+        { from: "prompt", to: `model-${m.slot.id}`, ...link },
+        { from: `model-${m.slot.id}`, to: "output", ...link },
       ];
     }),
   ];

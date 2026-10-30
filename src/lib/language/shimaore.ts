@@ -13,12 +13,16 @@ export const VALIDATED_SHIMAORE_EXAMPLES: readonly ValidatedExample[] = [];
 /** Consignes linguistiques injectées dans le message système. */
 export function buildLanguageGuidance(
   examples: readonly ValidatedExample[] = VALIDATED_SHIMAORE_EXAMPLES,
+  { master = false }: { master?: boolean } = {},
 ): string {
-  const lines = [
-    "Langues : réponds en français par défaut. Les expressions familières, l'argot ou l'orthographe approximative (« sava », « wesh », « slt ») sont du français : réponds en français, naturellement.",
-    "Shimaoré : n'écris en shimaoré que si la personne te le demande explicitement (ex. « réponds en shimaoré », « comment dit-on … en shimaoré ? »). Ta maîtrise de cette langue est limitée et n'a pas été vérifiée : n'invente pas de mots avec assurance.",
-    "N'ajoute jamais de traduction ni de note entre parenthèses (ex. « (Traduction : …) ») sauf si la personne la demande.",
-  ];
+  // Avec son maître, Awa parle shimaoré (consigne TEACHER) : pas de « français par défaut ».
+  const lines = master
+    ? ["N'ajoute jamais de traduction ni de note entre parenthèses."]
+    : [
+        "Langues : réponds en français par défaut. Les expressions familières, l'argot ou l'orthographe approximative (« sava », « wesh », « slt ») sont du français : réponds en français, naturellement.",
+        "Shimaoré : n'écris en shimaoré que si la personne te le demande explicitement (ex. « réponds en shimaoré », « comment dit-on … en shimaoré ? »). Ta maîtrise de cette langue est limitée et n'a pas été vérifiée : n'invente pas de mots avec assurance.",
+        "N'ajoute jamais de traduction ni de note entre parenthèses (ex. « (Traduction : …) ») sauf si la personne la demande.",
+      ];
 
   if (examples.length > 0) {
     lines.push("Exemples validés par des locuteurs (à privilégier) :");

@@ -8,7 +8,7 @@ import { useChatShell } from "@/components/layout/ChatShell";
 import { useCurrentPersonality } from "@/components/personality/PersonalityContext";
 import { PersonalitySwitcher } from "@/components/personality/PersonalitySwitcher";
 import { PERSONALITIES } from "@/lib/ai/personalities";
-import { IconMenu, IconOffline, IconSave } from "@/components/ui/icons";
+import { IconMenu, IconMic, IconOffline, IconSave } from "@/components/ui/icons";
 import {
   clearAnonymousDraft,
   loadAnonymousDraft,
@@ -22,6 +22,11 @@ import type { ChatStreamEvent, ChatTurn } from "@/lib/chat/types";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
 import { Composer, type ComposerHandle } from "./Composer";
 import { MessageItem, type UiMessage } from "./MessageItem";
+import { useVoiceConversation } from "./useVoiceConversation";
+import { VoiceOverlay } from "./VoiceOverlay";
+import { TeachWordContext } from "./UnknownWord";
+import { teachUnknownWordAction } from "@/app/(chat)/actions";
+import { fillKnownWords, translationTable } from "@/lib/language/unknown-words";
 
 type ChatViewProps = {
   conversationId: string | null;
@@ -78,6 +83,25 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   const stickToBottom = useRef(true);
   const isHome = initialConversationId === null;
   const userId = user?.id ?? null;
+
+  // Mode vocal du maître d'Awa (administrateur) : il lui parle, elle répond à voix haute.
+  const sendRef = useRef<(text: string) => void>(() => {});
+  const voice = useVoiceConversation((text) => sendRef.current(text));
+  const voiceEnabled = Boolean(user?.isAdmin) && voice.supported;
+  const { replied: voiceReplied, stop: stopVoice } = voice;
+
+  // Clic du maître sur un [[mot]] orange : la traduction est retenue pour
+  // toujours, et le mot est remplacé partout dans la conversation affichée.
+  const teachWord = useCallback(async (french: string, shimaore: string) => {
+    const result = await teachUnknownWordAction({ french, shimaore });
+    if (result.ok) {
+      const table = translationTable([{ french, shimaore }]);
+      setMessages((current) =>
+        current.map((m) => (m.role === "assistant" ? { ...m, content: fillKnownWords(m.content, table) } : m)),
+      );
+    }
+    return result;
+  }, []);
 
   // Accueil : reprise de la conversation anonyme conservée dans le navigateur,
   // ou proposition d'enregistrement après connexion.
@@ -169,6 +193,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       let createdConversationId: string | null = null;
       let settled = false;
       let writing = false;
+      // Ce qu'Awa lira à voix haute en mode vocal : sa réponse, ou le message d'erreur.
+      let reply = "";
 
       const handleEvent = (event: ChatStreamEvent) => {
         switch (event.type) {
@@ -180,6 +206,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             // Téléphone : petite vibration quand Awa se met à écrire, puis quand elle a fini.
             if (!writing) hapticWriting();
             writing = true;
+            reply += event.text;
             updateMessage(assistantId, (m) => ({ ...m, content: m.content + event.text }));
             break;
           case "done":
@@ -193,6 +220,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             break;
           case "error":
             settled = true;
+            if (!reply) reply = event.message;
             updateMessage(assistantId, (m) => ({
               ...m,
               status: m.content ? "interrupted" : "error",
@@ -217,6 +245,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
         if (!res.ok || !res.body) {
           const error = await readErrorMessage(res);
           settled = true;
+          reply = error.message;
           if (error.code === "conversation_too_long") setLimitReached(true);
           updateMessage(assistantId, (m) => ({ ...m, status: "error", notice: error.message }));
           return;
@@ -253,13 +282,19 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
         setIsStreaming(false);
         setLiveStatus("Réponse d’Awa terminée.");
         abortRef.current = null;
+        if (controller.signal.aborted) stopVoice();
+        else voiceReplied(reply);
 
         if (userId) refreshConversations();
         if (createdConversationId) router.replace(`/c/${createdConversationId}`, { scroll: false });
       }
     },
-    [conversationId, isStreaming, messages, refreshConversations, router, updateMessage, userId],
+    [conversationId, isStreaming, messages, refreshConversations, router, updateMessage, userId, voiceReplied, stopVoice],
   );
+
+  useEffect(() => {
+    sendRef.current = (text) => void send(text);
+  }, [send]);
 
   const retryLast = useCallback(() => {
     const lastUserIndex = messages.findLastIndex((m) => m.role === "user");
@@ -375,13 +410,15 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
           </div>
         ) : (
           <section aria-label="Conversation" className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6">
-            {messages.map((message) => (
-              <MessageItem
-                key={message.id}
-                message={message}
-                onRetry={message.id === retryTargetId ? retryLast : undefined}
-              />
-            ))}
+            <TeachWordContext value={user?.isAdmin ? teachWord : null}>
+              {messages.map((message) => (
+                <MessageItem
+                  key={message.id}
+                  message={message}
+                  onRetry={message.id === retryTargetId ? retryLast : undefined}
+                />
+              ))}
+            </TeachWordContext>
           </section>
         )}
       </div>
@@ -446,6 +483,11 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             </div>
           ) : null}
 
+          {voiceEnabled && voice.error ? (
+            <p role="alert" className="mb-2 text-center text-sm text-danger">
+              {voice.error}
+            </p>
+          ) : null}
           <Composer
             ref={composerRef}
             isStreaming={isStreaming}
@@ -454,6 +496,20 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             onSend={(text) => void send(text)}
             onStop={() => abortRef.current?.abort()}
             leading={<PersonalitySwitcher />}
+            trailing={
+              voiceEnabled ? (
+                <button
+                  type="button"
+                  onClick={voice.start}
+                  disabled={blocked || !online || isStreaming}
+                  aria-label="Parler à Awa"
+                  title="Parler à Awa"
+                  className="grid size-9 shrink-0 place-items-center rounded-full text-fg-muted transition pointer-coarse:size-10 hover:bg-bg-muted hover:text-fg disabled:opacity-45"
+                >
+                  <IconMic />
+                </button>
+              ) : null
+            }
           />
         </div>
       </div>
@@ -461,6 +517,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       <p className="sr-only" role="status" aria-live="polite">
         {liveStatus}
       </p>
+      {voiceEnabled ? <VoiceOverlay voice={voice} /> : null}
     </div>
   );
 }

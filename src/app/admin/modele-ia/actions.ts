@@ -5,8 +5,9 @@ import { z } from "zod";
 import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/action-auth";
 import { createProvider, slotHealthId } from "@/lib/ai";
 import { AI_PROVIDERS } from "@/lib/ai/config";
+import { isCuttableBlock } from "@/lib/ai/flow-cuts";
 import { recordFailure, recordSuccess } from "@/lib/ai/health";
-import { checkKey } from "@/lib/ai/key-check";
+import { checkKey, listModels } from "@/lib/ai/key-check";
 import { invalidateAIChain, loadAIChain, storedSlot } from "@/lib/ai/registry";
 import { canEncrypt, encryptSecret } from "@/lib/ai/secret-box";
 import { AIProviderError } from "@/lib/ai/types";
@@ -99,6 +100,11 @@ export async function addApiAction(input: unknown): Promise<ActionResult> {
   if (!check.ok && check.code === "auth") {
     return { ok: false, message: `Le fournisseur refuse cette clé : ${check.message}` };
   }
+  // Nom de modèle inventé (« gpt ») : refusé tout de suite plutôt qu'à chaque message.
+  const available = await listModels(slot.result.config);
+  if (available.ok && !available.models.includes(model)) {
+    return { ok: false, message: `Le modèle « ${model} » n'existe pas pour cette clé : choisissez-le dans la liste.` };
+  }
 
   const { data: last } = await admin.from("ai_providers").select("position").order("position", { ascending: false }).limit(1);
   const { error } = await admin
@@ -115,6 +121,36 @@ export async function addApiAction(input: unknown): Promise<ActionResult> {
     ok: true,
     message: check.ok ? `${label} ajoutée et connectée.` : `${label} ajoutée (vérification impossible pour l'instant).`,
   };
+}
+
+const listSchema = z.object({
+  provider: z.enum(AI_PROVIDERS),
+  baseUrl: z.string().trim().max(API_LIMITS.baseUrl),
+  apiKey: z.string().trim().min(1).max(API_LIMITS.apiKey),
+});
+
+/** Fenêtre d'ajout : les modèles auxquels la clé donne accès, pour ne pas avoir à deviner leur nom. */
+export async function listModelsAction(
+  input: unknown,
+): Promise<{ ok: true; models: string[]; freeOnly: boolean } | { ok: false; message: string }> {
+  if (!(await requireAdminAction())) return { ok: false, message: NOT_ADMIN.message };
+  const parsed = listSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Clé ou adresse invalide." };
+  const { provider, baseUrl, apiKey } = parsed.data;
+  if (provider === "openai-compatible" && !/^https?:\/\/\S+$/.test(baseUrl)) return { ok: false, message: "Indiquez l'adresse de l'API." };
+  const config = { provider, baseUrl: baseUrl || undefined, apiKey };
+  // OpenRouter donne sa liste à tout le monde : la fiche de la clé dit si elle
+  // est valide et si le compte a du crédit (sinon, seuls les modèles « :free » marchent).
+  const isOpenRouter = /openrouter\.ai/.test(baseUrl);
+  const [list, check] = await Promise.all([
+    listModels(config),
+    isOpenRouter
+      ? checkKey({ ...config, model: "", maxOutputTokens: 0, timeoutMs: 0, effort: "low", disableReasoning: false })
+      : null,
+  ]);
+  if (check && !check.ok) return { ok: false, message: check.code === "auth" ? "Clé refusée par OpenRouter." : check.message };
+  if (!list.ok) return list;
+  return { ...list, freeOnly: Boolean(check?.ok && check.credit?.freeTier) };
 }
 
 /** Supprime une API ajoutée depuis l'admin ; celles des variables du serveur ne se suppriment pas ici. */
@@ -136,6 +172,40 @@ export async function deleteApiAction(slotId: unknown): Promise<ActionResult> {
   invalidateAIChain();
   revalidatePath("/admin/modele-ia");
   return { ok: true, message: "API supprimée." };
+}
+
+/**
+ * Coupe ou rebranche un lien du schéma (comme dans n8n). Un lien coupé arrête
+ * les messages (voir flowCutStop) ; une API coupée est seulement sautée tant
+ * qu'une autre reste branchée.
+ */
+export async function setFlowCutAction(blockId: unknown, cut: unknown): Promise<ActionResult> {
+  const auth = await requireAdminAction();
+  if (!auth) return NOT_ADMIN;
+  const admin = getSupabaseAdminClient();
+  if (!admin) return { ok: false, message: "SUPABASE_SECRET_KEY n'est pas définie sur le serveur." };
+  if (!isCuttableBlock(blockId) || typeof cut !== "boolean") return { ok: false, message: "Lien inconnu." };
+
+  const { data, error: readError } = await admin.from("awa_settings").select("flow_cuts").eq("id", 1).maybeSingle();
+  if (readError) {
+    console.error("[admin] Liens coupés illisibles", readError);
+    return { ok: false, message: "Lecture impossible (migration 20261105000000_flow_cuts.sql appliquée ?)." };
+  }
+  const cuts = new Set(Array.isArray(data?.flow_cuts) ? data.flow_cuts.filter(isCuttableBlock) : []);
+  if (cut) cuts.add(blockId);
+  else cuts.delete(blockId);
+
+  const { error } = await admin
+    .from("awa_settings")
+    .update({ flow_cuts: [...cuts], updated_by: auth.user.id })
+    .eq("id", 1);
+  if (error) {
+    console.error("[admin] Enregistrement du lien impossible", error);
+    return { ok: false, message: "L'enregistrement a échoué (migration 20261105000000_flow_cuts.sql appliquée ?)." };
+  }
+
+  revalidatePath("/admin/modele-ia");
+  return { ok: true, message: cut ? "Lien coupé : Awa ne répond plus par ce chemin." : "Lien rebranché." };
 }
 
 /** Enregistre les quotas de messages (bloc « Quotas et sécurité »). */

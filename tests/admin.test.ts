@@ -1,3 +1,4 @@
+import { detectPreset } from "@/app/admin/modele-ia/presets";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { buildAdminAlerts } from "@/lib/admin/alerts";
@@ -73,5 +74,17 @@ describe("supabaseDashboardLink", () => {
       "https://supabase.com/dashboard/project/abcdefghijklmnopqrst/auth/users",
     );
     assert.equal(supabaseDashboardLink("http://localhost:54321", "auth/users"), null);
+  });
+});
+
+describe("detectPreset", () => {
+  it("reconnaît le fournisseur au début de la clé", () => {
+    assert.equal(detectPreset("sk-or-v1-abc")?.id, "openrouter");
+    assert.equal(detectPreset("  sk-proj-abc")?.id, "openai");
+    assert.equal(detectPreset("sk-ant-api03-abc")?.id, "anthropic");
+    assert.equal(detectPreset("gsk_abc")?.id, "groq");
+    assert.equal(detectPreset("AIzaSyabc")?.id, "gemini");
+    // Ancienne clé « sk-… » : OpenAI ou DeepSeek, on laisse choisir.
+    assert.equal(detectPreset("sk-0123456789abcdef"), undefined);
   });
 });

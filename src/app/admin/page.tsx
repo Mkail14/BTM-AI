@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import { AdminMenu } from "@/components/admin/AdminMenu";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { IconMic } from "@/components/ui/icons";
 import { buildAdminAlerts, type AdminAlert } from "@/lib/admin/alerts";
 import {
   getAdminOverview,
@@ -108,7 +109,7 @@ const ALERT_STYLES: Record<AdminAlert["level"], { label: string; icon: string; b
 
 function Alerts({ alerts }: { alerts: AdminAlert[] }) {
   return (
-    <ul className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+    <ul className="grid gap-2 md:grid-cols-2 lg:grid-cols-1">
       {alerts.map((alert) => {
         const style = ALERT_STYLES[alert.level];
         return (
@@ -419,7 +420,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
     : "Statistiques indisponibles : SUPABASE_SECRET_KEY n'est pas définie.";
 
   return (
-    // Tableau de bord sur un seul écran seulement s'il est assez haut (pas sur iPad en paysage, 768 px).
+    // Tableau de bord sur un seul écran dès 1024 × 600 px (variante desk) ; en dessous, la page défile.
     <div className="flex min-h-dvh flex-col bg-bg-subtle desk:h-dvh desk:overflow-hidden">
       <header className="shrink-0 border-b border-border bg-bg">
         <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-4">
@@ -436,6 +437,13 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
           </p>
           <div className="ml-auto flex shrink-0 items-center gap-3 text-sm">
             <span className="hidden max-w-56 truncate text-fg-muted xl:inline">{user.email}</span>
+            {/* Le globe : le maître d'Awa lui parle et lui apprend le shimaoré. */}
+            <Link
+              href="/voix"
+              className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3.5 py-1.5 font-medium text-accent-fg hover:bg-accent-hover"
+            >
+              <IconMic width={16} height={16} /> Parler à Awa
+            </Link>
             <SignOutButton />
           </div>
         </div>
@@ -449,15 +457,17 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
       >
         <h1 className="sr-only">Tableau de bord BTM AI</h1>
 
-        {/* Rien quand tout va bien ; un bandeau sur toute la largeur seulement en cas de problème. */}
+        {/* Rien quand tout va bien ; en cas de problème, en tête sur mobile et au-dessus des comptes sur ordinateur. */}
         {alerts.length > 0 ? (
-          <section aria-label="Problèmes à régler" className="lg:col-span-2">
+          <section aria-label="Problèmes à régler" className="lg:col-start-2 lg:row-start-1">
             <Alerts alerts={alerts} />
           </section>
         ) : null}
 
         {/* Colonne principale : chiffres, activité, qualité, réglages */}
-        <div className="flex min-h-0 flex-col gap-4">
+        <div
+          className={`flex min-h-0 flex-col gap-4 lg:col-start-1 lg:row-start-1 ${alerts.length > 0 ? "lg:row-span-2" : ""}`}
+        >
           {overview ? (
             <dl className="grid shrink-0 grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5" aria-label="Chiffres clés">
               <Tile
@@ -485,7 +495,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
             id="activite"
             title="Questions des comptes connectés · 14 jours"
             aside={overview ? `${fmt(overview.questions7d)} sur 7 j · ${fmt(overview.questions30d)} sur 30 j` : undefined}
-            className="min-h-64 flex-1"
+            className="min-h-64 flex-1 desk:min-h-0"
           >
             {overview ? <ActivityChart daily={overview.daily} /> : <Unavailable>{statsMissing}</Unavailable>}
           </Card>
@@ -501,12 +511,12 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
         </div>
 
         {/* Colonne latérale : comptes, raccourcis */}
-        <div className="flex min-h-0 flex-col gap-4">
+        <div className={`flex min-h-0 flex-col gap-4 lg:col-start-2 ${alerts.length > 0 ? "lg:row-start-2" : "lg:row-start-1"}`}>
           <Card
             id="comptes"
             title={usersPage ? `Comptes (${fmt(usersPage.total)})` : "Comptes"}
             aside={overview ? `${fmt(overview.conversationsTotal)} conversations` : undefined}
-            className="min-h-72 flex-1"
+            className="min-h-72 flex-1 desk:min-h-40"
           >
             {usersPage ? (
               <>

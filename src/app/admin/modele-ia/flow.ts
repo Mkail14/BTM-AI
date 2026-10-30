@@ -55,6 +55,10 @@ export type FlowEdge = {
   live?: boolean;
   /** Chemin coupé (API épuisée, en erreur ou non configurée). */
   muted?: boolean;
+  /** Bloc débranché quand on coupe ce lien (absent : lien qui ne se coupe pas). */
+  cutId?: string;
+  /** Lien coupé par l'administrateur. */
+  cut?: boolean;
 };
 
 export const STATUS_STYLES: Record<NodeStatus, { dot: string; pill: string; border: string }> = {

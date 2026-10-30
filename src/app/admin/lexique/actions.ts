@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/action-auth";
 import { invalidateAwaBrain } from "@/lib/ai/brain";
+import { teachWords } from "@/lib/ai/words-store";
+import { parseWordList } from "@/lib/language/teaching";
 import { LEXICON_LIMITS, WORD_LIMITS } from "./limits";
 
 const variant = z.string().trim().max(LEXICON_LIMITS.phrase);
@@ -107,4 +109,28 @@ export async function deleteWordAction(id: unknown): Promise<ActionResult> {
     return { ok: false, message: "La suppression a échoué." };
   }
   return done("Mot supprimé.");
+}
+
+const importSchema = z.object({
+  text: z.string().max(200_000, "Liste trop longue : collez-la en plusieurs fois."),
+  category: z.string().trim().max(WORD_LIMITS.category),
+});
+
+/** Liste collée (une paire « français = shimaoré » par ligne) : la dernière traduction d'un mot remplace l'ancienne. */
+export async function importWordsAction(input: unknown): Promise<ActionResult> {
+  const auth = await requireAdminAction();
+  if (!auth) return NOT_ADMIN;
+  const parsed = importSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Données invalides." };
+
+  const { words, rejected } = parseWordList(parsed.data.text);
+  if (words.length === 0) return { ok: false, message: "Aucune ligne « français = shimaoré » trouvée." };
+  try {
+    await teachWords(auth.supabase, auth.user.id, words, parsed.data.category || null);
+  } catch (error) {
+    console.error("[admin] Import du dictionnaire impossible", error);
+    return { ok: false, message: "L'import a échoué (migration 20261103000000_awa_words.sql appliquée ?)." };
+  }
+  const skipped = rejected.length ? ` ${rejected.length} ligne${rejected.length > 1 ? "s" : ""} ignorée${rejected.length > 1 ? "s" : ""} : ${rejected.slice(0, 3).join(" · ")}${rejected.length > 3 ? "…" : ""}` : "";
+  return done(`${words.length} mot${words.length > 1 ? "s" : ""} appris.${skipped}`);
 }

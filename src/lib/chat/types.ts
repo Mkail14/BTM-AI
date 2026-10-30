@@ -22,6 +22,7 @@ export type ChatErrorCode =
   | "timeout"
   | "refusal"
   | "service_unavailable"
+  | "flow_cut"
   | "internal";
 
 /** Événements du flux NDJSON renvoyé par /api/chat. */

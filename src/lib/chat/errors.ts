@@ -17,6 +17,7 @@ export const CHAT_ERROR_MESSAGES: Record<ChatErrorCode, string> = {
   timeout: "La réponse a pris trop de temps. Réessayez.",
   refusal: "BTM AI ne peut pas répondre à cette demande.",
   service_unavailable: "Le service est momentanément indisponible. Réessayez plus tard.",
+  flow_cut: "Awa est en pause pour le moment. Réessayez un peu plus tard.",
   internal: "Une erreur inattendue s'est produite. Réessayez.",
 };
 
