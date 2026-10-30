@@ -51,9 +51,52 @@ export function thinkingSettings(model: string): ThinkingConfig[] {
   return [];
 }
 
+/** Profil d'Awa : flash ou flash-lite stables (ni « preview », ni « pro », ni image ou voix). */
+const FALLBACK_MODEL = /^gemini-[\d.]+-flash(-lite)?$/;
+const MAX_MODEL_TRIES = 4;
+const MODELS_CACHE_MS = 60 * 60_000;
+/** Un modèle sans quota est mis de côté ce temps-là avant d'être réessayé. */
+const EXHAUSTED_MS = 30 * 60_000;
+
+const keyId = (apiKey: string) => apiKey.slice(-8);
+const modelsCache = new Map<string, { models: string[]; expiresAt: number }>();
+const exhausted = new Map<string, number>();
+
+/**
+ * Autres modèles de la clé à essayer quand le modèle choisi est sans quota :
+ * chez Google, chaque modèle a son propre quota (souvent 0 en gratuit pour
+ * les plus récents, alors que les « flash-lite » ou versions précédentes en ont).
+ * Du plus récent au plus ancien, flash avant flash-lite à version égale.
+ */
+export function fallbackModels(available: readonly string[], chosen: string): string[] {
+  const version = (id: string) => (id.match(/^gemini-([\d.]+)/)?.[1] ?? "0").split(".").map(Number);
+  const newer = (a: string, b: string) => {
+    const [va, vb] = [version(a), version(b)];
+    for (let i = 0; i < Math.max(va.length, vb.length); i++) if ((va[i] ?? 0) !== (vb[i] ?? 0)) return (vb[i] ?? 0) - (va[i] ?? 0);
+    return Number(a.endsWith("-lite")) - Number(b.endsWith("-lite"));
+  };
+  return available.filter((id) => id !== chosen && FALLBACK_MODEL.test(id)).sort(newer);
+}
+
+async function listKeyModels(config: AIConfig, signal: AbortSignal): Promise<string[]> {
+  const cached = modelsCache.get(keyId(config.apiKey));
+  if (cached && cached.expiresAt > Date.now()) return cached.models;
+  try {
+    const response = await fetch(`${geminiRoot(config.baseUrl)}/models?pageSize=1000`, { headers: geminiHeaders(config.apiKey), signal });
+    if (!response.ok) return [];
+    const json = (await response.json()) as { models?: { name?: string; supportedGenerationMethods?: string[] }[] };
+    const models = (json.models ?? [])
+      .filter((m) => m.supportedGenerationMethods?.includes("generateContent") && typeof m.name === "string")
+      .map((m) => m.name!.replace(/^models\//, ""));
+    modelsCache.set(keyId(config.apiKey), { models, expiresAt: Date.now() + MODELS_CACHE_MS });
+    return models;
+  } catch {
+    return [];
+  }
+}
+
 export function createGeminiProvider(config: AIConfig): AIProvider {
-  const model = config.model.replace(/^models\//, "");
-  const endpoint = `${geminiRoot(config.baseUrl)}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`;
+  const chosen = config.model.replace(/^models\//, "");
 
   return {
     id: "gemini",
@@ -61,8 +104,8 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
       const timeoutSignal = AbortSignal.timeout(config.timeoutMs);
       const combined = AbortSignal.any([signal, timeoutSignal]);
 
-      const request = (thinkingConfig: ThinkingConfig | null) =>
-        fetch(endpoint, {
+      const request = (model: string, thinkingConfig: ThinkingConfig | null) =>
+        fetch(`${geminiRoot(config.baseUrl)}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
           method: "POST",
           headers: geminiHeaders(config.apiKey),
           body: JSON.stringify({
@@ -73,25 +116,53 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
           signal: combined,
         });
 
-      // Réglages de réflexion du plus rapide au plus sûr : un réglage que le modèle
-      // refuse (400 qui parle de « thinking ») est retiré au lieu de faire échouer la réponse.
-      const attempts = config.disableReasoning ? [...thinkingSettings(model), null] : [null];
-      let response!: Response;
-      for (const [index, thinkingConfig] of attempts.entries()) {
-        try {
-          response = await request(thinkingConfig);
-        } catch (error) {
-          if (signal.aborted) throw new AIProviderError("aborted", "Requête annulée", { cause: error });
-          if (timeoutSignal.aborted) throw new AIProviderError("timeout", "Délai dépassé", { cause: error });
-          throw new AIProviderError("unavailable", "Connexion à Gemini impossible", { cause: error });
+      /** Ouvre la réponse d'un modèle ; null si ce modèle n'a pas de quota ou n'existe pas (on passe au suivant). */
+      const open = async (model: string): Promise<Response | null> => {
+        // Réglages de réflexion du plus rapide au plus sûr : un réglage que le modèle
+        // refuse (400 qui parle de « thinking ») est retiré au lieu de faire échouer la réponse.
+        const attempts = config.disableReasoning ? [...thinkingSettings(model), null] : [null];
+        for (const [index, thinkingConfig] of attempts.entries()) {
+          let response: Response;
+          try {
+            response = await request(model, thinkingConfig);
+          } catch (error) {
+            if (signal.aborted) throw new AIProviderError("aborted", "Requête annulée", { cause: error });
+            if (timeoutSignal.aborted) throw new AIProviderError("timeout", "Délai dépassé", { cause: error });
+            throw new AIProviderError("unavailable", "Connexion à Gemini impossible", { cause: error });
+          }
+          if (response.ok && response.body) return response;
+          const body = await response.text().catch(() => "");
+          if (response.status === 429 || response.status === 404) {
+            exhausted.set(`${keyId(config.apiKey)}:${model}`, Date.now() + EXHAUSTED_MS);
+            lastError = errorFromStatus(response.status, body);
+            return null;
+          }
+          const last = index === attempts.length - 1;
+          if (last || response.status !== 400 || !/thinking/i.test(body)) throw errorFromStatus(response.status, body);
         }
-        if (response.ok && response.body) break;
-        const body = await response.text().catch(() => "");
-        const last = index === attempts.length - 1;
-        if (last || response.status !== 400 || !/thinking/i.test(body)) throw errorFromStatus(response.status, body);
-      }
+        return null;
+      };
 
-      // Corps présent : la boucle ci-dessus ne sort qu'avec une réponse ok et un flux.
+      let lastError: AIProviderError | null = null;
+      const resting = (model: string) => (exhausted.get(`${keyId(config.apiKey)}:${model}`) ?? 0) > Date.now();
+      let response: Response | null = null;
+      let alternatives: string[] | null = null;
+      const tried = new Set<string>();
+      // Le modèle choisi d'abord (sauf s'il vient d'être refusé), puis les autres modèles de la clé.
+      for (let i = 0; i < MAX_MODEL_TRIES && !response; i++) {
+        let model: string | undefined = !tried.has(chosen) && !resting(chosen) ? chosen : undefined;
+        if (!model) {
+          alternatives ??= fallbackModels(await listKeyModels(config, combined), chosen);
+          model = alternatives.find((id) => !tried.has(id) && !resting(id)) ?? alternatives.find((id) => !tried.has(id));
+        }
+        if (!model) break;
+        tried.add(model);
+        response = await open(model);
+        if (response && model !== chosen) console.info(`[ai] Gemini : « ${chosen} » sans quota, réponse par « ${model} »`);
+      }
+      if (!response) throw lastError ?? new AIProviderError("quota", "Aucun modèle Gemini de cette clé n'a de quota disponible");
+
+      // Corps présent : open() ne renvoie qu'une réponse ok avec un flux.
       const reader = response.body!.pipeThrough(new TextDecoderStream()).getReader();
       const parser = createSseDataParser();
       let finish: FinishReason = "other";
