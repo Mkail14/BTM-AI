@@ -47,6 +47,8 @@ export type PromptContext = {
   teacher?: boolean;
   /** Message dicté à la voix (mode vocal) : réponse lue à voix haute. */
   voice?: boolean;
+  /** Awa signale les mots shimaoré qu'elle ne connaît pas (balise retirée par le serveur). */
+  reportUnknownWords?: boolean;
   /** Awa sur un autre site de GROUPE BTM (route /api/awa) : rôle sur place et données du site. */
   site?: { intro: string; instructions: string; data?: string | null };
 };
@@ -66,6 +68,10 @@ const TEACHER = [
   "- INTERDIT : traduction, explication en français, note, parenthèse ou ligne « Traduction : » après ta réponse. Une seule réponse, en shimaoré, avec seulement des [[mots en français]] quand il le faut.",
   "- Quand il te donne une traduction ou te corrige, réutilise aussitôt le mot dans ta réponse, en shimaoré. Ce qu'il t'apprend prime sur ce que tu crois savoir, et c'est retenu automatiquement.",
 ].join("\n");
+
+// La balise est retirée de la réponse par le serveur (createUnknownTagFilter) et le mot part à l'admin.
+const UNKNOWN_WORDS =
+  "Mots shimaoré inconnus : si la personne emploie un mot ou une expression en shimaoré qui n'est pas dans le vocabulaire validé et dont tu n'es pas certaine du sens, ne devine pas. Dis-lui simplement que tu ne connais pas encore ce mot et que tu vas demander à l'équipe de GROUPE BTM de te l'apprendre. Puis termine ta réponse par une dernière ligne exactement de cette forme, avec les mots tels qu'elle les a écrits : <<inconnu: mot1 | mot2>>. Cette ligne est invisible pour la personne. N'ajoute jamais cette ligne pour un mot français.";
 
 // Non modifiable depuis la base, et placé en fin de message système : sans elle, les petits modèles remplissent.
 const BREVITY =
@@ -137,6 +143,8 @@ export function buildSystemPrompt(
 
   // Le site partenaire et la voix ont leurs propres consignes de longueur.
   if (!context.site && !context.voice) sections.push(BREVITY);
+  // Le maître apprend directement à Awa : rien à lui demander.
+  if (context.reportUnknownWords && !context.teacher) sections.push(UNKNOWN_WORDS);
   if (context.teacher) sections.push(TEACHER);
   if (context.voice) sections.push(VOICE);
   sections.push(SECURITY);

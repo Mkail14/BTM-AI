@@ -5,7 +5,8 @@ import { requireAdmin } from "@/lib/auth/session";
 import { LexiconEditor } from "./LexiconEditor";
 import { readVariants } from "@/lib/ai/brain";
 import { PERSONALITY_IDS } from "@/lib/ai/personalities";
-import type { LexiconRow, LexiconVariants, WordRow } from "./limits";
+import type { LexiconRow, LexiconVariants, WordRequestRow, WordRow } from "./limits";
+import { WordRequests } from "./WordRequests";
 import { WordsPanel } from "./WordsPanel";
 
 export const metadata: Metadata = { title: "Lexique shimaoré", robots: { index: false, follow: false } };
@@ -20,7 +21,7 @@ function toVariants(shimaore: string, stored: unknown): LexiconVariants {
 
 export default async function AdminLexiconPage() {
   const { supabase, user } = await requireAdmin("/admin/lexique");
-  const [lexicon, words] = await Promise.all([
+  const [lexicon, words, requests] = await Promise.all([
     supabase
       .from("awa_lexicon")
       // « * » : la colonne variants peut ne pas exister encore (migration lexicon_variants).
@@ -32,9 +33,16 @@ export default async function AdminLexiconPage() {
       .select("id, french, shimaore, category, is_active")
       .order("french")
       .limit(5000),
+    supabase
+      .from("awa_word_requests")
+      .select("id, shimaore, example, occurrences, last_seen_at")
+      .eq("status", "pending")
+      .order("last_seen_at", { ascending: false })
+      .limit(200),
   ]);
   if (lexicon.error) console.error("[admin] Lexique illisible", lexicon.error);
   if (words.error) console.error("[admin] Dictionnaire illisible", words.error);
+  if (requests.error) console.error("[admin] Mots à traduire illisibles", requests.error);
 
   const rows: LexiconRow[] = (lexicon.data ?? []).map((r) => ({
     id: r.id,
@@ -53,6 +61,14 @@ export default async function AdminLexiconPage() {
     isActive: r.is_active,
   }));
 
+  const requestRows: WordRequestRow[] = (requests.data ?? []).map((r) => ({
+    id: r.id,
+    shimaore: r.shimaore,
+    example: r.example ?? "",
+    occurrences: r.occurrences,
+    lastSeenAt: r.last_seen_at,
+  }));
+
   return (
     <div className="flex min-h-dvh flex-col bg-bg-subtle">
       <AdminHeader section="Lexique shimaoré" email={user.email} />
@@ -62,6 +78,9 @@ export default async function AdminLexiconPage() {
           shimaoré ; sans expression active, elle utilise les exemples intégrés au code.
         </PageIntro>
         {lexicon.error ? <MigrationWarning file="20261029000000_awa_brain.sql" /> : null}
+        <div className="mt-4 empty:hidden">
+          <WordRequests rows={requestRows} unavailable={Boolean(requests.error)} />
+        </div>
         <div className="mt-4 grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(22rem,30rem)]">
           <LexiconEditor rows={rows} />
           <WordsPanel rows={wordRows} unavailable={Boolean(words.error)} />

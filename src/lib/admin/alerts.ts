@@ -13,6 +13,8 @@ type AlertInput = {
   hasSecretKey: boolean;
   hasRateLimitSalt: boolean;
   overview: AdminOverview | null;
+  /** Mots shimaoré qu'Awa n'a pas compris, en attente de traduction (0 si la table manque). */
+  wordsToTranslate?: number;
   /** Construit un lien vers le tableau de bord Supabase (null si inconnu). */
   supabaseLink: (path: string) => string | null;
 };
@@ -28,6 +30,7 @@ export function buildAdminAlerts({
   hasSecretKey,
   hasRateLimitSalt,
   overview,
+  wordsToTranslate = 0,
   supabaseLink,
 }: AlertInput): AdminAlert[] {
   const alerts: AdminAlert[] = [];
@@ -94,6 +97,15 @@ export function buildAdminAlerts({
         detail: `Limite : ${overview.userDailyLimit} messages par jour et par compte.`,
       });
     }
+  }
+
+  if (wordsToTranslate > 0) {
+    alerts.push({
+      level: "info",
+      title: `${wordsToTranslate} mot${wordsToTranslate > 1 ? "s" : ""} shimaoré à traduire`,
+      detail: "Des utilisateurs ont employé des mots qu'Awa ne connaît pas. Donnez la traduction : elle les saura au message suivant.",
+      action: { label: "Traduire dans le lexique", href: "/admin/lexique" },
+    });
   }
 
   return alerts;

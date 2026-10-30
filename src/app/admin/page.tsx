@@ -126,7 +126,11 @@ function Alerts({ alerts }: { alerts: AdminAlert[] }) {
                 {alert.title}
               </p>
               <p className="mt-0.5 text-fg-muted">{alert.detail}</p>
-              {alert.action ? (
+              {alert.action?.href.startsWith("/") ? (
+                <Link href={alert.action.href} className="mt-1 inline-block font-medium text-accent hover:underline">
+                  {alert.action.label} →
+                </Link>
+              ) : alert.action ? (
                 <a
                   href={alert.action.href}
                   target="_blank"
@@ -408,11 +412,16 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
     else console.error("[admin] Liste des comptes indisponible", usersResult.reason);
   }
 
+  const wordsToTranslate = admin
+    ? ((await admin.from("awa_word_requests").select("id", { count: "exact", head: true }).eq("status", "pending")).count ?? 0)
+    : 0;
+
   const alerts = buildAdminAlerts({
     aiProblem: ai.ok ? null : ai.reason,
     hasSecretKey: Boolean(admin),
     hasRateLimitSalt: hasSalt,
     overview,
+    wordsToTranslate,
     supabaseLink,
   });
   const statsMissing = admin

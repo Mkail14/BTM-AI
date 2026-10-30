@@ -22,7 +22,9 @@ import { startFlowTrace } from "@/lib/ai/flow-trace";
 import { ALL_APIS_CUT, flowCutStop, loadFlowCuts } from "@/lib/ai/flow-cuts";
 import { extractMemories, type MemoryFact } from "@/lib/ai/memory";
 import { getMemories, learnFromMessage, saveMemories } from "@/lib/ai/memory-store";
+import { collectUnknownWords } from "@/lib/ai/word-requests";
 import { learnWordsFromMessage, teachWords } from "@/lib/ai/words-store";
+import { createUnknownTagFilter } from "@/lib/language/unknown-tag";
 import { parseTeaching, type WordList } from "@/lib/language/teaching";
 import { enforceShimaore, fillKnownWords } from "@/lib/language/unknown-words";
 import { DEFAULT_PERSONALITY, type PersonalityId } from "@/lib/ai/personalities";
@@ -293,6 +295,7 @@ export async function POST(request: NextRequest) {
     memories,
     teacher: master,
     voice: body.voice,
+    reportUnknownWords: true,
   });
   flow.step("prompt", true);
 
@@ -335,6 +338,28 @@ export async function POST(request: NextRequest) {
 
       if (conversationId) send({ type: "meta", conversationId });
 
+      // Hors mode maître : la balise des mots shimaoré inconnus (« <<inconnu: …>> »)
+      // est retirée du flux ; les mots partent dans la liste « À traduire » de l'admin.
+      const tagFilter = createUnknownTagFilter();
+      let shown = "";
+      let tagClosed = false;
+      const closeTag = () => {
+        if (master || tagClosed) return;
+        tagClosed = true;
+        const { rest, words } = tagFilter.end();
+        if (rest) {
+          shown += rest;
+          send({ type: "delta", text: rest });
+        }
+        text = shown.trimEnd();
+        const known = [...brain.lexicon, ...brain.words].map((entry) => entry.shimaore);
+        after(() =>
+          collectUnknownWords(ai.provider, { message: body.message, tagged: words, known }).catch((error: unknown) =>
+            console.error("[chat] Mots inconnus non signalés", error),
+          ),
+        );
+      };
+
       // Mode maître : la réponse est corrigée en entier (enforceShimaore) avant
       // d'être envoyée d'un bloc, puis enregistrée telle qu'elle a été montrée.
       let flushed = false;
@@ -358,13 +383,18 @@ export async function POST(request: NextRequest) {
         })) {
           if (chunk.type === "text") {
             text += chunk.text;
-            if (!master) send({ type: "delta", text: chunk.text });
+            if (!master) {
+              const visible = tagFilter.push(chunk.text);
+              shown += visible;
+              if (visible) send({ type: "delta", text: visible });
+            }
           } else {
             finish = chunk.reason;
           }
         }
 
         flush();
+        closeTag();
         if (finish === "refusal" && !text) {
           status = "error";
           flow.step("output", false, "refus du modèle");
@@ -385,11 +415,13 @@ export async function POST(request: NextRequest) {
           // Toutes les API en échec : le blocage est déjà montré sur chacune.
           if (answeredBy) flow.step("output", false, code === "timeout" ? "réponse trop lente" : "réponse interrompue");
           flush();
+          closeTag();
           status = text ? "interrupted" : "error";
           send({ type: "error", code, message: chatErrorBody(code).error.message });
         }
       } finally {
         if (master && !flushed) text = toShimaore(text);
+        closeTag();
         if (user && supabase && conversationId) {
           try {
             await insertMessage(supabase, {

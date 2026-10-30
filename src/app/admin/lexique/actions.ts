@@ -111,6 +111,52 @@ export async function deleteWordAction(id: unknown): Promise<ActionResult> {
   return done("Mot supprimé.");
 }
 
+const requestSchema = z.object({
+  id: z.uuid(),
+  french: z.string().trim().min(1, "Écrivez la traduction en français.").max(WORD_LIMITS.word),
+});
+
+/** Mot shimaoré signalé par Awa : la traduction entre dans le dictionnaire, Awa le saura au message suivant. */
+export async function translateRequestAction(input: unknown): Promise<ActionResult> {
+  const auth = await requireAdminAction();
+  if (!auth) return NOT_ADMIN;
+  const parsed = requestSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Données invalides." };
+
+  const { data: request, error: readError } = await auth.supabase
+    .from("awa_word_requests")
+    .select("shimaore")
+    .eq("id", parsed.data.id)
+    .maybeSingle();
+  if (readError || !request) return { ok: false, message: "Demande introuvable (migration awa_word_requests appliquée ?)." };
+
+  try {
+    await teachWords(auth.supabase, auth.user.id, [{ french: parsed.data.french, shimaore: request.shimaore }]);
+  } catch (error) {
+    console.error("[admin] Traduction non enregistrée", error);
+    return { ok: false, message: "L'enregistrement a échoué." };
+  }
+  const { error } = await auth.supabase.from("awa_word_requests").update({ status: "done" }).eq("id", parsed.data.id);
+  if (error) console.error("[admin] Demande non marquée comme traitée", error);
+  return done(`« ${request.shimaore} » = « ${parsed.data.french} » : Awa le sait maintenant.`);
+}
+
+/** Mot signalé à tort (faute de frappe, mot français…) : retiré de la liste sans rien apprendre. */
+export async function ignoreRequestAction(id: unknown): Promise<ActionResult> {
+  const auth = await requireAdminAction();
+  if (!auth) return NOT_ADMIN;
+  const parsed = z.uuid().safeParse(id);
+  if (!parsed.success) return { ok: false, message: "Demande inconnue." };
+
+  const { error } = await auth.supabase.from("awa_word_requests").update({ status: "ignored" }).eq("id", parsed.data);
+  if (error) {
+    console.error("[admin] Demande non ignorée", error);
+    return { ok: false, message: "L'opération a échoué." };
+  }
+  revalidatePath("/admin/lexique");
+  return { ok: true, message: "Mot retiré de la liste." };
+}
+
 const importSchema = z.object({
   text: z.string().max(200_000, "Liste trop longue : collez-la en plusieurs fois."),
   category: z.string().trim().max(WORD_LIMITS.category),
