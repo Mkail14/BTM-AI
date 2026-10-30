@@ -37,6 +37,20 @@ function mapFinishReason(reason: string | undefined): FinishReason {
   return "other";
 }
 
+type ThinkingConfig = { thinkingLevel: string } | { thinkingBudget: number };
+
+/**
+ * Réflexion réduite (AI_DISABLE_REASONING) : les modèles récents « pensent »
+ * plusieurs secondes avant d'écrire. Gemini 3 et suivants : thinkingLevel ;
+ * Gemini 2 : thinkingBudget. Du plus rapide au plus prudent.
+ */
+export function thinkingSettings(model: string): ThinkingConfig[] {
+  const generation = Number(model.match(/^gemini-(\d+)/)?.[1] ?? 0);
+  if (generation >= 3) return [{ thinkingLevel: "minimal" }, { thinkingLevel: "low" }];
+  if (/flash/.test(model)) return [{ thinkingBudget: 0 }];
+  return [];
+}
+
 export function createGeminiProvider(config: AIConfig): AIProvider {
   const model = config.model.replace(/^models\//, "");
   const endpoint = `${geminiRoot(config.baseUrl)}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`;
@@ -47,32 +61,38 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
       const timeoutSignal = AbortSignal.timeout(config.timeoutMs);
       const combined = AbortSignal.any([signal, timeoutSignal]);
 
-      let response: Response;
-      try {
-        response = await fetch(endpoint, {
+      const request = (thinkingConfig: ThinkingConfig | null) =>
+        fetch(endpoint, {
           method: "POST",
           headers: geminiHeaders(config.apiKey),
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: system }] },
             contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
-            // Pas de thinkingConfig : son format change selon la génération de modèle et un
-            // réglage refusé ferait échouer la requête ; le modèle garde sa réflexion par défaut.
-            generationConfig: { maxOutputTokens },
+            generationConfig: { maxOutputTokens, ...(thinkingConfig && { thinkingConfig }) },
           }),
           signal: combined,
         });
-      } catch (error) {
-        if (signal.aborted) throw new AIProviderError("aborted", "Requête annulée", { cause: error });
-        if (timeoutSignal.aborted) throw new AIProviderError("timeout", "Délai dépassé", { cause: error });
-        throw new AIProviderError("unavailable", "Connexion à Gemini impossible", { cause: error });
-      }
 
-      if (!response.ok || !response.body) {
+      // Réglages de réflexion du plus rapide au plus sûr : un réglage que le modèle
+      // refuse (400 qui parle de « thinking ») est retiré au lieu de faire échouer la réponse.
+      const attempts = config.disableReasoning ? [...thinkingSettings(model), null] : [null];
+      let response!: Response;
+      for (const [index, thinkingConfig] of attempts.entries()) {
+        try {
+          response = await request(thinkingConfig);
+        } catch (error) {
+          if (signal.aborted) throw new AIProviderError("aborted", "Requête annulée", { cause: error });
+          if (timeoutSignal.aborted) throw new AIProviderError("timeout", "Délai dépassé", { cause: error });
+          throw new AIProviderError("unavailable", "Connexion à Gemini impossible", { cause: error });
+        }
+        if (response.ok && response.body) break;
         const body = await response.text().catch(() => "");
-        throw errorFromStatus(response.status, body);
+        const last = index === attempts.length - 1;
+        if (last || response.status !== 400 || !/thinking/i.test(body)) throw errorFromStatus(response.status, body);
       }
 
-      const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+      // Corps présent : la boucle ci-dessus ne sort qu'avec une réponse ok et un flux.
+      const reader = response.body!.pipeThrough(new TextDecoderStream()).getReader();
       const parser = createSseDataParser();
       let finish: FinishReason = "other";
 

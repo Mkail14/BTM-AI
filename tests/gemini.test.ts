@@ -50,6 +50,27 @@ describe("Gemini (API native)", () => {
     assert.deepEqual(JSON.parse(init.body as string).systemInstruction, { parts: [{ text: "Tu es Awa." }] });
   });
 
+  it("réduit la réflexion, et retire le réglage si le modèle le refuse", async () => {
+    const fetchMock = mock.method(globalThis, "fetch", async (_url: string, init: RequestInit) => {
+      const { thinkingConfig } = JSON.parse(init.body as string).generationConfig;
+      return thinkingConfig?.thinkingLevel === "minimal"
+        ? Response.json({ error: { message: "thinking_level MINIMAL is not supported for this model" } }, { status: 400 })
+        : sse([{ candidates: [{ content: { parts: [{ text: "OK" }] }, finishReason: "STOP" }] }]);
+    });
+    const chunks = [];
+    for await (const chunk of createProvider(config).stream({
+      system: "",
+      messages: [{ role: "user", content: "Salut" }],
+      maxOutputTokens: 64,
+      signal: new AbortController().signal,
+    })) {
+      chunks.push(chunk);
+    }
+    assert.deepEqual(chunks, [{ type: "text", text: "OK" }, { type: "finish", reason: "stop" }]);
+    const sent = fetchMock.mock.calls.map((c) => JSON.parse((c.arguments[1] as RequestInit).body as string).generationConfig.thinkingConfig);
+    assert.deepEqual(sent, [{ thinkingLevel: "minimal" }, { thinkingLevel: "low" }]);
+  });
+
   it("liste seulement les modèles qui savent discuter, sans « models/ »", async () => {
     mock.method(globalThis, "fetch", async () =>
       Response.json({
