@@ -2,6 +2,7 @@ import "server-only";
 import type { AIConfig, AISlot } from "./config";
 import { createFallbackProvider } from "./fallback";
 import { createAnthropicProvider } from "./providers/anthropic";
+import { createGeminiProvider, isGeminiUrl } from "./providers/gemini";
 import { createOpenAICompatibleProvider } from "./providers/openai-compatible";
 import { ALL_APIS_CUT, loadFlowCuts } from "./flow-cuts";
 import { loadAIChain } from "./registry";
@@ -16,7 +17,10 @@ export function slotHealthId(slotId: string, config: AIConfig): string {
 }
 
 export function createProvider(config: AIConfig): AIProvider {
-  return config.provider === "anthropic" ? createAnthropicProvider(config) : createOpenAICompatibleProvider(config);
+  if (config.provider === "anthropic") return createAnthropicProvider(config);
+  // Gemini : API native, seule à accepter les clés « AQ. » de Google AI Studio.
+  if (isGeminiUrl(config.baseUrl)) return createGeminiProvider(config);
+  return createOpenAICompatibleProvider(config);
 }
 
 let cached: { key: string; provider: AIProvider; config: AIConfig } | null = null;

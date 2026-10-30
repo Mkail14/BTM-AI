@@ -1,6 +1,7 @@
 import "server-only";
 import type { AIConfig } from "./config";
 import type { KeyCheck } from "./health";
+import { geminiHeaders, geminiRoot, isGeminiUrl } from "./providers/gemini";
 import { errorFromStatus } from "./providers/openai-compatible";
 
 const CHECK_TIMEOUT_MS = 6_000;
@@ -29,6 +30,9 @@ export async function checkKey(config: AIConfig): Promise<KeyCheck> {
   if (config.provider === "anthropic") {
     url = `${base || "https://api.anthropic.com"}/v1/models?limit=1`;
     headers = { "x-api-key": config.apiKey, "anthropic-version": "2023-06-01" };
+  } else if (isGeminiUrl(base)) {
+    url = `${geminiRoot(base)}/models?pageSize=1`;
+    headers = geminiHeaders(config.apiKey);
   } else {
     url = isOpenRouter ? `${base}/key` : `${base}/models`;
     headers = { Authorization: `Bearer ${config.apiKey}` };
@@ -77,10 +81,18 @@ export async function listModels(config: Pick<AIConfig, "provider" | "baseUrl" |
 > {
   const base = (config.baseUrl ?? "").replace(/\/+$/, "");
   const anthropic = config.provider === "anthropic";
-  const url = anthropic ? `${base || "https://api.anthropic.com"}/v1/models?limit=1000` : `${base}/models`;
+  // Gemini : API native (les clés « AQ. » ne passent pas par la couche compatible OpenAI).
+  const gemini = !anthropic && isGeminiUrl(base);
+  const url = anthropic
+    ? `${base || "https://api.anthropic.com"}/v1/models?limit=1000`
+    : gemini
+      ? `${geminiRoot(base)}/models?pageSize=1000`
+      : `${base}/models`;
   const headers: Record<string, string> = anthropic
     ? { "x-api-key": config.apiKey, "anthropic-version": "2023-06-01" }
-    : { Authorization: `Bearer ${config.apiKey}` };
+    : gemini
+      ? geminiHeaders(config.apiKey)
+      : { Authorization: `Bearer ${config.apiKey}` };
 
   let response: Response;
   try {
@@ -92,9 +104,16 @@ export async function listModels(config: Pick<AIConfig, "provider" | "baseUrl" |
     const error = errorFromStatus(response.status, await response.text().catch(() => ""));
     return { ok: false, message: error.code === "auth" ? "Clé refusée par le fournisseur." : error.message };
   }
-  const json = (await response.json().catch(() => ({}))) as { data?: { id?: unknown }[] };
-  const models = (json.data ?? [])
-    .map((m) => m.id)
+  const json = (await response.json().catch(() => ({}))) as {
+    data?: { id?: unknown }[];
+    models?: { name?: unknown; supportedGenerationMethods?: unknown }[];
+  };
+  const ids = gemini
+    ? (json.models ?? [])
+        .filter((m) => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes("generateContent"))
+        .map((m) => m.name)
+    : (json.data ?? []).map((m) => m.id);
+  const models = ids
     .filter((id): id is string => typeof id === "string" && !NOT_CHAT.test(id))
     // Gemini préfixe ses modèles par « models/ » ; l'API compatible OpenAI les attend sans.
     .map((id) => id.replace(/^models\//, ""))
