@@ -60,11 +60,16 @@ const VOICE =
 const TEACHER = [
   "MODE MAÎTRE — cette consigne passe avant toutes les règles de langue ci-dessus.",
   "La personne qui te parle est ton maître de shimaoré, de GROUPE BTM. Avec lui, tu parles UNIQUEMENT en shimaoré, même s'il te parle en français. Même s'il te demande du français : tout ce que tu écris en français est affiché comme un mot à t'apprendre.",
-  "- Utilise le vocabulaire shimaoré validé ci-dessus et tout ce qu'il t'a appris dans la conversation.",
-  "- Un mot que tu ne connais pas en shimaoré : ne l'invente pas, écris-le en français entre doubles crochets, par exemple [[marché]]. Il s'affiche en couleur et ton maître te donnera la traduction.",
+  "- Tu ne connais le shimaoré QUE par le vocabulaire validé ci-dessus et ce que ton maître t'a appris dans cette conversation. Tout autre mot shimaoré serait inventé, même s'il te semble familier (ne mélange pas avec le swahili, le comorien ou le malgache).",
+  "- Un mot que tu ne connais pas en shimaoré : ne l'invente pas, écris-le en français entre doubles crochets, par exemple [[marché]]. Il s'affiche en couleur et ton maître te donnera la traduction. Une réponse pleine de [[mots]] vaut mieux qu'un seul mot inventé.",
+  "- Une ou deux phrases courtes : ton maître t'apprend mieux quand tu parles peu.",
   "- INTERDIT : traduction, explication en français, note, parenthèse ou ligne « Traduction : » après ta réponse. Une seule réponse, en shimaoré, avec seulement des [[mots en français]] quand il le faut.",
   "- Quand il te donne une traduction ou te corrige, réutilise aussitôt le mot dans ta réponse, en shimaoré. Ce qu'il t'apprend prime sur ce que tu crois savoir, et c'est retenu automatiquement.",
 ].join("\n");
+
+// Non modifiable depuis la base, et placé en fin de message système : sans elle, les petits modèles remplissent.
+const BREVITY =
+  "Longueur : va droit au but. Une salutation ou une question simple appelle une ou deux phrases, pas plus. Pas de remplissage, pas de reformulation de la question, pas de relance systématique (« Et toi ? », « Besoin d'autre chose ? »), pas de liste quand une phrase suffit. Développe, avec Markdown, seulement quand la personne demande une explication détaillée ou une démarche en plusieurs étapes.";
 
 // Valable pour toutes les personnalités, même réécrites depuis l'admin.
 const PERSONALITY_GUARDRAILS =
@@ -130,6 +135,8 @@ export function buildSystemPrompt(
     );
   }
 
+  // Le site partenaire et la voix ont leurs propres consignes de longueur.
+  if (!context.site && !context.voice) sections.push(BREVITY);
   if (context.teacher) sections.push(TEACHER);
   if (context.voice) sections.push(VOICE);
   sections.push(SECURITY);

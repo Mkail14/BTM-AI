@@ -212,6 +212,20 @@ describe("leçon à la voix avec le maître d'Awa", () => {
     assert.deepEqual(parseTaughtWords("[]"), []);
   });
 
+  it("n'apprend pas du français recopié comme du shimaoré", () => {
+    const output = JSON.stringify([
+      { french: "tu as dit chinois", shimaore: "tu as dit chinois" },
+      { french: "tu parles encore français", shimaore: "tu parles encore francais" },
+      { french: "comment ça va", shimaore: "Wa fetché ?" },
+    ]);
+    assert.deepEqual(parseTaughtWords(output), [{ french: "comment ça va", shimaore: "Wa fetché ?" }]);
+  });
+
+  it("demande des réponses brèves, sauf sur la voix et les sites partenaires qui ont leurs propres consignes", () => {
+    assert.match(buildSystemPrompt(), /Longueur : va droit au but/);
+    assert.doesNotMatch(buildSystemPrompt("cool", { voice: true }), /Longueur : va droit au but/);
+  });
+
   it("le mode maître n'apparaît qu'avec le maître", () => {
     assert.doesNotMatch(buildSystemPrompt(), /MODE MAÎTRE/);
     assert.match(buildSystemPrompt("cool", { teacher: true }), /MODE MAÎTRE/);

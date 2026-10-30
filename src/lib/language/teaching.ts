@@ -111,5 +111,25 @@ export function parseTaughtWords(output: string): TaughtWord[] {
       return typeof french === "string" && typeof shimaore === "string" ? `${french} = ${shimaore}` : "";
     })
     .filter((line) => !/[\n;]/.test(line));
-  return parseWordList(lines.join("\n")).words;
+  return parseWordList(lines.join("\n")).words.filter((w) => !isCopiedFrench(w.french, w.shimaore));
+}
+
+const wordsOf = (text: string) =>
+  text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .split(/[^a-z0-9]+/)
+    .filter(Boolean);
+
+/**
+ * « Traduction » qui n'est que le français recopié (« tu as dit chinois » =
+ * « tu as dit chinois ») : le modèle a pris une phrase de la conversation pour
+ * une leçon. Au moins la moitié des mots en commun suffit à l'écarter.
+ */
+export function isCopiedFrench(french: string, shimaore: string): boolean {
+  const fr = new Set(wordsOf(french));
+  const shi = wordsOf(shimaore);
+  if (shi.length === 0) return true;
+  return shi.filter((w) => fr.has(w)).length / shi.length >= 0.5;
 }
