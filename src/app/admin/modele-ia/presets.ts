@@ -12,6 +12,8 @@ export type ApiPreset = {
   suggested?: string[];
   /** Début des clés de ce fournisseur : la clé collée suffit à le reconnaître. */
   keyPrefixes?: string[];
+  /** Sans modèle recommandé dans la liste : profil choisi d'office (le plus récent qui correspond). */
+  preferred?: RegExp;
 };
 
 export const API_PRESETS: ApiPreset[] = [
@@ -62,6 +64,8 @@ export const API_PRESETS: ApiPreset[] = [
     keyUrl: "https://aistudio.google.com/apikey",
     // « AIza… » : anciennes clés ; « AQ. » : nouveau format de Google AI Studio.
     keyPrefixes: ["AIza", "AQ."],
+    // Rapide et peu cher, version stable : « gemini-3.6-flash » plutôt que « …-lite » ou « …-preview-… ».
+    preferred: /^gemini-[\d.]+-flash$/,
   },
   {
     id: "deepseek",
