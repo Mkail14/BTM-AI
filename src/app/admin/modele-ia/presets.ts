@@ -60,7 +60,8 @@ export const API_PRESETS: ApiPreset[] = [
     baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
     modelPlaceholder: "gemini-2.5-flash",
     keyUrl: "https://aistudio.google.com/apikey",
-    keyPrefixes: ["AIza"],
+    // « AIza… » : anciennes clés ; « AQ. » : nouveau format de Google AI Studio.
+    keyPrefixes: ["AIza", "AQ."],
   },
   {
     id: "deepseek",

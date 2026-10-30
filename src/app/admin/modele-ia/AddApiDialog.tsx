@@ -232,7 +232,9 @@ export function AddApiDialog({ onClose }: { onClose: () => void }) {
               {list.state === "loading"
                 ? "Recherche des modèles de cette clé…"
                 : list.state === "error"
-                  ? `${list.message} Vous pouvez écrire le nom du modèle à la main.`
+                  ? /Mayotte/.test(list.message)
+                    ? list.message
+                    : `${list.message} Vous pouvez écrire le nom du modèle à la main.`
                   : list.state === "ready"
                     ? list.freeOnly
                       ? "Compte OpenRouter sans crédit : seuls les modèles « :free » marchent (50 messages par jour)."

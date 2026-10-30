@@ -32,6 +32,13 @@ export function errorFromStatus(status: number, body = ""): AIProviderError {
       ? new AIProviderError("quota", `Quota épuisé (429) ${detail}`.trim())
       : new AIProviderError("rate_limited", "Limite du fournisseur atteinte");
   }
+  // Google n'ouvre pas l'API Gemini partout (Mayotte comprise) : c'est le serveur appelant qui compte.
+  if (status === 400 && /location is not supported/i.test(detail)) {
+    return new AIProviderError(
+      "bad_request",
+      "Google refuse les appels venant de ce lieu (l'API Gemini n'est pas ouverte à Mayotte). Ajoutez cette API depuis le site en ligne : ses serveurs sont en Irlande.",
+    );
+  }
   if (status === 400 || status === 404 || status === 422) {
     return new AIProviderError("bad_request", `Requête refusée par le fournisseur (${status})`);
   }
