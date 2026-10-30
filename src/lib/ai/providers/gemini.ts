@@ -57,6 +57,10 @@ const MAX_MODEL_TRIES = 4;
 const MODELS_CACHE_MS = 60 * 60_000;
 /** Un modèle sans quota est mis de côté ce temps-là avant d'être réessayé. */
 const EXHAUSTED_MS = 30 * 60_000;
+/** Un modèle surchargé (5xx) ou muet est mis de côté moins longtemps. */
+const OVERLOADED_MS = 2 * 60_000;
+/** Délai pour recevoir le premier morceau de réponse avant de passer au modèle suivant. */
+const FIRST_CHUNK_MS = 12_000;
 
 const keyId = (apiKey: string) => apiKey.slice(-8);
 const modelsCache = new Map<string, { models: string[]; expiresAt: number }>();
@@ -104,7 +108,7 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
       const timeoutSignal = AbortSignal.timeout(config.timeoutMs);
       const combined = AbortSignal.any([signal, timeoutSignal]);
 
-      const request = (model: string, thinkingConfig: ThinkingConfig | null) =>
+      const request = (model: string, thinkingConfig: ThinkingConfig | null, attemptSignal: AbortSignal) =>
         fetch(`${geminiRoot(config.baseUrl)}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
           method: "POST",
           headers: geminiHeaders(config.apiKey),
@@ -113,43 +117,78 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
             contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
             generationConfig: { maxOutputTokens, ...(thinkingConfig && { thinkingConfig }) },
           }),
-          signal: combined,
+          signal: AbortSignal.any([combined, attemptSignal]),
         });
 
-      /** Ouvre la réponse d'un modèle ; null si ce modèle n'a pas de quota ou n'existe pas (on passe au suivant). */
-      const open = async (model: string): Promise<Response | null> => {
+      const rest = (model: string, ms: number) => exhausted.set(`${keyId(config.apiKey)}:${model}`, Date.now() + ms);
+
+      /**
+       * Ouvre la réponse d'un modèle et attend son premier morceau ; null si ce
+       * modèle est sans quota, introuvable, surchargé ou muet trop longtemps
+       * (on passe au modèle suivant de la clé).
+       */
+      const open = async (model: string): Promise<{ reader: ReadableStreamDefaultReader<string>; first: string } | null> => {
         // Réglages de réflexion du plus rapide au plus sûr : un réglage que le modèle
         // refuse (400 qui parle de « thinking ») est retiré au lieu de faire échouer la réponse.
         const attempts = config.disableReasoning ? [...thinkingSettings(model), null] : [null];
         for (const [index, thinkingConfig] of attempts.entries()) {
-          let response: Response;
-          try {
-            response = await request(model, thinkingConfig);
-          } catch (error) {
-            if (signal.aborted) throw new AIProviderError("aborted", "Requête annulée", { cause: error });
-            if (timeoutSignal.aborted) throw new AIProviderError("timeout", "Délai dépassé", { cause: error });
-            throw new AIProviderError("unavailable", "Connexion à Gemini impossible", { cause: error });
-          }
-          if (response.ok && response.body) return response;
-          const body = await response.text().catch(() => "");
-          if (response.status === 429 || response.status === 404) {
-            exhausted.set(`${keyId(config.apiKey)}:${model}`, Date.now() + EXHAUSTED_MS);
-            lastError = errorFromStatus(response.status, body);
+          const attempt = new AbortController();
+          const timer = setTimeout(() => attempt.abort(), FIRST_CHUNK_MS);
+          const silent = (error: unknown) => {
+            if (signal.aborted) return new AIProviderError("aborted", "Requête annulée", { cause: error });
+            if (timeoutSignal.aborted) return new AIProviderError("timeout", "Délai dépassé", { cause: error });
             return null;
+          };
+          try {
+            let response: Response;
+            try {
+              response = await request(model, thinkingConfig, attempt.signal);
+            } catch (error) {
+              const fatal = silent(error);
+              if (fatal) throw fatal;
+              if (attempt.signal.aborted) {
+                rest(model, OVERLOADED_MS);
+                lastError = new AIProviderError("timeout", `Gemini « ${model} » ne répond pas`, { cause: error });
+                return null;
+              }
+              throw new AIProviderError("unavailable", "Connexion à Gemini impossible", { cause: error });
+            }
+            if (response.ok && response.body) {
+              const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+              try {
+                const { value, done } = await reader.read();
+                return { reader, first: done ? "" : value };
+              } catch (error) {
+                reader.releaseLock();
+                const fatal = silent(error);
+                if (fatal) throw fatal;
+                rest(model, OVERLOADED_MS);
+                lastError = new AIProviderError("timeout", `Gemini « ${model} » ne répond pas`, { cause: error });
+                return null;
+              }
+            }
+            const body = await response.text().catch(() => "");
+            if (response.status === 429 || response.status === 404 || response.status >= 500) {
+              rest(model, response.status >= 500 ? OVERLOADED_MS : EXHAUSTED_MS);
+              lastError = errorFromStatus(response.status, body);
+              return null;
+            }
+            const last = index === attempts.length - 1;
+            if (last || response.status !== 400 || !/thinking/i.test(body)) throw errorFromStatus(response.status, body);
+          } finally {
+            clearTimeout(timer);
           }
-          const last = index === attempts.length - 1;
-          if (last || response.status !== 400 || !/thinking/i.test(body)) throw errorFromStatus(response.status, body);
         }
         return null;
       };
 
       let lastError: AIProviderError | null = null;
       const resting = (model: string) => (exhausted.get(`${keyId(config.apiKey)}:${model}`) ?? 0) > Date.now();
-      let response: Response | null = null;
+      let opened: Awaited<ReturnType<typeof open>> = null;
       let alternatives: string[] | null = null;
       const tried = new Set<string>();
       // Le modèle choisi d'abord (sauf s'il vient d'être refusé), puis les autres modèles de la clé.
-      for (let i = 0; i < MAX_MODEL_TRIES && !response; i++) {
+      for (let i = 0; i < MAX_MODEL_TRIES && !opened; i++) {
         let model: string | undefined = !tried.has(chosen) && !resting(chosen) ? chosen : undefined;
         if (!model) {
           alternatives ??= fallbackModels(await listKeyModels(config, combined), chosen);
@@ -157,19 +196,21 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
         }
         if (!model) break;
         tried.add(model);
-        response = await open(model);
-        if (response && model !== chosen) console.info(`[ai] Gemini : « ${chosen} » sans quota, réponse par « ${model} »`);
+        opened = await open(model);
+        if (opened && model !== chosen) console.info(`[ai] Gemini : « ${chosen} » indisponible, réponse par « ${model} »`);
       }
-      if (!response) throw lastError ?? new AIProviderError("quota", "Aucun modèle Gemini de cette clé n'a de quota disponible");
+      if (!opened) throw lastError ?? new AIProviderError("quota", "Aucun modèle Gemini de cette clé n'est disponible");
 
-      // Corps présent : open() ne renvoie qu'une réponse ok avec un flux.
-      const reader = response.body!.pipeThrough(new TextDecoderStream()).getReader();
+      const { reader } = opened;
       const parser = createSseDataParser();
       let finish: FinishReason = "other";
+      let pending: string | null = opened.first;
 
       try {
         while (true) {
-          const { value, done } = await reader.read();
+          // Le premier morceau a déjà été lu par open().
+          const { value, done } = pending !== null ? { value: pending, done: false } : await reader.read();
+          pending = null;
           if (done) break;
           for (const data of parser.push(value)) {
             let chunk: GeminiChunk;

@@ -104,6 +104,36 @@ describe("Gemini (API native)", () => {
     assert.deepEqual(asked, ["gemini-3.8-flash", "gemini-3.8-flash-lite", "gemini-3.5-flash"]);
   });
 
+  it("modèle surchargé (503) : passe tout seul au modèle suivant", async () => {
+    const asked: string[] = [];
+    mock.method(globalThis, "fetch", async (url: string) => {
+      if (url.includes("/models?")) {
+        return Response.json({
+          models: [
+            { name: "models/gemini-3.8-flash", supportedGenerationMethods: ["generateContent"] },
+            { name: "models/gemini-3.8-flash-lite", supportedGenerationMethods: ["generateContent"] },
+          ],
+        });
+      }
+      const model = url.match(/models\/([^:]+):/)![1];
+      asked.push(model);
+      return model === "gemini-3.8-flash-lite"
+        ? sse([{ candidates: [{ content: { parts: [{ text: "OK" }] }, finishReason: "STOP" }] }])
+        : Response.json({ error: { message: "The model is overloaded. Please try again later." } }, { status: 503 });
+    });
+    const chunks = [];
+    for await (const chunk of createProvider({ ...config, apiKey: "AQ.cle-surchargee", model: "gemini-3.8-flash", disableReasoning: false }).stream({
+      system: "",
+      messages: [{ role: "user", content: "Salut" }],
+      maxOutputTokens: 64,
+      signal: new AbortController().signal,
+    })) {
+      chunks.push(chunk);
+    }
+    assert.deepEqual(chunks, [{ type: "text", text: "OK" }, { type: "finish", reason: "stop" }]);
+    assert.deepEqual(asked, ["gemini-3.8-flash", "gemini-3.8-flash-lite"]);
+  });
+
   it("liste seulement les modèles qui savent discuter, sans « models/ »", async () => {
     mock.method(globalThis, "fetch", async () =>
       Response.json({
