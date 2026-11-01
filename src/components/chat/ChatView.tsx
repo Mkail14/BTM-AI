@@ -30,6 +30,14 @@ import { CorrectContext, type Correction } from "./Correctable";
 import { replacePassage } from "@/lib/language/replace-passage";
 import { fillKnownWords, translationTable } from "@/lib/language/unknown-words";
 
+/** Message de l'utilisateur auquel répond la réponse d'Awa n° `index` (aide à comprendre ce qu'elle voulait dire). */
+function questionBefore(messages: readonly UiMessage[], index: number): string | undefined {
+  for (let i = index - 1; i >= 0; i--) {
+    if (messages[i].role === "user") return messages[i].content;
+  }
+  return undefined;
+}
+
 type ChatViewProps = {
   conversationId: string | null;
   initialMessages: UiMessage[];
@@ -432,10 +440,11 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
           <section aria-label="Conversation" className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6">
             <TeachWordContext value={user?.isAdmin ? teachWord : null}>
               <CorrectContext value={user?.isAdmin ? correctPassage : null}>
-                {messages.map((message) => (
+                {messages.map((message, index) => (
                   <MessageItem
                     key={message.id}
                     message={message}
+                    question={message.role === "assistant" ? questionBefore(messages, index) : undefined}
                     onRetry={message.id === retryTargetId ? retryLast : undefined}
                   />
                 ))}

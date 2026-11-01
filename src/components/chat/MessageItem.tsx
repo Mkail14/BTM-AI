@@ -19,9 +19,12 @@ export type UiMessage = {
 
 export const MessageItem = memo(function MessageItem({
   message,
+  question,
   onRetry,
 }: {
   message: UiMessage;
+  /** Réponse d'Awa : le message de l'utilisateur auquel elle répond. */
+  question?: string;
   onRetry?: () => void;
 }) {
   if (message.role === "user") {
@@ -65,7 +68,7 @@ export const MessageItem = memo(function MessageItem({
           <Markdown text={message.content} />
         ) : (
           // Maître d'Awa : sélection d'un passage pour le corriger (sans effet pour les autres).
-          <Correctable messageId={message.id}>
+          <Correctable messageId={message.id} reply={message.content} question={question}>
             <Markdown text={message.content} />
           </Correctable>
         )

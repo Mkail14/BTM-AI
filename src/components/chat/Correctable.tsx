@@ -2,6 +2,7 @@
 
 import { createContext, use, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { guessFrenchAction } from "@/app/(chat)/actions";
 import { IconClose, IconPencil } from "@/components/ui/icons";
 import type { ActionResult } from "@/lib/admin/action-auth";
 
@@ -38,7 +39,18 @@ function anchorFor(rect: DOMRect): Anchor {
  * passage (même connu), un bouton « Corriger » apparaît, il donne la bonne
  * façon de le dire, son sens et, si besoin, le contexte où elle s'emploie.
  */
-export function Correctable({ messageId, children }: { messageId: string; children: ReactNode }) {
+export function Correctable({
+  messageId,
+  reply,
+  question,
+  children,
+}: {
+  messageId: string;
+  /** Réponse complète d'Awa et message auquel elle répond : pour retrouver ce qu'elle voulait dire. */
+  reply: string;
+  question?: string;
+  children: ReactNode;
+}) {
   const correct = use(CorrectContext);
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -46,6 +58,11 @@ export function Correctable({ messageId, children }: { messageId: string; childr
   const [form, setForm] = useState<Correction | null>(null);
   const [status, setStatus] = useState<ActionResult | null>(null);
   const [saving, setSaving] = useState(false);
+  // Ce qu'Awa voulait dire en français : montré avant de corriger.
+  const [meaning, setMeaning] = useState<
+    { state: "loading" } | { state: "done"; french: string; fromLexicon: boolean } | { state: "error"; message: string } | null
+  >(null);
+  const meaningRequest = useRef(0);
 
   // Sélection dans cette réponse : bouton « Corriger » juste en dessous.
   useEffect(() => {
@@ -89,8 +106,31 @@ export function Correctable({ messageId, children }: { messageId: string; childr
   function open(text: string) {
     setForm({ wrote: text, shimaore: text, french: "", context: "" });
     setStatus(null);
+    // Une traduction encore en route pour une fenêtre précédente est ignorée.
+    meaningRequest.current++;
+    setMeaning(null);
     setSelection(null);
     window.getSelection()?.removeAllRanges();
+    if (text) void explain(text);
+  }
+
+  /** Traduit en français ce qu'Awa a écrit ; remplit le champ « Ça veut dire » s'il est vide. */
+  async function explain(text: string) {
+    const request = ++meaningRequest.current;
+    setMeaning({ state: "loading" });
+    const result = await guessFrenchAction({
+      shimaore: text,
+      wrote: text,
+      message: reply.slice(0, 2000),
+      question: (question ?? "").slice(0, 1000),
+    }).catch(() => ({ ok: false as const, message: "Sens introuvable : écris-le toi-même." }));
+    if (request !== meaningRequest.current) return;
+    if (!result.ok) {
+      setMeaning({ state: "error", message: result.message });
+      return;
+    }
+    setMeaning({ state: "done", french: result.french, fromLexicon: result.fromLexicon });
+    setForm((f) => (f && !f.french.trim() ? { ...f, french: result.french } : f));
   }
 
   async function save() {
@@ -170,10 +210,42 @@ export function Correctable({ messageId, children }: { messageId: string; childr
                   </button>
                 </div>
 
+                {meaning ? (
+                  <div role="status" className="mt-5 rounded-2xl border border-accent/25 bg-accent-soft/60 px-4 py-3">
+                    <p className={`${labelClass} text-accent`}>Awa voulait dire</p>
+                    {meaning.state === "loading" ? (
+                      <p className="mt-1.5 animate-pulse text-sm text-fg-muted">Traduction en cours…</p>
+                    ) : meaning.state === "done" ? (
+                      <>
+                        <p className="mt-1 text-lg leading-snug font-semibold">« {meaning.french} »</p>
+                        <p className="mt-1 text-xs text-fg-muted">
+                          {meaning.fromLexicon ? "D'après le lexique d'Awa." : "Deviné d'après la conversation, à vérifier."}
+                        </p>
+                      </>
+                    ) : (
+                      <p className="mt-1.5 text-sm text-fg-muted">{meaning.message}</p>
+                    )}
+                  </div>
+                ) : null}
+
                 <div className="mt-6 space-y-4">
-                  <label className="block">
-                    <span className={labelClass}>Ce qu&apos;Awa a écrit</span>
+                  <div>
+                    <div className="flex items-center justify-between gap-2">
+                      <label htmlFor="correct-wrote" className={labelClass}>
+                        Ce qu&apos;Awa a écrit
+                      </label>
+                      {form.wrote.trim() && meaning?.state !== "loading" ? (
+                        <button
+                          type="button"
+                          onClick={() => void explain(form.wrote.trim())}
+                          className="rounded-full px-2 py-0.5 text-xs font-medium text-accent transition hover:bg-accent-soft"
+                        >
+                          {meaning ? "Retraduire" : "Voir le sens en français"}
+                        </button>
+                      ) : null}
+                    </div>
                     <input
+                      id="correct-wrote"
                       value={form.wrote}
                       maxLength={MAX}
                       disabled={saving}
@@ -184,7 +256,7 @@ export function Correctable({ messageId, children }: { messageId: string; childr
                       onChange={(e) => set("wrote", e.target.value)}
                       className={`${inputClass} bg-bg-muted/70 text-fg-muted line-through decoration-danger/70 focus:no-underline`}
                     />
-                  </label>
+                  </div>
 
                   <label className="block">
                     <span className={`${labelClass} text-accent`}>Il fallait dire · shimaoré</span>
