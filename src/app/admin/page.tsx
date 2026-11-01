@@ -11,6 +11,7 @@ import {
 } from "@/lib/admin/stats";
 import { supabaseDashboardLink } from "@/lib/admin/supabase-links";
 import { getAIProvider } from "@/lib/ai";
+import { getCodeExamHealth } from "@/lib/code-exam/laposte";
 import { requireAdmin } from "@/lib/auth/session";
 import { getGeminiSpend, type GeminiSpend } from "@/lib/ai/usage";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -405,7 +406,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
   const page = readPage((await searchParams).page);
   const admin = getSupabaseAdminClient();
   const hasSalt = Boolean(process.env.RATE_LIMIT_SALT?.trim());
-  const ai = await getAIProvider();
+  const [ai, codeExam] = await Promise.all([getAIProvider(), getCodeExamHealth()]);
 
   let overview: AdminOverview | null = null;
   let usersPage: Awaited<ReturnType<typeof listAdminUsers>> | null = null;
@@ -434,6 +435,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
     hasRateLimitSalt: hasSalt,
     overview,
     wordsToTranslate,
+    codeExamProblem: codeExam.ok ? null : codeExam.message,
     supabaseLink,
   });
   const statsMissing = admin

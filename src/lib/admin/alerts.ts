@@ -15,6 +15,8 @@ type AlertInput = {
   overview: AdminOverview | null;
   /** Mots shimaoré qu'Awa n'a pas compris, en attente de traduction (0 si la table manque). */
   wordsToTranslate?: number;
+  /** Lecture des horaires du code sur le site de La Poste en échec (null : elle fonctionne). */
+  codeExamProblem?: string | null;
   /** Construit un lien vers le tableau de bord Supabase (null si inconnu). */
   supabaseLink: (path: string) => string | null;
 };
@@ -31,6 +33,7 @@ export function buildAdminAlerts({
   hasRateLimitSalt,
   overview,
   wordsToTranslate = 0,
+  codeExamProblem = null,
   supabaseLink,
 }: AlertInput): AdminAlert[] {
   const alerts: AdminAlert[] = [];
@@ -97,6 +100,15 @@ export function buildAdminAlerts({
         detail: `Limite : ${overview.userDailyLimit} messages par jour et par compte.`,
       });
     }
+  }
+
+  if (codeExamProblem) {
+    alerts.push({
+      level: "warning",
+      title: "Horaires du code de la route illisibles",
+      detail: `${codeExamProblem} Awa renvoie vers le site de La Poste en attendant : le site a sans doute changé, la lecture est à mettre à jour (src/lib/code-exam/laposte.ts).`,
+      action: { label: "Voir le site de La Poste", href: "https://www.lecode.laposte.fr/recherche-salle" },
+    });
   }
 
   if (wordsToTranslate > 0) {

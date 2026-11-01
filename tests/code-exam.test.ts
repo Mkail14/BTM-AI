@@ -1,28 +1,57 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
-import { findSlot, listSlots } from "@/lib/code-exam/slots";
+import { CodeExamSourceError, centerName, extractAccess, parseCenters, parseSessions } from "@/lib/code-exam/laposte";
 
-describe("créneaux du code de la route", () => {
-  // Lundi 2 novembre 2026, 10 h à Mayotte.
-  const now = new Date("2026-11-02T07:00:00Z");
+// Extraits des réponses réelles de lecode.laposte.fr (novembre 2026).
+const PAGE = `<script>window.__NUXT__.config={public:{siteRoot:"https://www.lecode.laposte.fr",idPartenaire:"partenaire-1",baseApiVente:"https:\\u002F\\u002Fapi.laposte.fr",apiVente:"/silex-vente/v1",apiKey:"cle-1"}}</script>`;
 
-  it("propose des créneaux à partir de demain, jamais le dimanche", () => {
-    const slots = listSlots(now);
-    assert.ok(slots.length > 0);
-    assert.ok(slots.every((s) => new Date(s.startsAt) > now));
-    assert.ok(!slots.some((s) => s.startsAt.startsWith("2026-11-08")), "le dimanche 8 est fermé");
+const SALLES = [
+  { id: 262, nom: "Bureau La Poste - KAWENI ", adresse: { codePostal: "97600", ville: "MAMOUDZOU" } },
+  { id: 1528, nom: "Bureau La Poste - MTSAPERE Mamoudzou", adresse: { codePostal: "97600", ville: "Mtsapere" } },
+  { id: 9, nom: "Bureau La Poste - PARIS", adresse: { codePostal: "75001", ville: "PARIS" } },
+];
+
+const SESSIONS = [
+  { dateDebut: "2026-11-04T08:15:00.000Z", placesDisponibles: 4, statut: "OUVERT", isPrivatisee: false },
+  { dateDebut: "2026-11-03T09:15:00.000Z", placesDisponibles: 0, statut: "OUVERT", isPrivatisee: false },
+  { dateDebut: "2026-11-05T09:15:00.000Z", placesDisponibles: 3, statut: "OUVERT", isPrivatisee: true },
+  { dateDebut: "2026-11-06T09:15:00.000Z", placesDisponibles: 3, statut: "ANNULE", isPrivatisee: false },
+  { dateDebut: "2026-11-01T09:15:00.000Z", placesDisponibles: 2, statut: "OUVERT", isPrivatisee: false },
+];
+
+describe("horaires du code (La Poste)", () => {
+  const now = new Date("2026-11-02T07:00:00Z").getTime();
+
+  it("relit la clé et l'adresse de l'API dans la page publique", () => {
+    assert.deepEqual(extractAccess(PAGE), {
+      base: "https://api.laposte.fr/silex-vente/v1",
+      apiKey: "cle-1",
+      partnerId: "partenaire-1",
+    });
   });
 
-  it("donne les mêmes créneaux à chaque appel", () => {
-    assert.deepEqual(listSlots(now), listSlots(now));
+  it("signale une page changée au lieu de planter", () => {
+    assert.throws(() => extractAccess("<html></html>"), (e: CodeExamSourceError) => e.step === "page");
+    assert.throws(() => parseCenters({ salles: [] }), (e: CodeExamSourceError) => e.step === "format");
   });
 
-  it("retrouve un créneau quelle que soit l'écriture de l'heure", () => {
-    const slot = listSlots(now)[0];
-    const utc = new Date(slot.startsAt).toISOString();
-    assert.deepEqual(findSlot(slot.centerId, utc, now), slot);
-    assert.equal(findSlot("inconnu", utc, now), null);
+  it("ne garde que les bureaux de Mayotte, avec un nom lisible", () => {
+    assert.deepEqual(
+      parseCenters(SALLES).map((c) => [c.id, c.name]),
+      [
+        ["262", "Kaweni"],
+        ["1528", "Mtsapere Mamoudzou"],
+      ],
+    );
+    assert.equal(centerName("Bureau La Poste - DZAOUDZI Labattoir"), "Dzaoudzi Labattoir");
+  });
+
+  it("garde les sessions ouvertes à venir, complètes comprises, dans l'ordre", () => {
+    assert.deepEqual(parseSessions(SESSIONS, "262", now), [
+      { centerId: "262", startsAt: "2026-11-03T09:15:00.000Z", places: 0 },
+      { centerId: "262", startsAt: "2026-11-04T08:15:00.000Z", places: 4 },
+    ]);
   });
 
   it("n'apprend le tableau à Awa que dans la conversation écrite", () => {

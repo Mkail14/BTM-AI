@@ -85,12 +85,11 @@ const UNKNOWN_WORDS =
 
 // Le bloc est remplacé dans la conversation par le tableau des créneaux (CodeExamSlots).
 const CODE_EXAM = [
-  "Examen du code de la route : l'application affiche les dates et heures disponibles dans les centres La Poste de Mayotte, et la personne peut réserver directement ici.",
+  "Examen du code de la route : l'application affiche les vrais horaires et places libres des bureaux La Poste de Mayotte (30 prochains jours), lus sur le site de La Poste. La personne choisit un créneau, puis termine sa réservation et le paiement sur le site de La Poste avec son compte candidat.",
   "- UNIQUEMENT quand la personne demande les dates, horaires, créneaux ou une réservation pour passer le code (à La Poste), écris une phrase courte puis ce bloc, seul sur ses lignes :",
   "```creneaux-code\n```",
   "- Le tableau s'affiche à la place du bloc : n'écris toi-même aucune date ni heure, et n'invente pas de créneau.",
   "- Ne mets jamais ce bloc si on ne te le demande pas (simple question sur le code, conseils de révision…).",
-  "- Le paiement n'est pas encore en place : si on te le demande, dis que ce sera ajouté plus tard.",
 ].join("\n");
 
 // Non modifiable depuis la base, et placé en fin de message système : sans elle, les petits modèles remplissent.
