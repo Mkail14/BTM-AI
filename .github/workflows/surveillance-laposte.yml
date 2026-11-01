@@ -1,0 +1,28 @@
+# Toutes les 2 h, vérifie que la lecture des horaires de La Poste marche encore.
+# En cas d'échec (site de La Poste changé ou en panne), GitHub envoie un e-mail.
+# À régler une fois dans GitHub > Settings > Secrets and variables > Actions :
+#   SITE_URL    : adresse du site en ligne (ex. https://btm-ai.vercel.app)
+#   CRON_SECRET : même valeur que la variable CRON_SECRET sur Vercel
+name: Surveillance La Poste
+
+on:
+  schedule:
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Lire les horaires de La Poste
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          code=$(curl -sS -o reponse.json -w "%{http_code}" -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/cron/laposte")
+          cat reponse.json; echo
+          if [ "$code" != "200" ]; then
+            echo "::error::La lecture des horaires de La Poste ne marche plus (code $code). Voir src/lib/code-exam/laposte.ts."
+            exit 1
+          fi

@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { cache } from "react";
 import { isPersonalityId, type PersonalityId } from "@/lib/ai/personalities";
 import type {
   ChatRole,
@@ -155,7 +156,8 @@ export async function deleteConversation(supabase: SupabaseClient, id: string) {
   return (data?.length ?? 0) > 0;
 }
 
-export async function getProfile(supabase: SupabaseClient, userId: string) {
+/** Mémorisé le temps d'un rendu : la mise en page et la page partagent la même lecture. */
+export const getProfile = cache(async (supabase: SupabaseClient, userId: string) => {
   // « * » plutôt qu'une liste : la page reste fonctionnelle si la migration
   // de la colonne personality n'est pas encore appliquée.
   const { data, error } = await supabase
@@ -168,7 +170,7 @@ export async function getProfile(supabase: SupabaseClient, userId: string) {
   const personality: PersonalityId | null | undefined =
     data && "personality" in data ? (isPersonalityId(data.personality) ? data.personality : null) : undefined;
   return { displayName: (data?.display_name as string | null) ?? null, personality };
-}
+});
 
 export async function updatePersonality(
   supabase: SupabaseClient,

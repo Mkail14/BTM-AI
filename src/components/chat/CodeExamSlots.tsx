@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { CodeExamResponse } from "@/app/api/code-exam/route";
 import { IconExternal } from "@/components/ui/icons";
+import { BookingDialog } from "./BookingDialog";
 
 type Data = Extract<CodeExamResponse, { ok: true }>;
 type Slot = Data["slots"][number];
@@ -44,8 +45,8 @@ function Option({ index, label, hint, onClick }: { index: number; label: string;
 /**
  * Horaires de l'examen du code (bureaux La Poste de Mayotte), affichés par
  * Awa dans la conversation quand on les lui demande. Une question à la fois :
- * la ville, puis le jour, puis l'heure ; la réservation se termine sur le site
- * de La Poste (compte candidat). Seules les sessions avec des places sont proposées.
+ * la ville, puis le jour, puis l'heure ; les informations du candidat se donnent dans la fenêtre
+ * de réservation (BookingDialog). Seules les sessions avec des places sont proposées.
  */
 export function CodeExamSlots() {
   const [response, setResponse] = useState<CodeExamResponse | null>(null);
@@ -54,6 +55,7 @@ export function CodeExamSlots() {
   const [day, setDay] = useState<string | null>(null);
   const [slot, setSlot] = useState<Slot | null>(null);
   const [moreDays, setMoreDays] = useState(false);
+  const [booking, setBooking] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -222,7 +224,7 @@ export function CodeExamSlots() {
         </div>
       ) : null}
 
-      {/* 4. Récapitulatif : la réservation se fait sur La Poste */}
+      {/* 4. Récapitulatif : les informations du candidat se donnent dans la fenêtre de réservation */}
       {step === 4 && slot && center ? (
         <div className="px-3 pt-1 pb-2.5">
           <p className="text-base font-medium">
@@ -231,14 +233,26 @@ export function CodeExamSlots() {
           <p className="text-fg-muted">La Poste de {center.name}</p>
           <button
             type="button"
-            onClick={openLaPoste}
-            className="mt-3 inline-flex w-full items-center justify-center gap-1.5 rounded-full px-4 py-2.5 font-medium text-white hover:brightness-110"
+            onClick={() => setBooking(true)}
+            className="mt-3 w-full rounded-full px-4 py-2.5 font-medium text-white transition hover:brightness-110 active:scale-[0.99]"
             style={{ background: PERSONA }}
           >
-            Réserver sur La Poste <IconExternal width={14} height={14} />
+            Réserver cette place
           </button>
-          <p className="mt-2 text-center text-xs text-fg-muted">Avec ton compte candidat La Poste.</p>
         </div>
+      ) : null}
+
+      {booking && slot && center ? (
+        <BookingDialog
+          slot={{
+            centerId: center.id,
+            centerName: center.name,
+            startsAt: slot.startsAt,
+            types: center.types,
+            when: `${capitalize(dayShort.format(new Date(slot.startsAt)))} à ${formatTime(slot.startsAt)}`,
+          }}
+          onClose={() => setBooking(false)}
+        />
       ) : null}
     </>,
   );

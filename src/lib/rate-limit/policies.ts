@@ -19,4 +19,5 @@ export const RATE_LIMIT_POLICIES = {
     { name: "user-day", limit: 300, windowSeconds: 86_400 },
   ],
   conversationImport: [{ name: "import-hour", limit: 10, windowSeconds: 3_600 }],
+  walletTopup: [{ name: "wallet-topup-hour", limit: 10, windowSeconds: 3_600 }],
 } satisfies Record<string, RateLimitRule[]>;

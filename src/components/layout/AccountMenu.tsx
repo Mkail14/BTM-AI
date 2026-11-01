@@ -1,10 +1,35 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { AuthUser } from "@/components/auth/AuthProvider";
-import { IconChevronUpDown, IconLock, IconLogout, IconSettings, IconShield } from "@/components/ui/icons";
+import { IconChevronUpDown, IconLock, IconLogout, IconSettings, IconShield, IconWallet } from "@/components/ui/icons";
+import { formatEuros } from "@/lib/wallet/limits";
+
+/** Solde du portefeuille, relu à chaque changement de page et au retour sur l'onglet. */
+function useBalance(): number | null {
+  const pathname = usePathname();
+  const [balance, setBalance] = useState<number | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const load = () =>
+      fetch("/api/wallet", { cache: "no-store" })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { balanceCents?: number } | null) => {
+          if (alive && typeof data?.balanceCents === "number") setBalance(data.balanceCents);
+        })
+        .catch(() => {});
+    load();
+    window.addEventListener("focus", load);
+    return () => {
+      alive = false;
+      window.removeEventListener("focus", load);
+    };
+  }, [pathname]);
+  return balance;
+}
 
 /**
  * Bloc compte en bas de la barre latérale : avatar + nom sur une ligne,
@@ -25,6 +50,7 @@ export function AccountMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuId = useId();
+  const balance = useBalance();
 
   const name = user.displayName || user.email || "Mon compte";
   const initial = name.trim().charAt(0).toUpperCase() || "?";
@@ -89,6 +115,12 @@ export function AccountMenu({
               {user.email}
             </p>
           ) : null}
+          <Link href="/portefeuille" role="menuitem" onClick={close} className={itemClass}>
+            <IconWallet /> Portefeuille
+            {balance !== null ? (
+              <span className="ml-auto text-xs font-semibold text-fg-muted tabular-nums">{formatEuros(balance)}</span>
+            ) : null}
+          </Link>
           <Link href="/parametres" role="menuitem" onClick={close} className={itemClass}>
             <IconSettings /> Paramètres
           </Link>
@@ -118,6 +150,7 @@ export function AccountMenu({
           )
         : null}
 
+      <div className="flex items-center gap-1">
       <button
         ref={triggerRef}
         type="button"
@@ -125,7 +158,7 @@ export function AccountMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-bg-muted ${open ? "bg-bg-muted" : ""}`}
+        className={`flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-bg-muted ${open ? "bg-bg-muted" : ""}`}
       >
         <span
           aria-hidden="true"
@@ -138,6 +171,17 @@ export function AccountMenu({
         </span>
         <IconChevronUpDown width={16} height={16} className="shrink-0 text-fg-muted" />
       </button>
+      {/* Solde du portefeuille : un clic ouvre la page pour recharger ou voir l'historique. */}
+      <Link
+        href="/portefeuille"
+        onClick={onNavigate}
+        aria-label={balance !== null ? `Portefeuille : ${formatEuros(balance)}` : "Portefeuille"}
+        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-bg px-2.5 py-1.5 text-xs font-semibold tabular-nums transition hover:border-accent/40 hover:text-accent"
+      >
+        <IconWallet width={14} height={14} className="text-accent" />
+        {balance !== null ? formatEuros(balance) : "—"}
+      </Link>
+      </div>
     </div>
   );
 }

@@ -818,3 +818,50 @@ html.chargement body {
     animation: none;
   }
 }
+
+/*
+ * Fenêtre de réservation du code (BookingDialog) : chaque étape glisse en
+ * entrant, une erreur tremble légèrement, la coche finale apparaît d'un bond.
+ */
+.booking-step {
+  animation: booking-step-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.booking-shake {
+  animation: booking-shake 300ms ease-out;
+}
+.booking-pop {
+  animation: booking-pop 450ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes booking-step-in {
+  from {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+}
+@keyframes booking-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-3px);
+  }
+  75% {
+    transform: translateX(3px);
+  }
+}
+@keyframes booking-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .booking-step,
+  .booking-shake,
+  .booking-pop {
+    animation: none;
+  }
+}

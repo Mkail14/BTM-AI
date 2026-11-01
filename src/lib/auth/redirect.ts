@@ -15,6 +15,7 @@ export function safeNextPath(next: string | null | undefined, fallback = "/"): s
 export const PROTECTED_PATH_PREFIXES = [
   "/c/",
   "/parametres",
+  "/portefeuille",
   "/admin",
   "/auth/nouveau-mot-de-passe",
 ] as const;

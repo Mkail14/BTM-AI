@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { notFound, redirect } from "next/navigation";
+import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { authRequiredPath } from "./redirect";
 import { hasAdminRole } from "./roles";
@@ -32,12 +33,15 @@ export async function getSessionUser(
   };
 }
 
-/** Client RLS + utilisateur, pour les routes serveur. */
-export async function getAuthContext() {
+/**
+ * Client RLS + utilisateur, pour les routes serveur. Mémorisé le temps d'un
+ * rendu : la mise en page et la page lisent la session une seule fois.
+ */
+export const getAuthContext = cache(async () => {
   const supabase = await createSupabaseServerClient();
   const user = supabase ? await getSessionUser(supabase) : null;
   return { supabase, user };
-}
+});
 
 /** À utiliser dans les pages privées : renvoie vers l'accueil avec la fenêtre de connexion. */
 export async function requireUser(currentPath: string) {

@@ -5,6 +5,8 @@ import { isPersonalityId } from "@/lib/ai/personalities";
 import { getAuthContext } from "@/lib/auth/session";
 import { profileSchema } from "@/lib/chat/validation";
 import { updatePersonality, updateProfile } from "@/lib/conversations/repository";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { DELETE_CONFIRMATION } from "./confirmation";
 
 export type ProfileFormState = { status: "idle" | "saved" | "error"; message?: string };
 
@@ -47,4 +49,35 @@ export async function choosePersonalityAction(personality: unknown): Promise<Pro
 
   revalidatePath("/", "layout");
   return { status: "saved", message: "C'est noté, Awa change de caractère !" };
+}
+
+/**
+ * Suppression définitive du compte : l'utilisateur d'auth est effacé, et avec
+ * lui (on delete cascade) son profil, ses conversations et ses messages.
+ * Le compte administrateur protégé est refusé par la base elle-même.
+ */
+export async function deleteAccountAction(confirmation: unknown): Promise<ProfileFormState> {
+  const { supabase, user } = await getAuthContext();
+  if (!supabase || !user) return { status: "error", message: "Votre session a expiré. Reconnectez-vous." };
+  if (confirmation !== DELETE_CONFIRMATION) {
+    return { status: "error", message: `Écrivez ${DELETE_CONFIRMATION} pour confirmer.` };
+  }
+
+  const admin = getSupabaseAdminClient();
+  if (!admin) return { status: "error", message: "La suppression est indisponible pour le moment." };
+
+  const { error } = await admin.auth.admin.deleteUser(user.id);
+  if (error) {
+    // Le refus du déclencheur arrive en « Database error » générique : un admin refusé est le compte protégé.
+    if (user.isAdmin || /protégé|protected/i.test(error.message)) {
+      return { status: "error", message: "Ce compte administrateur est protégé : il ne peut pas être supprimé." };
+    }
+    console.error("[parametres] Suppression du compte impossible", error);
+    return { status: "error", message: "La suppression a échoué. Réessayez." };
+  }
+
+  // Efface les cookies de session (le jeton ne correspond plus à aucun compte).
+  await supabase.auth.signOut({ scope: "local" }).catch(() => {});
+  revalidatePath("/", "layout");
+  return { status: "saved", message: "Votre compte a été supprimé." };
 }

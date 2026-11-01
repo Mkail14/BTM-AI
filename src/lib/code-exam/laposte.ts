@@ -8,24 +8,27 @@ import { z } from "zod";
  * Le site appelle une API (api.laposte.fr/silex-vente) avec une clé publique
  * écrite dans sa page. Pour que le service tienne quand La Poste change cette
  * clé ou son adresse, elles sont relues sur la page publique, et relues de
- * nouveau dès que l'API refuse l'accès. Si la lecture échoue malgré tout, les
- * derniers horaires lus restent affichés quelques heures, l'administrateur est
- * alerté (getCodeExamHealth) et le tableau renvoie vers le site de La Poste.
+ * nouveau dès que l'API refuse l'accès. Si la lecture échoue malgré tout,
+ * l'administrateur est alerté (getCodeExamHealth, vérifiée aussi toutes les
+ * 2 h par .github/workflows/surveillance-laposte.yml) et le tableau renvoie
+ * vers le site de La Poste.
  */
 
 export const LAPOSTE_SEARCH_URL = "https://www.lecode.laposte.fr/recherche-salle";
 
-/** Horaires relus au plus toutes les 20 minutes : le site de La Poste n'est pas sollicité à chaque message. */
-const REFRESH_MS = 20 * 60_000;
-/** Derniers horaires lus, encore affichés après un échec. */
-const STALE_MS = 6 * 3_600_000;
+/**
+ * Horaires relus au plus une fois par minute : les places changent vite, mais
+ * le site de La Poste n'est pas sollicité à chaque affichage.
+ */
+const REFRESH_MS = 60_000;
 const ACCESS_MS = 6 * 3_600_000;
 const TIMEOUT_MS = 10_000;
 const DAYS = 30;
 /** Centre de recherche : Mamoudzou (l'API renvoie les bureaux les plus proches, toute l'île). */
 const MAYOTTE = { localisation: "Mamoudzou", latitude: "-12.7806", longitude: "45.2279" };
 
-export type CodeExamCenter = { id: string; name: string; city: string };
+/** `types` : épreuves proposées (« B » code auto, « A » moto, « OC », « OEI » bateau). */
+export type CodeExamCenter = { id: string; name: string; city: string; types: string[] };
 export type CodeExamSlot = { centerId: string; startsAt: string; places: number };
 export type CodeExamData = { centers: CodeExamCenter[]; slots: CodeExamSlot[]; updatedAt: number };
 
@@ -58,6 +61,7 @@ const salleSchema = z.object({
   id: z.number(),
   nom: z.string(),
   adresse: z.object({ ville: z.string().nullish(), codePostal: z.string().nullish() }),
+  listeTypeExamen: z.array(z.string()).nullish(),
 });
 
 const sessionSchema = z.object({
@@ -84,7 +88,12 @@ export function parseCenters(json: unknown): CodeExamCenter[] {
   if (!parsed.success) throw new CodeExamSourceError("format", "Les bureaux renvoyés par La Poste ont changé de format.");
   return parsed.data
     .filter((s) => s.adresse.codePostal?.trim().startsWith("976"))
-    .map((s) => ({ id: String(s.id), name: centerName(s.nom), city: title(s.adresse.ville ?? "") }));
+    .map((s) => ({
+      id: String(s.id),
+      name: centerName(s.nom),
+      city: title(s.adresse.ville ?? ""),
+      types: s.listeTypeExamen ?? [],
+    }));
 }
 
 /** Sessions ouvertes à venir d'un bureau (complètes comprises : places à 0). */
@@ -159,11 +168,12 @@ let lastFailure: { message: string; at: number } | null = null;
 let pending: Promise<CodeExamData | null> | null = null;
 
 /**
- * Horaires à afficher : relus au plus toutes les 20 minutes ; après un échec,
- * les derniers horaires lus (moins de 6 h), sinon null.
+ * Horaires à afficher : relus au plus une fois par minute ; `fresh` les relit
+ * tout de suite (réservation, surveillance). Après un échec : null, jamais
+ * d'anciennes places qui ne sont peut-être plus vraies.
  */
-export async function loadCodeExam(): Promise<CodeExamData | null> {
-  if (last && Date.now() - last.updatedAt < REFRESH_MS) return last;
+export async function loadCodeExam({ fresh = false } = {}): Promise<CodeExamData | null> {
+  if (!fresh && last && Date.now() - last.updatedAt < REFRESH_MS) return last;
   pending ??= fetchCodeExam()
     .then((data) => {
       last = data;
@@ -174,7 +184,8 @@ export async function loadCodeExam(): Promise<CodeExamData | null> {
       const message = error instanceof CodeExamSourceError ? error.message : "Lecture des horaires de La Poste impossible.";
       lastFailure = { message, at: Date.now() };
       console.error("[code-exam] Horaires de La Poste illisibles", error);
-      return last && Date.now() - last.updatedAt < STALE_MS ? last : null;
+      last = null;
+      return null;
     })
     .finally(() => {
       pending = null;
@@ -182,8 +193,11 @@ export async function loadCodeExam(): Promise<CodeExamData | null> {
   return pending;
 }
 
-/** Pour l'administration : la lecture des horaires fonctionne-t-elle ? (déclenche une lecture si besoin) */
-export async function getCodeExamHealth(): Promise<{ ok: true } | { ok: false; message: string }> {
-  await loadCodeExam();
+/**
+ * La lecture des horaires fonctionne-t-elle ? Pour l'administration, et pour la
+ * surveillance toutes les 2 h (`fresh` : relit le site de La Poste maintenant).
+ */
+export async function getCodeExamHealth({ fresh = false } = {}): Promise<{ ok: true } | { ok: false; message: string }> {
+  await loadCodeExam({ fresh });
   return lastFailure ? { ok: false, message: lastFailure.message } : { ok: true };
 }

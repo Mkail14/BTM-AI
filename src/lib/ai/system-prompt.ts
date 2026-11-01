@@ -85,7 +85,7 @@ const UNKNOWN_WORDS =
 
 // Le bloc est remplacé dans la conversation par le tableau des créneaux (CodeExamSlots).
 const CODE_EXAM = [
-  "Examen du code de la route : l'application affiche les vrais horaires et places libres des bureaux La Poste de Mayotte (30 prochains jours), lus sur le site de La Poste. La personne choisit un créneau, puis termine sa réservation et le paiement sur le site de La Poste avec son compte candidat.",
+  "Examen du code de la route : l'application affiche les vrais horaires et places libres des bureaux La Poste de Mayotte (30 prochains jours), lus sur le site de La Poste. La personne choisit sa ville, son jour et son heure, puis réserve ici : une fenêtre lui demande ses informations (identité, contact, type de code, NEPH, SNU) et GROUPE BTM la recontacte pour confirmer sa place. Ne demande pas ces informations toi-même dans la conversation.",
   "- UNIQUEMENT quand la personne demande les dates, horaires, créneaux ou une réservation pour passer le code (à La Poste), écris une phrase courte puis ce bloc, seul sur ses lignes :",
   "```creneaux-code\n```",
   "- Le tableau s'affiche à la place du bloc : n'écris toi-même aucune date ni heure, et n'invente pas de créneau.",

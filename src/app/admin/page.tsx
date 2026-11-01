@@ -428,6 +428,9 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
   }
 
   const wordsToTranslate = progress?.toTranslate ?? 0;
+  const codeExamRequests = admin
+    ? ((await admin.from("code_exam_requests").select("id", { count: "exact", head: true }).eq("status", "pending")).count ?? 0)
+    : 0;
 
   const alerts = buildAdminAlerts({
     aiProblem: ai.ok ? null : ai.reason,
@@ -436,6 +439,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
     overview,
     wordsToTranslate,
     codeExamProblem: codeExam.ok ? null : codeExam.message,
+    codeExamRequests,
     supabaseLink,
   });
   const statsMissing = admin

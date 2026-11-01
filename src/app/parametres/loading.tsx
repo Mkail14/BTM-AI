@@ -1,16 +1,26 @@
-import { SimplePage } from "@/components/layout/SimplePage";
 import { LoadingStatus, Skeleton } from "@/components/ui/Skeleton";
+import { SettingsFrame } from "./SettingsFrame";
 
-/** Affiché instantanément au clic sur « Paramètres ». */
+/** Affiché instantanément au clic sur « Paramètres », dans le même cadre fixe. */
 export default function SettingsLoading() {
   return (
-    <SimplePage title="Paramètres">
+    <SettingsFrame>
       <LoadingStatus />
-      <div className="space-y-6">
-        <Skeleton className="h-40 rounded-xl" />
-        <Skeleton className="h-72 rounded-xl" />
-        <Skeleton className="h-32 rounded-xl" />
+      <div className="flex shrink-0 items-center gap-4">
+        <Skeleton className="size-12 rounded-2xl" />
+        <div className="space-y-2">
+          <Skeleton className="h-5 w-40" />
+          <Skeleton className="h-4 w-56" />
+        </div>
       </div>
-    </SimplePage>
+      <div className="flex min-h-0 flex-1 flex-col gap-4 md:flex-row md:gap-6">
+        <div className="flex gap-1.5 md:w-64 md:flex-col">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-12 w-36 rounded-xl md:w-full" />
+          ))}
+        </div>
+        <Skeleton className="min-h-0 flex-1 rounded-2xl" />
+      </div>
+    </SettingsFrame>
   );
 }

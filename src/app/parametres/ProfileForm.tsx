@@ -9,7 +9,7 @@ export function ProfileForm({ displayName }: { displayName: string | null }) {
   });
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="max-w-xl space-y-5">
       <div>
         <label htmlFor="displayName" className="block text-sm font-medium">
           Nom affiché
@@ -20,22 +20,28 @@ export function ProfileForm({ displayName }: { displayName: string | null }) {
           defaultValue={displayName ?? ""}
           maxLength={60}
           autoComplete="nickname"
-          className="mt-1.5 w-full rounded-lg border border-border bg-bg px-3 py-2.5 outline-none focus:border-accent"
+          placeholder="Votre prénom"
+          className="mt-1.5 w-full rounded-xl border border-border bg-bg px-3 py-2.5 outline-none transition focus:border-accent focus:ring-4 focus:ring-accent-soft"
         />
-        <p className="mt-1 text-xs text-fg-muted">Visible uniquement par vous, dans le menu.</p>
+        <p className="mt-1.5 text-xs text-fg-muted">Visible uniquement par vous, dans le menu.</p>
       </div>
-      {state.message ? (
-        <p role={state.status === "error" ? "alert" : "status"} className={`text-sm ${state.status === "error" ? "text-danger" : "text-accent"}`}>
-          {state.message}
-        </p>
-      ) : null}
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-lg bg-accent px-4 py-2 font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-60"
-      >
-        {pending ? "Enregistrement…" : "Enregistrer"}
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-xl bg-accent px-4 py-2.5 font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-60"
+        >
+          {pending ? "Enregistrement…" : "Enregistrer"}
+        </button>
+        {state.message ? (
+          <p
+            role={state.status === "error" ? "alert" : "status"}
+            className={`text-sm ${state.status === "error" ? "text-danger" : "text-success"}`}
+          >
+            {state.message}
+          </p>
+        ) : null}
+      </div>
     </form>
   );
 }

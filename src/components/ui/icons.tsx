@@ -207,3 +207,17 @@ export const IconMic = (p: IconProps) => (
     <path d="M5 11a7 7 0 0 0 14 0M12 18v3" />
   </Icon>
 );
+
+export const IconUser = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 21a8 8 0 0 1 16 0" />
+  </Icon>
+);
+
+export const IconWallet = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M19 7V5.5A1.5 1.5 0 0 0 17.5 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2H5" />
+    <path d="M16.5 13.5h.01" />
+  </Icon>
+);

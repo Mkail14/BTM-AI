@@ -22,8 +22,8 @@ const SCRIPT = `(function () {
     html.classList.add("chargement");
     var premiereVisite = true;
     try { premiereVisite = !sessionStorage.getItem("btm-ai-accueilli"); sessionStorage.setItem("btm-ai-accueilli", "1"); } catch (e) {}
-    // Durée minimale : on voit le logo se remplir au lieu d'un éclair, plus longtemps à la première visite.
-    var dureeMin = premiereVisite ? 1600 : 900;
+    // Durée minimale à la première visite seulement (on voit le logo se remplir) ; ensuite, aucune attente ajoutée.
+    var dureeMin = premiereVisite ? 1200 : 0;
     var debut = Date.now();
     var progres = 0, palier = 0.15;
     // Le remplissage ne va jamais plus vite que la durée minimale (courbe qui ralentit en haut).
@@ -48,7 +48,7 @@ const SCRIPT = `(function () {
         dessiner();
         ecran.classList.add("fini");
         html.classList.remove("chargement");
-      }, Math.max(0, dureeMin - (Date.now() - debut)) + 500);
+      }, Math.max(0, dureeMin - (Date.now() - debut)) + (premiereVisite ? 300 : 0));
     };
     document.addEventListener("DOMContentLoaded", function () { window.__btmAiProgres(0.5); });
     window.addEventListener("load", function () { window.__btmAiProgres(0.8); });
