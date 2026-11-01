@@ -34,6 +34,11 @@ export function hapticWriting() {
   pulse(10);
 }
 
+/** Pendant qu'Awa écrit : vibration très légère, comme une frappe (cadencée par useTypewriter). */
+export function hapticTick() {
+  pulse(4);
+}
+
 /** Réponse prête : deux impulsions rapprochées. */
 export function hapticReady() {
   if (pulse([10, 70, 10])) setTimeout(() => iosSwitch?.click(), 90);

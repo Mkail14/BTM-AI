@@ -92,7 +92,7 @@ export default async function AdminLexiconPage() {
       <AdminHeader section="Lexique shimaoré" email={user.email} />
       <main
         id="contenu"
-        className="mx-auto grid w-full max-w-[1600px] min-h-0 flex-1 gap-4 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:grid-cols-[minmax(0,1fr)_26rem] lg:grid-rows-[minmax(0,1fr)]"
+        className="mx-auto grid grid-cols-1 w-full max-w-[1600px] min-h-0 flex-1 gap-4 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:grid-cols-[minmax(0,1fr)_26rem] lg:grid-rows-[minmax(0,1fr)]"
       >
         <LexiconMap tree={tree} />
         <div className="flex h-[80dvh] min-h-0 flex-col gap-3 lg:h-auto">

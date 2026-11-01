@@ -1,13 +1,15 @@
 "use client";
 
 import { useState, type ComponentType, type ReactNode, type SVGProps } from "react";
-import { IconLock, IconSparkle, IconTrash, IconUser } from "@/components/ui/icons";
+import { IconLock, IconTrash, IconUser } from "@/components/ui/icons";
 
-export type SettingsTab = "profil" | "personnalite" | "securite" | "suppression";
+export type SettingsTab = "profil" | "securite" | "suppression";
 
 type Section = {
   id: SettingsTab;
   label: string;
+  /** Libellé des onglets sur téléphone, où les trois rubriques tiennent côte à côte. */
+  short: string;
   hint: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   danger?: boolean;
@@ -17,24 +19,21 @@ const SECTIONS: Section[] = [
   {
     id: "profil",
     label: "Profil",
+    short: "Profil",
     hint: "Votre nom dans BTM AI",
     icon: IconUser,
   },
   {
-    id: "personnalite",
-    label: "Personnalité d'Awa",
-    hint: "Son caractère avec vous",
-    icon: IconSparkle,
-  },
-  {
     id: "securite",
     label: "Connexion et sécurité",
+    short: "Sécurité",
     hint: "E-mail, mot de passe, session",
     icon: IconLock,
   },
   {
     id: "suppression",
     label: "Supprimer le compte",
+    short: "Supprimer",
     hint: "Effacer vos données",
     icon: IconTrash,
     danger: true,
@@ -53,35 +52,40 @@ export function SettingsView({ panels }: { panels: Partial<Record<SettingsTab, R
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-4 md:flex-row md:gap-6">
       <nav aria-label="Rubriques des paramètres" className="shrink-0 md:w-64">
-        <ul className="flex gap-1.5 [scrollbar-width:none] overflow-x-auto md:flex-col md:overflow-visible">
+        {/* Téléphone : onglets de même largeur, tous visibles ; tablette et ordinateur : menu vertical. */}
+        <ul
+          className="grid gap-1 rounded-2xl border border-border bg-bg p-1 md:flex md:flex-col md:gap-1.5 md:border-0 md:bg-transparent md:p-0"
+          style={{ gridTemplateColumns: `repeat(${sections.length}, minmax(0, 1fr))` }}
+        >
           {sections.map((s) => {
             const selected = s.id === current?.id;
             const Icon = s.icon;
             return (
-              <li key={s.id} className="shrink-0">
+              <li key={s.id} className="min-w-0">
                 <button
                   type="button"
                   onClick={() => setActive(s.id)}
                   aria-current={selected ? "page" : undefined}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${
+                  className={`flex w-full items-center justify-center gap-1.5 rounded-xl px-2 py-2.5 text-sm transition md:justify-start md:gap-3 md:px-3 md:text-left ${
                     selected
                       ? s.danger
                         ? "bg-danger-soft text-danger"
-                        : "bg-bg font-medium text-fg shadow-sm ring-1 ring-border"
+                        : "bg-bg-muted font-medium text-fg md:bg-bg md:shadow-sm md:ring-1 md:ring-border"
                       : s.danger
                         ? "text-danger/80 hover:bg-danger-soft hover:text-danger"
                         : "text-fg-muted hover:bg-bg-muted hover:text-fg"
                   }`}
                 >
                   <span
-                    className={`grid size-8 shrink-0 place-items-center rounded-lg ${
+                    className={`hidden size-6 shrink-0 place-items-center rounded-lg min-[390px]:grid md:size-8 ${
                       selected && !s.danger ? "bg-accent-soft text-accent" : ""
                     }`}
                   >
                     <Icon width={17} height={17} />
                   </span>
                   <span className="min-w-0">
-                    <span className="block whitespace-nowrap">{s.label}</span>
+                    <span className="block truncate md:hidden">{s.short}</span>
+                    <span className="hidden whitespace-nowrap md:block">{s.label}</span>
                     <span className="hidden text-xs font-normal text-fg-muted md:block">{s.hint}</span>
                   </span>
                 </button>

@@ -4,6 +4,7 @@ import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { CodeExamSourceError, centerName, extractAccess, parseCenters, parseSessions } from "@/lib/code-exam/laposte";
 import { enforceShimaore } from "@/lib/language/unknown-words";
 import { fieldError, normalizePhone, requestSchema } from "@/lib/code-exam/candidate";
+import { FOOD_DELIVERY_FEE_CENTS, priceOrder } from "@/lib/food/catalog";
 
 // Extraits des réponses réelles de lecode.laposte.fr (novembre 2026).
 const PAGE = `<script>window.__NUXT__.config={public:{siteRoot:"https://www.lecode.laposte.fr",idPartenaire:"partenaire-1",baseApiVente:"https:\\u002F\\u002Fapi.laposte.fr",apiVente:"/silex-vente/v1",apiKey:"cle-1"}}</script>`;
@@ -58,7 +59,7 @@ describe("horaires du code (La Poste)", () => {
 
   it("apprend le tableau à Awa dans la conversation écrite, mode maître compris", () => {
     assert.match(buildSystemPrompt(undefined, {}), /creneaux-code/);
-    assert.match(buildSystemPrompt(undefined, { teacher: true }), /creneaux-code[\s\S]*seule exception/);
+    assert.match(buildSystemPrompt(undefined, { teacher: true }), /creneaux-code[\s\S]*exception/);
     assert.doesNotMatch(buildSystemPrompt(undefined, { voice: true }), /creneaux-code/);
   });
 
@@ -105,5 +106,30 @@ describe("informations du candidat", () => {
     assert.equal(normalizePhone("0639.12.34.56"), "0639123456");
     assert.equal(normalizePhone("0033 6 12 34 56 78"), "0612345678");
     assert.equal(normalizePhone("639123456"), null);
+  });
+});
+
+describe("commande de repas (prototype)", () => {
+  it("calcule le total avec les prix du catalogue et la livraison", () => {
+    const order = priceOrder("kebab-du-lagon", [
+      { itemId: "kebab-classique", quantity: 2 },
+      { itemId: "soda", quantity: 1 },
+    ]);
+    assert.equal(order?.itemsCents, 750 * 2 + 250);
+    assert.equal(order?.totalCents, 750 * 2 + 250 + FOOD_DELIVERY_FEE_CENTS);
+  });
+
+  it("refuse un plat inconnu, d'un autre restaurant, ou une quantité invalide", () => {
+    assert.equal(priceOrder("kebab-du-lagon", [{ itemId: "pizza-thon", quantity: 1 }]), null);
+    assert.equal(priceOrder("kebab-du-lagon", [{ itemId: "frites", quantity: 0 }]), null);
+    assert.equal(priceOrder("kebab-du-lagon", [{ itemId: "frites", quantity: 1.5 }]), null);
+    assert.equal(priceOrder("inconnu", [{ itemId: "frites", quantity: 1 }]), null);
+    assert.equal(priceOrder("kebab-du-lagon", []), null);
+  });
+
+  it("n'apprend la commande de repas à Awa que pour les comptes autorisés", () => {
+    assert.doesNotMatch(buildSystemPrompt(undefined, {}), /commande-repas/);
+    assert.match(buildSystemPrompt(undefined, { foodOrdering: true }), /commande-repas/);
+    assert.doesNotMatch(buildSystemPrompt(undefined, { foodOrdering: true, voice: true }), /commande-repas/);
   });
 });

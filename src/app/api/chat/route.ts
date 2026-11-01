@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { after, NextResponse, type NextRequest } from "next/server";
 import { AIProviderError, buildSystemPrompt, getAIProvider } from "@/lib/ai";
 import { getAuthContext } from "@/lib/auth/session";
+import { canOrderFood } from "@/lib/food/access";
 import { chatErrorBody } from "@/lib/chat/errors";
 import { buildModelHistory, deriveTitle } from "@/lib/chat/history";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
@@ -87,9 +88,19 @@ export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return errorResponse(403, "invalid_request");
   // Trajet du message, affiché en direct sur /admin/circuit.
   const flow = startFlowTrace();
+  const startedAt = Date.now();
+
+  // Liens coupés, session et chaîne d'API ne dépendent pas les uns des autres :
+  // lus en même temps (chaque lecture est un aller-retour réseau).
+  const authTask = getAuthContext();
+  const cutsTask = loadFlowCuts();
+  const aiTask = cutsTask.then((cuts) => getAIProvider(cuts));
+  // Attendues plus bas : pas de rejet non géré si on répond avant.
+  authTask.catch(() => {});
+  aiTask.catch(() => {});
 
   // 1. Lien coupé sur le schéma de /admin/circuit : le message s'arrête là, Awa ne répond pas.
-  const cuts = await loadFlowCuts();
+  const cuts = await cutsTask;
   const cutAt = flowCutStop(cuts);
   if (cutAt) {
     flow.step(cutAt, false, "lien coupé");
@@ -97,7 +108,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Fournisseur d'IA configuré ? Aucune réponse simulée sinon. Les API coupées sont sautées.
-  const ai = await getAIProvider(cuts);
+  const ai = await aiTask;
   if (!ai.ok) {
     console.error(`[chat] Fournisseur d'IA non configuré : ${ai.reason}`);
     flow.step("input", false, ai.reason === ALL_APIS_CUT ? "lien coupé" : "aucune API configurée");
@@ -129,10 +140,25 @@ export async function POST(request: NextRequest) {
   flow.step("input", true);
 
   // 3. Identité et quotas.
-  const { supabase, user } = await getAuthContext();
+  const { supabase, user } = await authTask;
   let deviceId = request.cookies.get(DEVICE_COOKIE)?.value;
   const newDeviceId = !user && (!deviceId || !/^[0-9a-f-]{36}$/.test(deviceId));
   if (newDeviceId) deviceId = randomUUID();
+
+  // Historique de la conversation : simple lecture (RLS), lancée pendant la
+  // vérification des quotas plutôt qu'après.
+  const conversationTask =
+    user && supabase && body.conversationId
+      ? Promise.all([
+          getConversation(supabase, body.conversationId),
+          countMessages(supabase, body.conversationId),
+          getRecentMessages(supabase, body.conversationId, CHAT_LIMITS.historyFetchLimit),
+        ])
+      : null;
+  conversationTask?.catch(() => {});
+  // Cerveau d'Awa (Supabase, en cache) : nom, caractère, règles, connaissances, lexique.
+  const brainTask = loadAwaBrain();
+  brainTask.catch(() => {});
 
   // Le maître d'Awa (administrateur) lui parle sans quota.
   if (!user?.isAdmin) {
@@ -166,9 +192,9 @@ export async function POST(request: NextRequest) {
   let conversationId: string | null = null;
   let personality: PersonalityId | null | undefined;
   let memories: MemoryFact[] = [];
-
-  // Cerveau d'Awa (Supabase, en cache) : nom, caractère, règles, connaissances, lexique.
-  const brainTask = loadAwaBrain();
+  // Message de la personne : enregistré pendant que le modèle répond (attendu
+  // avant d'enregistrer la réponse, pour garder l'ordre).
+  let userMessageSaved: Promise<unknown> = Promise.resolve();
   // Offres d'emploi et actu de Mayotte, seulement si le message en parle (pas en mode maître : shimaoré seul).
   const liveTask = user?.isAdmin ? Promise.resolve(null) : liveContextFor(body.message);
 
@@ -195,11 +221,7 @@ export async function POST(request: NextRequest) {
       if (body.conversationId) {
         // RLS : une conversation d'un autre utilisateur est simplement introuvable
         // (le comptage et l'historique sont alors vides).
-        const [conversation, count, recent] = await Promise.all([
-          getConversation(supabase, body.conversationId),
-          countMessages(supabase, body.conversationId),
-          getRecentMessages(supabase, body.conversationId, CHAT_LIMITS.historyFetchLimit),
-        ]);
+        const [conversation, count, recent] = await conversationTask!;
         if (!conversation) {
           flow.step("prompt", false, "conversation introuvable");
           return errorResponse(404, "not_found");
@@ -219,12 +241,12 @@ export async function POST(request: NextRequest) {
         conversationId = created.id;
         history = [];
       }
-      await insertMessage(supabase, {
+      userMessageSaved = insertMessage(supabase, {
         conversationId,
         userId: user.id,
         role: "user",
         content: body.message,
-      });
+      }).catch((error: unknown) => console.error("[chat] Message de la personne non enregistré", error));
     } catch (error) {
       console.error("[chat] Erreur base de données", error);
       flow.step("prompt", false, "base de données indisponible");
@@ -248,6 +270,7 @@ export async function POST(request: NextRequest) {
         flow.step("prompt", false, "leçon non enregistrée");
       }
       try {
+        await userMessageSaved;
         await insertMessage(supabase, { conversationId, userId: user.id, role: "assistant", content: reply });
       } catch (error) {
         console.error("[chat] Impossible d'enregistrer la réponse", error);
@@ -300,8 +323,12 @@ export async function POST(request: NextRequest) {
     teacher: master,
     voice: body.voice,
     reportUnknownWords: true,
+    foodOrdering: canOrderFood(user),
   });
   flow.step("prompt", true);
+  // Mesures de vitesse, écrites dans les journaux du serveur en fin de réponse.
+  const contextMs = Date.now() - startedAt;
+  let firstTextMs: number | null = null;
 
   // Mémoire à long terme : une fois la réponse envoyée, le modèle dit ce qu'il
   // faut retenir de ce message, et c'est Supabase qui le garde. Avec un
@@ -387,6 +414,7 @@ export async function POST(request: NextRequest) {
           },
         })) {
           if (chunk.type === "text") {
+            firstTextMs ??= Date.now() - startedAt;
             text += chunk.text;
             if (!master) {
               const visible = tagFilter.push(chunk.text);
@@ -429,8 +457,12 @@ export async function POST(request: NextRequest) {
       } finally {
         if (master && !flushed) text = toShimaore(text);
         closeTag();
+        console.info(
+          `[chat] vitesse : contexte ${contextMs} ms, premier mot ${firstTextMs ?? "—"} ms, total ${Date.now() - startedAt} ms (${answeredBy ?? "aucune API"})`,
+        );
         if (user && supabase && conversationId) {
           try {
+            await userMessageSaved;
             await insertMessage(supabase, {
               conversationId,
               userId: user.id,
@@ -459,6 +491,7 @@ export async function POST(request: NextRequest) {
       "Content-Type": "application/x-ndjson; charset=utf-8",
       "Cache-Control": "no-store, no-transform",
       "X-Accel-Buffering": "no",
+      "Server-Timing": `context;dur=${contextMs}`,
     },
   });
 

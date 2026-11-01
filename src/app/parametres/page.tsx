@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PersonalityPicker } from "@/components/personality/PersonalityPicker";
 import { requireUser } from "@/lib/auth/session";
-import { loadPersonalityCards } from "@/lib/ai/personality-store";
 import { getProfile } from "@/lib/conversations/repository";
 import { DeleteAccount } from "./DeleteAccount";
+import { maskEmail } from "./mask-email";
+import { MaskedEmail } from "./MaskedEmail";
 import { ProfileForm } from "./ProfileForm";
 import { SettingsFrame } from "./SettingsFrame";
 import { SettingsView } from "./SettingsView";
@@ -14,8 +14,7 @@ export const metadata: Metadata = { title: "Paramètres" };
 
 export default async function SettingsPage() {
   const { supabase, user } = await requireUser("/parametres");
-  // Lectures en parallèle (le profil est déjà en mémoire depuis la mise en page).
-  const [profile, cards] = await Promise.all([getProfile(supabase, user.id), loadPersonalityCards()]);
+  const profile = await getProfile(supabase, user.id);
   const name = profile.displayName || user.email?.split("@")[0] || "Vous";
 
   return (
@@ -36,22 +35,16 @@ export default async function SettingsPage() {
               </span>
             ) : null}
           </h1>
-          <p className="truncate text-sm text-fg-muted">{user.email}</p>
+          <p className="truncate text-sm text-fg-muted">{user.email ? maskEmail(user.email) : null}</p>
         </div>
       </div>
 
       <SettingsView
         panels={{
           profil: <ProfileForm displayName={profile.displayName} />,
-          personnalite:
-            profile.personality !== undefined ? (
-              <div className="max-w-xl">
-                <PersonalityPicker cards={cards} current={profile.personality} />
-              </div>
-            ) : undefined,
           securite: (
             <div className="max-w-xl divide-y divide-border">
-              <Row title="Adresse e-mail" detail={user.email ?? "—"} />
+              <Row title="Adresse e-mail" detail={<MaskedEmail email={user.email} />} />
               <Row title="Mot de passe" detail="Choisissez-en un nouveau à tout moment.">
                 <Link
                   href="/auth/nouveau-mot-de-passe"
@@ -72,12 +65,12 @@ export default async function SettingsPage() {
   );
 }
 
-function Row({ title, detail, children }: { title: string; detail: string; children?: React.ReactNode }) {
+function Row({ title, detail, children }: { title: string; detail: React.ReactNode; children?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between gap-4 py-4 first:pt-0 last:pb-0">
       <div className="min-w-0">
         <p className="text-sm font-medium">{title}</p>
-        <p className="truncate text-sm text-fg-muted">{detail}</p>
+        <div className="truncate text-sm text-fg-muted">{detail}</div>
       </div>
       {children}
     </div>

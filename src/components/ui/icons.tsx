@@ -47,6 +47,14 @@ export const IconMenu = (p: IconProps) => (
   </Icon>
 );
 
+/** Barre latérale (bouton replier / déplier). */
+export const IconSidebar = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+    <path d="M9.5 4.5v15" />
+  </Icon>
+);
+
 export const IconClose = (p: IconProps) => (
   <Icon {...p}>
     <path d="M6 6l12 12M18 6 6 18" />
@@ -219,5 +227,21 @@ export const IconWallet = (p: IconProps) => (
   <Icon {...p}>
     <path d="M19 7V5.5A1.5 1.5 0 0 0 17.5 4H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2H5" />
     <path d="M16.5 13.5h.01" />
+  </Icon>
+);
+
+export const IconHelp = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M9.6 9.3a2.5 2.5 0 0 1 4.8.9c0 1.7-2.4 2.2-2.4 3.6" />
+    <path d="M12 17h.01" />
+  </Icon>
+);
+
+export const IconGauge = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M4.5 18a9 9 0 1 1 15 0" />
+    <path d="m12 13 3.5-3.5" />
+    <circle cx="12" cy="13" r="1" />
   </Icon>
 );

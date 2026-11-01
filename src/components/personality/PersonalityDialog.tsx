@@ -33,17 +33,17 @@ export function PersonalityDialog({ cards }: { cards: PersonalityCard[] }) {
       className="m-auto max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-4xl scrollbar-none overflow-y-auto rounded-3xl border border-border bg-bg p-0 text-fg shadow-2xl backdrop:backdrop-blur-sm"
     >
       {open && user ? (
-        <div className="p-6 sm:p-8">
+        <div className="p-5 pb-4 sm:p-8">
           <div className="mx-auto max-w-xl text-center">
-            <h2 id={titleId} className="text-2xl font-semibold tracking-tight sm:text-3xl">
+            <h2 id={titleId} className="text-xl font-semibold tracking-tight sm:text-3xl">
               Ton compte est prêt ! 🎉
             </h2>
-            <p className="mt-2 text-fg-muted">
+            <p className="mt-2 text-sm text-fg-muted sm:text-base">
               Je suis Awa. Avant qu&apos;on commence : tu me préfères comment ? Tu pourras changer d&apos;avis à tout
               moment dans les Paramètres.
             </p>
           </div>
-          <div className="mt-7">
+          <div className="mt-5 sm:mt-7">
             <PersonalityPicker
               cards={cards}
               current={null}

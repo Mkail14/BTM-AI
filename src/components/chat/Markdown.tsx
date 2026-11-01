@@ -3,6 +3,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { markUnknownWords } from "@/lib/language/unknown-words";
 import { CodeExamSlots } from "./CodeExamSlots";
+import { FoodOrder } from "./FoodOrder";
 import { UnknownWord } from "./UnknownWord";
 
 /** Texte brut d'un contenu Markdown rendu (le mot entre [[ ]]). */
@@ -15,12 +16,16 @@ function textOf(node: ReactNode): string {
 
 /** Bloc ```creneaux-code``` écrit par Awa : remplacé par le tableau des créneaux du code. */
 export const CODE_EXAM_BLOCK = "creneaux-code";
+/** Bloc ```commande-repas``` : remplacé par la commande de repas (FoodOrder). */
+export const FOOD_BLOCK = "commande-repas";
 
 // Le HTML brut n'est pas interprété (pas de rehype-raw) : seul le Markdown est rendu.
 const components: Components = {
   pre: ({ children }) => {
     const code = isValidElement<{ className?: string }>(children) ? children.props.className : undefined;
-    return code === `language-${CODE_EXAM_BLOCK}` ? <CodeExamSlots /> : <pre>{children}</pre>;
+    if (code === `language-${CODE_EXAM_BLOCK}`) return <CodeExamSlots />;
+    if (code === `language-${FOOD_BLOCK}`) return <FoodOrder />;
+    return <pre>{children}</pre>;
   },
   a: ({ href, title, children }) =>
     // [[mot]] : mot qu'Awa ne connaît pas encore en shimaoré (voir markUnknownWords).

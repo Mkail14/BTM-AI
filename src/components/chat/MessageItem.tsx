@@ -1,10 +1,11 @@
 "use client";
 
-import { memo } from "react";
+import { memo, useState } from "react";
 import { IconRetry } from "@/components/ui/icons";
 import type { ChatRole } from "@/lib/chat/types";
 import { Correctable } from "./Correctable";
 import { Markdown } from "./Markdown";
+import { useTypewriter } from "./useTypewriter";
 
 export type UiMessageStatus = "complete" | "streaming" | "interrupted" | "error";
 
@@ -49,10 +50,19 @@ export const MessageItem = memo(function MessageItem({
     );
   }
 
-  const waiting = message.status === "streaming" && !message.content;
+  return <AssistantMessage message={message} question={question} />;
+});
+
+function AssistantMessage({ message, question }: { message: UiMessage; question?: string }) {
+  const streaming = message.status === "streaming";
+  // Seule une réponse reçue en direct s'écrit lettre à lettre ; l'historique s'affiche d'un coup.
+  const [animate] = useState(streaming);
+  const { text, typing } = useTypewriter(message.content, { animate, finished: !streaming });
+  const writing = streaming || typing;
+  const waiting = writing && !text;
 
   return (
-    <article className="min-w-0" aria-busy={message.status === "streaming"}>
+    <article className="min-w-0" aria-busy={writing}>
       <h3 className="sr-only">Awa a répondu :</h3>
       {waiting ? (
         <p className="flex items-center gap-2 text-fg-muted">
@@ -63,9 +73,12 @@ export const MessageItem = memo(function MessageItem({
           </span>
           <span className="text-sm">Awa rédige une réponse…</span>
         </p>
-      ) : message.content ? (
-        message.status === "streaming" ? (
-          <Markdown text={message.content} />
+      ) : text ? (
+        writing ? (
+          // Point qui clignote au bout du texte pendant qu'Awa écrit.
+          <div className="typing-cursor">
+            <Markdown text={text} />
+          </div>
         ) : (
           // Maître d'Awa : sélection d'un passage pour le corriger (sans effet pour les autres).
           <Correctable messageId={message.id} reply={message.content} question={question}>
@@ -74,15 +87,15 @@ export const MessageItem = memo(function MessageItem({
         )
       ) : null}
 
-      {message.status === "interrupted" ? (
+      {message.status === "interrupted" && !typing ? (
         <p className="mt-2 text-xs text-fg-muted">{message.notice ?? "Réponse interrompue."}</p>
       ) : null}
 
-      {message.status === "error" ? (
+      {message.status === "error" && !typing ? (
         <p role="alert" className="mt-2 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">
           {message.notice ?? "La réponse n'a pas pu être générée."}
         </p>
       ) : null}
     </article>
   );
-});
+}

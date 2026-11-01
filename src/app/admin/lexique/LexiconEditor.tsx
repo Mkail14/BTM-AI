@@ -152,7 +152,7 @@ function EntryDialog({ initial, onClose }: { initial: Draft; onClose: () => void
               Au moins une version. Une personnalité sans version utilise la professionnelle.
             </p>
 
-            <div className="grid gap-4 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label htmlFor="lexicon-ctx" className="text-sm font-medium">
                   Contexte <span className="font-normal text-fg-muted">(facultatif)</span>
@@ -276,7 +276,7 @@ export function LexiconEditor({ rows }: { rows: LexiconRow[] }) {
               <button
                 type="button"
                 onClick={() => setOpenId(row.id)}
-                className="grid w-full gap-1 rounded-xl p-4 text-left hover:bg-bg-muted md:grid-cols-[1fr_1fr_auto] md:items-center md:gap-4"
+                className="grid grid-cols-1 w-full gap-1 rounded-xl p-4 text-left hover:bg-bg-muted md:grid-cols-[1fr_1fr_auto] md:items-center md:gap-4"
               >
                 <span className="min-w-0">
                   <span className="block font-medium break-words">{row.french}</span>

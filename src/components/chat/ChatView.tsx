@@ -8,7 +8,7 @@ import { useChatShell } from "@/components/layout/ChatShell";
 import { useCurrentPersonality } from "@/components/personality/PersonalityContext";
 import { PersonalitySwitcher } from "@/components/personality/PersonalitySwitcher";
 import { PERSONALITIES } from "@/lib/ai/personalities";
-import { IconMenu, IconMic, IconOffline, IconSave } from "@/components/ui/icons";
+import { IconMenu, IconMic, IconOffline, IconPlus, IconSave } from "@/components/ui/icons";
 import {
   clearAnonymousDraft,
   loadAnonymousDraft,
@@ -17,7 +17,6 @@ import {
 import { buildModelHistory } from "@/lib/chat/history";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
 import { createStreamEventParser } from "@/lib/chat/stream-protocol";
-import { hapticReady, hapticWriting } from "@/lib/chat/haptics";
 import type { ChatStreamEvent, ChatTurn } from "@/lib/chat/types";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
 import { Composer, type ComposerHandle } from "./Composer";
@@ -76,7 +75,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   const router = useRouter();
   const { user, openAuthDialog } = useAuth();
   const { current: persona } = useCurrentPersonality();
-  const { refreshConversations, newChatSignal, openSidebar } = useChatShell();
+  const { refreshConversations, newChatSignal, openSidebar, startNewChat } = useChatShell();
   const online = useOnlineStatus();
 
   const [messages, setMessages] = useState<UiMessage[]>(initialMessages);
@@ -169,6 +168,18 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     if (el && stickToBottom.current) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
+  // La réponse s'écrit lettre à lettre (useTypewriter) sans changer `messages` :
+  // le contenu qui grandit fait lui aussi descendre la conversation.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const observer = new MutationObserver(() => {
+      if (stickToBottom.current) el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(el, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
+  }, []);
+
   // Clavier du téléphone ouvert ou fermé (la zone visible change de hauteur) :
   // le bas de la conversation reste collé à la zone de saisie, comme dans une app.
   const distanceFromBottom = useRef(0);
@@ -215,7 +226,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       abortRef.current = controller;
       let createdConversationId: string | null = null;
       let settled = false;
-      let writing = false;
       // Ce qu'Awa lira à voix haute en mode vocal : sa réponse, ou le message d'erreur.
       let reply = "";
 
@@ -226,9 +236,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             setConversationId(event.conversationId);
             break;
           case "delta":
-            // Téléphone : petite vibration quand Awa se met à écrire, puis quand elle a fini.
-            if (!writing) hapticWriting();
-            writing = true;
             reply += event.text;
             updateMessage(assistantId, (m) => ({ ...m, content: m.content + event.text }));
             break;
@@ -239,7 +246,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             break;
           case "done":
             settled = true;
-            hapticReady();
             updateMessage(assistantId, (m) =>
               event.finishReason === "length"
                 ? { ...m, status: "interrupted", notice: "Réponse tronquée : longueur maximale atteinte." }
@@ -417,6 +423,12 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             >
               <IconSave width={16} height={16} />
               Enregistrer
+            </button>
+          ) : null}
+          {/* Téléphone : nouvelle conversation sans ouvrir le menu (sur ordinateur, le « + » est dans la barre latérale). */}
+          {messages.length > 0 ? (
+            <button type="button" onClick={startNewChat} aria-label="Nouvelle conversation" className="bouton-verre md:hidden">
+              <IconPlus width={18} height={18} strokeWidth={2.2} />
             </button>
           ) : null}
         </div>

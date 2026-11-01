@@ -34,9 +34,9 @@ export default async function AdminPersonalitiesPage({ searchParams }: PageProps
     <div className="flex h-dvh flex-col overflow-hidden bg-bg-subtle">
       <AdminHeader section="Personnalités d'Awa" email={user.email} />
 
-      {/* Tout est centré, en largeur comme en hauteur. */}
-      <main id="contenu" className="min-h-0 flex-1 overflow-hidden">
-        <div className="flex h-full items-center justify-center px-4 py-4">
+      {/* Tout est centré, en largeur comme en hauteur ; sur petit écran, seule cette zone défile (la page reste fixe). */}
+      <main id="contenu" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+        <div className="flex min-h-full items-center justify-center px-4 py-4">
           <div className="w-full max-w-2xl">
             <div className="text-center">
               <span
@@ -71,7 +71,7 @@ export default async function AdminPersonalitiesPage({ searchParams }: PageProps
                       key={id}
                       href={`/admin/personnalites?p=${id}`}
                       aria-current={active ? "page" : undefined}
-                      className={`flex flex-1 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-colors sm:flex-none sm:px-5 ${
+                      className={`flex min-w-0 flex-1 flex-col items-center justify-center gap-0.5 rounded-xl px-1.5 py-2 text-xs font-medium whitespace-nowrap transition-colors sm:flex-none sm:flex-row sm:gap-2 sm:px-5 sm:py-2.5 sm:text-sm ${
                         active ? "bg-accent text-accent-fg shadow-sm" : "text-fg-muted hover:bg-bg-muted hover:text-fg"
                       }`}
                     >

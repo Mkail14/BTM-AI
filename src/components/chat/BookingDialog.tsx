@@ -248,7 +248,7 @@ export function BookingDialog({ slot, onClose }: { slot: BookingSlot; onClose: (
                 </div>
                 {shown("civility") ? <p className="booking-shake mt-1 text-xs text-danger">{shown("civility")}</p> : null}
               </div>
-              <div className="grid gap-3.5 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
                 {input("lastName", { autoComplete: "family-name" })}
                 {input("firstName", { autoComplete: "given-name" })}
               </div>

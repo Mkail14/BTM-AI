@@ -21,7 +21,7 @@ export function SimplePage({
           <Link href="/" aria-label="BTM AI — retour à la conversation" className="rounded">
             <BrandLogo size="md" />
           </Link>
-          <Link href="/" className="text-sm text-fg-muted hover:text-fg">
+          <Link href="/" className="-mr-2 rounded-lg px-2 py-2.5 text-sm text-fg-muted hover:text-fg">
             ← Retour à la conversation
           </Link>
         </div>

@@ -103,8 +103,9 @@ export function WalletView({
   }
 
   return (
-    <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] md:overflow-visible">
-      <div className="flex min-h-0 flex-col gap-4">
+    <div className="grid grid-cols-1 min-h-0 flex-1 content-start gap-5 overflow-y-auto overscroll-contain md:content-stretch md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] md:overflow-visible">
+      {/* Téléphone : les cartes gardent leur hauteur et la zone défile ; ordinateur : colonne fixe. */}
+      <div className="flex flex-col gap-4 md:min-h-0 md:overflow-y-auto md:overscroll-contain">
         {shownNotice ? (
           <p role="status" className={`flex items-start gap-3 rounded-2xl px-4 py-3 text-sm ${NOTICES[shownNotice].tone}`}>
             <span className="flex-1">{NOTICES[shownNotice].text}</span>
@@ -117,7 +118,7 @@ export function WalletView({
         {/* Carte du solde */}
         <section
           aria-label="Solde"
-          className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-accent to-accent-hover p-5 text-accent-fg shadow-lg"
+          className="relative shrink-0 overflow-hidden rounded-3xl bg-gradient-to-br from-accent to-accent-hover p-5 text-accent-fg shadow-lg"
         >
           <div aria-hidden="true" className="absolute -top-16 -right-10 size-48 rounded-full bg-white/10" />
           <div aria-hidden="true" className="absolute -bottom-20 -left-8 size-40 rounded-full bg-white/5" />
@@ -136,7 +137,7 @@ export function WalletView({
         </section>
 
         {/* Recharge */}
-        <section aria-labelledby="recharger" className="rounded-3xl border border-border bg-bg p-5">
+        <section aria-labelledby="recharger" className="shrink-0 rounded-3xl border border-border bg-bg p-5">
           <h2 id="recharger" className="font-semibold">
             Ajouter de l&apos;argent
           </h2>
@@ -248,7 +249,7 @@ export function WalletView({
                 role="tab"
                 aria-selected={filter === id}
                 onClick={() => setFilter(id)}
-                className={`rounded-full px-3 py-1 transition ${filter === id ? "bg-bg text-fg shadow-sm" : "text-fg-muted hover:text-fg"}`}
+                className={`rounded-full px-3 py-1.5 transition ${filter === id ? "bg-bg text-fg shadow-sm" : "text-fg-muted hover:text-fg"}`}
               >
                 {text}
               </button>

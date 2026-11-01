@@ -378,7 +378,7 @@ export function PersonalityWorkbench({
 
   return (
     <>
-      <div className="grid auto-rows-fr gap-4 sm:grid-cols-2">
+      <div className="grid auto-rows-fr grid-cols-1 gap-4 sm:grid-cols-2">
         <Tile icon="🧠" title="Son caractère" summary={attitudeSummary} onOpen={() => setPanel("character")} />
         <Tile
           icon="📚"

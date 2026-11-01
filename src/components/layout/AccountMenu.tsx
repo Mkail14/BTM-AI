@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { AuthUser } from "@/components/auth/AuthProvider";
-import { IconChevronUpDown, IconLock, IconLogout, IconSettings, IconShield, IconWallet } from "@/components/ui/icons";
+import { IconChevronUpDown, IconGauge, IconHelp, IconLogout, IconSettings, IconWallet } from "@/components/ui/icons";
 import { formatEuros } from "@/lib/wallet/limits";
 
 /** Solde du portefeuille, relu à chaque changement de page et au retour sur l'onglet. */
@@ -39,10 +39,13 @@ export function AccountMenu({
   user,
   onNavigate,
   onSignOut,
+  compact = false,
 }: {
   user: AuthUser;
   onNavigate: () => void;
   onSignOut: () => void;
+  /** Barre latérale repliée (ordinateur) : la pastille seule. */
+  compact?: boolean;
 }) {
   // Position du menu (au-dessus du bouton), mesurée à l'ouverture.
   const [anchor, setAnchor] = useState<{ left: number; width: number; bottom: number } | null>(null);
@@ -57,7 +60,7 @@ export function AccountMenu({
 
   const setOpen = (value: boolean) => {
     const rect = triggerRef.current?.getBoundingClientRect();
-    setAnchor(value && rect ? { left: rect.left, width: rect.width, bottom: window.innerHeight - rect.top + 8 } : null);
+    setAnchor(value && rect ? { left: rect.left, width: Math.max(rect.width, 256), bottom: window.innerHeight - rect.top + 8 } : null);
   };
 
   // Fermeture : clic sur la page floutée, Échap (le focus revient sur le bouton)
@@ -115,23 +118,25 @@ export function AccountMenu({
               {user.email}
             </p>
           ) : null}
-          <Link href="/portefeuille" role="menuitem" onClick={close} className={itemClass}>
-            <IconWallet /> Portefeuille
-            {balance !== null ? (
-              <span className="ml-auto text-xs font-semibold text-fg-muted tabular-nums">{formatEuros(balance)}</span>
-            ) : null}
-          </Link>
+          {/* Portefeuille et administration sont déjà à l'extérieur (solde, Tableau de bord) :
+              le portefeuille ne revient ici que si la barre repliée cache le solde. */}
+          {compact ? (
+            <Link href="/portefeuille" role="menuitem" onClick={close} className={`${itemClass} max-md:hidden`}>
+              <IconWallet /> Portefeuille
+              {balance !== null ? (
+                <span className="ml-auto text-xs font-semibold text-fg-muted tabular-nums">{formatEuros(balance)}</span>
+              ) : null}
+            </Link>
+          ) : null}
           <Link href="/parametres" role="menuitem" onClick={close} className={itemClass}>
             <IconSettings /> Paramètres
           </Link>
-          <Link href="/confidentialite" role="menuitem" onClick={close} className={itemClass}>
-            <IconShield /> Données et confidentialité
+          <Link href="/utilisation" role="menuitem" onClick={close} className={itemClass}>
+            <IconGauge /> Utilisation
           </Link>
-          {user.isAdmin ? (
-            <Link href="/admin" role="menuitem" onClick={close} className={itemClass}>
-              <IconLock /> Administration
-            </Link>
-          ) : null}
+          <Link href="/aide" role="menuitem" onClick={close} className={itemClass}>
+            <IconHelp /> Obtenir de l&apos;aide
+          </Link>
           <div className="my-1 border-t border-border" role="separator" />
           <button
             type="button"
@@ -158,7 +163,9 @@ export function AccountMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        className={`flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-bg-muted ${open ? "bg-bg-muted" : ""}`}
+        aria-label={compact ? `Mon compte : ${name}` : undefined}
+        title={compact ? name : undefined}
+        className={`flex min-w-0 flex-1 items-center gap-3 rounded-lg px-2 py-2 text-left hover:bg-bg-muted ${compact ? "md:justify-center" : ""} ${open ? "bg-bg-muted" : ""}`}
       >
         <span
           aria-hidden="true"
@@ -166,17 +173,17 @@ export function AccountMenu({
         >
           {initial}
         </span>
-        <span className="min-w-0 flex-1 truncate font-medium" title={user.email ?? undefined}>
+        <span className={`min-w-0 flex-1 truncate font-medium ${compact ? "md:hidden" : ""}`} title={user.email ?? undefined}>
           {name}
         </span>
-        <IconChevronUpDown width={16} height={16} className="shrink-0 text-fg-muted" />
+        <IconChevronUpDown width={16} height={16} className={`shrink-0 text-fg-muted ${compact ? "md:hidden" : ""}`} />
       </button>
       {/* Solde du portefeuille : un clic ouvre la page pour recharger ou voir l'historique. */}
       <Link
         href="/portefeuille"
         onClick={onNavigate}
         aria-label={balance !== null ? `Portefeuille : ${formatEuros(balance)}` : "Portefeuille"}
-        className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-bg px-2.5 py-1.5 text-xs font-semibold tabular-nums transition hover:border-accent/40 hover:text-accent"
+        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-bg px-2.5 py-1.5 text-xs font-semibold tabular-nums transition hover:border-accent/40 hover:text-accent ${compact ? "md:hidden" : ""}`}
       >
         <IconWallet width={14} height={14} className="text-accent" />
         {balance !== null ? formatEuros(balance) : "—"}

@@ -11,7 +11,14 @@ declare global {
 /** Signale à l'écran de lancement que l'application est affichée et utilisable (après hydratation). */
 export function SplashReady() {
   useEffect(() => {
-    window.__btmAiPret?.();
+    if (window.__btmAiPret) {
+      window.__btmAiPret();
+      return;
+    }
+    // Page rendue par le navigateur (ex. « Page introuvable ») : le script de l'écran
+    // de lancement n'a pas tourné, on le masque nous-mêmes au lieu d'attendre 9 s.
+    document.getElementById("ecran-chargement")?.classList.add("fini");
+    document.documentElement.classList.remove("chargement");
   }, []);
   return null;
 }

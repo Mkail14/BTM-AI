@@ -418,6 +418,9 @@ dialog::backdrop {
   border: 1px solid var(--border);
   padding: 0.4em 0.7em;
   text-align: left;
+  /* Pas de coupure en plein mot (« ants.gouv.f / r ») : le tableau défile plutôt. */
+  overflow-wrap: break-word;
+  min-width: 5.5em;
 }
 .markdown th {
   background: var(--bg-subtle);
@@ -862,6 +865,53 @@ html.chargement body {
   .booking-step,
   .booking-shake,
   .booking-pop {
+    animation: none;
+  }
+}
+
+/* Bouton « + » (nouvelle conversation) : rond en verre discret, sans animation. */
+.bouton-verre {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  color: var(--fg-muted);
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--bg) 60%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  transition:
+    background-color 150ms ease,
+    color 150ms ease;
+}
+
+.bouton-verre:hover {
+  color: var(--fg);
+  background: var(--bg-muted);
+}
+
+/* Réponse d'Awa en cours d'écriture : point qui clignote au bout du dernier paragraphe. */
+.typing-cursor .markdown > :last-child::after {
+  content: "";
+  display: inline-block;
+  width: 0.55em;
+  height: 0.55em;
+  margin-left: 0.25em;
+  border-radius: 9999px;
+  background: var(--persona, var(--accent));
+  vertical-align: 0.05em;
+  animation: typing-cursor 900ms ease-in-out infinite;
+}
+@keyframes typing-cursor {
+  50% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .typing-cursor .markdown > :last-child::after {
     animation: none;
   }
 }

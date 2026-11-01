@@ -96,7 +96,7 @@ const ALERT_STYLES: Record<AdminAlert["level"], { label: string; icon: string; b
 
 function Alerts({ alerts }: { alerts: AdminAlert[] }) {
   return (
-    <ul className="grid gap-2 sm:grid-cols-2 md:grid-cols-1">
+    <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-1">
       {alerts.map((alert) => {
         const style = ALERT_STYLES[alert.level];
         return (
@@ -453,7 +453,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
 
       <main
         id="contenu"
-        className={`mx-auto grid w-full max-w-[1600px] min-h-0 flex-1 gap-4 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_22rem] ${
+        className={`mx-auto grid w-full max-w-[1600px] min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-4 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_22rem] ${
           alerts.length > 0 ? "md:grid-rows-[auto_minmax(0,1fr)]" : ""
         }`}
       >
@@ -471,7 +471,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
           className={`flex min-h-0 flex-col gap-4 md:col-start-1 md:row-start-1 ${alerts.length > 0 ? "md:row-span-2" : ""}`}
         >
           {/* Les deux progressions à suivre : le vocabulaire d'Awa et le crédit payé. */}
-          <div className="grid shrink-0 gap-4 md:grid-cols-2">
+          <div className="grid shrink-0 grid-cols-1 gap-4 md:grid-cols-2">
             <AwaProgressCard progress={progress} />
             <GoogleCreditCard spend={spend} />
           </div>

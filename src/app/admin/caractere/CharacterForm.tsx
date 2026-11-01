@@ -143,7 +143,7 @@ export function CharacterForm({
       <IdentityCard />
 
       {/* Petit écran : les deux textes s'empilent et cette zone défile seule. */}
-      <div className="grid min-h-0 flex-1 gap-4 overflow-y-auto lg:grid-cols-2 lg:overflow-hidden">
+      <div className="grid grid-cols-1 min-h-0 flex-1 gap-4 overflow-y-auto lg:grid-cols-2 lg:overflow-hidden">
         {TEXTS.map(({ id, label, hint, icon: Icon }) => {
           const value = draft[id];
           const fieldId = `character-${id}`;

@@ -55,8 +55,8 @@ export function PersonalityPicker({
   const selectedLabel = cards.find((c) => c.id === selected)?.label;
 
   return (
-    <div className={row ? "space-y-7" : "space-y-5"}>
-      <fieldset className={row ? "grid gap-4 md:grid-cols-3 md:gap-5" : "space-y-3"}>
+    <div className={row ? "space-y-5 sm:space-y-7" : "space-y-5"}>
+      <fieldset className={row ? "grid gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-5" : "space-y-3"}>
         <legend className="sr-only">Personnalité d&apos;Awa</legend>
         {cards.map((p) => {
           const look = LOOKS[p.id] ?? FALLBACK_LOOK;
@@ -77,9 +77,9 @@ export function PersonalityPicker({
               <label
                 key={p.id}
                 style={{ backgroundImage: gradient(look.color) }}
-                className={`group relative isolate flex cursor-pointer items-center gap-4 overflow-hidden rounded-3xl p-5 text-white transition duration-200 focus-within:ring-4 focus-within:ring-white/70 md:min-h-80 md:flex-col md:items-start md:justify-between md:p-6 ${
+                className={`group relative isolate flex cursor-pointer items-center gap-3 overflow-hidden rounded-3xl p-4 text-white transition duration-200 focus-within:ring-4 focus-within:ring-white/70 sm:gap-4 sm:p-5 lg:min-h-80 lg:flex-col lg:items-start lg:justify-between lg:p-6 ${
                   checked
-                    ? "shadow-2xl ring-4 ring-white ring-offset-4 ring-offset-bg md:scale-[1.03]"
+                    ? "shadow-2xl ring-4 ring-white ring-offset-2 ring-offset-bg sm:ring-offset-4 lg:scale-[1.03]"
                     : selected
                       ? "opacity-50 saturate-50 hover:opacity-90 hover:saturate-100"
                       : "hover:-translate-y-1 hover:shadow-2xl"
@@ -89,19 +89,21 @@ export function PersonalityPicker({
                 {/* Grand emoji en filigrane : du caractère sans ajouter de texte. */}
                 <span
                   aria-hidden="true"
-                  className="pointer-events-none absolute -right-6 -bottom-8 -z-10 rotate-12 text-[8rem] leading-none opacity-15 select-none md:text-[12rem]"
+                  className="pointer-events-none absolute -right-6 -bottom-8 -z-10 rotate-12 text-[8rem] leading-none opacity-15 select-none lg:text-[12rem]"
                 >
                   {p.emoji}
                 </span>
 
-                <span aria-hidden="true" className="text-5xl leading-none drop-shadow md:text-6xl">
+                <span aria-hidden="true" className="shrink-0 text-4xl leading-none drop-shadow sm:text-5xl lg:text-6xl">
                   {p.emoji}
                 </span>
 
-                <span className="min-w-0 pr-8 md:pr-0">
-                  <span className="block text-xl font-black tracking-tight uppercase md:text-2xl">{p.label}</span>
+                <span className="min-w-0 pr-8 lg:pr-0">
+                  <span className="block text-base font-black tracking-tight break-words uppercase min-[380px]:text-lg sm:text-xl lg:text-xl xl:text-2xl">
+                    {p.label}
+                  </span>
                   {p.sample ? (
-                    <span className="mt-1.5 block text-sm leading-snug text-white/85 md:text-base">« {p.sample} »</span>
+                    <span className="mt-1 block text-sm leading-snug text-white/85 sm:mt-1.5 lg:text-base">« {p.sample} »</span>
                   ) : null}
                 </span>
 
@@ -109,7 +111,7 @@ export function PersonalityPicker({
                   <span
                     aria-hidden="true"
                     style={{ color: look.color }}
-                    className="absolute top-4 right-4 grid size-8 place-items-center rounded-full bg-white text-sm font-black shadow-lg"
+                    className="absolute top-3 right-3 grid size-7 place-items-center rounded-full bg-white text-sm font-black shadow-lg sm:top-4 sm:right-4 sm:size-8"
                   >
                     ✓
                   </span>
@@ -162,15 +164,20 @@ export function PersonalityPicker({
         </p>
       ) : null}
 
-      <div className={row ? "flex justify-center" : ""}>
+      {/* Bienvenue : le bouton reste visible en bas de la fenêtre, même si les cartes défilent. */}
+      <div
+        className={
+          row ? "sticky bottom-0 flex justify-center bg-gradient-to-t from-bg from-60% to-transparent pt-3 lg:static lg:bg-none lg:pt-0" : ""
+        }
+      >
         <button
           type="button"
           onClick={save}
           disabled={!selected || pending || selected === current}
           style={selectedColor ? { backgroundColor: selectedColor } : undefined}
-          className={`rounded-2xl px-8 py-3.5 font-bold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 ${
+          className={`rounded-2xl px-4 py-3.5 font-bold text-white transition hover:brightness-110 sm:px-8 disabled:cursor-not-allowed disabled:opacity-40 ${
             selectedColor ? "" : "bg-accent"
-          } ${row ? "w-full max-w-sm text-lg" : "w-full"}`}
+          } ${row ? "w-full max-w-sm text-base sm:text-lg" : "w-full"}`}
         >
           {pending
             ? "Enregistrement…"

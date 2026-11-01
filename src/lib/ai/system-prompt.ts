@@ -59,6 +59,8 @@ export type PromptContext = {
   voice?: boolean;
   /** Awa signale les mots shimaoré qu'elle ne connaît pas (balise retirée par le serveur). */
   reportUnknownWords?: boolean;
+  /** Commande de repas ouverte à ce compte (prototype : administrateurs, voir src/lib/food/access.ts). */
+  foodOrdering?: boolean;
   /** Awa sur un autre site de GROUPE BTM (route /api/awa) : rôle sur place et données du site. */
   site?: { intro: string; instructions: string; data?: string | null };
 };
@@ -93,7 +95,16 @@ const CODE_EXAM = [
 ].join("\n");
 
 const CODE_EXAM_MASTER =
-  "- Avec ton maître aussi : s'il demande les horaires ou créneaux du code, mets ce bloc (avec une phrase très courte en shimaoré). C'est la seule exception au « UNIQUEMENT en shimaoré ».";
+  "- Avec ton maître aussi : s'il demande les horaires ou créneaux du code, mets ce bloc (avec une phrase très courte en shimaoré). C'est une exception au « UNIQUEMENT en shimaoré ».";
+
+// Le bloc est remplacé dans la conversation par la commande de repas (FoodOrder).
+const FOOD = [
+  "Commande de repas : l'application permet de commander à manger (kebab, pizza, plats mahorais…) et de payer avec le portefeuille, directement dans la conversation.",
+  "- UNIQUEMENT quand la personne veut commander ou se faire livrer à manger (ou dit qu'elle a faim et veut commander), écris une phrase courte puis ce bloc, seul sur ses lignes :",
+  "```commande-repas\n```",
+  "- Restaurant, plats, adresse et paiement se choisissent dans ce qui s'affiche : n'écris toi-même ni menu ni prix, et ne demande pas l'adresse dans la conversation.",
+  "- Avec ton maître aussi, c'est une exception au « UNIQUEMENT en shimaoré » : une phrase très courte en shimaoré, puis le bloc.",
+].join("\n");
 
 // Non modifiable depuis la base, et placé en fin de message système : sans elle, les petits modèles remplissent.
 const BREVITY =
@@ -177,6 +188,7 @@ export function buildSystemPrompt(
   // Le tableau ne s'affiche que dans la conversation écrite de BTM AI. Après
   // le mode maître, qui interdit le français : le bloc reste permis avec lui.
   if (!context.site && !context.voice) sections.push(context.teacher ? `${CODE_EXAM}\n${CODE_EXAM_MASTER}` : CODE_EXAM);
+  if (context.foodOrdering && !context.site && !context.voice) sections.push(FOOD);
   if (context.voice) sections.push(VOICE);
   sections.push(SECURITY);
   // Les petits modèles retiennent surtout la fin du message système : on y rappelle qui ils sont.

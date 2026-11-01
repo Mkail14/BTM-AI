@@ -231,8 +231,8 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
                 </p>
               ) : (
                 <>
-                  {/* Ordinateur : tableau */}
-                  <table className="hidden w-full text-sm md:table">
+                  {/* Grand écran : tableau (7 colonnes, illisibles sur tablette) ; en dessous, fiches. */}
+                  <table className="hidden w-full text-sm xl:table">
                     <thead>
                       <tr className="border-b border-border text-left text-xs text-fg-muted">
                         <th scope="col" className="px-4 py-2.5 font-medium">Compte</th>
@@ -272,7 +272,7 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
                   </table>
 
                   {/* Téléphone : cartes */}
-                  <ul className="divide-y divide-border md:hidden">
+                  <ul className="divide-y divide-border xl:hidden">
                     {directory.users.map((u) => (
                       <li key={u.id} className="flex gap-3 p-4">
                         <Avatar user={u} />

@@ -116,7 +116,7 @@ function WordDialog({
           }}
         >
           <div className="space-y-4 p-5">
-            <div className="grid items-end gap-3 sm:grid-cols-[1fr_auto_1fr]">
+            <div className="grid grid-cols-1 items-end gap-3 sm:grid-cols-[1fr_auto_1fr]">
               <div>
                 <label htmlFor="word-fr" className="text-xs font-medium text-fg-muted">
                   Français
@@ -400,11 +400,12 @@ export function WordsPanel({ rows, unavailable }: { rows: WordRow[]; unavailable
       aria-labelledby="words-title"
       className="flex h-full min-h-0 flex-col"
     >
-      <div className="flex items-center gap-3 border-b border-border px-4 py-3">
-        <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent">
+      {/* Colonne étroite (tablette en paysage) : les boutons passent à la ligne au lieu d’écraser le texte. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border px-4 py-3">
+        <span className="hidden size-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent sm:grid">
           <IconBook width={18} height={18} />
         </span>
-        <div className="min-w-0 flex-1">
+        <div className="min-w-[9rem] flex-1">
           <h2 id="words-title" className="font-semibold">
             Dictionnaire
           </h2>
@@ -418,7 +419,9 @@ export function WordsPanel({ rows, unavailable }: { rows: WordRow[]; unavailable
           disabled={unavailable}
           className={`${secondaryButton} shrink-0`}
         >
-          Coller une liste
+          {/* Téléphone : libellé court, la description garde la place de s’afficher. */}
+          <span className="sm:hidden">Coller</span>
+          <span className="hidden sm:inline">Coller une liste</span>
         </button>
         <button
           type="button"
