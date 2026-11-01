@@ -360,14 +360,14 @@ export async function POST(request: NextRequest) {
         );
       };
 
-      // Mode maître : la réponse est corrigée en entier (enforceShimaore) avant
-      // d'être envoyée d'un bloc, puis enregistrée telle qu'elle a été montrée.
+      // Mode maître : la réponse s'affiche en direct, puis sa version corrigée en
+      // entier (enforceShimaore) la remplace à la fin ; c'est elle qui est enregistrée.
       let flushed = false;
       const flush = () => {
         if (!master || flushed || !text) return;
         flushed = true;
         text = toShimaore(text);
-        send({ type: "delta", text });
+        send({ type: "replace", text });
       };
 
       try {
@@ -387,6 +387,8 @@ export async function POST(request: NextRequest) {
               const visible = tagFilter.push(chunk.text);
               shown += visible;
               if (visible) send({ type: "delta", text: visible });
+            } else {
+              send({ type: "delta", text: chunk.text });
             }
           } else {
             finish = chunk.reason;

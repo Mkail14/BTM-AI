@@ -27,8 +27,14 @@ export function buildLanguageGuidance(
   if (examples.length > 0) {
     lines.push("Exemples validés par des locuteurs (à privilégier) :");
     for (const example of examples) {
-      const context = example.context ? ` (${example.context})` : "";
+      const context = example.context ? ` (contexte : ${example.context})` : "";
       lines.push(`- FR : ${example.french} → SHI : ${example.shimaore}${context}`);
+    }
+    // Corrections du maître dans le chat : un même mot peut se dire autrement selon la situation.
+    if (examples.some((example) => example.context)) {
+      lines.push(
+        "Quand un exemple précise un contexte, utilise cette façon de dire dans ce contexte-là, de préférence à la traduction générale du même mot ou du vocabulaire.",
+      );
     }
   }
 

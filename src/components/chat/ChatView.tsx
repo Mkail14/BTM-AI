@@ -25,7 +25,8 @@ import { MessageItem, type UiMessage } from "./MessageItem";
 import { useVoiceConversation } from "./useVoiceConversation";
 import { VoiceOverlay } from "./VoiceOverlay";
 import { TeachWordContext } from "./UnknownWord";
-import { teachUnknownWordAction } from "@/app/(chat)/actions";
+import { correctInContextAction, teachUnknownWordAction } from "@/app/(chat)/actions";
+import { CorrectContext, type Correction } from "./Correctable";
 import { fillKnownWords, translationTable } from "@/lib/language/unknown-words";
 
 type ChatViewProps = {
@@ -98,6 +99,19 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       const table = translationTable([{ french, shimaore }]);
       setMessages((current) =>
         current.map((m) => (m.role === "assistant" ? { ...m, content: fillKnownWords(m.content, table) } : m)),
+      );
+    }
+    return result;
+  }, []);
+
+  // Sélection corrigée par le maître : retenue (avec son contexte éventuel) et
+  // remplacée tout de suite dans la réponse affichée.
+  const correctPassage = useCallback(async (messageId: string, correction: Correction) => {
+    const { shimaore, french, context, wrote } = correction;
+    const result = await correctInContextAction({ shimaore, french, context });
+    if (result.ok && wrote && wrote !== shimaore) {
+      setMessages((current) =>
+        current.map((m) => (m.id === messageId ? { ...m, content: m.content.split(wrote).join(shimaore) } : m)),
       );
     }
     return result;
@@ -208,6 +222,11 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             writing = true;
             reply += event.text;
             updateMessage(assistantId, (m) => ({ ...m, content: m.content + event.text }));
+            break;
+          case "replace":
+            // Mode maître : version corrigée de la réponse, à la place du texte reçu en direct.
+            reply = event.text;
+            updateMessage(assistantId, (m) => ({ ...m, content: event.text }));
             break;
           case "done":
             settled = true;
@@ -411,13 +430,15 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
         ) : (
           <section aria-label="Conversation" className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6">
             <TeachWordContext value={user?.isAdmin ? teachWord : null}>
-              {messages.map((message) => (
-                <MessageItem
-                  key={message.id}
-                  message={message}
-                  onRetry={message.id === retryTargetId ? retryLast : undefined}
-                />
-              ))}
+              <CorrectContext value={user?.isAdmin ? correctPassage : null}>
+                {messages.map((message) => (
+                  <MessageItem
+                    key={message.id}
+                    message={message}
+                    onRetry={message.id === retryTargetId ? retryLast : undefined}
+                  />
+                ))}
+              </CorrectContext>
             </TeachWordContext>
           </section>
         )}

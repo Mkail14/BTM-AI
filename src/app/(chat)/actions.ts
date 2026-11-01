@@ -43,3 +43,45 @@ export async function teachUnknownWordAction(input: unknown): Promise<ActionResu
   invalidateAwaBrain();
   return { ok: true, message: `${french} → ${shimaore}` };
 }
+
+const CONTEXT_MAX = 120; // contrainte de awa_lexicon.context
+
+const correctionSchema = z.object({
+  shimaore: z.string().trim().min(1, "Écris la bonne façon de le dire.").max(PHRASE_MAX, "Correction trop longue."),
+  french: z.string().trim().min(1, "Écris ce que ça veut dire en français.").max(PHRASE_MAX, "Sens trop long."),
+  context: z.string().trim().max(CONTEXT_MAX, `Contexte limité à ${CONTEXT_MAX} caractères.`),
+});
+
+/**
+ * Sélection d'un passage dans une réponse d'Awa : le maître le corrige, même
+ * si Awa croit le connaître. Avec un contexte (« à un aîné », « au marché »…),
+ * la correction s'ajoute aux expressions sans remplacer la traduction
+ * générale : Awa choisit selon la situation. Sans contexte, elle remplace
+ * la traduction du mot partout.
+ */
+export async function correctInContextAction(input: unknown): Promise<ActionResult> {
+  const auth = await requireAdminAction();
+  if (!auth) return NOT_ADMIN;
+  const parsed = correctionSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Données invalides." };
+  const { french, shimaore, context } = parsed.data;
+
+  try {
+    if (!context && french.length <= TAUGHT_WORD_MAX && shimaore.length <= TAUGHT_WORD_MAX) {
+      await teachWords(auth.supabase, auth.user.id, [{ french, shimaore }]);
+    } else {
+      const { error } = await auth.supabase.from("awa_lexicon").insert({
+        french,
+        shimaore,
+        context: context || null,
+        validated_by: auth.user.email ?? "Maître d'Awa",
+      });
+      if (error) throw error;
+    }
+  } catch (error) {
+    console.error("[chat] Correction non enregistrée", error);
+    return { ok: false, message: "Pas enregistré, réessaie." };
+  }
+  invalidateAwaBrain();
+  return { ok: true, message: context ? `Retenu : « ${shimaore} » ${context}.` : `Retenu : « ${shimaore} » = ${french}.` };
+}

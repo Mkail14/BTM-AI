@@ -186,5 +186,15 @@ describe("message système", () => {
       { french: "Bonjour", shimaore: "[exemple]", validatedBy: "test", validatedAt: "2026-01-01" },
     ]);
     assert.match(guidance, /FR : Bonjour → SHI : \[exemple\]/);
+    assert.doesNotMatch(guidance, /dans ce contexte-là/);
+  });
+
+  it("fait passer une correction en contexte avant la traduction générale", () => {
+    const guidance = buildLanguageGuidance([
+      { french: "Bonjour", shimaore: "kwezi", validatedBy: "test", validatedAt: "2026-01-01" },
+      { french: "Bonjour", shimaore: "[forme respectueuse]", context: "à un aîné", validatedBy: "test", validatedAt: "2026-01-01" },
+    ]);
+    assert.match(guidance, /SHI : \[forme respectueuse\] \(contexte : à un aîné\)/);
+    assert.match(guidance, /dans ce contexte-là/);
   });
 });

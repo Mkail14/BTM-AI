@@ -3,6 +3,7 @@
 import { memo } from "react";
 import { IconRetry } from "@/components/ui/icons";
 import type { ChatRole } from "@/lib/chat/types";
+import { Correctable } from "./Correctable";
 import { Markdown } from "./Markdown";
 
 export type UiMessageStatus = "complete" | "streaming" | "interrupted" | "error";
@@ -60,7 +61,14 @@ export const MessageItem = memo(function MessageItem({
           <span className="text-sm">Awa rédige une réponse…</span>
         </p>
       ) : message.content ? (
-        <Markdown text={message.content} />
+        message.status === "streaming" ? (
+          <Markdown text={message.content} />
+        ) : (
+          // Maître d'Awa : sélection d'un passage pour le corriger (sans effet pour les autres).
+          <Correctable messageId={message.id}>
+            <Markdown text={message.content} />
+          </Correctable>
+        )
       ) : null}
 
       {message.status === "interrupted" ? (

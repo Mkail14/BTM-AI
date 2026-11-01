@@ -29,6 +29,8 @@ export type ChatErrorCode =
 export type ChatStreamEvent =
   | { type: "meta"; conversationId: string }
   | { type: "delta"; text: string }
+  /** Texte final qui remplace tout ce qui a été affiché (mode maître : réponse corrigée). */
+  | { type: "replace"; text: string }
   | { type: "done"; finishReason: FinishReason }
   | { type: "error"; code: ChatErrorCode; message: string };
 

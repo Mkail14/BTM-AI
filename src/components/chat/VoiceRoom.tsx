@@ -35,6 +35,7 @@ export function VoiceRoom() {
     const handle = (event: ChatStreamEvent) => {
       if (event.type === "meta") conversationId.current = event.conversationId;
       else if (event.type === "delta") reply += event.text;
+      else if (event.type === "replace") reply = event.text;
       else if (event.type === "error" && !reply) reply = event.message;
     };
     try {

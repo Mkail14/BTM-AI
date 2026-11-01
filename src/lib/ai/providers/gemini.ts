@@ -60,7 +60,7 @@ const EXHAUSTED_MS = 30 * 60_000;
 /** Un modèle surchargé (5xx) ou muet est mis de côté moins longtemps. */
 const OVERLOADED_MS = 2 * 60_000;
 /** Délai pour recevoir le premier morceau de réponse avant de passer au modèle suivant. */
-const FIRST_CHUNK_MS = 12_000;
+const FIRST_CHUNK_MS = 8_000;
 
 const keyId = (apiKey: string) => apiKey.slice(-8);
 const modelsCache = new Map<string, { models: string[]; expiresAt: number }>();
