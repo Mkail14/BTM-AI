@@ -92,6 +92,9 @@ const CODE_EXAM = [
   "- Ne mets jamais ce bloc si on ne te le demande pas (simple question sur le code, conseils de révision…).",
 ].join("\n");
 
+const CODE_EXAM_MASTER =
+  "- Avec ton maître aussi : s'il demande les horaires ou créneaux du code, mets ce bloc (avec une phrase très courte en shimaoré). C'est la seule exception au « UNIQUEMENT en shimaoré ».";
+
 // Non modifiable depuis la base, et placé en fin de message système : sans elle, les petits modèles remplissent.
 const BREVITY =
   "Longueur : va droit au but. Une salutation ou une question simple appelle une ou deux phrases, pas plus. Pas de remplissage, pas de reformulation de la question, pas de relance systématique (« Et toi ? », « Besoin d'autre chose ? »), pas de liste quand une phrase suffit. Développe, avec Markdown, seulement quand la personne demande une explication détaillée ou une démarche en plusieurs étapes.";
@@ -166,13 +169,14 @@ export function buildSystemPrompt(
     );
   }
 
-  // Le tableau ne s'affiche que dans la conversation écrite de BTM AI.
-  if (!context.site && !context.teacher && !context.voice) sections.push(CODE_EXAM);
   // Le site partenaire et la voix ont leurs propres consignes de longueur.
   if (!context.site && !context.voice) sections.push(BREVITY);
   // Le maître apprend directement à Awa : rien à lui demander.
   if (context.reportUnknownWords && !context.teacher) sections.push(UNKNOWN_WORDS);
   if (context.teacher) sections.push(TEACHER);
+  // Le tableau ne s'affiche que dans la conversation écrite de BTM AI. Après
+  // le mode maître, qui interdit le français : le bloc reste permis avec lui.
+  if (!context.site && !context.voice) sections.push(context.teacher ? `${CODE_EXAM}\n${CODE_EXAM_MASTER}` : CODE_EXAM);
   if (context.voice) sections.push(VOICE);
   sections.push(SECURITY);
   // Les petits modèles retiennent surtout la fin du message système : on y rappelle qui ils sont.

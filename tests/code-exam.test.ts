@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { CodeExamSourceError, centerName, extractAccess, parseCenters, parseSessions } from "@/lib/code-exam/laposte";
+import { enforceShimaore } from "@/lib/language/unknown-words";
 
 // Extraits des réponses réelles de lecode.laposte.fr (novembre 2026).
 const PAGE = `<script>window.__NUXT__.config={public:{siteRoot:"https://www.lecode.laposte.fr",idPartenaire:"partenaire-1",baseApiVente:"https:\\u002F\\u002Fapi.laposte.fr",apiVente:"/silex-vente/v1",apiKey:"cle-1"}}</script>`;
@@ -54,9 +55,15 @@ describe("horaires du code (La Poste)", () => {
     ]);
   });
 
-  it("n'apprend le tableau à Awa que dans la conversation écrite", () => {
+  it("apprend le tableau à Awa dans la conversation écrite, mode maître compris", () => {
     assert.match(buildSystemPrompt(undefined, {}), /creneaux-code/);
+    assert.match(buildSystemPrompt(undefined, { teacher: true }), /creneaux-code[\s\S]*seule exception/);
     assert.doesNotMatch(buildSystemPrompt(undefined, { voice: true }), /creneaux-code/);
-    assert.doesNotMatch(buildSystemPrompt(undefined, { teacher: true }), /creneaux-code/);
+  });
+
+  it("garde le bloc du tableau intact en mode maître", () => {
+    const reply = "Wawe, ono ndjema.\n\n```creneaux-code\n```";
+    assert.match(enforceShimaore(reply), /```creneaux-code\n```/);
+    assert.match(enforceShimaore("Voici les créneaux disponibles.\n```creneaux-code\n```"), /\n```creneaux-code\n```$/);
   });
 });

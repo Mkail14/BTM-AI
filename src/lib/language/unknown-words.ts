@@ -70,25 +70,33 @@ function wrapSentence(sentence: string): string {
  * devient un [[mot à apprendre]], affiché en couleur.
  */
 export function enforceShimaore(text: string): string {
-  const cleaned = stripTranslation(text)
+  // Blocs de code (dont ```creneaux-code```, le tableau du code de la route) :
+  // mis de côté pendant le nettoyage, ce n'est pas du français à traduire.
+  const blocks: string[] = [];
+  const restore = (result: string) => result.replace(/\u0000(\d+)\u0000/g, (_, i: string) => blocks[Number(i)] ?? "");
+  const kept = text.replace(/```[\s\S]*?(?:```|$)/g, (block) => `\u0000${blocks.push(block) - 1}\u0000`);
+
+  const cleaned = stripTranslation(kept)
     // « Kwezi ! — *Bonjour !* » : traduction en italique après un tiret.
     .replace(/[ \t]*[—–][ \t]*([*_])[^*_\n]+\1/g, "")
     // « Kwezi ! (Bonjour !) »
     .replace(/[ \t]*\(([^()\n]+)\)/g, (match, inner: string) => (looksFrench(inner) ? "" : match));
 
-  return cleaned
-    .split("\n")
-    .map((line) =>
-      splitUnknownWords(line)
-        .map((segment) =>
-          segment.french
-            ? `[[${segment.text}]]`
-            : segment.text.replace(/[^.!?…]+[.!?…]*/g, (sentence) => (looksFrench(sentence) ? wrapSentence(sentence) : sentence)),
-        )
-        .join(""),
-    )
-    .join("\n")
-    .trim();
+  return restore(
+    cleaned
+      .split("\n")
+      .map((line) =>
+        splitUnknownWords(line)
+          .map((segment) =>
+            segment.french
+              ? `[[${segment.text}]]`
+              : segment.text.replace(/[^.!?…]+[.!?…]*/g, (sentence) => (looksFrench(sentence) ? wrapSentence(sentence) : sentence)),
+          )
+          .join(""),
+      )
+      .join("\n")
+      .trim(),
+  );
 }
 
 const key = (french: string) => french.trim().toLowerCase().replace(/\s+/g, " ");
