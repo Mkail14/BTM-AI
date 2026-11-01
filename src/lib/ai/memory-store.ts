@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   buildMemoryRequest,
+  isMemoryAllowed,
   MEMORY_SYSTEM_PROMPT,
   parseMemoryUpdates,
   shouldLearnFrom,
@@ -13,7 +14,7 @@ import type { AIProvider } from "./types";
 
 const MAX_MEMORIES = 40;
 
-/** Mémoire de l'utilisateur connecté (RLS : uniquement la sienne). */
+/** Mémoire de l'utilisateur connecté (RLS : uniquement la sienne), sans les souvenirs que le vérificateur refuse. */
 export async function getMemories(supabase: SupabaseClient): Promise<MemoryFact[]> {
   const { data, error } = await supabase
     .from("awa_memories")
@@ -21,7 +22,7 @@ export async function getMemories(supabase: SupabaseClient): Promise<MemoryFact[
     .order("updated_at", { ascending: false })
     .limit(MAX_MEMORIES);
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []).filter((fact) => isMemoryAllowed(fact.content));
 }
 
 /** Enregistre ou remplace (une valeur par sorte) les informations repérées. */

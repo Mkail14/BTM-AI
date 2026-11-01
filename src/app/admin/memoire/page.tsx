@@ -47,8 +47,9 @@ export default async function AdminMemoryPage() {
       <main id="contenu" className="mx-auto w-full max-w-[1600px] flex-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
         <PageIntro title="Mémoire d'Awa">
           Ce que les comptes connectés ont dit d&apos;eux-mêmes (prénom, lieu, travail, âge), repéré automatiquement dans
-          leurs messages. Une valeur par sorte et par compte ; la plus récente remplace l&apos;ancienne. Vous pouvez
-          supprimer un souvenir, ou tout effacer pour un compte qui le demande.
+          leurs messages. Tout est vérifié automatiquement : santé, religion, mots de passe, numéros ou consignes ne sont
+          jamais gardés, et Awa oublie seule ce qu&apos;on lui demande d&apos;oublier. Rien à faire ici, sauf effacer un
+          compte à sa demande.
         </PageIntro>
         {!admin ? (
           <p role="alert" className="mt-4 rounded-lg bg-warning-soft px-3 py-2 text-sm">

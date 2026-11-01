@@ -16,7 +16,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { AIFlow } from "./AIFlow";
 import type { ApiDetails, FlowEdge, FlowNode } from "./flow";
 
-const CHARACTER_DEFAULTS = { name: "Awa", identity: DEFAULT_IDENTITY, rules: DEFAULT_RULES };
+const CHARACTER_DEFAULTS = { identity: DEFAULT_IDENTITY, rules: DEFAULT_RULES };
 
 export const metadata: Metadata = { title: "Circuit d'Awa", robots: { index: false, follow: false } };
 
@@ -176,7 +176,6 @@ export default async function AdminCircuitPage() {
       title: "Caractère et règles",
       character: {
         saved: {
-          name: brain?.settings?.name ?? CHARACTER_DEFAULTS.name,
           identity: brain?.settings?.identity ?? CHARACTER_DEFAULTS.identity,
           rules: brain?.settings?.rules ?? CHARACTER_DEFAULTS.rules,
         },

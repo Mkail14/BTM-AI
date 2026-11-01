@@ -442,7 +442,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
 
   return (
     // Écran fixe dès 768 px de large : le graphique et la liste des comptes rétrécissent, seule la liste défile.
-    <div className="flex min-h-dvh flex-col bg-bg-subtle md:h-dvh md:overflow-hidden">
+    <div className="ecran-fixe flex min-h-dvh flex-col bg-bg-subtle md:h-dvh md:overflow-hidden">
       <AdminHeader />
 
       <main

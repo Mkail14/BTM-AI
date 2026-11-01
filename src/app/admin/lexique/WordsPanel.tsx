@@ -398,7 +398,7 @@ export function WordsPanel({ rows, unavailable }: { rows: WordRow[]; unavailable
     <>
     <section
       aria-labelledby="words-title"
-      className="flex flex-col overflow-hidden rounded-2xl border border-border bg-bg lg:sticky lg:top-4 lg:max-h-[calc(100dvh-6rem)]"
+      className="flex h-full min-h-0 flex-col"
     >
       <div className="flex items-center gap-3 border-b border-border px-4 py-3">
         <span className="grid size-9 shrink-0 place-items-center rounded-lg bg-accent-soft text-accent">
@@ -485,7 +485,7 @@ export function WordsPanel({ rows, unavailable }: { rows: WordRow[]; unavailable
         </>
       )}
     </section>
-    {/* Hors du panneau « sticky » : la fenêtre doit couvrir toute la page, en-tête compris. */}
+    {/* Hors du panneau qui défile : la fenêtre doit couvrir toute la page, en-tête compris. */}
     {opened ? <WordDialog key={openId} initial={{ ...opened }} categories={categories} onClose={close} /> : null}
     {importing ? <ImportDialog categories={categories} onClose={closeImport} /> : null}
     </>

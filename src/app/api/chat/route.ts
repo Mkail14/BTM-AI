@@ -16,6 +16,7 @@ import {
   getRecentMessages,
   insertMessage,
 } from "@/lib/conversations/repository";
+import { liveContextFor } from "@/lib/live";
 import { invalidateAwaBrain, knownTranslations, knowledgeFor, lexiconFor, loadAwaBrain, wordsFor } from "@/lib/ai/brain";
 import { AI_ERROR_LABELS } from "@/lib/ai/flow-events";
 import { startFlowTrace } from "@/lib/ai/flow-trace";
@@ -168,6 +169,8 @@ export async function POST(request: NextRequest) {
 
   // Cerveau d'Awa (Supabase, en cache) : nom, caractère, règles, connaissances, lexique.
   const brainTask = loadAwaBrain();
+  // Offres d'emploi et actu de Mayotte, seulement si le message en parle (pas en mode maître : shimaoré seul).
+  const liveTask = user?.isAdmin ? Promise.resolve(null) : liveContextFor(body.message);
 
   if (user && supabase) {
     // Personnalité d'Awa : relue en base, jamais fournie par le client.
@@ -266,9 +269,10 @@ export async function POST(request: NextRequest) {
   }
 
   // Comportement de la personnalité réécrit depuis /admin (sinon texte du code), en cache.
-  const [brain, personalityInstructions] = await Promise.all([
+  const [brain, personalityInstructions, live] = await Promise.all([
     brainTask,
     loadPersonalityInstructions(personality ?? DEFAULT_PERSONALITY),
+    liveTask,
   ]);
 
   // Mode maître (administrateur) : Awa ne parle que shimaoré. Ses anciennes
@@ -286,12 +290,12 @@ export async function POST(request: NextRequest) {
   ];
   const system = buildSystemPrompt(personality ?? undefined, {
     personalityInstructions,
-    name: brain.name,
     identity: brain.identity,
     rules: brain.rules,
     lexicon: lexiconFor(brain, personality ?? DEFAULT_PERSONALITY),
     words: wordsFor(brain, body.message, master),
     knowledge: knowledgeFor(brain, body.message),
+    live,
     memories,
     teacher: master,
     voice: body.voice,
@@ -374,6 +378,7 @@ export async function POST(request: NextRequest) {
         for await (const chunk of ai.provider.stream({
           system,
           messages,
+          persona: true,
           maxOutputTokens: ai.config.maxOutputTokens,
           signal,
           onAttempt: (slotId, error) => {

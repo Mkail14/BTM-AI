@@ -138,7 +138,6 @@ export async function POST(request: NextRequest) {
   ].filter(Boolean);
   const system = buildSystemPrompt(DEFAULT_PERSONALITY, {
     personalityInstructions,
-    name: brain.name,
     identity: brain.identity,
     rules: brain.rules,
     lexicon: lexiconFor(brain, DEFAULT_PERSONALITY),
@@ -158,6 +157,7 @@ export async function POST(request: NextRequest) {
     for await (const chunk of ai.provider.stream({
       system,
       messages,
+      persona: true,
       maxOutputTokens: Math.min(ai.config.maxOutputTokens, 1024),
       signal: AbortSignal.any([request.signal, AbortSignal.timeout(Math.min(ai.config.timeoutMs, 40_000))]),
       onAttempt: (slotId, error) => {

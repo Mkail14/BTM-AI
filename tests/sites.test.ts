@@ -33,7 +33,7 @@ describe("buildSystemPrompt avec un site", () => {
   const site = { intro: SITES["btm-batiment"].intro, instructions: siteInstructions("btm-batiment"), data: "- Ciment (sac) : Exemple A 9,50 €" };
 
   it("reste la même Awa, avec le rôle et les données du site", () => {
-    const prompt = buildSystemPrompt(undefined, { name: "Awa", site });
+    const prompt = buildSystemPrompt(undefined, { site });
     assert.match(prompt, /Tu es Awa, l'assistante créée par GROUPE BTM\. Tu es la même Awa que sur BTM AI/);
     assert.doesNotMatch(prompt, /l'assistante de BTM AI, créée/);
     assert.match(prompt, /BTM \(Bâtiment & Travaux Mayotte\)/);

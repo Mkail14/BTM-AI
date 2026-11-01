@@ -76,10 +76,8 @@ function RequestItem({ row, onResult }: { row: WordRequestRow; onResult: (result
  */
 export function WordRequests({ rows, unavailable }: { rows: WordRequestRow[]; unavailable: boolean }) {
   const [status, setStatus] = useState<ActionResult | null>(null);
-  if (!unavailable && rows.length === 0 && !status) return null;
-
   return (
-    <section aria-labelledby="requests-title" className="rounded-xl border border-accent/40 bg-bg p-5">
+    <section aria-labelledby="requests-title" className="p-4">
       <div className="flex items-baseline justify-between gap-3">
         <h2 id="requests-title" className="font-semibold">
           À traduire {rows.length > 0 ? <span className="text-accent">({rows.length})</span> : null}

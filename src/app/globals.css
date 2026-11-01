@@ -666,3 +666,155 @@ html.chargement body {
     opacity: 0;
   }
 }
+
+/*
+ * Tableau de bord sur un seul écran (dès 768 px, comme md:h-dvh) : la page
+ * entière ne défile pas, même si un élément ajouté hors du cadre (portail,
+ * lien d'évitement…) la dépasse de quelques pixels.
+ */
+@media (min-width: 768px) {
+  html:has(.ecran-fixe) {
+    overflow: hidden;
+  }
+}
+
+/*
+ * Carte du shimaoré (/admin/lexique), animations façon Apple : les anneaux
+ * apparaissent depuis le centre avec un léger rebond, les traits se tracent,
+ * les bulles flottent à peine, la fiche glisse en place.
+ */
+.carte-bulle {
+  animation: carte-pop 800ms cubic-bezier(0.34, 1.4, 0.5, 1) both;
+}
+
+.carte-flotte {
+  animation: carte-flotte 7s ease-in-out infinite;
+}
+
+.carte-trace {
+  animation: carte-trace 1.6s cubic-bezier(0.22, 1, 0.36, 1) 250ms both;
+}
+
+.carte-halo {
+  background: radial-gradient(circle, var(--halo, oklch(0.7 0.2 320 / 0.35)), transparent 70%);
+  animation: carte-respire 5s ease-in-out infinite;
+}
+
+.carte-etincelle {
+  filter: drop-shadow(0 0 4px white);
+  opacity: 0.9;
+}
+
+.carte-feuille {
+  animation: carte-feuille 450ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Zoom dans une bulle (depuis sa position) ou retour au niveau du dessus. */
+.carte-zoom-entre {
+  animation: carte-zoom-entre 650ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.carte-zoom-sort {
+  animation: carte-zoom-sort 550ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes carte-zoom-entre {
+  from {
+    scale: 0.15;
+    opacity: 0;
+    filter: blur(6px);
+  }
+}
+
+@keyframes carte-zoom-sort {
+  from {
+    scale: 1.8;
+    opacity: 0;
+    filter: blur(6px);
+  }
+}
+
+.carte-apparait {
+  animation: carte-apparait 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes carte-pop {
+  from {
+    scale: 0.6;
+    opacity: 0;
+  }
+}
+
+@keyframes carte-flotte {
+  50% {
+    translate: 0 -4px;
+  }
+}
+
+@keyframes carte-trace {
+  from {
+    stroke-dasharray: 0 1;
+  }
+}
+
+@keyframes carte-respire {
+  50% {
+    scale: 1.08;
+    opacity: 0.6;
+  }
+}
+
+@keyframes carte-feuille {
+  from {
+    opacity: 0;
+    translate: 0 16px;
+    scale: 0.98;
+  }
+}
+
+@keyframes carte-apparait {
+  from {
+    opacity: 0;
+    translate: 0 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .carte-bulle,
+  .carte-flotte,
+  .carte-trace,
+  .carte-halo,
+  .carte-feuille,
+  .carte-zoom-entre,
+  .carte-zoom-sort,
+  .carte-apparait {
+    animation: none;
+  }
+  .carte-etincelle {
+    display: none;
+  }
+}
+
+/* Fenêtre d'édition (fiches) : fond flouté en fondu, fenêtre qui apparaît en douceur. */
+.fenetre-fond {
+  animation: auth-backdrop-in 250ms ease-out both;
+}
+
+.fenetre {
+  animation: fenetre-in 300ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes fenetre-in {
+  from {
+    opacity: 0;
+    scale: 0.97;
+    translate: 0 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fenetre-fond,
+  .fenetre {
+    animation: none;
+  }
+}

@@ -58,7 +58,8 @@ export function shouldLearnFrom(message: string): boolean {
 /** Consigne du modèle chargé de tenir la mémoire d'Awa à jour. */
 export const MEMORY_SYSTEM_PROMPT = [
   "Tu tiens à jour la mémoire à long terme d'Awa, l'assistante de BTM AI, sur la personne qui lui parle.",
-  "À partir du dernier message de la personne, repère les informations durables qu'elle donne sur elle-même : prénom, lieu, travail, âge, famille, langue préférée, goûts, projets, contraintes de santé ou d'emploi du temps, façon dont elle veut qu'on lui parle, ou ce qu'elle demande explicitement de retenir.",
+  "À partir du dernier message de la personne, repère les informations durables qu'elle donne sur elle-même : prénom, lieu, travail, âge, famille, langue préférée, goûts, projets, contraintes d'emploi du temps, façon dont elle veut qu'on lui parle, ou ce qu'elle demande explicitement de retenir.",
+  "Ne retiens jamais : santé, religion, orientation sexuelle, opinions politiques, mots de passe, numéros de téléphone ou de carte, adresses e-mail.",
   "Ignore les questions, les informations sur d'autres sujets, et tout ce qui est passager (humeur du moment, ce qu'elle fait aujourd'hui).",
   "Réponds UNIQUEMENT par un tableau JSON, sans texte autour : [{\"kind\":\"…\",\"content\":\"…\"}].",
   "- kind : identifiant court en minuscules sans accents (lettres, chiffres, _). Réutilise la même sorte qu'une mémoire existante pour la remplacer (prenom, lieu, travail, age… existent déjà).",
@@ -80,7 +81,30 @@ export function buildMemoryRequest(memories: readonly MemoryFact[], previousRepl
     .join("\n\n");
 }
 
-/** Lit la réponse du modèle ; tout ce qui n'est pas conforme est écarté. */
+/*
+ * Vérificateur automatique : ce qu'Awa ne doit jamais garder en mémoire, même
+ * si le modèle le propose. Évite à l'administrateur de relire chaque souvenir.
+ */
+const FORBIDDEN_MEMORY: readonly RegExp[] = [
+  // Données sensibles (RGPD, art. 9) : santé, religion, orientation, opinions, origine.
+  /(?<!\p{L})(?:malad|cancer|diab[eéè]t|vih|sida|enceinte|grossesse|handicap|d[ée]pression|m[ée]dicament|hospitalis|th[ée]rapie|psychiatr)/iu,
+  /(?<!\p{L})(?:musulman|chr[ée]tien|catholique|juif|ath[ée]e|religion|pri[eè]re|mosqu[ée]e|[ée]glise)/iu,
+  /(?<!\p{L})(?:homosexuel|gay|lesbienne|bisexuel|transgenre|orientation sexuelle)/iu,
+  /(?<!\p{L})(?:vote pour|parti politique|syndiqu|militant)/iu,
+  // Secrets et coordonnées : rien qui permette de joindre ou de voler quelqu'un.
+  /(?<!\p{L})(?:mot de passe|password|code pin|code secret|iban|carte bancaire|cvv)(?!\p{L})/iu,
+  /[\w.+-]+@[\w-]+\.[\w.]+/,
+  /(?:\+?\d[\s.-]?){9,}/,
+  // Consignes déguisées en souvenir (« Awa doit toujours… ») : la mémoire n'est pas un réglage.
+  /(?<!\p{L})(?:(?:ignore|oublie) (?:tes|les|toutes?)|tu dois|awa doit|r[ée]ponds? toujours|consigne|instruction|prompt)(?!\p{L})/iu,
+];
+
+/** Le souvenir peut-il être gardé ? */
+export function isMemoryAllowed(content: string): boolean {
+  return content.length >= 3 && !FORBIDDEN_MEMORY.some((rule) => rule.test(content));
+}
+
+/** Lit la réponse du modèle ; tout ce qui n'est pas conforme ou interdit est écarté. */
 export function parseMemoryUpdates(output: string): MemoryUpdate[] {
   const start = output.indexOf("[");
   const end = output.lastIndexOf("]");
@@ -99,8 +123,9 @@ export function parseMemoryUpdates(output: string): MemoryUpdate[] {
     const { kind, content } = item as Record<string, unknown>;
     if (typeof kind !== "string" || !MEMORY_KIND.test(kind)) continue;
     if (content === null) updates.set(kind, { kind, content: null });
-    else if (typeof content === "string" && content.trim()) {
-      updates.set(kind, { kind, content: content.replace(/\s+/g, " ").trim().slice(0, 300) });
+    else if (typeof content === "string") {
+      const value = content.replace(/\s+/g, " ").trim().slice(0, 300);
+      if (isMemoryAllowed(value)) updates.set(kind, { kind, content: value });
     }
   }
   return [...updates.values()];

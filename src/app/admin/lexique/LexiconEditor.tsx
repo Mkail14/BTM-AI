@@ -245,7 +245,7 @@ export function LexiconEditor({ rows }: { rows: LexiconRow[] }) {
   const close = useCallback(() => setOpenId(null), []);
 
   return (
-    <div className="min-w-0 space-y-4">
+    <div className="min-w-0 space-y-4 p-4">
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" onClick={() => setOpenId("new")} className={`${primaryButton} inline-flex items-center gap-1.5`}>
           <IconPlus width={16} height={16} /> Nouvelle expression

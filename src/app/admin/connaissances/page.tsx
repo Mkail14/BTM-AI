@@ -1,19 +1,26 @@
 import type { Metadata } from "next";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { MigrationWarning, PageIntro } from "@/components/admin/form";
+import { MigrationWarning } from "@/components/admin/form";
 import { requireAdmin } from "@/lib/auth/session";
+import { getMayotteJobs } from "@/lib/live/jobs";
+import { getMayotteNews } from "@/lib/live/news";
 import { KnowledgeEditor } from "./KnowledgeEditor";
 import type { KnowledgeRow } from "./limits";
+import { LiveSources } from "./LiveSources";
 
 export const metadata: Metadata = { title: "Connaissances", robots: { index: false, follow: false } };
 
 export default async function AdminKnowledgePage() {
   const { supabase, user } = await requireAdmin("/admin/connaissances");
-  const { data, error } = await supabase
-    .from("awa_knowledge")
-    .select("id, title, content, keywords, is_active")
-    .order("updated_at", { ascending: false })
-    .limit(500);
+  const [{ data, error }, jobs, news] = await Promise.all([
+    supabase
+      .from("awa_knowledge")
+      .select("id, title, content, keywords, is_active")
+      .order("updated_at", { ascending: false })
+      .limit(500),
+    getMayotteJobs(),
+    getMayotteNews(),
+  ]);
   if (error) console.error("[admin] Connaissances illisibles", error);
 
   const rows: KnowledgeRow[] = (data ?? []).map((r) => ({
@@ -25,17 +32,18 @@ export default async function AdminKnowledgePage() {
   }));
 
   return (
-    <div className="flex min-h-dvh flex-col bg-bg-subtle">
+    // Un seul écran sur ordinateur : les fiches à gauche, le direct à droite ; seuls leurs contenus défilent.
+    <div className="flex min-h-dvh flex-col bg-bg-subtle lg:h-dvh lg:overflow-hidden">
       <AdminHeader section="Connaissances" email={user.email} />
-      <main id="contenu" className="mx-auto w-full max-w-[1600px] flex-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <PageIntro title="Connaissances">
-          Des fiches vérifiées qu&apos;Awa utilise en priorité (démarches, lieux, BTM…). Pour chaque message, elle reçoit
-          les fiches dont un mot-clé ou un mot du titre apparaît dans la question, dans la limite de 6 000 caractères.
-        </PageIntro>
-        {error ? <MigrationWarning file="20261029000000_awa_brain.sql" /> : null}
-        <div className="mt-4">
+      <main
+        id="contenu"
+        className="mx-auto grid w-full max-w-[1600px] min-h-0 flex-1 gap-4 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:grid-cols-[minmax(0,1fr)_24rem] lg:grid-rows-[minmax(0,1fr)]"
+      >
+        <div className="flex h-[80dvh] min-h-0 flex-col gap-3 lg:h-auto">
+          {error ? <MigrationWarning file="20261029000000_awa_brain.sql" /> : null}
           <KnowledgeEditor rows={rows} />
         </div>
+        <LiveSources jobs={jobs} news={news} />
       </main>
     </div>
   );

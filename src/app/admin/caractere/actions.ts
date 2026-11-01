@@ -3,12 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/action-auth";
+import { AWA_NAME } from "@/lib/ai/awa-identity";
 import { invalidateAwaBrain } from "@/lib/ai/brain";
 import { DEFAULT_IDENTITY, DEFAULT_RULES } from "@/lib/ai/system-prompt";
 import { CHARACTER_LIMITS } from "./limits";
 
 const schema = z.object({
-  name: z.string().trim().min(1, "Donnez-lui un nom.").max(CHARACTER_LIMITS.name),
   identity: z.string().trim().max(CHARACTER_LIMITS.text),
   rules: z.string().trim().max(CHARACTER_LIMITS.text),
 });
@@ -22,11 +22,12 @@ export async function saveCharacterAction(input: unknown): Promise<ActionResult>
   const parsed = schema.safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Données invalides." };
 
-  const { name, identity, rules } = parsed.data;
+  const { identity, rules } = parsed.data;
   const { data, error } = await auth.supabase
     .from("awa_settings")
     .update({
-      name,
+      // Nom fixe : remet « Awa » si une ancienne version l'avait changé.
+      name: AWA_NAME,
       identity: orNull(identity, DEFAULT_IDENTITY),
       rules: orNull(rules, DEFAULT_RULES),
       updated_by: auth.user.id,

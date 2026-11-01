@@ -63,7 +63,14 @@ export function CharacterDialog({
             <IconClose />
           </button>
         </div>
-        <CharacterForm saved={saved} defaults={defaults} onCancel={close} onSaved={onClose} onDirtyChange={onDirtyChange} />
+        <CharacterForm
+          saved={saved}
+          defaults={defaults}
+          onCancel={close}
+          onSaved={onClose}
+          onDirtyChange={onDirtyChange}
+          className="p-4"
+        />
       </div>
     </>
   );

@@ -64,7 +64,6 @@ export async function testPersonalityAction(id: unknown, behavior: unknown, mess
 
   const brain = await loadAwaBrain();
   const system = buildSystemPrompt(id, {
-    name: brain.name,
     identity: brain.identity,
     rules: brain.rules,
     lexicon: lexiconFor(brain, id),
@@ -77,6 +76,7 @@ export async function testPersonalityAction(id: unknown, behavior: unknown, mess
     for await (const chunk of ai.provider.stream({
       system,
       messages: [{ role: "user", content: text }],
+      persona: true,
       maxOutputTokens: Math.min(ai.config.maxOutputTokens, TEST_MAX_TOKENS),
       signal: AbortSignal.timeout(TEST_TIMEOUT_MS),
     })) {

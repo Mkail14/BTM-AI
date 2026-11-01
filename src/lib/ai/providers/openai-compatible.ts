@@ -1,6 +1,7 @@
 import "server-only";
 import type { FinishReason } from "@/lib/chat/types";
 import type { AIConfig } from "../config";
+import { harmonyFor } from "../harmonize";
 import { createSseDataParser } from "../sse";
 import { AIProviderError, type AIProvider, type AIStreamChunk, type AIStreamInput } from "../types";
 
@@ -51,16 +52,18 @@ export function createOpenAICompatibleProvider(config: AIConfig): AIProvider {
   // L'API OpenAI officielle attend max_completion_tokens ; la plupart des
   // autres services compatibles attendent encore max_tokens.
   const maxTokensField = endpoint.includes("api.openai.com") ? "max_completion_tokens" : "max_tokens";
+  // Modèles autres que la référence (Gemini), réponses d'Awa seulement : rappel des consignes et température plus basse.
+  const harmony = harmonyFor(config.model);
 
   return {
     id: "openai-compatible",
-    async *stream({ system, messages, maxOutputTokens, signal }: AIStreamInput): AsyncIterable<AIStreamChunk> {
+    async *stream({ system, messages, maxOutputTokens, signal, persona }: AIStreamInput): AsyncIterable<AIStreamChunk> {
       const timeoutSignal = AbortSignal.timeout(config.timeoutMs);
       const combined = AbortSignal.any([signal, timeoutSignal]);
 
-      let response: Response;
-      try {
-        response = await fetch(endpoint, {
+      const tuned = persona ? harmony : null;
+      const send = (reasoning: object | null) =>
+        fetch(endpoint, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -70,11 +73,22 @@ export function createOpenAICompatibleProvider(config: AIConfig): AIProvider {
             model: config.model,
             stream: true,
             [maxTokensField]: maxOutputTokens,
-            ...(config.disableReasoning && { reasoning: { enabled: false } }),
-            messages: [{ role: "system", content: system }, ...messages],
+            ...(reasoning && { reasoning }),
+            ...(tuned && { temperature: tuned.temperature }),
+            messages: [{ role: "system", content: tuned ? `${system}\n\n${tuned.reminder}` : system }, ...messages],
           }),
           signal: combined,
         });
+
+      let response: Response;
+      try {
+        response = await send(config.disableReasoning ? { enabled: false } : null);
+        // Certains modèles (Gemini 3 sur OpenRouter…) imposent la réflexion : on la
+        // réduit au minimum, comme le fournisseur Gemini natif, au lieu d'échouer.
+        if (config.disableReasoning && response.status === 400) {
+          const body = await response.text().catch(() => "");
+          response = /reasoning/i.test(body) ? await send({ effort: "minimal" }) : new Response(body, { status: 400 });
+        }
       } catch (error) {
         if (signal.aborted) throw new AIProviderError("aborted", "Requête annulée", { cause: error });
         if (timeoutSignal.aborted) throw new AIProviderError("timeout", "Délai dépassé", { cause: error });
