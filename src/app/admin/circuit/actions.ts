@@ -8,7 +8,7 @@ import { AI_PROVIDERS } from "@/lib/ai/config";
 import { isCuttableBlock } from "@/lib/ai/flow-cuts";
 import { recordFailure, recordSuccess } from "@/lib/ai/health";
 import { checkKey, listModels } from "@/lib/ai/key-check";
-import { invalidateAIChain, loadAIChain, storedSlot } from "@/lib/ai/registry";
+import { invalidateAIChain, loadAIChain, loadRemovedApis, storedSlot } from "@/lib/ai/registry";
 import { canEncrypt, encryptSecret } from "@/lib/ai/secret-box";
 import { AIProviderError } from "@/lib/ai/types";
 import { invalidateRateLimits, rateLimitSettingsSchema } from "@/lib/rate-limit/settings";
@@ -116,7 +116,7 @@ export async function addApiAction(input: unknown): Promise<ActionResult> {
   }
 
   invalidateAIChain();
-  revalidatePath("/admin/modele-ia");
+  revalidatePath("/admin/circuit");
   return {
     ok: true,
     message: check.ok ? `${label} ajoutée et connectée.` : `${label} ajoutée (vérification impossible pour l'instant).`,
@@ -153,16 +153,43 @@ export async function listModelsAction(
   return { ...list, freeOnly: Boolean(check?.ok && check.credit?.freeTier) };
 }
 
-/** Supprime une API ajoutée depuis l'admin ; celles des variables du serveur ne se suppriment pas ici. */
+/** Écrit la liste des API du serveur retirées de la chaîne. */
+async function saveRemovedApis(removed: Set<string>, userId: string): Promise<ActionResult | null> {
+  const admin = getSupabaseAdminClient()!;
+  const { error } = await admin
+    .from("awa_settings")
+    .update({ removed_apis: [...removed], updated_by: userId })
+    .eq("id", 1);
+  if (!error) return null;
+  console.error("[admin] Liste des API retirées non enregistrée", error);
+  return { ok: false, message: "L'enregistrement a échoué (migration 20261108000000_removed_apis.sql appliquée ?)." };
+}
+
+/**
+ * Supprime une API. Celle ajoutée depuis l'admin est effacée ; celle déclarée
+ * dans les variables du serveur est retirée de la chaîne (elle peut être remise).
+ */
 export async function deleteApiAction(slotId: unknown): Promise<ActionResult> {
-  if (!(await requireAdminAction())) return NOT_ADMIN;
+  const auth = await requireAdminAction();
+  if (!auth) return NOT_ADMIN;
   const admin = getSupabaseAdminClient();
   if (!admin) return { ok: false, message: "SUPABASE_SECRET_KEY n'est pas définie sur le serveur." };
+
+  if (typeof slotId === "string" && /^env-\d+$/.test(slotId)) {
+    // Liste relue en base, pas dans le cache : une autre suppression a pu la changer.
+    invalidateAIChain();
+    const removed = new Set(await loadRemovedApis());
+    removed.add(slotId);
+    const failed = await saveRemovedApis(removed, auth.user.id);
+    if (failed) return failed;
+    invalidateAIChain();
+    revalidatePath("/admin/circuit");
+    return { ok: true, message: "API retirée. « Remettre les API du serveur » la fait revenir." };
+  }
+
   const id = typeof slotId === "string" && slotId.startsWith("db-") ? slotId.slice(3) : null;
   const parsed = z.uuid().safeParse(id);
-  if (!parsed.success) {
-    return { ok: false, message: "Cette API est déclarée dans les variables du serveur : retirez-la de .env.local." };
-  }
+  if (!parsed.success) return { ok: false, message: "API inconnue." };
 
   const { error } = await admin.from("ai_providers").delete().eq("id", parsed.data);
   if (error) {
@@ -170,8 +197,20 @@ export async function deleteApiAction(slotId: unknown): Promise<ActionResult> {
     return { ok: false, message: "La suppression a échoué." };
   }
   invalidateAIChain();
-  revalidatePath("/admin/modele-ia");
+  revalidatePath("/admin/circuit");
   return { ok: true, message: "API supprimée." };
+}
+
+/** Remet dans la chaîne toutes les API du serveur retirées. */
+export async function restoreApisAction(): Promise<ActionResult> {
+  const auth = await requireAdminAction();
+  if (!auth) return NOT_ADMIN;
+  if (!getSupabaseAdminClient()) return { ok: false, message: "SUPABASE_SECRET_KEY n'est pas définie sur le serveur." };
+  const failed = await saveRemovedApis(new Set(), auth.user.id);
+  if (failed) return failed;
+  invalidateAIChain();
+  revalidatePath("/admin/circuit");
+  return { ok: true, message: "API du serveur remises dans la chaîne." };
 }
 
 /**
@@ -204,7 +243,7 @@ export async function setFlowCutAction(blockId: unknown, cut: unknown): Promise<
     return { ok: false, message: "L'enregistrement a échoué (migration 20261105000000_flow_cuts.sql appliquée ?)." };
   }
 
-  revalidatePath("/admin/modele-ia");
+  revalidatePath("/admin/circuit");
   return { ok: true, message: cut ? "Lien coupé : Awa ne répond plus par ce chemin." : "Lien rebranché." };
 }
 
@@ -227,7 +266,7 @@ export async function saveRateLimitsAction(input: unknown): Promise<ActionResult
   }
 
   invalidateRateLimits();
-  revalidatePath("/admin/modele-ia");
+  revalidatePath("/admin/circuit");
   revalidatePath("/admin");
   return { ok: true, message: "Quotas enregistrés." };
 }

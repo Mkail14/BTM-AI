@@ -444,7 +444,7 @@ input::-ms-clear {
 }
 
 /*
- * Schéma du modèle d'IA (/admin/modele-ia) : fond pointillé, point qui suit
+ * Circuit d'Awa (/admin/circuit) : fond pointillé, point qui suit
  * chaque message le long des liens, et point rouge pulsant là où il bloque.
  */
 .flow-canvas {
@@ -650,4 +650,19 @@ html.chargement body {
 .voice-orb[data-state="off"] .voice-orb__ring {
   animation-duration: 12s;
   opacity: 0.4;
+}
+
+/* Bouton « Corriger » qui apparaît sous une sélection dans une réponse d'Awa. */
+@keyframes correct-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.96);
+  }
+}
+
+/* Fond blanc flouté derrière la fenêtre de correction. */
+@keyframes correct-fade {
+  from {
+    opacity: 0;
+  }
 }

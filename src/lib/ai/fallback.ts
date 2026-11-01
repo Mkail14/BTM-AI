@@ -1,4 +1,5 @@
 import { getHealth, isCoolingDown, recordFailure, recordSuccess } from "./health";
+import { recordAiUsage } from "./usage";
 import { AIProviderError, type AIProvider, type AIStreamChunk, type AIStreamInput } from "./types";
 
 export type ChainEntry = { healthId: string; provider: AIProvider; slotId?: string };
@@ -35,6 +36,11 @@ export function createFallbackProvider(entries: readonly ChainEntry[]): AIProvid
         };
         try {
           for await (const chunk of provider.stream(input)) {
+            // Consommation : enregistrée ici pour toutes les réponses, pas transmise à l'appelant.
+            if (chunk.type === "usage") {
+              recordAiUsage(chunk.model, chunk.inputTokens, chunk.outputTokens);
+              continue;
+            }
             answer();
             if (chunk.type === "text") produced = true;
             yield chunk;

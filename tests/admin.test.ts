@@ -1,4 +1,4 @@
-import { detectPreset } from "@/app/admin/modele-ia/presets";
+import { detectPreset } from "@/app/admin/circuit/presets";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { buildAdminAlerts } from "@/lib/admin/alerts";

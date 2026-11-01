@@ -101,7 +101,7 @@ export async function POST(request: NextRequest) {
   if (!(await authorized(request, body.site))) return fail(401, "unauthorized");
 
   const flow = startFlowTrace();
-  // Lien coupé sur le schéma de /admin/modele-ia : le message s'arrête là.
+  // Lien coupé sur le schéma de /admin/circuit : le message s'arrête là.
   const cuts = await loadFlowCuts();
   const cutAt = flowCutStop(cuts);
   if (cutAt) {

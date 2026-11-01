@@ -10,6 +10,8 @@ export type AIHealth = {
   failures: number;
   lastSuccessAt: number | null;
   lastLatencyMs: number | null;
+  /** Durées des dernières réponses réussies (la plus récente à la fin). */
+  latencies: number[];
   lastFailure: { code: AIErrorCode; message: string; at: number } | null;
   /** Requêtes envoyées depuis minuit UTC (heure de remise à zéro des quotas OpenRouter). */
   today: { day: string; requests: number };
@@ -20,6 +22,7 @@ const EMPTY_HEALTH: AIHealth = {
   failures: 0,
   lastSuccessAt: null,
   lastLatencyMs: null,
+  latencies: [],
   lastFailure: null,
   today: { day: "", requests: 0 },
 };
@@ -44,6 +47,9 @@ export const COOLDOWN_MS: Partial<Record<AIErrorCode, number>> = {
   auth: 15 * 60_000,
 };
 
+/** Nombre de réponses retenues pour la vitesse moyenne. */
+const LATENCY_SAMPLES = 10;
+
 const registry = new Map<string, AIHealth>();
 
 function entry(id: string): AIHealth {
@@ -61,6 +67,13 @@ export function recordSuccess(id: string, latencyMs: number, now = Date.now()) {
   countRequest(health, now);
   health.lastSuccessAt = now;
   health.lastLatencyMs = latencyMs;
+  health.latencies = [...health.latencies, latencyMs].slice(-LATENCY_SAMPLES);
+}
+
+/** Durée moyenne des dernières réponses réussies, ou null s'il n'y en a pas. */
+export function averageLatency(health: AIHealth): number | null {
+  const { latencies } = health;
+  return latencies.length ? Math.round(latencies.reduce((sum, ms) => sum + ms, 0) / latencies.length) : null;
 }
 
 export function recordFailure(id: string, code: AIErrorCode, message: string, now = Date.now()) {
@@ -84,7 +97,7 @@ export function isCoolingDown(health: AIHealth, now = Date.now()): boolean {
 }
 
 /* -------------------------------------------------------------------------- */
-/* État affiché dans /admin/modele-ia                                         */
+/* État affiché dans /admin/circuit                                           */
 /* -------------------------------------------------------------------------- */
 
 export type NodeStatus = "ok" | "warning" | "exhausted" | "error" | "unknown" | "off";

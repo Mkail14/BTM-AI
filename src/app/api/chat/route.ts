@@ -84,10 +84,10 @@ function fixedReply(conversationId: string, text: string) {
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return errorResponse(403, "invalid_request");
-  // Trajet du message, affiché en direct sur /admin/modele-ia.
+  // Trajet du message, affiché en direct sur /admin/circuit.
   const flow = startFlowTrace();
 
-  // 1. Lien coupé sur le schéma de /admin/modele-ia : le message s'arrête là, Awa ne répond pas.
+  // 1. Lien coupé sur le schéma de /admin/circuit : le message s'arrête là, Awa ne répond pas.
   const cuts = await loadFlowCuts();
   const cutAt = flowCutStop(cuts);
   if (cutAt) {
@@ -390,7 +390,7 @@ export async function POST(request: NextRequest) {
             } else {
               send({ type: "delta", text: chunk.text });
             }
-          } else {
+          } else if (chunk.type === "finish") {
             finish = chunk.reason;
           }
         }

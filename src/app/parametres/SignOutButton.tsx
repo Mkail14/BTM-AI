@@ -1,9 +1,24 @@
 "use client";
 
 import { useAuth } from "@/components/auth/AuthProvider";
+import { IconLogout } from "@/components/ui/icons";
 
-export function SignOutButton() {
+/** `compact` : icône seule, pour les barres d'en-tête. */
+export function SignOutButton({ compact = false }: { compact?: boolean }) {
   const { signOut } = useAuth();
+  if (compact) {
+    return (
+      <button
+        type="button"
+        onClick={signOut}
+        aria-label="Se déconnecter"
+        title="Se déconnecter"
+        className="rounded-lg p-2 text-fg-muted hover:bg-bg-muted hover:text-fg"
+      >
+        <IconLogout width={18} height={18} />
+      </button>
+    );
+  }
   return (
     <button
       type="button"

@@ -27,7 +27,7 @@ let cached: { key: string; provider: AIProvider; config: AIConfig } | null = nul
 
 /**
  * Renvoie le fournisseur configuré, ou la raison pour laquelle il ne l'est pas.
- * Les API de secours (AI_2_…, puis celles ajoutées depuis /admin/modele-ia)
+ * Les API de secours (AI_2_…, puis celles ajoutées depuis /admin/circuit)
  * prennent le relais quand la précédente est épuisée ou en panne.
  * Aucune réponse simulée n'est produite en l'absence de configuration.
  */
@@ -36,7 +36,7 @@ export async function getAIProvider(
   knownCuts?: Set<string>,
 ): Promise<{ ok: true; provider: AIProvider; config: AIConfig } | { ok: false; reason: string }> {
   const [fullChain, cuts] = await Promise.all([loadAIChain(), knownCuts ?? loadFlowCuts()]);
-  // API débranchées sur le schéma de /admin/modele-ia : hors de la chaîne de secours.
+  // API débranchées sur le schéma de /admin/circuit : hors de la chaîne de secours.
   const chain = fullChain.filter((s) => !cuts.has(s.id));
   const usable = chain.filter((s): s is AISlot & { result: { ok: true } } => s.result.ok);
   if (usable.length === 0) {

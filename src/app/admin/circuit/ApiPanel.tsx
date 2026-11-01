@@ -2,9 +2,21 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
-import { IconChip, IconClose, IconRetry } from "@/components/ui/icons";
+import { IconChip, IconClose, IconRetry, IconTrash } from "@/components/ui/icons";
 import { testSlotAction, type SlotTestResult } from "./actions";
-import { STATUS_STYLES, type FlowNode } from "./flow";
+import { STATUS_STYLES, formatSeconds, speedColor, type FlowNode } from "./flow";
+
+/** Une durée en secondes, colorée selon la vitesse, ou un tiret. */
+function Speed({ label, ms }: { label: string; ms: number | null | undefined }) {
+  return (
+    <div className="rounded-lg bg-bg-muted px-3 py-2">
+      <p className="text-xs text-fg-muted">{label}</p>
+      <p className={`text-lg font-semibold tabular-nums ${ms != null ? speedColor(ms) : "text-fg-muted"}`}>
+        {ms != null ? formatSeconds(ms) : "—"}
+      </p>
+    </div>
+  );
+}
 
 function Section({ title, aside, children }: { title: string; aside?: ReactNode; children: ReactNode }) {
   return (
@@ -58,8 +70,18 @@ function Rows({ rows }: { rows: { label: string; value: string; masked?: boolean
   );
 }
 
-/** Fiche d'une API : connexion (valeurs grisées), quota restant, activité, essai. */
-export function ApiPanel({ node, onClose }: { node: FlowNode; onClose: () => void }) {
+/** Fiche d'une API : vitesse, essai, quota restant, connexion (valeurs grisées), activité, suppression. */
+export function ApiPanel({
+  node,
+  onClose,
+  onRemove,
+  removing,
+}: {
+  node: FlowNode;
+  onClose: () => void;
+  onRemove: () => void;
+  removing: boolean;
+}) {
   const router = useRouter();
   const panelRef = useRef<HTMLDivElement>(null);
   const [result, setResult] = useState<SlotTestResult | null>(null);
@@ -125,6 +147,33 @@ export function ApiPanel({ node, onClose }: { node: FlowNode; onClose: () => voi
         </div>
         {node.reason ? <p className="mt-2 text-sm break-words text-fg-muted">{node.reason}</p> : null}
 
+        <Section title="Vitesse">
+          <div className="grid grid-cols-2 gap-2">
+            <Speed label="Moyenne (10 dernières)" ms={node.speed?.averageMs} />
+            <Speed label="Dernière réponse" ms={node.speed?.lastMs} />
+          </div>
+          {node.status !== "off" ? (
+            <button
+              type="button"
+              onClick={test}
+              disabled={testing}
+              className="mt-3 inline-flex items-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-60"
+            >
+              <IconRetry width={16} height={16} className={testing ? "animate-spin" : ""} />
+              {testing ? "Test en cours…" : "Tester cette API"}
+            </button>
+          ) : null}
+          {result ? (
+            <p
+              role="status"
+              className={`mt-2 rounded-lg px-3 py-2 text-sm break-words ${result.ok ? "bg-success-soft" : "bg-danger-soft"}`}
+            >
+              <span className="font-medium">{result.ok ? "✓ Répond" : "✕ Échec"}</span>
+              {result.latencyMs !== null ? ` en ${formatSeconds(result.latencyMs)}` : ""} — {result.message}
+            </p>
+          ) : null}
+        </Section>
+
         <Section title="Quota restant avant épuisement">
           {freeQuota || credit ? (
             <div className="space-y-4">
@@ -173,28 +222,20 @@ export function ApiPanel({ node, onClose }: { node: FlowNode; onClose: () => voi
           <Rows rows={api.activity} />
         </Section>
 
-        {node.status !== "off" ? (
-          <Section title="Essai">
-            <button
-              type="button"
-              onClick={test}
-              disabled={testing}
-              className="inline-flex items-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-60"
-            >
-              <IconRetry width={16} height={16} className={testing ? "animate-spin" : ""} />
-              {testing ? "Test en cours…" : "Tester cette API"}
-            </button>
-            {result ? (
-              <p
-                role="status"
-                className={`mt-2 rounded-lg px-3 py-2 text-sm break-words ${result.ok ? "bg-success-soft" : "bg-danger-soft"}`}
-              >
-                <span className="font-medium">{result.ok ? "✓ Répond" : "✕ Échec"}</span>
-                {result.latencyMs !== null ? ` en ${(result.latencyMs / 1000).toFixed(1)} s` : ""} — {result.message}
-              </p>
-            ) : null}
-          </Section>
-        ) : null}
+        <section className="mt-6 border-t border-border pt-4">
+          <button
+            type="button"
+            onClick={onRemove}
+            disabled={removing}
+            className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-danger hover:bg-danger-soft disabled:opacity-50"
+          >
+            <IconTrash width={16} height={16} />
+            {removing ? "Suppression…" : node.fromServer ? "Retirer cette API" : "Supprimer cette API"}
+          </button>
+          {node.fromServer ? (
+            <p className="mt-1 text-xs text-fg-muted">Déclarée sur le serveur : elle sera mise de côté et pourra être remise.</p>
+          ) : null}
+        </section>
       </div>
     </>
   );

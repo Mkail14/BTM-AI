@@ -26,6 +26,7 @@ export function geminiRoot(baseUrl: string | undefined): string {
 export const geminiHeaders = (apiKey: string) => ({ "Content-Type": "application/json", "x-goog-api-key": apiKey });
 
 type GeminiChunk = {
+  usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
   candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[];
   promptFeedback?: { blockReason?: string };
 };
@@ -186,6 +187,7 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
       const resting = (model: string) => (exhausted.get(`${keyId(config.apiKey)}:${model}`) ?? 0) > Date.now();
       let opened: Awaited<ReturnType<typeof open>> = null;
       let alternatives: string[] | null = null;
+      let usedModel = chosen;
       const tried = new Set<string>();
       // Le modèle choisi d'abord (sauf s'il vient d'être refusé), puis les autres modèles de la clé.
       for (let i = 0; i < MAX_MODEL_TRIES && !opened; i++) {
@@ -196,6 +198,7 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
         }
         if (!model) break;
         tried.add(model);
+        usedModel = model;
         opened = await open(model);
         if (opened && model !== chosen) console.info(`[ai] Gemini : « ${chosen} » indisponible, réponse par « ${model} »`);
       }
@@ -205,6 +208,7 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
       const parser = createSseDataParser();
       let finish: FinishReason = "other";
       let pending: string | null = opened.first;
+      let usage: GeminiChunk["usageMetadata"] | null = null;
 
       try {
         while (true) {
@@ -220,6 +224,8 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
               continue;
             }
             if (chunk.promptFeedback?.blockReason) finish = "refusal";
+            // Cumul envoyé à chaque morceau : le dernier fait foi.
+            if (chunk.usageMetadata) usage = chunk.usageMetadata;
             const candidate = chunk.candidates?.[0];
             for (const part of candidate?.content?.parts ?? []) {
               // Les « pensées » du modèle ne sont pas montrées.
@@ -236,6 +242,14 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
         reader.releaseLock();
       }
 
+      if (usage) {
+        yield {
+          type: "usage",
+          model: usedModel,
+          inputTokens: usage.promptTokenCount ?? 0,
+          outputTokens: (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0),
+        };
+      }
       yield { type: "finish", reason: finish };
     },
   };

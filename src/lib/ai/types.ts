@@ -2,7 +2,9 @@ import type { ChatTurn, FinishReason } from "@/lib/chat/types";
 
 export type AIStreamChunk =
   | { type: "text"; text: string }
-  | { type: "finish"; reason: FinishReason };
+  | { type: "finish"; reason: FinishReason }
+  /** Jetons consommés (si l'API les donne) ; relevé par la chaîne de secours, jamais transmis plus loin. */
+  | { type: "usage"; model: string; inputTokens: number; outputTokens: number };
 
 export type AIStreamInput = {
   system: string;

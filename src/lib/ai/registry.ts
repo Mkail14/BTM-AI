@@ -37,23 +37,38 @@ export function storedSlot(row: StoredProvider, slot: number, env: Record<string
 }
 
 const CACHE_MS = 60_000;
-let cache: { rows: StoredProvider[]; expiresAt: number } | null = null;
+type Stored = { rows: StoredProvider[]; removed: Set<string> };
+let cache: (Stored & { expiresAt: number }) | null = null;
 
-async function loadStoredProviders(): Promise<StoredProvider[]> {
-  if (cache && cache.expiresAt > Date.now()) return cache.rows;
+const isEnvSlotId = (id: unknown): id is string => typeof id === "string" && /^env-\d+$/.test(id);
+
+async function loadStored(): Promise<Stored> {
+  if (cache && cache.expiresAt > Date.now()) return cache;
   const admin = getSupabaseAdminClient();
   let rows: StoredProvider[] = [];
+  let removed = new Set<string>();
   if (admin) {
-    const { data, error } = await admin
-      .from("ai_providers")
-      .select("id, label, provider, base_url, model, api_key_encrypted")
-      .order("position")
-      .order("created_at");
-    if (error) console.error("[ai] API enregistrées illisibles (migration ai_providers appliquée ?)", error);
-    else rows = (data ?? []) as StoredProvider[];
+    const [providers, settings] = await Promise.all([
+      admin
+        .from("ai_providers")
+        .select("id, label, provider, base_url, model, api_key_encrypted")
+        .order("position")
+        .order("created_at"),
+      admin.from("awa_settings").select("removed_apis").eq("id", 1).maybeSingle(),
+    ]);
+    if (providers.error) console.error("[ai] API enregistrées illisibles (migration ai_providers appliquée ?)", providers.error);
+    else rows = (providers.data ?? []) as StoredProvider[];
+    // Colonne absente (migration removed_apis non appliquée) : aucune API retirée.
+    const list: unknown = settings.error ? [] : settings.data?.removed_apis;
+    removed = new Set(Array.isArray(list) ? list.filter(isEnvSlotId) : []);
   }
-  cache = { rows, expiresAt: Date.now() + CACHE_MS };
-  return rows;
+  cache = { rows, removed, expiresAt: Date.now() + CACHE_MS };
+  return cache;
+}
+
+/** API du serveur retirées depuis /admin/circuit (identifiants « env-n »). */
+export async function loadRemovedApis(): Promise<Set<string>> {
+  return (await loadStored()).removed;
 }
 
 /** Après un ajout ou une suppression depuis /admin (les autres instances suivent sous 60 s). */
@@ -61,13 +76,16 @@ export function invalidateAIChain() {
   cache = null;
 }
 
-/** Chaîne complète : API des variables du serveur, puis celles ajoutées depuis l'admin. */
+/**
+ * Chaîne complète : API des variables du serveur (sauf celles retirées depuis
+ * l'admin), puis celles ajoutées depuis l'admin.
+ */
 export async function loadAIChain(): Promise<AISlot[]> {
-  const envSlots = readAIChain();
+  const { rows: stored, removed } = await loadStored();
+  const envSlots = readAIChain().filter((s) => !removed.has(s.id));
   // Sans API principale dans les variables (AI_API_KEY vide), une API ajoutée depuis l'admin suffit.
   const primary = envSlots[0];
-  const stored = await loadStoredProviders();
-  const keepPrimary = primary.result.ok || stored.length === 0;
+  const keepPrimary = !primary || primary.id !== "env-1" || primary.result.ok || stored.length === 0;
   const fromEnv = keepPrimary ? envSlots : envSlots.slice(1);
   return [...fromEnv, ...stored.map((row, index) => storedSlot(row, fromEnv.length + index + 1))].map((s, index) => ({
     ...s,

@@ -2,11 +2,12 @@ import type { Metadata } from "next";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { slotHealthId } from "@/lib/ai";
-import { loadAIChain } from "@/lib/ai/registry";
+import { loadAIChain, loadRemovedApis } from "@/lib/ai/registry";
+import { readAIChain } from "@/lib/ai/config";
 import { AI_ERROR_LABELS } from "@/lib/ai/flow-events";
 import { flowCutStop, loadFlowCuts } from "@/lib/ai/flow-cuts";
 import { canEncrypt } from "@/lib/ai/secret-box";
-import { deriveModelStatus, freeDailyQuota, getHealth, requestsToday, type NodeStatus } from "@/lib/ai/health";
+import { averageLatency, deriveModelStatus, freeDailyQuota, getHealth, requestsToday, type NodeStatus } from "@/lib/ai/health";
 import { checkKey } from "@/lib/ai/key-check";
 import { DEFAULT_IDENTITY, DEFAULT_RULES } from "@/lib/ai/system-prompt";
 import { requireAdmin } from "@/lib/auth/session";
@@ -17,7 +18,7 @@ import type { ApiDetails, FlowEdge, FlowNode } from "./flow";
 
 const CHARACTER_DEFAULTS = { name: "Awa", identity: DEFAULT_IDENTITY, rules: DEFAULT_RULES };
 
-export const metadata: Metadata = { title: "Modèle d'IA", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Circuit d'Awa", robots: { index: false, follow: false } };
 
 /** Ce que le cerveau d'Awa contient réellement en base (null : illisible). */
 async function readBrainCounts(admin: SupabaseClient) {
@@ -115,22 +116,27 @@ async function readModels() {
             : []),
         ],
       };
-      return { slot, config, status, api };
+      return { slot, config, status, api, health };
     }),
   );
 }
 
-export default async function AdminModelPage() {
-  const { user } = await requireAdmin("/admin/modele-ia");
+export default async function AdminCircuitPage() {
+  const { user } = await requireAdmin("/admin/circuit");
   const admin = getSupabaseAdminClient();
   const hasSalt = Boolean(process.env.RATE_LIMIT_SALT?.trim());
 
-  const [models, limits, brain, cuts] = await Promise.all([
+  const [models, limits, brain, cuts, removed] = await Promise.all([
     readModels(),
     loadRateLimitSettings(),
     admin ? readBrainCounts(admin).catch((error: unknown) => (console.error("[admin] Cerveau illisible", error), null)) : null,
     loadFlowCuts(),
+    loadRemovedApis(),
   ]);
+  // API du serveur retirées depuis cette page : proposées à la remise.
+  const removedApis = readAIChain()
+    .filter((s) => removed.has(s.id))
+    .map((s) => s.label);
 
   // Un fil coupé avant les API arrête tous les messages : aucune API ne répond.
   const stoppedAt = flowCutStop(cuts);
@@ -216,7 +222,7 @@ export default async function AdminModelPage() {
     ...brainNodes.map((n) => (cuts.has(n.id) ? { ...n, ...unplugged } : n)),
     { id: "prompt", column: 3, icon: "prompt", title: "Message système", status: "ok", statusLabel: "Assemblé" },
     ...models.map(
-      ({ slot, config, status, api }, index): FlowNode => ({
+      ({ slot, config, status, api, health }, index): FlowNode => ({
         api,
         id: `model-${slot.id}`,
         column: 4,
@@ -228,7 +234,8 @@ export default async function AdminModelPage() {
         reason: status.reason,
         slot: slot.slot,
         apiId: slot.id,
-        deletable: slot.source === "db",
+        fromServer: slot.source === "env",
+        speed: { lastMs: health.lastLatencyMs, averageMs: averageLatency(health) },
         inService: index === servingIndex,
         ...(cuts.has(slot.id) && unpluggedApi),
       }),
@@ -274,10 +281,10 @@ export default async function AdminModelPage() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-bg-subtle lg:h-dvh lg:overflow-hidden">
-      <AdminHeader section="Modèle d'IA" email={user.email} />
+      <AdminHeader section="Circuit d'Awa" email={user.email} />
       <main id="contenu" className="mx-auto flex w-full max-w-[1600px] min-h-[32rem] flex-1 flex-col p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <h1 className="sr-only">Modèle d&apos;IA</h1>
-        <AIFlow nodes={nodes} edges={edges} canAddApi={Boolean(admin) && canEncrypt()} />
+        <h1 className="sr-only">Circuit d&apos;Awa</h1>
+        <AIFlow nodes={nodes} edges={edges} canAddApi={Boolean(admin) && canEncrypt()} removedApis={removedApis} />
       </main>
     </div>
   );

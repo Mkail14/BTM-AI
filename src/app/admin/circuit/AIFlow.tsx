@@ -19,6 +19,7 @@ import {
   IconLanguage,
   IconMessage,
   IconPlus,
+  IconRetry,
   IconSend,
   IconSettings,
   IconShield,
@@ -26,13 +27,13 @@ import {
   IconTrash,
 } from "@/components/ui/icons";
 import type { ActionResult } from "@/lib/admin/action-auth";
-import { deleteApiAction, setFlowCutAction } from "./actions";
+import { deleteApiAction, restoreApisAction, setFlowCutAction, testSlotAction } from "./actions";
 import type { RateLimitSettings } from "@/lib/rate-limit/settings";
 import { AddApiDialog } from "./AddApiDialog";
 import { CharacterDialog } from "./CharacterDialog";
 import { GuardDialog } from "./GuardDialog";
 import { ApiPanel } from "./ApiPanel";
-import { STATUS_STYLES, type FlowEdge, type FlowIcon, type FlowNode } from "./flow";
+import { STATUS_STYLES, formatSeconds, speedColor, type FlowEdge, type FlowIcon, type FlowNode } from "./flow";
 import { HOP_MS, useLiveTrace, type LiveStatus } from "./useLiveTrace";
 
 const ICONS: Record<FlowIcon, ComponentType<SVGProps<SVGSVGElement>>> = {
@@ -178,15 +179,37 @@ function NodeCard({
           ) : null}
         </div>
       </div>
-      <span className={`mt-2 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${style.pill}`}>
-        <span aria-hidden="true" className={`size-1.5 rounded-full ${style.dot}`} />
-        {node.statusLabel}
-      </span>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${style.pill}`}>
+          <span aria-hidden="true" className={`size-1.5 rounded-full ${style.dot}`} />
+          {node.statusLabel}
+        </span>
+        {/* Vitesse moyenne des dernières réponses réelles. */}
+        {node.speed?.averageMs != null ? (
+          <span
+            className={`text-[11px] font-semibold tabular-nums ${speedColor(node.speed.averageMs)}`}
+            title="Temps de réponse moyen (10 dernières réponses)"
+          >
+            {formatSeconds(node.speed.averageMs)}
+          </span>
+        ) : null}
+      </div>
     </div>
   );
 }
 
-export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: FlowEdge[]; canAddApi: boolean }) {
+export function AIFlow({
+  nodes,
+  edges,
+  canAddApi,
+  removedApis,
+}: {
+  nodes: FlowNode[];
+  edges: FlowEdge[];
+  canAddApi: boolean;
+  /** Noms des API du serveur retirées de la chaîne. */
+  removedApis: string[];
+}) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const nodeRefs = useRef(new Map<string, HTMLElement>());
@@ -208,6 +231,7 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
   const closeCharacter = useCallback(() => setEditingCharacter(null), []);
   const [toolbarStatus, setToolbarStatus] = useState<ActionResult | null>(null);
   const [removing, startTransition] = useTransition();
+  const [testing, startTesting] = useTransition();
   // Lien survolé : ses deux moitiés (vers le bloc et depuis le bloc) s'éclairent ensemble.
   const [hoveredKey, setHoveredKey] = useState<string | null>(null);
   const hoveredCut = paths.find((p) => p.key === hoveredKey)?.edge.cutId;
@@ -250,9 +274,13 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
     }
   }
 
-  function removeSelected() {
-    if (!selected?.apiId || !window.confirm(`Supprimer l'API « ${selected.title} » de la chaîne ?`)) return;
-    const apiId = selected.apiId;
+  function removeApi(node: FlowNode) {
+    if (!node.apiId) return;
+    const question = node.fromServer
+      ? `Retirer l'API « ${node.title} » ?\n\nElle est déclarée dans les variables du serveur : elle ne sera plus utilisée, et vous pourrez la remettre.`
+      : `Supprimer l'API « ${node.title} » ?\n\nSa clé sera effacée.`;
+    if (!window.confirm(question)) return;
+    const apiId = node.apiId;
     startTransition(async () => {
       const result = await deleteApiAction(apiId);
       setToolbarStatus(result);
@@ -261,6 +289,34 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
         setOpenApiId(null);
         router.refresh();
       }
+    });
+  }
+
+  function restoreApis() {
+    startTransition(async () => {
+      setToolbarStatus(await restoreApisAction());
+      router.refresh();
+    });
+  }
+
+  /** Envoie un petit message à chaque API en même temps : qui répond, et en combien de temps. */
+  function testAll() {
+    const apis = nodes.filter((n) => n.apiId && n.status !== "off");
+    if (apis.length === 0) return;
+    setToolbarStatus(null);
+    startTesting(async () => {
+      const results = await Promise.all(
+        apis.map(async (n) => ({ node: n, result: await testSlotAction(n.apiId).catch(() => null) })),
+      );
+      const answered = results.filter((r) => r.result?.ok && r.result.latencyMs !== null);
+      const fastest = answered.sort((a, b) => a.result!.latencyMs! - b.result!.latencyMs!)[0];
+      setToolbarStatus({
+        ok: answered.length === apis.length,
+        message:
+          `${answered.length} / ${apis.length} API répondent` +
+          (fastest ? ` · la plus rapide : ${fastest.node.title} (${formatSeconds(fastest.result!.latencyMs!)})` : ""),
+      });
+      router.refresh();
     });
   }
 
@@ -396,7 +452,7 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
   }
 
   return (
-    <section aria-label="Schéma du modèle d'IA" className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-border">
+    <section aria-label="Circuit d'Awa" className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-border">
       {/* Suivi en direct, en haut à gauche du canevas */}
       <div
         role="status"
@@ -428,24 +484,43 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
             {toolbarStatus.message}
           </span>
         ) : null}
-        {/* Seules les API ajoutées depuis cette page peuvent être supprimées. */}
-        {selected?.deletable ? (
+        {selected ? (
           <>
             <span className="max-w-48 truncate px-2 text-xs text-fg-muted">
               Sélection : <span className="font-medium text-fg">{selected.title}</span>
             </span>
             <button
               type="button"
-              onClick={removeSelected}
+              onClick={() => removeApi(selected)}
               disabled={removing}
               className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-danger pointer-coarse:py-2.5 hover:bg-danger-soft disabled:opacity-50"
             >
               <IconTrash width={14} height={14} />
-              {removing ? "Suppression…" : "Supprimer"}
+              {removing ? "Suppression…" : selected.fromServer ? "Retirer" : "Supprimer"}
             </button>
             <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-border" />
           </>
         ) : null}
+        {removedApis.length > 0 ? (
+          <button
+            type="button"
+            onClick={restoreApis}
+            disabled={removing}
+            title={`Retirées : ${removedApis.join(", ")}`}
+            className="rounded-lg px-2.5 py-1.5 text-xs font-medium pointer-coarse:py-2.5 hover:bg-bg-muted disabled:opacity-50"
+          >
+            Remettre les API du serveur ({removedApis.length})
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={testAll}
+          disabled={testing}
+          className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium pointer-coarse:py-2.5 hover:bg-bg-muted disabled:opacity-50"
+        >
+          <IconRetry width={14} height={14} className={testing ? "animate-spin" : ""} />
+          {testing ? "Test en cours…" : "Tester toutes les API"}
+        </button>
         <button
           type="button"
           onClick={() => {
@@ -567,7 +642,7 @@ export function AIFlow({ nodes, edges, canAddApi }: { nodes: FlowNode[]; edges: 
           </div>
         </div>
       </div>
-      {openApi ? <ApiPanel node={openApi} onClose={closeApi} /> : null}
+      {openApi ? <ApiPanel node={openApi} onClose={closeApi} onRemove={() => removeApi(openApi)} removing={removing} /> : null}
       {adding ? <AddApiDialog onClose={closeAdd} /> : null}
       {editingLimits ? <GuardDialog limits={editingLimits} onClose={closeLimits} /> : null}
       {editingCharacter ? <CharacterDialog {...editingCharacter} onClose={closeCharacter} /> : null}

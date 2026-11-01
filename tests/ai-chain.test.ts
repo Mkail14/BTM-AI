@@ -140,6 +140,7 @@ describe("deriveModelStatus", () => {
     failures: 0,
     lastSuccessAt: null,
     lastLatencyMs: null,
+    latencies: [],
     lastFailure: null,
     today: { day: "", requests: 0 },
   };

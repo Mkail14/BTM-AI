@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { AdminMenu } from "@/components/admin/AdminMenu";
-import { BrandLogo } from "@/components/brand/BrandLogo";
-import { IconMic } from "@/components/ui/icons";
+import { AdminHeader } from "@/components/admin/AdminHeader";
 import { buildAdminAlerts, type AdminAlert } from "@/lib/admin/alerts";
 import {
   getAdminOverview,
@@ -14,11 +12,9 @@ import {
 import { supabaseDashboardLink } from "@/lib/admin/supabase-links";
 import { getAIProvider } from "@/lib/ai";
 import { requireAdmin } from "@/lib/auth/session";
-import { CHAT_LIMITS } from "@/lib/chat/limits";
-import { loadRateLimitSettings, type RateLimitSettings } from "@/lib/rate-limit/settings";
+import { getGeminiSpend, type GeminiSpend } from "@/lib/ai/usage";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { supabaseUrl } from "@/lib/supabase/config";
-import { SignOutButton } from "../parametres/SignOutButton";
 
 export const metadata: Metadata = { title: "Tableau de bord", robots: { index: false, follow: false } };
 
@@ -30,7 +26,6 @@ export const metadata: Metadata = { title: "Tableau de bord", robots: { index: f
 
 const TZ = "Indian/Mayotte";
 const dateFormat = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", year: "numeric", timeZone: TZ });
-const timeFormat = new Intl.DateTimeFormat("fr-FR", { timeStyle: "short", timeZone: TZ });
 const dayFormat = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", timeZone: "UTC" });
 const weekdayFormat = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "UTC" });
 const numberFormat = new Intl.NumberFormat("fr-FR");
@@ -86,15 +81,6 @@ function Tile({ label, value, hint }: { label: string; value: string; hint?: str
 
 function Unavailable({ children }: { children: ReactNode }) {
   return <p className="text-sm text-fg-muted">{children}</p>;
-}
-
-function Row({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 border-b border-border py-1.5 last:border-b-0">
-      <dt className="truncate text-fg-muted">{label}</dt>
-      <dd className="shrink-0 text-right font-medium tabular-nums">{children}</dd>
-    </div>
-  );
 }
 
 /* -------------------------------------------------------------------------- */
@@ -159,7 +145,7 @@ function ActivityChart({ daily }: { daily: AdminOverview["daily"] }) {
   const longLabel = (day: string) => weekdayFormat.format(new Date(`${day}T00:00:00Z`));
 
   return (
-    <div className="flex min-h-40 flex-1 flex-col">
+    <div className="flex min-h-40 flex-1 flex-col lg:min-h-0">
       <div className="flex min-h-0 flex-1 gap-2">
         {/* Graduations : valeurs rondes, quadrillage discret */}
         <div className="flex flex-col justify-between text-right text-[11px] text-fg-muted tabular-nums" aria-hidden="true">
@@ -229,23 +215,127 @@ function ActivityChart({ daily }: { daily: AdminOverview["daily"] }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Qualité, comptes, réglages, raccourcis                                     */
+/* Progression d'Awa, crédit Google, comptes                                  */
 /* -------------------------------------------------------------------------- */
 
-function Quality({ stats }: { stats: AdminOverview }) {
+/** Objectif de vocabulaire : les mots essentiels d'une conversation courante. */
+const AWA_GOAL = 1000;
+
+type AwaProgress = { known: number; week: number; toTranslate: number };
+
+/** Mots et expressions qu'Awa connaît, appris cette semaine, et mots en attente de traduction. */
+async function getAwaProgress(admin: NonNullable<ReturnType<typeof getSupabaseAdminClient>>): Promise<AwaProgress | null> {
+  const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
+  const active = (table: "awa_words" | "awa_lexicon", since?: string) => {
+    const query = admin.from(table).select("id", { count: "exact", head: true }).eq("is_active", true);
+    return since ? query.gte("created_at", since) : query;
+  };
+  const [words, lexicon, wordsWeek, lexiconWeek, requests] = await Promise.all([
+    active("awa_words"),
+    active("awa_lexicon"),
+    active("awa_words", weekAgo),
+    active("awa_lexicon", weekAgo),
+    admin.from("awa_word_requests").select("id", { count: "exact", head: true }).eq("status", "pending"),
+  ]);
+  if (words.error || lexicon.error) return null;
+  return {
+    known: (words.count ?? 0) + (lexicon.count ?? 0),
+    week: (wordsWeek.count ?? 0) + (lexiconWeek.count ?? 0),
+    toTranslate: requests.count ?? 0,
+  };
+}
+
+/** Barre de progression : couleur d'accent, ou d'alerte quand on approche de la limite. */
+function ProgressCard({
+  title,
+  value,
+  ratio,
+  tone = "accent",
+  children,
+}: {
+  title: string;
+  value: ReactNode;
+  ratio: number;
+  tone?: "accent" | "warning" | "danger";
+  children?: ReactNode;
+}) {
+  const bar = { accent: "bg-accent", warning: "bg-warning", danger: "bg-danger" }[tone];
+  const clamped = Math.min(Math.max(ratio, 0), 1);
+  const percent = Math.round(clamped * 100);
   return (
-    <dl className="text-sm">
-      <Row label="Réponses générées">{fmt(stats.answers7d)}</Row>
-      <Row label="En erreur">
-        {fmt(stats.errors7d)} <span className="font-normal text-fg-muted">· {pct(stats.errors7d, stats.answers7d)}</span>
-      </Row>
-      <Row label="Interrompues">
-        {fmt(stats.interrupted7d)}{" "}
-        <span className="font-normal text-fg-muted">· {pct(stats.interrupted7d, stats.answers7d)}</span>
-      </Row>
-      <Row label="Visiteurs à la limite (auj.)">{fmt(stats.anonDevicesBlockedToday)}</Row>
-      <Row label="Comptes à la limite (auj.)">{fmt(stats.usersBlockedToday)}</Row>
-    </dl>
+    <section className="rounded-2xl border border-border bg-bg px-4 py-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-sm font-semibold">{title}</h2>
+        <span className="text-xs text-fg-muted tabular-nums">{percent} %</span>
+      </div>
+      <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">{value}</p>
+      <div
+        role="progressbar"
+        aria-label={title}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={percent}
+        className="mt-2 h-2.5 overflow-hidden rounded-full bg-bg-muted"
+      >
+        {/* Au moins un trait visible dès qu'il y a quelque chose. */}
+        <div className={`h-full rounded-full ${bar}`} style={{ width: `${clamped > 0 ? Math.max(clamped * 100, 1) : 0}%` }} />
+      </div>
+      <p className="mt-1.5 text-xs text-fg-muted">{children}</p>
+    </section>
+  );
+}
+
+const euros = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
+
+function AwaProgressCard({ progress }: { progress: AwaProgress | null }) {
+  if (!progress) {
+    return (
+      <ProgressCard title="Awa apprend le shimaoré" value="—" ratio={0}>
+        Vocabulaire illisible pour le moment.
+      </ProgressCard>
+    );
+  }
+  return (
+    <ProgressCard
+      title="Awa apprend le shimaoré"
+      value={
+        <>
+          {fmt(progress.known)} <span className="text-base font-normal text-fg-muted">/ {fmt(AWA_GOAL)} mots</span>
+        </>
+      }
+      ratio={progress.known / AWA_GOAL}
+    >
+      <span className={progress.week > 0 ? "font-medium text-success" : ""}>+{fmt(progress.week)} cette semaine</span>
+      {" · "}
+      <Link href="/admin/lexique" className="font-medium text-fg hover:underline">
+        {progress.toTranslate > 0 ? `${fmt(progress.toTranslate)} à traduire →` : "Lexique →"}
+      </Link>
+    </ProgressCard>
+  );
+}
+
+function GoogleCreditCard({ spend }: { spend: GeminiSpend | null }) {
+  if (!spend) {
+    return (
+      <ProgressCard title="Crédit Google (Gemini)" value="—" ratio={0}>
+        Suivi à activer : migration 20261107000000_ai_usage.sql dans Supabase.
+      </ProgressCard>
+    );
+  }
+  const ratio = spend.spentEur / spend.budgetEur;
+  return (
+    <ProgressCard
+      title="Crédit Google (Gemini)"
+      value={
+        <>
+          {euros.format(spend.spentEur)} <span className="text-base font-normal text-fg-muted">/ {euros.format(spend.budgetEur)}</span>
+        </>
+      }
+      ratio={ratio}
+      tone={ratio >= 0.9 ? "danger" : ratio >= 0.75 ? "warning" : "accent"}
+    >
+      {euros.format(spend.today)} aujourd&apos;hui · {fmt(spend.requests)} réponses · estimation
+    </ProgressCard>
   );
 }
 
@@ -305,116 +395,38 @@ function Pagination({ page, hasNextPage }: { page: number; hasNextPage: boolean 
   );
 }
 
-function Status({ ok, okLabel = "Configurée", koLabel = "Absente" }: { ok: boolean; okLabel?: string; koLabel?: string }) {
-  return (
-    <span className="inline-flex items-center gap-1">
-      <span aria-hidden="true">{ok ? "✓" : "✕"}</span>
-      <span className={ok ? "" : "text-danger"}>{ok ? okLabel : koLabel}</span>
-    </span>
-  );
-}
-
-type AIStatus = Awaited<ReturnType<typeof getAIProvider>>;
-
-/** Réglages en vigueur. Aucune valeur secrète n'est affichée. */
-function ServiceConfig({
-  ai,
-  limits,
-  hasSecretKey,
-  hasSalt,
-}: {
-  ai: AIStatus;
-  limits: RateLimitSettings;
-  hasSecretKey: boolean;
-  hasSalt: boolean;
-}) {
-  const anonDay = limits.anonymousDevice.day;
-  const userDay = limits.user.day;
-  return (
-    <dl className="text-sm">
-      <Row label="Modèle d'IA">
-        {ai.ok ? (
-          <Link href="/admin/modele-ia" className="font-mono text-xs hover:underline" title={ai.config.provider}>
-            {ai.config.model}
-          </Link>
-        ) : (
-          <Status ok={false} koLabel="Non configuré" />
-        )}
-      </Row>
-      <Row label="Quotas par jour">
-        {anonDay} visiteur · {userDay} compte
-      </Row>
-      <Row label="Conversation sans compte">{CHAT_LIMITS.anonymousMaxMessages / 2} échanges</Row>
-      <Row label="Clé secrète Supabase">
-        <Status ok={hasSecretKey} />
-      </Row>
-      <Row label="Sel des adresses IP">
-        <Status ok={hasSalt} okLabel="Configuré" koLabel="Absent" />
-      </Row>
-    </dl>
-  );
-}
-
-const SHORTCUTS: { label: string; path: string }[] = [
-  { label: "Utilisateurs", path: "auth/users" },
-  { label: "Envoi des e-mails", path: "auth/smtp" },
-  { label: "Modèles d'e-mails", path: "auth/templates" },
-  { label: "Limites d'envoi", path: "auth/rate-limits" },
-  { label: "Journaux", path: "logs/auth-logs" },
-];
-
-function Shortcuts() {
-  const links = SHORTCUTS.map((s) => ({ ...s, href: supabaseLink(s.path) })).filter((s) => s.href);
-  if (links.length === 0) return <Unavailable>Projet Supabase non détecté.</Unavailable>;
-  return (
-    <ul className="flex flex-wrap gap-1.5 text-xs">
-      {links.map((s) => (
-        <li key={s.path}>
-          <a
-            href={s.href!}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 rounded-lg border border-border px-2.5 py-1.5 font-medium hover:bg-bg-muted"
-          >
-            {s.label}
-            <span aria-hidden="true" className="text-fg-muted">
-              ↗
-            </span>
-          </a>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
 /* -------------------------------------------------------------------------- */
 /* Page                                                                       */
 /* -------------------------------------------------------------------------- */
 
 export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
   // Vérifie la session et le rôle avant toute lecture avec la clé secrète.
-  const { user } = await requireAdmin("/admin");
+  await requireAdmin("/admin");
   const page = readPage((await searchParams).page);
   const admin = getSupabaseAdminClient();
   const hasSalt = Boolean(process.env.RATE_LIMIT_SALT?.trim());
-  const [ai, limits] = await Promise.all([getAIProvider(), loadRateLimitSettings()]);
+  const ai = await getAIProvider();
 
   let overview: AdminOverview | null = null;
   let usersPage: Awaited<ReturnType<typeof listAdminUsers>> | null = null;
+  let progress: AwaProgress | null = null;
+  let spend: GeminiSpend | null = null;
   if (admin) {
-    const [overviewResult, usersResult] = await Promise.allSettled([
+    const [overviewResult, usersResult, progressResult, spendResult] = await Promise.allSettled([
       getAdminOverview(admin),
       listAdminUsers(admin, page),
+      getAwaProgress(admin),
+      getGeminiSpend(admin),
     ]);
+    if (progressResult.status === "fulfilled") progress = progressResult.value;
+    if (spendResult.status === "fulfilled") spend = spendResult.value;
     if (overviewResult.status === "fulfilled") overview = overviewResult.value;
     else console.error("[admin] Statistiques indisponibles", overviewResult.reason);
     if (usersResult.status === "fulfilled") usersPage = usersResult.value;
     else console.error("[admin] Liste des comptes indisponible", usersResult.reason);
   }
 
-  const wordsToTranslate = admin
-    ? ((await admin.from("awa_word_requests").select("id", { count: "exact", head: true }).eq("status", "pending")).count ?? 0)
-    : 0;
+  const wordsToTranslate = progress?.toTranslate ?? 0;
 
   const alerts = buildAdminAlerts({
     aiProblem: ai.ok ? null : ai.reason,
@@ -429,34 +441,9 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
     : "Statistiques indisponibles : SUPABASE_SECRET_KEY n'est pas définie.";
 
   return (
-    // Tableau de bord sur un seul écran dès 1024 × 600 px (variante desk) ; en dessous, la page défile.
-    <div className="flex min-h-dvh flex-col bg-bg-subtle desk:h-dvh desk:overflow-hidden">
-      <header className="shrink-0 border-b border-border bg-bg">
-        <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-4">
-          <AdminMenu />
-          <span className="hidden sm:block">
-            <BrandLogo size="md" />
-          </span>
-          <span className="shrink-0 rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-medium text-accent">Administration</span>
-          <p className="ml-4 hidden text-xs text-fg-muted lg:block">
-            Mis à jour à {timeFormat.format(new Date())} (heure de Mayotte) ·{" "}
-            <Link href="/admin" className="font-medium text-fg hover:underline">
-              Actualiser
-            </Link>
-          </p>
-          <div className="ml-auto flex shrink-0 items-center gap-3 text-sm">
-            <span className="hidden max-w-56 truncate text-fg-muted xl:inline">{user.email}</span>
-            {/* Le globe : le maître d'Awa lui parle et lui apprend le shimaoré. */}
-            <Link
-              href="/voix"
-              className="inline-flex items-center gap-1.5 rounded-full bg-accent px-3.5 py-1.5 font-medium text-accent-fg hover:bg-accent-hover"
-            >
-              <IconMic width={16} height={16} /> Parler à Awa
-            </Link>
-            <SignOutButton />
-          </div>
-        </div>
-      </header>
+    // Écran fixe sur ordinateur (dès 1024 px de large) : le graphique et la liste des comptes rétrécissent, seule la liste défile.
+    <div className="flex min-h-dvh flex-col bg-bg-subtle lg:h-dvh lg:overflow-hidden">
+      <AdminHeader />
 
       <main
         id="contenu"
@@ -473,30 +460,34 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
           </section>
         ) : null}
 
-        {/* Colonne principale : chiffres, activité, qualité, réglages */}
+        {/* Colonne principale : progressions, chiffres clés, activité */}
         <div
           className={`flex min-h-0 flex-col gap-4 lg:col-start-1 lg:row-start-1 ${alerts.length > 0 ? "lg:row-span-2" : ""}`}
         >
+          {/* Les deux progressions à suivre : le vocabulaire d'Awa et le crédit payé. */}
+          <div className="grid shrink-0 gap-4 md:grid-cols-2">
+            <AwaProgressCard progress={progress} />
+            <GoogleCreditCard spend={spend} />
+          </div>
+
           {overview ? (
-            <dl className="grid shrink-0 grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5" aria-label="Chiffres clés">
+            <dl className="grid shrink-0 grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Chiffres clés">
               <Tile
-                label="Inscriptions aujourd'hui"
-                value={fmt(overview.usersNewToday)}
-                hint={`${fmt(overview.usersNew7d)} sur 7 j · ${fmt(overview.usersTotal)} au total`}
-              />
-              <Tile
-                label="Messages envoyés aujourd'hui"
+                label="Messages aujourd'hui"
                 value={fmt(overview.questionsToday + overview.anonMessagesToday)}
                 hint={`${fmt(overview.questionsToday)} comptes · ~${fmt(overview.anonMessagesToday)} visiteurs`}
               />
               <Tile
-                label="Messages par utilisateur actif (7 j)"
-                value={overview.usersActive7d > 0 ? fmt(Math.round((overview.questions7d / overview.usersActive7d) * 10) / 10) : "—"}
-                hint={`${fmt(overview.usersActive7d)} utilisateurs actifs`}
+                label="Utilisateurs actifs (7 j)"
+                value={fmt(overview.usersActive7d)}
+                hint={`${fmt(overview.usersTotal)} inscrits au total`}
               />
-              <Tile label="Visiteurs sans compte (auj.)" value={fmt(overview.anonDevicesToday)} hint="Appareils, depuis 3 h" />
-              {/* Paiements pas encore en place : à brancher ici (ex. Stripe) le moment venu. */}
-              <Tile label="Euros générés aujourd'hui" value="— €" hint="Paiements non connectés" />
+              <Tile label="Inscriptions (7 j)" value={fmt(overview.usersNew7d)} hint={`${fmt(overview.usersNewToday)} aujourd'hui`} />
+              <Tile
+                label="Réponses en erreur (7 j)"
+                value={pct(overview.errors7d, overview.answers7d)}
+                hint={`${fmt(overview.errors7d)} sur ${fmt(overview.answers7d)} réponses`}
+              />
             </dl>
           ) : null}
 
@@ -504,28 +495,19 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
             id="activite"
             title="Questions des comptes connectés · 14 jours"
             aside={overview ? `${fmt(overview.questions7d)} sur 7 j · ${fmt(overview.questions30d)} sur 30 j` : undefined}
-            className="min-h-64 flex-1 desk:min-h-0"
+            className="min-h-64 flex-1 lg:min-h-0"
           >
             {overview ? <ActivityChart daily={overview.daily} /> : <Unavailable>{statsMissing}</Unavailable>}
           </Card>
-
-          <div className="grid shrink-0 gap-4 md:grid-cols-2">
-            <Card id="qualite" title="Qualité des réponses" aside="7 derniers jours">
-              {overview ? <Quality stats={overview} /> : <Unavailable>—</Unavailable>}
-            </Card>
-            <Card id="service" title="Réglages en vigueur" aside="Variables du serveur">
-              <ServiceConfig ai={ai} limits={limits} hasSecretKey={Boolean(admin)} hasSalt={hasSalt} />
-            </Card>
-          </div>
         </div>
 
-        {/* Colonne latérale : comptes, raccourcis */}
+        {/* Colonne latérale : comptes */}
         <div className={`flex min-h-0 flex-col gap-4 lg:col-start-2 ${alerts.length > 0 ? "lg:row-start-2" : "lg:row-start-1"}`}>
           <Card
             id="comptes"
             title={usersPage ? `Comptes (${fmt(usersPage.total)})` : "Comptes"}
             aside={overview ? `${fmt(overview.conversationsTotal)} conversations` : undefined}
-            className="min-h-72 flex-1 desk:min-h-40"
+            className="min-h-72 flex-1 lg:min-h-0"
           >
             {usersPage ? (
               <>
@@ -539,9 +521,6 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
             )}
           </Card>
 
-          <Card id="raccourcis" title="Gérer dans Supabase" className="shrink-0">
-            <Shortcuts />
-          </Card>
         </div>
       </main>
     </div>

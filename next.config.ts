@@ -25,6 +25,10 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  async redirects() {
+    // Ancienne adresse de la page « Circuit d'Awa ».
+    return [{ source: "/admin/modele-ia", destination: "/admin/circuit", permanent: true }];
+  },
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

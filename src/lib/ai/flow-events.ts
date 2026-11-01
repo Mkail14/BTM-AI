@@ -1,5 +1,5 @@
 /**
- * Trajet d'un message dans le schéma de /admin/modele-ia, diffusé en direct
+ * Trajet d'un message dans le schéma de /admin/circuit, diffusé en direct
  * aux administrateurs (Supabase Realtime, canal privé). Aucun contenu de
  * message ne circule : seulement les blocs franchis et la raison d'un blocage.
  */

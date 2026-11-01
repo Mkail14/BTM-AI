@@ -10,42 +10,40 @@ import {
   IconClose,
   IconDashboard,
   IconDatabase,
-  IconExternal,
   IconLanguage,
   IconMenu,
-  IconMic,
   IconSettings,
   IconSparkle,
   IconUsers,
 } from "@/components/ui/icons";
-import { supabaseDashboardLink } from "@/lib/admin/supabase-links";
-import { supabaseUrl } from "@/lib/supabase/config";
 
 type MenuItem = {
   label: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
-  /** Absent : rubrique prévue mais pas encore construite (affichée « Bientôt »). */
-  href?: string | null;
-  external?: boolean;
+  href: string;
 };
 
 /*
- * Rubriques de l'administration. Pour en ajouter une, ajoutez une ligne ici ;
- * pour activer une rubrique « Bientôt », donnez-lui son href.
+ * Rubriques de l'administration, groupées par sujet. Pour en ajouter une,
+ * ajoutez une ligne ici.
  */
-const SECTIONS: { title: string; items: MenuItem[] }[] = [
+const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
   {
-    title: "Vue d'ensemble",
+    title: null,
     items: [{ label: "Tableau de bord", icon: IconDashboard, href: "/admin" }],
   },
   {
-    title: "Awa",
+    title: "Personnalité",
     items: [
       { label: "Personnalités", icon: IconSparkle, href: "/admin/personnalites" },
       { label: "Caractère et règles", icon: IconSettings, href: "/admin/caractere" },
+    ],
+  },
+  {
+    title: "Savoir",
+    items: [
       { label: "Connaissances", icon: IconBook, href: "/admin/connaissances" },
       { label: "Lexique shimaoré", icon: IconLanguage, href: "/admin/lexique" },
-      { label: "Parler à Awa", icon: IconMic, href: "/voix" },
       { label: "Mémoire", icon: IconDatabase, href: "/admin/memoire" },
     ],
   },
@@ -53,14 +51,7 @@ const SECTIONS: { title: string; items: MenuItem[] }[] = [
     title: "Plateforme",
     items: [
       { label: "Utilisateurs", icon: IconUsers, href: "/admin/utilisateurs" },
-      { label: "Modèle d'IA", icon: IconChip, href: "/admin/modele-ia" },
-    ],
-  },
-  {
-    title: "Outils externes",
-    items: [
-      { label: "Supabase", icon: IconExternal, href: supabaseDashboardLink(supabaseUrl, ""), external: true },
-      { label: "OpenRouter", icon: IconExternal, href: "https://openrouter.ai/activity", external: true },
+      { label: "Circuit d'Awa", icon: IconChip, href: "/admin/circuit" },
     ],
   },
 ];
@@ -132,38 +123,13 @@ export function AdminMenu() {
             </div>
 
             <nav aria-label="Administration" className="flex-1 px-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
-              {SECTIONS.map((section) => (
-                <div key={section.title} className="mt-4">
-                  <h2 className="px-3 pb-1.5 text-xs font-medium tracking-wide text-fg-muted uppercase">{section.title}</h2>
+              {SECTIONS.map((section, i) => (
+                <div key={section.title ?? i} className="mt-4">
+                  {section.title ? (
+                    <h2 className="px-3 pb-1.5 text-xs font-medium tracking-wide text-fg-muted uppercase">{section.title}</h2>
+                  ) : null}
                   <ul className="space-y-0.5">
-                    {section.items.map(({ label, icon: Icon, href, external }) => {
-                      if (!href) {
-                        return (
-                          <li key={label}>
-                            <span className={`${itemClass} cursor-not-allowed text-fg-muted`} aria-disabled="true">
-                              <Icon width={17} height={17} />
-                              {label}
-                              <span className="ml-auto rounded-full bg-bg-muted px-2 py-0.5 text-[11px]">Bientôt</span>
-                            </span>
-                          </li>
-                        );
-                      }
-                      if (external) {
-                        return (
-                          <li key={label}>
-                            <a
-                              href={href}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className={`${itemClass} hover:bg-bg-muted`}
-                            >
-                              <Icon width={17} height={17} />
-                              {label}
-                              <span className="sr-only"> (nouvel onglet)</span>
-                            </a>
-                          </li>
-                        );
-                      }
+                    {section.items.map(({ label, icon: Icon, href }) => {
                       const active = pathname === href;
                       return (
                         <li key={label}>
@@ -183,6 +149,7 @@ export function AdminMenu() {
                 </div>
               ))}
             </nav>
+
           </div>
         </>
       ) : null}

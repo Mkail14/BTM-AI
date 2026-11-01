@@ -23,9 +23,11 @@ export type FlowNode = {
   slot?: number;
   /** Identifiant de l'API dans la chaîne (« env-1 », « db-<uuid> »). */
   apiId?: string;
-  /** Vrai pour une API ajoutée depuis cette page (les autres sont dans les variables du serveur). */
-  deletable?: boolean;
+  /** Vrai pour une API déclarée dans les variables du serveur : supprimée, elle est seulement retirée. */
+  fromServer?: boolean;
   inService?: boolean;
+  /** Nœuds d'API : vitesse des réponses réelles, en millisecondes (null : aucune encore). */
+  speed?: { lastMs: number | null; averageMs: number | null };
   /** Nœuds d'API : fiche affichée au clic (valeurs déjà formatées, clé masquée). */
   api?: ApiDetails;
   /** Bloc « Quotas et sécurité » : quotas en vigueur, modifiables au clic. */
@@ -60,6 +62,16 @@ export type FlowEdge = {
   /** Lien coupé par l'administrateur. */
   cut?: boolean;
 };
+
+/** « 1,4 s » */
+export function formatSeconds(ms: number) {
+  return `${(ms / 1000).toLocaleString("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} s`;
+}
+
+/** Couleur de la vitesse : rapide sous 3 s, lente au-delà de 8 s. */
+export function speedColor(ms: number) {
+  return ms < 3_000 ? "text-success" : ms < 8_000 ? "text-warning" : "text-danger";
+}
 
 export const STATUS_STYLES: Record<NodeStatus, { dot: string; pill: string; border: string }> = {
   ok: { dot: "bg-success", pill: "bg-success-soft text-success", border: "border-success/50" },

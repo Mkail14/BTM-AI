@@ -4,7 +4,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { RATE_LIMIT_POLICIES } from "./policies";
 import type { RateLimitRule } from "./types";
 
-/** Quotas modifiables depuis /admin/modele-ia : messages par minute et par jour. */
+/** Quotas modifiables depuis /admin/circuit : messages par minute et par jour. */
 export const RATE_LIMIT_SUBJECTS = ["anonymousDevice", "anonymousIp", "user"] as const;
 export type RateLimitSubjectName = (typeof RATE_LIMIT_SUBJECTS)[number];
 export type RateLimitSettings = Record<RateLimitSubjectName, { minute: number; day: number }>;
