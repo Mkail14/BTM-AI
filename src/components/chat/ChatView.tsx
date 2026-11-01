@@ -27,6 +27,7 @@ import { VoiceOverlay } from "./VoiceOverlay";
 import { TeachWordContext } from "./UnknownWord";
 import { correctInContextAction, teachUnknownWordAction } from "@/app/(chat)/actions";
 import { CorrectContext, type Correction } from "./Correctable";
+import { replacePassage } from "@/lib/language/replace-passage";
 import { fillKnownWords, translationTable } from "@/lib/language/unknown-words";
 
 type ChatViewProps = {
@@ -111,7 +112,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     const result = await correctInContextAction({ shimaore, french, context });
     if (result.ok && wrote && wrote !== shimaore) {
       setMessages((current) =>
-        current.map((m) => (m.id === messageId ? { ...m, content: m.content.split(wrote).join(shimaore) } : m)),
+        current.map((m) => (m.id === messageId ? { ...m, content: replacePassage(m.content, wrote, shimaore) } : m)),
       );
     }
     return result;

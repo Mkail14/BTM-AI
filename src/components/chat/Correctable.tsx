@@ -90,7 +90,7 @@ export function Correctable({ messageId, children }: { messageId: string; childr
     if (result.ok) setTimeout(() => setForm(null), 1200);
   }
 
-  const set = (key: "shimaore" | "french" | "context", value: string) => {
+  const set = (key: "wrote" | "shimaore" | "french" | "context", value: string) => {
     setForm((f) => (f ? { ...f, [key]: value } : f));
     setStatus(null);
   };
@@ -130,15 +130,19 @@ export function Correctable({ messageId, children }: { messageId: string; childr
           style={{ top: form.anchor.top, left: form.anchor.left }}
           className="fixed z-30 w-[min(20rem,calc(100vw-2rem))] space-y-2 rounded-xl border border-border bg-bg p-3 text-sm shadow-xl"
         >
-          <p className="text-xs text-fg-muted">
-            {form.wrote ? (
-              <>
-                Awa a écrit : <span className="font-medium text-fg">« {form.wrote} »</span>
-              </>
-            ) : (
-              "Corrigez un mot ou une phrase de cette réponse."
-            )}
-          </p>
+          <label className="block">
+            <span className="text-xs text-fg-muted">Ce qu&apos;Awa a écrit</span>
+            <input
+              value={form.wrote}
+              maxLength={MAX}
+              disabled={saving}
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="Recopiez le mot ou la phrase à corriger"
+              onChange={(e) => set("wrote", e.target.value)}
+              className={`${inputClass} mt-1 text-fg-muted`}
+            />
+          </label>
           <label className="block">
             <span className="text-xs font-medium text-accent">Il fallait dire (shimaoré)</span>
             <input

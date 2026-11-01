@@ -38,7 +38,10 @@ async function loadWords(admin: NonNullable<ReturnType<typeof getSupabaseAdminCl
   return (data ?? []).map((row) => ({ french: row.french, shimaore: row.shimaore, category: row.category ?? undefined }));
 }
 
-const CACHE_MS = 60_000;
+// Court : invalidateAwaBrain() ne vide que le module qui l'appelle (les actions
+// de l'admin), pas celui des routes du chat ni les autres instances. Une leçon
+// ou une correction doit servir dès le message suivant.
+const CACHE_MS = 5_000;
 let cache: { brain: AwaBrain; expiresAt: number } | null = null;
 
 export async function loadAwaBrain(): Promise<AwaBrain> {
