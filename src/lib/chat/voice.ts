@@ -1,5 +1,6 @@
 // Sinon (pas français) : shimaoré, lu par une voix swahili, langue bantoue proche.
 import { looksFrench, splitUnknownWords } from "@/lib/language/unknown-words";
+import { voiceSpeakEnd, voiceSpeakStart, voiceWord } from "./voice-level";
 
 /**
  * Voix du chat, entièrement dans le navigateur (Web Speech API) : dictée en
@@ -116,12 +117,15 @@ export function speak(text: string, { onWord, onDone }: { onWord?: () => void; o
   const done = () => {
     if (finished) return;
     finished = true;
+    voiceSpeakEnd();
     onDone();
   };
   if (parts.length === 0) {
     done();
     return () => {};
   }
+  // Le globe d'Awa suit la lecture, syllabe par syllabe (voice-level.ts).
+  voiceSpeakStart(parts.map((part) => part.text).join(" "));
 
   const french = pickVoice("fr");
   const shimaore = pickVoice("sw") ?? french;
@@ -131,7 +135,9 @@ export function speak(text: string, { onWord, onDone }: { onWord?: () => void; o
     utterance.lang = voice?.lang ?? "fr-FR";
     if (voice) utterance.voice = voice;
     utterance.onboundary = (event) => {
-      if (event.name === "word") onWord?.();
+      if (event.name !== "word") return;
+      voiceWord(part.text, event.charIndex);
+      onWord?.();
     };
     if (index === parts.length - 1) utterance.onend = done;
     utterance.onerror = done;
@@ -139,6 +145,7 @@ export function speak(text: string, { onWord, onDone }: { onWord?: () => void; o
   });
   return () => {
     finished = true;
+    voiceSpeakEnd();
     synth.cancel();
   };
 }

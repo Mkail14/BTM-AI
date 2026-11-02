@@ -13,6 +13,7 @@ export type FinishReason = "stop" | "length" | "refusal" | "other";
 export type ChatErrorCode =
   | "ai_not_configured"
   | "rate_limited"
+  | "signup_required"
   | "invalid_request"
   | "conversation_too_long"
   | "unauthorized"
@@ -31,6 +32,8 @@ export type ChatStreamEvent =
   | { type: "delta"; text: string }
   /** Texte final qui remplace tout ce qui a été affiché (mode maître : réponse corrigée). */
   | { type: "replace"; text: string }
+  /** Mode maître : shimaoré retenu de ce message (affiché « ✓ Retenu » sous la réponse). */
+  | { type: "learned"; words: { french: string; shimaore: string }[] }
   | { type: "done"; finishReason: FinishReason }
   | { type: "error"; code: ChatErrorCode; message: string };
 

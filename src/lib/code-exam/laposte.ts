@@ -216,3 +216,84 @@ export async function getCodeExamHealth({
   }
   return lastFailure ? { ok: false, message: lastFailure.message } : { ok: true };
 }
+
+/* -------------------------------------------------------------------------- */
+/* Vérification à la demande (administration)                                 */
+/* -------------------------------------------------------------------------- */
+
+export type CheckStep = { id: "page" | "centers" | "slots"; label: string; ok: boolean; detail: string; ms: number };
+export type LaPosteCheck = {
+  ok: boolean;
+  at: number;
+  durationMs: number;
+  steps: CheckStep[];
+  /** Premier créneau avec des places, s'il y en a. */
+  nextSlot: { center: string; startsAt: string; places: number } | null;
+};
+
+/**
+ * Relit le site de La Poste maintenant, étape par étape, et dit précisément
+ * laquelle casse : page de recherche (clé d'accès), liste des bureaux, puis
+ * horaires. Met aussi à jour les horaires affichés dans la conversation.
+ */
+export async function checkLaPosteNow(): Promise<LaPosteCheck> {
+  const started = Date.now();
+  const steps: CheckStep[] = [];
+  const step = async <T>(id: CheckStep["id"], label: string, run: () => Promise<T>, detail: (value: T) => string): Promise<T | null> => {
+    const t = Date.now();
+    try {
+      const value = await run();
+      steps.push({ id, label, ok: true, detail: detail(value), ms: Date.now() - t });
+      return value;
+    } catch (error) {
+      const message = error instanceof CodeExamSourceError ? error.message : error instanceof Error ? error.message : "Erreur inconnue.";
+      steps.push({ id, label, ok: false, detail: message, ms: Date.now() - t });
+      return null;
+    }
+  };
+  const finish = (ok: boolean, nextSlot: LaPosteCheck["nextSlot"] = null): LaPosteCheck => {
+    // Échec : le tableau de bord affiche l'alerte avec la même explication.
+    if (!ok) lastFailure = { message: steps.at(-1)?.detail ?? "Lecture des horaires de La Poste impossible.", at: Date.now() };
+    return { ok, at: Date.now(), durationMs: Date.now() - started, steps, nextSlot };
+  };
+
+  const accessOk = await step("page", "Page de recherche et clé d'accès", () => getAccess(true), () => "Clé relue sur lecode.laposte.fr");
+  if (!accessOk) return finish(false);
+
+  const date = mayotteToday();
+  const query = new URLSearchParams({ date, ...MAYOTTE, isAccessiblePMR: "false", isSessionsIndividuelles: "false" });
+  const centers = await step(
+    "centers",
+    "Bureaux de Mayotte",
+    async () => {
+      const list = parseCenters(await callApi(`/salles/a-proximite?${query}`));
+      if (list.length === 0) throw new CodeExamSourceError("format", "Aucun bureau de Mayotte dans la réponse de La Poste.");
+      return list;
+    },
+    (list) => `${list.length} bureau${list.length > 1 ? "x" : ""} : ${list.map((c) => c.name).join(", ")}`,
+  );
+  if (!centers) return finish(false);
+
+  const slots = await step(
+    "slots",
+    `Horaires des ${DAYS} prochains jours`,
+    async () =>
+      (
+        await Promise.all(
+          centers.map(async (c) => parseSessions(await callApi(`/sessions?idSalle=${c.id}&date=${date}&nbrJourLimite=${DAYS}`), c.id)),
+        )
+      ).flat(),
+    (list) => {
+      const free = list.filter((s) => s.places > 0);
+      return `${list.length} séance${list.length > 1 ? "s" : ""}, dont ${free.length} avec des places`;
+    },
+  );
+  if (!slots) return finish(false);
+
+  // Lecture réussie : la conversation affiche ces horaires tout de suite.
+  last = { centers, slots, updatedAt: Date.now() };
+  lastFailure = null;
+  const first = slots.filter((s) => s.places > 0).sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0];
+  const center = first ? centers.find((c) => c.id === first.centerId) : null;
+  return finish(true, first && center ? { center: center.name, startsAt: first.startsAt, places: first.places } : null);
+}

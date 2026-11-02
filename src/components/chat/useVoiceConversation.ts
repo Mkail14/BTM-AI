@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { isVoiceSupported, listen, speak, unlockSpeech, type Dictation } from "@/lib/chat/voice";
+import { voiceHeard, voiceListenEnd } from "@/lib/chat/voice-level";
 import { stripTranslation } from "@/lib/language/unknown-words";
 
 /** off → listening (on parle) → waiting (Awa répond) → speaking (Awa lit) → listening… */
@@ -45,6 +46,7 @@ export function useVoiceConversation(onSend: (text: string) => void) {
     dictation.current = null;
     stopSpeaking.current?.();
     stopSpeaking.current = null;
+    voiceListenEnd();
     setTranscript("");
     setState("off");
   }, []);
@@ -55,12 +57,17 @@ export function useVoiceConversation(onSend: (text: string) => void) {
     dictation.current?.cancel();
     setTranscript("");
     setState("listening");
+    let heard = 0;
     dictation.current = listen({
       onText: (text) => {
         setTranscript(text);
         setBeat((n) => n + 1);
+        // Le globe frémit quand la personne parle : il écoute.
+        voiceHeard(Math.max(1, text.length - heard));
+        heard = text.length;
       },
       onEnd: (text) => {
+        voiceListenEnd();
         dictation.current = null;
         if (!active.current) return;
         // Silence : on continue d'écouter tant que le mode vocal est ouvert.

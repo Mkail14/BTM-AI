@@ -118,8 +118,8 @@ export function buildAdminAlerts({
     alerts.push({
       level: "warning",
       title: `${codeExamRequests} demande${codeExamRequests > 1 ? "s" : ""} de réservation du code à traiter`,
-      detail: "Des candidats attendent la confirmation de leur place à l'examen du code. Leurs informations sont dans la table code_exam_requests.",
-      action: withAction("Voir les demandes", "editor"),
+      detail: "Des candidats attendent la confirmation de leur place à l'examen du code.",
+      action: { label: "Traiter les demandes", href: "/admin/code" },
     });
   }
 

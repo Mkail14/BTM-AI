@@ -5,6 +5,7 @@ import { z } from "zod";
 import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/action-auth";
 import { invalidateAwaBrain } from "@/lib/ai/brain";
 import { teachWords } from "@/lib/ai/words-store";
+import { freeHue, listBranches, suggestBranch, type BranchSuggestion } from "@/lib/language/branches";
 import { parseWordList } from "@/lib/language/teaching";
 import { LEXICON_LIMITS, WORD_LIMITS } from "./limits";
 
@@ -179,4 +180,61 @@ export async function importWordsAction(input: unknown): Promise<ActionResult> {
   }
   const skipped = rejected.length ? ` ${rejected.length} ligne${rejected.length > 1 ? "s" : ""} ignorée${rejected.length > 1 ? "s" : ""} : ${rejected.slice(0, 3).join(" · ")}${rejected.length > 3 ? "…" : ""}` : "";
   return done(`${words.length} mot${words.length > 1 ? "s" : ""} appris.${skipped}`);
+}
+
+/** Awa propose la branche qui lui manque le plus (bouton « + » de la carte). `avoid` : idées déjà écartées. */
+export async function suggestBranchAction(avoid: unknown): Promise<{ ok: true; suggestion: BranchSuggestion } | { ok: false; message: string }> {
+  const auth = await requireAdminAction();
+  if (!auth) return { ok: false, message: NOT_ADMIN.message };
+  const skip = Array.isArray(avoid) ? avoid.filter((a): a is string => typeof a === "string").slice(0, 10).map((a) => a.slice(0, 30)) : [];
+  const suggestion = await suggestBranch(auth.supabase, skip);
+  return suggestion ? { ok: true, suggestion } : { ok: false, message: "Awa n'a pas trouvé d'idée cette fois. Réessaie dans un instant." };
+}
+
+const branchSchema = z.object({
+  label: z.string().trim().min(2, "Donne un nom à la branche.").max(30, "Nom trop long (30 caractères au plus)."),
+  emoji: z.string().trim().max(8).optional(),
+  reason: z.string().trim().max(300).optional(),
+  words: z.array(z.string().trim().min(1).max(60)).min(1, "Garde au moins un mot.").max(30, "30 mots au plus par branche."),
+});
+
+/** Fait pousser une nouvelle branche sur la carte ; ses mots attendent leur traduction. */
+export async function createBranchAction(input: unknown): Promise<{ ok: true; id: string } | { ok: false; message: string }> {
+  const auth = await requireAdminAction();
+  if (!auth) return { ok: false, message: NOT_ADMIN.message };
+  const parsed = branchSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Branche invalide." };
+  const branches = (await listBranches(auth.supabase)) ?? [];
+  const { data, error } = await auth.supabase
+    .from("awa_branches")
+    .insert({
+      label: parsed.data.label,
+      emoji: parsed.data.emoji || "🌱",
+      reason: parsed.data.reason || null,
+      words: [...new Set(parsed.data.words.map((w) => w.toLowerCase()))],
+      hue: freeHue(branches),
+    })
+    .select("id")
+    .single();
+  if (error) {
+    if (error.code === "23505") return { ok: false, message: "Une branche porte déjà ce nom." };
+    console.error("[admin] Branche non créée", error);
+    return { ok: false, message: "La création a échoué (migration 20261116000000_awa_branches.sql appliquée ?)." };
+  }
+  revalidatePath("/admin/lexique");
+  return { ok: true, id: data.id };
+}
+
+/** Retire une branche de la carte (les traductions déjà données restent dans le dictionnaire). */
+export async function deleteBranchAction(id: unknown): Promise<ActionResult> {
+  const auth = await requireAdminAction();
+  if (!auth) return NOT_ADMIN;
+  if (typeof id !== "string" || !z.uuid().safeParse(id).success) return { ok: false, message: "Branche inconnue." };
+  const { error } = await auth.supabase.from("awa_branches").delete().eq("id", id);
+  if (error) {
+    console.error("[admin] Branche non supprimée", error);
+    return { ok: false, message: "La suppression a échoué." };
+  }
+  revalidatePath("/admin/lexique");
+  return { ok: true, message: "Branche retirée." };
 }

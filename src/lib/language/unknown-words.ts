@@ -48,6 +48,9 @@ const FRENCH_WORDS = new Set(
   ).split(" "),
 );
 
+/** Mot français courant (« le », « mais », « bonjour ») : jamais pris pour du shimaoré. */
+export const isFrenchWord = (word: string) => FRENCH_WORDS.has(word.toLowerCase().replace(/^[ldjcqsnmt][’']/, ""));
+
 /** Une phrase est-elle en français ? (un tiers de mots français au moins, ou deux sur une phrase courte) */
 export function looksFrench(text: string): boolean {
   const words = text.toLowerCase().match(/\p{L}+/gu) ?? [];
@@ -99,19 +102,46 @@ export function enforceShimaore(text: string): string {
   );
 }
 
-const key = (french: string) => french.trim().toLowerCase().replace(/\s+/g, " ");
+/**
+ * Clé d'un mot français pour retrouver sa traduction : « [[Le marché !]] »,
+ * « marche » et « marchés » donnent la même. Sans accents, sans article ni
+ * ponctuation autour.
+ */
+const key = (french: string) =>
+  french
+    .trim()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[’']/g, "'")
+    .replace(/^[\s"«“(]+|[\s"»”).,!?…:;]+$/g, "")
+    .replace(/^(?:le |la |les |l'|un |une |des |du |de la |de l'|d'|mon |ma |mes |ton |ta |tes |son |sa |ses )/, "")
+    .replace(/\s+/g, " ");
+
+/** Même clé, au singulier (« marchés » → « marche »). */
+const singular = (k: string) => k.replace(/(?<=\p{L}{3})[sx]$/u, "");
 
 /**
  * Remplace chaque [[mot]] dont le maître a donné la traduction par le
- * shimaoré appris. Les messages enregistrés ne changent pas : la correction
- * s'applique à l'affichage et à ce que le modèle relit, pour toujours.
+ * shimaoré appris (même avec un article, une majuscule ou au pluriel). Les
+ * messages enregistrés ne changent pas : la correction s'applique à
+ * l'affichage et à ce que le modèle relit, pour toujours.
  */
 export function fillKnownWords(text: string, translations: ReadonlyMap<string, string>): string {
   if (translations.size === 0 || !text.includes("[[")) return text;
-  return text.replace(UNKNOWN, (match, french: string) => translations.get(key(french)) ?? match);
+  return text.replace(UNKNOWN, (match, french: string) => {
+    const k = key(french);
+    return translations.get(k) ?? translations.get(singular(k)) ?? match;
+  });
 }
 
-/** Table français → shimaoré pour fillKnownWords. */
+/** Table français → shimaoré pour fillKnownWords (le dernier appris l'emporte). */
 export function translationTable(entries: Iterable<{ french: string; shimaore: string }>): Map<string, string> {
-  return new Map(Array.from(entries, (entry) => [key(entry.french), entry.shimaore] as const));
+  const table = new Map<string, string>();
+  for (const entry of entries) {
+    const k = key(entry.french);
+    table.set(k, entry.shimaore);
+    if (!table.has(singular(k))) table.set(singular(k), entry.shimaore);
+  }
+  return table;
 }

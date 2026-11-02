@@ -7,6 +7,9 @@ import { maskPhone, normalizePhone } from "@/lib/code-exam/candidate";
 import { canOrderFood } from "@/lib/food/access";
 import { rememberOrder } from "@/lib/food/last-order";
 import { demoCourier, type Courier } from "@/lib/food/courier";
+import { restaurantPoint } from "@/lib/food/route";
+import { geocodeAddress, geocodePlace } from "@/lib/geo/geocode";
+import type { Point } from "@/lib/geo/communes";
 import { orderCode } from "@/lib/food/order-code";
 import { FOOD_CATALOG, FOOD_DELIVERY_FEE_CENTS, FOOD_DEMO, FOOD_ZONES, priceOrder, type FoodRestaurant } from "@/lib/food/catalog";
 import { getProfileContact, saveProfileAddress, saveProfilePhone } from "@/lib/profile-contact";
@@ -96,6 +99,13 @@ export async function POST(request: NextRequest) {
   const order = priceOrder(parsed.data.restaurantId, parsed.data.cart);
   if (!order) return fail(400, "Un plat de ta commande n'existe plus : recommence ton panier.");
 
+  // Carte du suivi : la vraie rue de l'adresse écrite (ou la position GPS donnée, exacte) et le restaurant,
+  // cherchés pendant le paiement.
+  const places = Promise.all([
+    address.geo ? { point: { lat: address.geo.lat, lng: address.geo.lng }, found: true } : geocodeAddress(address.line, address.commune),
+    geocodePlace(order.restaurant.name, order.restaurant.commune, restaurantPoint(order.restaurant.id, order.restaurant.commune)),
+  ]);
+
   const contact = await getProfileContact(supabase, user.id);
   const phone = parsed.data.phone ?? contact.phone;
   if (!phone) return fail(400, "Indique ton numéro : le livreur doit pouvoir t'appeler.");
@@ -127,6 +137,7 @@ export async function POST(request: NextRequest) {
   const [min, max] = order.restaurant.etaMinutes;
   const totalMs = FOOD_DEMO ? DEMO_TRACKING_MS : ((min + max) / 2) * 60_000;
   const now = Date.now();
+  const [delivery, restaurantAt] = await places;
   const body: FoodOrderPlaced = {
     ok: true,
     demo: FOOD_DEMO,
@@ -138,6 +149,9 @@ export async function POST(request: NextRequest) {
     arrivesAt: new Date(now + totalMs).toISOString(),
     // Démonstration : un livreur fictif (numéro réservé à la fiction). Avec un partenaire, son vrai livreur.
     courier: FOOD_DEMO ? demoCourier() : null,
+    from: restaurantAt,
+    to: delivery.point,
+    addressFound: delivery.found,
   };
   // Awa la retrouve pour répondre aux questions sur la livraison.
   await rememberOrder({
@@ -170,4 +184,9 @@ export type FoodOrderPlaced = {
   arrivesAt: string;
   /** Livreur à appeler ou à qui écrire ; null tant qu'aucun n'est attribué. */
   courier: Courier | null;
+  /** Restaurant et lieu de livraison sur la carte, posés sur une route. */
+  from: Point;
+  to: Point;
+  /** Faux : l'adresse écrite n'a pas été trouvée, le point est dans sa commune. */
+  addressFound: boolean;
 };

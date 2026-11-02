@@ -40,7 +40,7 @@ function RotatingHint({ texts }: { texts: readonly string[] }) {
   }, [texts.length]);
   const text = texts[index % texts.length];
   return (
-    <span aria-hidden="true" className="pointer-events-none absolute inset-x-3 top-1.5 overflow-hidden py-1.5 text-base leading-6 text-fg-muted">
+    <span aria-hidden="true" className="pointer-events-none absolute inset-x-1.5 top-0 overflow-hidden py-1.5 text-base sm:inset-x-3 sm:top-1.5 sm:py-1.5 leading-6 text-fg-muted">
       <span key={text} className="composer-hint block truncate">
         {text}
       </span>
@@ -61,12 +61,28 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
 
   useImperativeHandle(ref, () => ({ focus: () => textareaRef.current?.focus() }), []);
 
-  // Hauteur automatique selon le contenu.
+  // Hauteur automatique selon le contenu. Vide : une seule ligne (le texte d'aide ne compte pas),
+  // et recalculée quand la largeur change (au chargement, la barre peut être mesurée trop étroite).
   useLayoutEffect(() => {
     const el = textareaRef.current;
     if (!el) return;
-    el.style.height = "auto";
-    el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT_PX)}px`;
+    const fit = () => {
+      if (!el.value) {
+        el.style.height = "";
+        return;
+      }
+      el.style.height = "auto";
+      el.style.height = `${Math.min(el.scrollHeight, MAX_HEIGHT_PX)}px`;
+    };
+    fit();
+    let width = el.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (el.clientWidth === width) return;
+      width = el.clientWidth;
+      fit();
+    });
+    observer.observe(el);
+    return () => observer.disconnect();
   }, [value]);
 
   function submit() {
@@ -88,14 +104,15 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         event.preventDefault();
         submit();
       }}
-      // Carte comme dans les grands assistants : le texte en haut, les outils en dessous.
+      // Téléphone : une seule ligne fine (ton, texte, micro, envoi).
+      // Ordinateur : carte comme dans les grands assistants, le texte en haut, les outils en dessous.
       // Couleurs de la personnalité (--persona) si elles sont définies, sinon celles du site.
-      className="rounded-[1.75rem] border border-[var(--persona-border,var(--border))] bg-bg p-2 shadow-[0_8px_30px_-12px_rgb(0_0_0/0.25)] transition-[border-color,box-shadow] focus-within:border-[var(--persona,var(--accent))] pointer-fine:focus-within:ring-4 pointer-fine:focus-within:ring-[color-mix(in_srgb,var(--persona,var(--accent))_12%,transparent)]"
+      className="flex flex-nowrap items-end gap-1 rounded-full border p-1.5 pl-1.5 sm:flex-wrap sm:gap-1.5 sm:rounded-[1.75rem] sm:p-2 border-[var(--persona-border,var(--border))] bg-bg shadow-[0_8px_30px_-12px_rgb(0_0_0/0.25)] transition-[border-color,box-shadow] focus-within:border-[var(--persona,var(--accent))] pointer-fine:focus-within:ring-4 pointer-fine:focus-within:ring-[color-mix(in_srgb,var(--persona,var(--accent))_12%,transparent)]"
     >
       <label htmlFor="composer" className="sr-only">
         Message à Awa
       </label>
-      <div className="relative min-w-0 px-3 pt-1.5">
+      <div className="relative order-2 min-w-0 flex-1 basis-0 px-1.5 sm:order-first sm:basis-full sm:px-3 sm:pt-1.5">
         {rotating ? <RotatingHint texts={[placeholder, ...examples]} /> : null}
         <textarea
           id="composer"
@@ -108,11 +125,11 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           placeholder={disabled && disabledReason ? disabledReason : placeholder}
           aria-describedby="composer-hint"
           aria-invalid={tooLong || undefined}
-          className={`relative block max-h-[220px] w-full resize-none bg-transparent py-1.5 text-base leading-6 outline-none placeholder:text-fg-muted disabled:cursor-not-allowed ${
+          className={`relative block max-h-[160px] w-full resize-none bg-transparent py-1.5 text-base sm:max-h-[220px] sm:py-1.5 leading-6 outline-none placeholder:text-fg-muted disabled:cursor-not-allowed ${
             rotating ? "placeholder:text-transparent" : ""
           }`}
         />
-        <p id="composer-hint" className="truncate pb-1 text-xs text-fg-muted empty:hidden">
+        <p id="composer-hint" className="truncate text-xs sm:pb-1 text-fg-muted empty:hidden">
           {value.length > max * 0.8 ? (
             <span className={tooLong ? "text-danger" : undefined}>
               {value.length} / {max} caractères
@@ -120,9 +137,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           ) : null}
         </p>
       </div>
-      <div className="flex items-center gap-1.5">
-        {leading}
-        <span className="flex-1" />
+      <div className="order-1 flex shrink-0">{leading}</div>
+      <span className="order-3 hidden flex-1 sm:block" />
+      <div className="order-4 flex shrink-0 items-center gap-0.5 sm:gap-1.5">
         {trailing}
         {isStreaming ? (
           <button
@@ -131,7 +148,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             aria-label="Arrêter la génération"
             aria-keyshortcuts="Escape"
             title="Arrêter (Échap)"
-            className="grid size-9 shrink-0 place-items-center rounded-full pointer-coarse:size-10 bg-fg text-bg hover:opacity-85"
+            className="grid size-9 shrink-0 place-items-center rounded-full bg-fg text-bg hover:opacity-85 sm:pointer-coarse:size-10"
           >
             <IconStop />
           </button>
@@ -140,7 +157,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             type="submit"
             disabled={!canSend}
             aria-label="Envoyer le message"
-            className="grid size-9 shrink-0 place-items-center rounded-full pointer-coarse:size-10 bg-[var(--persona,var(--accent))] text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:brightness-100"
+            className="grid size-9 shrink-0 place-items-center rounded-full sm:pointer-coarse:size-10 bg-[var(--persona,var(--accent))] text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:brightness-100"
           >
             <IconSend />
           </button>

@@ -138,3 +138,44 @@ export function OrderTicket({ code }: { code: string }) {
     </div>
   );
 }
+
+/**
+ * QR code sobre, pour le billet d'arrivée : modules carrés noirs bien nets
+ * (lus d'un coup par n'importe quel téléphone), coins de repérage arrondis.
+ * Le code seul est encodé : 21 × 21 modules, gros et aérés.
+ */
+export function CleanQr({ text, label }: { text: string; label: string }) {
+  const matrix = useMemo(() => {
+    try {
+      return QRCode.create(text, { errorCorrectionLevel: "M" }).modules;
+    } catch {
+      return null;
+    }
+  }, [text]);
+  if (!matrix) return null;
+
+  const size = matrix.size;
+  let d = "";
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      if (matrix.get(row, col) && !isFinder(row, col, size)) d += `M${col} ${row}h1v1h-1z`;
+    }
+  }
+  const finders = [
+    [0, 0],
+    [size - 7, 0],
+    [0, size - 7],
+  ] as const;
+
+  return (
+    <svg viewBox={`-1 -1 ${size + 2} ${size + 2}`} role="img" aria-label={label} className="size-full" shapeRendering="crispEdges">
+      <path d={d} fill="#0b0b0f" />
+      {finders.map(([x, y]) => (
+        <g key={`${x}-${y}`} transform={`translate(${x} ${y})`} shapeRendering="geometricPrecision">
+          <rect x={0.5} y={0.5} width={6} height={6} rx={1.6} fill="none" stroke="#0b0b0f" strokeWidth={1} />
+          <rect x={2} y={2} width={3} height={3} rx={0.8} fill="#0b0b0f" />
+        </g>
+      ))}
+    </svg>
+  );
+}

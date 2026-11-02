@@ -39,11 +39,3 @@ export function buildModelHistory(messages: readonly ChatTurn[], maxChars: numbe
 
   return kept;
 }
-
-/** Titre de conversation dérivé du premier message (pas d'appel IA supplémentaire). */
-export function deriveTitle(firstMessage: string, maxChars: number): string {
-  const singleLine = firstMessage.replace(/\s+/g, " ").trim();
-  if (!singleLine) return "Nouvelle conversation";
-  if (singleLine.length <= maxChars) return singleLine;
-  return `${singleLine.slice(0, maxChars - 1).trimEnd()}…`;
-}

@@ -4,9 +4,16 @@ import { AIProviderError, buildSystemPrompt, getAIProvider } from "@/lib/ai";
 import { getAuthContext } from "@/lib/auth/session";
 import { nearestOfficesLine } from "@/lib/code-exam/offices";
 import { canOrderFood } from "@/lib/food/access";
+import { canBuyBargeTickets } from "@/lib/barge/access";
+import { BARGE_BLOCK, bargeBlockFor, bargeSpec, detectBargeTicket } from "@/lib/barge/intent";
+import { FOOD_CATALOG } from "@/lib/food/catalog";
+import { detectFoodOrder, foodBlock } from "@/lib/food/intent";
+import { addWhenToBlock, formatWhenDay, parseCodeExamWhen } from "@/lib/code-exam/when";
 import { describeOrder, readLastOrder } from "@/lib/food/last-order";
 import { chatErrorBody } from "@/lib/chat/errors";
-import { buildModelHistory, deriveTitle } from "@/lib/chat/history";
+import { buildModelHistory } from "@/lib/chat/history";
+import { quickTitle } from "@/lib/chat/title";
+import { nameConversation } from "@/lib/ai/title";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
 import { encodeStreamEvent } from "@/lib/chat/stream-protocol";
 import type { ChatErrorCode, ChatStreamEvent, ChatTurn, FinishReason, MessageStatus } from "@/lib/chat/types";
@@ -20,16 +27,17 @@ import {
   insertMessage,
 } from "@/lib/conversations/repository";
 import { liveContextFor } from "@/lib/live";
-import { invalidateAwaBrain, knownTranslations, knowledgeFor, lexiconFor, loadAwaBrain, wordsFor } from "@/lib/ai/brain";
+import { glossFor, invalidateAwaBrain, knownTranslations, knowledgeFor, lexiconFor, loadAwaBrain, wordsFor } from "@/lib/ai/brain";
 import { AI_ERROR_LABELS } from "@/lib/ai/flow-events";
 import { startFlowTrace } from "@/lib/ai/flow-trace";
 import { ALL_APIS_CUT, flowCutStop, loadFlowCuts } from "@/lib/ai/flow-cuts";
+import { buildDossier } from "@/lib/ai/dossier";
 import { extractMemories, type MemoryFact } from "@/lib/ai/memory";
 import { getMemories, learnFromMessage, saveMemories } from "@/lib/ai/memory-store";
 import { collectUnknownWords } from "@/lib/ai/word-requests";
 import { learnWordsFromMessage, teachWords } from "@/lib/ai/words-store";
 import { createUnknownTagFilter } from "@/lib/language/unknown-tag";
-import { parseTeaching, type WordList } from "@/lib/language/teaching";
+import { parseTeaching, type TaughtWord, type WordList } from "@/lib/language/teaching";
 import { enforceShimaore, fillKnownWords } from "@/lib/language/unknown-words";
 import { DEFAULT_PERSONALITY, type PersonalityId } from "@/lib/ai/personalities";
 import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
@@ -42,6 +50,10 @@ export const maxDuration = 120;
 
 const DEVICE_COOKIE = "btm_device";
 const MAX_BODY_BYTES = 128 * 1024;
+/** Messages d'essai d'un visiteur sans compte (même compteur pour toutes ses conversations). */
+const GUEST_TRIAL = [{ name: "anon-trial-30d", limit: CHAT_LIMITS.guestTrialMessages, windowSeconds: 30 * 86_400 }];
+/** Attente maximale du relevé du shimaoré à la fin de la réponse, pour annoncer « ✓ Retenu ». */
+const LEARN_WAIT_MS = 6_000;
 
 function errorResponse(status: number, code: ChatErrorCode, headers?: HeadersInit) {
   return NextResponse.json(chatErrorBody(code), { status, headers });
@@ -166,6 +178,14 @@ export async function POST(request: NextRequest) {
   // Le maître d'Awa (administrateur) lui parle sans quota.
   if (!user?.isAdmin) {
     try {
+      // Essai sans compte : 5 messages par appareil (30 jours), toutes conversations confondues, puis compte obligatoire.
+      if (!user) {
+        const trial = await consumeRateLimits([{ key: hashIdentifier(`trial:${deviceId}`), rules: GUEST_TRIAL }]);
+        if (!trial.allowed) {
+          flow.step("guard", false, "essai sans compte terminé");
+          return errorResponse(403, "signup_required");
+        }
+      }
       const policies = await loadRateLimitPolicies();
       const subjects: RateLimitSubject[] = user
         ? [{ key: user.id, rules: policies.user }]
@@ -193,6 +213,8 @@ export async function POST(request: NextRequest) {
   // indépendantes partent en même temps pour que la réponse démarre plus vite.
   let history: ChatTurn[];
   let conversationId: string | null = null;
+  // Nouvelle conversation : son titre (le sujet en quelques mots) est donné par l'IA après la première réponse.
+  let newConversation = false;
   let personality: PersonalityId | null | undefined;
   let memories: MemoryFact[] = [];
   // Message de la personne : enregistré pendant que le modèle répond (attendu
@@ -208,6 +230,15 @@ export async function POST(request: NextRequest) {
             address ? { commune: address.commune, nearestOffices: nearestOfficesLine(address.commune, address.geo) } : null,
           )
           .catch(() => null)
+      : Promise.resolve(null);
+
+  // Dossier : ce que la personne a fait sur le site (réservations du code…), pour qu'Awa le remarque d'elle-même.
+  const dossierTask =
+    user && supabase
+      ? buildDossier(supabase).catch((error: unknown) => {
+          console.error("[chat] Dossier indisponible", error);
+          return null;
+        })
       : Promise.resolve(null);
 
   if (user && supabase) {
@@ -248,9 +279,10 @@ export async function POST(request: NextRequest) {
         const created = await createConversation(
           supabase,
           user.id,
-          deriveTitle(body.message, CHAT_LIMITS.maxTitleChars),
+          quickTitle(body.message),
         );
         conversationId = created.id;
+        newConversation = true;
         history = [];
       }
       userMessageSaved = insertMessage(supabase, {
@@ -304,11 +336,12 @@ export async function POST(request: NextRequest) {
   }
 
   // Comportement de la personnalité réécrit depuis /admin (sinon texte du code), en cache.
-  const [brain, personalityInstructions, live, home] = await Promise.all([
+  const [brain, personalityInstructions, live, home, dossier] = await Promise.all([
     brainTask,
     loadPersonalityInstructions(personality ?? DEFAULT_PERSONALITY),
     liveTask,
     homeTask,
+    dossierTask,
   ]);
 
   // Mode maître (administrateur) : Awa ne parle que shimaoré. Ses anciennes
@@ -324,20 +357,42 @@ export async function POST(request: NextRequest) {
     ),
     { role: "user", content: body.message },
   ];
+  // Demande de repas reconnue ici, sans attendre le modèle : la commande s'ouvre à coup sûr.
+  const foodOrdering = await canOrderFood(user);
+  const foodQuery =
+    foodOrdering && !body.voice
+      ? detectFoodOrder(
+          body.message,
+          history.filter((turn) => turn.role === "user").map((turn) => turn.content).reverse(),
+          FOOD_CATALOG,
+        )
+      : null;
+  // Demande de ticket de barge reconnue ici : l'achat s'ouvre à coup sûr.
+  const bargeTickets = await canBuyBargeTickets(user);
+  const bargeIntent = bargeTickets && !body.voice ? detectBargeTicket(body.message) : null;
+  // Jour voulu pour le code (« demain », « vendredi matin ») : calculé ici, les modèles se trompent de date.
+  const codeWhen = parseCodeExamWhen(body.message);
   const system = buildSystemPrompt(personality ?? undefined, {
     personalityInstructions,
     identity: brain.identity,
     rules: brain.rules,
     lexicon: lexiconFor(brain, personality ?? DEFAULT_PERSONALITY),
     words: wordsFor(brain, body.message, master),
+    gloss: glossFor(brain, body.message),
     knowledge: knowledgeFor(brain, body.message),
     live,
     memories,
+    dossier,
     teacher: master,
     voice: body.voice,
     reportUnknownWords: true,
     home,
-    foodOrdering: await canOrderFood(user),
+    foodOrdering,
+    foodQuery,
+    bargeTickets,
+    bargeIntent,
+    bargeSpec: bargeIntent === "buy" ? bargeSpec(body.message) : undefined,
+    codeExamDay: codeWhen.day ? formatWhenDay(codeWhen.day) : null,
     foodOrder: user ? await readLastOrder(user.id).then((order) => (order ? describeOrder(order) : null)) : null,
   });
   flow.step("prompt", true);
@@ -348,16 +403,27 @@ export async function POST(request: NextRequest) {
   // Mémoire à long terme : une fois la réponse envoyée, le modèle dit ce qu'il
   // faut retenir de ce message, et c'est Supabase qui le garde. Avec un
   // administrateur, il relève aussi le shimaoré enseigné dans la conversation.
+  // Avec le maître, le relevé du shimaoré part tout de suite, en parallèle de la réponse :
+  // les mots retenus s'affichent sous la réponse (« ✓ Retenu »), il sait qu'Awa a appris.
+  let learning: Promise<TaughtWord[]> | null = null;
   if (user && supabase) {
     const previousReply = [...history].reverse().find((turn) => turn.role === "assistant")?.content ?? null;
     // Un seul appel de fond par message : les API gratuites ont des quotas très bas.
     // Avec le maître, c'est le relevé du shimaoré (sa mémoire passe par extractMemories, sans appel).
-    after(() =>
-      (user.isAdmin
-        ? learnWordsFromMessage(supabase, user.id, ai.provider, { message: body.message, previousReply })
-        : learnFromMessage(supabase, user.id, ai.provider, { message: body.message, previousReply, memories })
-      ).catch((error: unknown) => console.error("[chat] Apprentissage de fond non enregistré", error)),
-    );
+    if (user.isAdmin) {
+      learning = learnWordsFromMessage(supabase, user.id, ai.provider, { message: body.message, previousReply }).catch((error: unknown) => {
+        console.error("[chat] Leçon de shimaoré non enregistrée", error);
+        return [];
+      });
+      const pending = learning;
+      after(() => pending);
+    } else {
+      after(() =>
+        learnFromMessage(supabase, user.id, ai.provider, { message: body.message, previousReply, memories }).catch((error: unknown) =>
+          console.error("[chat] Apprentissage de fond non enregistré", error),
+        ),
+      );
+    }
   }
 
   // 5. Génération en flux. L'arrêt côté client ou le délai maximal annulent l'appel.
@@ -445,6 +511,26 @@ export async function POST(request: NextRequest) {
 
         flush();
         closeTag();
+        // Filet de sécurité : demande de repas reconnue mais pas de bloc dans la réponse (petit modèle, mode maître) : on l'ajoute.
+        if (foodQuery && text && !text.includes("```commande-repas")) {
+          const block = foodBlock(foodQuery);
+          text += block;
+          send({ type: "delta", text: block });
+        }
+        // Ticket de barge demandé mais pas de bloc dans la réponse : on l'ajoute.
+        if (bargeIntent === "buy" && text && !text.includes("```" + BARGE_BLOCK)) {
+          const block = bargeBlockFor(body.message);
+          text += block;
+          send({ type: "delta", text: block });
+        }
+        // Jour et moment demandés (« demain matin ») : inscrits dans le bloc des créneaux, qui s'ouvre sur ce jour.
+        if (codeWhen.day || codeWhen.moment) {
+          const withWhen = addWhenToBlock(text, codeWhen);
+          if (withWhen !== text) {
+            text = withWhen;
+            send({ type: "replace", text });
+          }
+        }
         if (finish === "refusal" && !text) {
           status = "error";
           flow.step("output", false, "refus du modèle");
@@ -452,6 +538,11 @@ export async function POST(request: NextRequest) {
         } else {
           if (finish === "length") status = "interrupted";
           flow.step("output", true);
+          // Mots appris dans ce message : attendus quelques secondes au plus (sinon, ils s'enregistrent quand même, sans l'annonce).
+          if (learning) {
+            const learned = await Promise.race([learning, new Promise<TaughtWord[]>((resolve) => setTimeout(() => resolve([]), LEARN_WAIT_MS))]);
+            if (learned.length) send({ type: "learned", words: learned.slice(0, 20) });
+          }
           send({ type: "done", finishReason: finish });
         }
       } catch (error) {
@@ -487,6 +578,14 @@ export async function POST(request: NextRequest) {
             });
           } catch (error) {
             console.error("[chat] Impossible d'enregistrer la réponse", error);
+          }
+          if (newConversation && text && status !== "error") {
+            const id = conversationId;
+            after(() =>
+              nameConversation(supabase, ai.provider, id, { message: body.message, reply: text }).catch((error: unknown) =>
+                console.error("[chat] Titre de la conversation non généré", error),
+              ),
+            );
           }
         }
         try {

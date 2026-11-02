@@ -1,5 +1,6 @@
 "use client";
 
+import { NotificationBell } from "./NotificationBell";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -18,10 +19,12 @@ import { CHAT_LIMITS } from "@/lib/chat/limits";
 import { createStreamEventParser } from "@/lib/chat/stream-protocol";
 import type { ChatStreamEvent, ChatTurn } from "@/lib/chat/types";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
+import { AwaBlob } from "./AwaBlob";
 import { Composer, type ComposerHandle } from "./Composer";
 import { MessageItem, type UiMessage } from "./MessageItem";
 import { useVoiceConversation } from "./useVoiceConversation";
 import { VoiceOverlay } from "./VoiceOverlay";
+import { SuggestionCarousel } from "./SuggestionCarousel";
 import { TeachWordContext } from "./UnknownWord";
 import { correctInContextAction, teachUnknownWordAction } from "@/app/(chat)/actions";
 import { CorrectContext, type Correction } from "./Correctable";
@@ -41,9 +44,13 @@ type ChatViewProps = {
   initialMessages: UiMessage[];
   /** Ouverture de la fenêtre de connexion demandée par une page privée. */
   authPrompt?: { next: string } | null;
+  /** Message tapé sur la page d'accueil des visiteurs : envoyé dès qu'il arrive. */
+  startWith?: string | null;
 };
 
-const ANONYMOUS_MAX_EXCHANGES = CHAT_LIMITS.anonymousMaxMessages / 2;
+/** Messages d'essai déjà envoyés sans compte sur cet appareil (le serveur compte aussi, voir GUEST_TRIAL). */
+const GUEST_SENT_KEY = "btm-guest-sent";
+const readGuestSent = () => Number(localStorage.getItem(GUEST_SENT_KEY)) || 0;
 
 /** Idées de questions sur l'écran d'accueil : un clic les envoie à Awa. */
 /** Cartes de l'accueil : titre, précision, et le message envoyé au clic. */
@@ -96,7 +103,7 @@ async function readErrorMessage(res: Response): Promise<{ code: string; message:
   return { code: "internal", message: "Le service ne répond pas correctement. Réessayez." };
 }
 
-export function ChatView({ conversationId: initialConversationId, initialMessages, authPrompt }: ChatViewProps) {
+export function ChatView({ conversationId: initialConversationId, initialMessages, authPrompt, startWith = null }: ChatViewProps) {
   const router = useRouter();
   const { user, openAuthDialog } = useAuth();
   const { refreshConversations, newChatSignal, openSidebar, startNewChat } = useChatShell();
@@ -106,6 +113,9 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   const [conversationId, setConversationId] = useState(initialConversationId);
   const [isStreaming, setIsStreaming] = useState(false);
   const [limitReached, setLimitReached] = useState(false);
+  // Visiteur sans compte : messages d'essai déjà utilisés (toutes conversations confondues).
+  const [guestSent, setGuestSent] = useState(0);
+  const [trialOver, setTrialOver] = useState(false);
   const [importCandidate, setImportCandidate] = useState<ChatTurn[] | null>(null);
   const [importing, setImporting] = useState(false);
   const [liveStatus, setLiveStatus] = useState("");
@@ -206,6 +216,20 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     return () => observer.disconnect();
   }, []);
 
+  // Un bloc qui grandit après coup (horaires chargés, carte ouverte, animation) ne
+  // change pas forcément le DOM : on suit aussi la hauteur du contenu.
+  const contentRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scrollRef.current;
+    const content = contentRef.current;
+    if (!el || !content) return;
+    const observer = new ResizeObserver(() => {
+      if (stickToBottom.current) el.scrollTop = el.scrollHeight;
+    });
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, []);
+
   // Clavier du téléphone ouvert ou fermé (la zone visible change de hauteur) :
   // le bas de la conversation reste collé à la zone de saisie, comme dans une app.
   const distanceFromBottom = useRef(0);
@@ -241,6 +265,11 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   const send = useCallback(
     async (text: string, base: UiMessage[] = messages) => {
       if (isStreaming) return;
+      if (!userId) {
+        const sent = readGuestSent() + 1;
+        localStorage.setItem(GUEST_SENT_KEY, String(sent));
+        setGuestSent(sent);
+      }
       const userMessage: UiMessage = { id: newId(), role: "user", content: text, status: "complete" };
       const assistantId = newId();
       setMessages([...base, userMessage, { id: assistantId, role: "assistant", content: "", status: "streaming" }]);
@@ -270,6 +299,21 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             reply = event.text;
             updateMessage(assistantId, (m) => ({ ...m, content: event.text }));
             break;
+          case "learned": {
+            // Mode maître : mots retenus, affichés sous la réponse ; les [[mots]] qu'ils traduisent
+            // sont remplacés dans toute la conversation (comme un clic sur le mot orange).
+            const table = translationTable(event.words);
+            setMessages((current) =>
+              current.map((m) =>
+                m.id === assistantId
+                  ? { ...m, learned: event.words }
+                  : m.role === "assistant"
+                    ? { ...m, content: fillKnownWords(m.content, table) }
+                    : m,
+              ),
+            );
+            break;
+          }
           case "done":
             settled = true;
             updateMessage(assistantId, (m) =>
@@ -307,6 +351,10 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
           settled = true;
           reply = error.message;
           if (error.code === "conversation_too_long") setLimitReached(true);
+          if (error.code === "signup_required") {
+            setTrialOver(true);
+            openAuthDialog({ mode: "signup", reason: "Tes 5 messages d'essai sont utilisés : crée ton compte gratuit pour continuer avec Awa." });
+          }
           updateMessage(assistantId, (m) => ({ ...m, status: "error", notice: error.message }));
           return;
         }
@@ -346,15 +394,33 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
         else voiceReplied(reply);
 
         if (userId) refreshConversations();
-        if (createdConversationId) router.replace(`/c/${createdConversationId}`, { scroll: false });
+        // Nouvelle conversation : l'IA lui donne un titre juste après la réponse ; on relit la liste un peu plus tard.
+        if (userId && createdConversationId) setTimeout(refreshConversations, 5000);
+        // Nouvelle conversation : l'adresse devient /c/<id> sans changer de page (pas de router.replace, qui
+        // rechargeait l'écran, faisait clignoter le chargement et remettait à zéro la commande ou le tableau ouverts).
+        if (createdConversationId) window.history.replaceState(null, "", `/c/${createdConversationId}`);
       }
     },
-    [conversationId, isStreaming, messages, refreshConversations, router, updateMessage, userId, voiceReplied, stopVoice],
+    [conversationId, isStreaming, messages, refreshConversations, updateMessage, userId, voiceReplied, stopVoice, openAuthDialog],
   );
 
   useEffect(() => {
     sendRef.current = (text) => void send(text);
   }, [send]);
+
+  // Compteur d'essai relu sur l'appareil (localStorage, indisponible au rendu serveur).
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (!userId) setGuestSent(readGuestSent());
+  }, [userId]);
+
+  // Message tapé sur la page d'accueil des visiteurs : envoyé une seule fois, à son arrivée.
+  const startedWith = useRef<string | null>(null);
+  useEffect(() => {
+    if (!startWith || startedWith.current === startWith) return;
+    startedWith.current = startWith;
+    sendRef.current(startWith);
+  }, [startWith]);
 
   const retryLast = useCallback(() => {
     const lastUserIndex = messages.findLastIndex((m) => m.role === "user");
@@ -393,9 +459,11 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     setMessages([]);
   }
 
-  const exchanges = settledTurns(messages).filter((m) => m.role === "assistant").length;
-  const anonymousLimitReached = !userId && exchanges >= ANONYMOUS_MAX_EXCHANGES;
+  // Sans compte : 5 messages d'essai en tout, puis compte obligatoire (le serveur le vérifie aussi).
+  const guestLeft = Math.max(0, CHAT_LIMITS.guestTrialMessages - guestSent);
+  const anonymousLimitReached = !userId && !isStreaming && (trialOver || guestLeft === 0);
   const blocked = limitReached || anonymousLimitReached || importCandidate !== null;
+  const suggestions = user?.isAdmin ? [FOOD_SUGGESTION, ...SUGGESTIONS.slice(0, 3)] : SUGGESTIONS;
   const lastMessage = messages.at(-1);
   // Réponse interrompue ou en erreur : le bouton de relance s'affiche à côté
   // de la question de l'utilisateur qui la précède.
@@ -422,7 +490,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
         if (far !== showJump) setShowJump(far);
       }}
       // overscroll-contain : l'effet élastique en bout de liste ne fait pas bouger toute la page.
-      className="relative flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain"
+      className={`relative flex h-full min-h-0 flex-col overscroll-contain ${messages.length === 0 ? "overflow-hidden" : "overflow-y-auto"}`}
     >
       <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 persona-backdrop border-b border-border px-3 md:border-transparent md:px-5">
         <button
@@ -464,48 +532,48 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
               <IconNewChat width={22} height={22} />
             </button>
           ) : null}
+          {/* Notifications : livraisons, paiements, réservations (compte connecté). */}
+          {userId ? <NotificationBell /> : null}
         </div>
       </header>
 
-      <div className="flex flex-1 flex-col">
+      <div ref={contentRef} className="flex min-h-0 flex-1 flex-col">
         {messages.length === 0 ? (
           // Accueil : Awa (globe animé) au centre, suggestions juste au-dessus de la zone de saisie, collée en bas.
-          <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 sm:px-6">
-            <div className="flex flex-1 flex-col items-center justify-center py-8 text-center">
-              <button
-                type="button"
-                onClick={voiceEnabled && !blocked && online ? voice.start : () => composerRef.current?.focus()}
-                aria-label={voiceEnabled ? "Parler à Awa" : "Écrire à Awa"}
-                title={voiceEnabled ? "Parler à Awa" : undefined}
-                className="awa-hello"
-              >
-                <span className="voice-orb__halo" aria-hidden="true" />
-                <span className="voice-orb__ring" aria-hidden="true" />
-                <span className="voice-orb__core" aria-hidden="true">
-                  <span className="voice-orb__swirl" />
-                </span>
-              </button>
-              <h1 suppressHydrationWarning className="awa-hello-rise mt-8 text-3xl font-semibold tracking-tight sm:text-4xl">
+          <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col px-4 sm:px-6">
+            {/* Le haut se resserre sur les petits écrans (le globe disparaît s'il manque de hauteur) au lieu de déborder. */}
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden py-3 text-center sm:py-8">
+              {/* Awa vivante : un clic l'anime puis ouvre la voix (admin) ou la zone de saisie. */}
+              <AwaBlob
+                label={voiceEnabled ? "Parler à Awa" : "Écrire à Awa"}
+                onActivate={voiceEnabled && !blocked && online ? voice.start : () => composerRef.current?.focus()}
+                className="shrink-0 [@media(max-height:560px)]:hidden"
+              />
+              <h1 suppressHydrationWarning className="awa-hello-rise mt-5 text-2xl font-semibold tracking-tight sm:mt-8 sm:text-4xl [@media(max-height:560px)]:mt-0">
                 {greeting()}
                 {user?.displayName ? `, ${user.displayName}` : ""}
               </h1>
-              <p className="awa-hello-rise mt-2 text-fg-muted [animation-delay:120ms]">
+              <p className="awa-hello-rise mt-2 max-w-xs text-sm text-fg-muted [animation-delay:120ms] sm:max-w-none sm:text-base">
                 Je suis Awa. Pose-moi ta question, en français ou en shimaoré.
               </p>
             </div>
 
-            <ul className="grid grid-cols-2 gap-2 pb-3 sm:gap-3" aria-label="Idées pour commencer">
-              {(user?.isAdmin ? [FOOD_SUGGESTION, ...SUGGESTIONS.slice(0, 3)] : SUGGESTIONS).map((s, i) => (
+            {/* Téléphone : une idée à la fois, en carrousel. */}
+            <div className="shrink-0 sm:hidden">
+              <SuggestionCarousel items={suggestions} disabled={blocked || !online} onPick={(text) => void send(text)} />
+            </div>
+            <ul className="hidden shrink-0 grid-cols-2 gap-3 pb-3 sm:grid" aria-label="Idées pour commencer">
+              {suggestions.map((s, i) => (
                 <li key={s.title} className="awa-hello-rise" style={{ animationDelay: `${200 + i * 70}ms` }}>
                   <button
                     type="button"
                     disabled={blocked || !online}
                     onClick={() => void send(s.text)}
-                    className="group flex h-full w-full items-center gap-3 rounded-2xl border border-border bg-bg/60 p-3 text-left backdrop-blur transition hover:-translate-y-0.5 hover:border-[var(--persona-border,var(--border))] hover:bg-[var(--persona-surface,var(--bg-subtle))] hover:shadow-[0_10px_30px_-14px_var(--persona,var(--accent))] disabled:opacity-50 sm:p-4"
+                    className="group flex h-full w-full items-center gap-2.5 rounded-2xl border border-border bg-bg/60 p-2.5 text-left backdrop-blur transition sm:gap-3 hover:-translate-y-0.5 hover:border-[var(--persona-border,var(--border))] hover:bg-[var(--persona-surface,var(--bg-subtle))] hover:shadow-[0_10px_30px_-14px_var(--persona,var(--accent))] disabled:opacity-50 sm:p-4"
                   >
                     <span
                       aria-hidden="true"
-                      className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--persona-soft,var(--bg-muted))] text-xl transition group-hover:scale-110"
+                      className="grid size-9 shrink-0 place-items-center rounded-xl bg-[var(--persona-soft,var(--bg-muted))] text-lg transition group-hover:scale-110 sm:size-10 sm:text-xl"
                     >
                       {s.emoji}
                     </span>
@@ -519,7 +587,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             </ul>
           </div>
         ) : (
-          <section aria-label="Conversation" className="mx-auto w-full max-w-3xl space-y-8 px-4 pt-6 pb-10 sm:px-6">
+          <section aria-label="Conversation" className="mx-auto w-full max-w-3xl space-y-10 px-3.5 pt-4 pb-10 sm:px-6 sm:pt-6 sm:pb-12">
             <TeachWordContext value={user?.isAdmin ? teachWord : null}>
               <CorrectContext value={user?.isAdmin ? correctPassage : null}>
                 {messages.map((message, index) => (
@@ -538,7 +606,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
 
       {/* Fondu vers la teinte de la conversation : les messages passent dessous en douceur. */}
       <div
-        className={`composer-dock sticky bottom-0 z-10 shrink-0 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 ${
+        className={`composer-dock sticky bottom-0 z-10 shrink-0 px-2.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] ${
           messages.length === 0 ? "pt-1" : "bg-[linear-gradient(to_top,var(--persona-surface,var(--bg))_80%,transparent)] pt-4"
         }`}
       >
@@ -589,25 +657,37 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             </div>
           ) : null}
 
-          {anonymousLimitReached || limitReached ? (
-            <div role="status" className="rounded-xl border border-border bg-bg-subtle p-4 text-sm">
-              <p className="font-medium">Cette conversation a atteint sa longueur maximale.</p>
-              <p className="mt-1 text-fg-muted">
-                {userId
-                  ? "Démarrez une nouvelle conversation pour continuer."
-                  : `Sans compte, une conversation est limitée à ${ANONYMOUS_MAX_EXCHANGES} échanges. Créez un compte gratuit pour enregistrer vos conversations, ou démarrez-en une nouvelle.`}
-              </p>
-              {!userId ? (
+          {anonymousLimitReached ? (
+            // Fin de l'essai : seul un compte permet de continuer (une nouvelle conversation ne remet pas le compteur à zéro).
+            <div role="status" className="trial-over flex flex-col items-center gap-3 rounded-2xl border border-[var(--persona-border,var(--border))] bg-[var(--persona-surface,var(--bg-subtle))] p-5 text-center sm:flex-row sm:text-left">
+              <span aria-hidden="true" className="text-3xl">
+                🌺
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="font-semibold">Tu as utilisé tes {CHAT_LIMITS.guestTrialMessages} messages d&apos;essai</p>
+                <p className="mt-0.5 text-sm text-fg-muted">Crée ton compte gratuit pour continuer avec Awa et retrouver tes conversations.</p>
+              </div>
+              <div className="flex shrink-0 gap-2">
                 <button
                   type="button"
-                  onClick={() =>
-                    openAuthDialog({ mode: "signup", reason: "Créez un compte pour enregistrer et poursuivre vos conversations." })
-                  }
-                  className="mt-3 rounded-lg bg-accent px-3 py-1.5 font-medium text-accent-fg hover:bg-accent-hover"
+                  onClick={() => openAuthDialog({ mode: "signin" })}
+                  className="rounded-full border border-border bg-bg px-4 py-2 text-sm font-medium hover:bg-bg-muted"
                 >
-                  Créer un compte
+                  Se connecter
                 </button>
-              ) : null}
+                <button
+                  type="button"
+                  onClick={() => openAuthDialog({ mode: "signup", reason: "Crée ton compte gratuit pour continuer avec Awa." })}
+                  className="rounded-full bg-[var(--persona,var(--accent))] px-4 py-2 text-sm font-semibold text-white hover:brightness-110"
+                >
+                  Créer mon compte
+                </button>
+              </div>
+            </div>
+          ) : limitReached ? (
+            <div role="status" className="rounded-xl border border-border bg-bg-subtle p-4 text-sm">
+              <p className="font-medium">Cette conversation a atteint sa longueur maximale.</p>
+              <p className="mt-1 text-fg-muted">Démarrez une nouvelle conversation pour continuer.</p>
             </div>
           ) : null}
 
@@ -635,14 +715,27 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
                   disabled={blocked || !online || isStreaming}
                   aria-label="Parler à Awa"
                   title="Parler à Awa"
-                  className="grid size-9 shrink-0 place-items-center rounded-full text-fg-muted transition pointer-coarse:size-10 hover:bg-bg-muted hover:text-fg disabled:opacity-45"
+                  className="grid size-9 shrink-0 place-items-center rounded-full text-fg-muted transition sm:pointer-coarse:size-10 hover:bg-bg-muted hover:text-fg disabled:opacity-45"
                 >
                   <IconMic />
                 </button>
               ) : null
             }
           />
-          <p className="text-center text-[11px] text-fg-muted">Awa peut se tromper. Vérifie les informations importantes.</p>
+          {!userId && !anonymousLimitReached && guestSent > 0 ? (
+            <p className="text-center text-[11px] text-fg-muted">
+              Encore {guestLeft} message{guestLeft > 1 ? "s" : ""} sans compte ·{" "}
+              <button
+                type="button"
+                onClick={() => openAuthDialog({ mode: "signup", reason: "Crée ton compte gratuit pour parler à Awa sans limite." })}
+                className="font-semibold text-[var(--persona,var(--accent))] hover:underline"
+              >
+                Créer mon compte gratuit
+              </button>
+            </p>
+          ) : (
+            <p className="text-center text-[11px] text-fg-muted">Awa peut se tromper. Vérifie les informations importantes.</p>
+          )}
         </div>
       </div>
 

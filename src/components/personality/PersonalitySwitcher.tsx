@@ -167,7 +167,7 @@ export function PersonalitySwitcher() {
         aria-label={`Personnalité d'Awa : ${p.label}. Changer`}
         title="Changer la personnalité d'Awa"
         style={{ "--c": PERSONALITY_LOOKS[current].color } as CSSProperties}
-        className={`relative flex h-9 items-center gap-1.5 rounded-full bg-[var(--c)] pr-3 pl-2 text-sm font-semibold text-white transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--c)] ${
+        className={`relative flex h-9 items-center justify-center gap-1.5 rounded-full bg-[var(--c)] px-0 text-sm font-semibold text-white max-sm:w-9 sm:pr-3 sm:pl-2 transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--c)] ${
           open ? "z-40" : ""
         } ${pending ? "opacity-70" : ""}`}
       >
@@ -175,7 +175,7 @@ export function PersonalitySwitcher() {
           {p.emoji}
         </span>
         <span className="hidden sm:inline">{p.label}</span>
-        <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+        <svg aria-hidden="true" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="hidden sm:block">
           <path d="m6 15 6-6 6 6" />
         </svg>
       </button>

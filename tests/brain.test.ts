@@ -101,8 +101,10 @@ describe("selectWords", () => {
   });
 
   it("reconnaît une expression de plusieurs mots, pas un morceau de mot", () => {
-    assert.deepEqual(selectWords(words, "des pommes de terre").length, 0);
+    // Le pluriel compte (« pommes de terre » = « pomme de terre ») ; un mot seul de l'expression, non.
+    assert.deepEqual(selectWords(words, "des pommes de terre").map((w) => w.shimaore), ["batata"]);
     assert.deepEqual(selectWords(words, "une pomme de terre").map((w) => w.shimaore), ["batata"]);
+    assert.deepEqual(selectWords(words, "une pomme").length, 0);
     assert.deepEqual(selectWords(words, "beaucoup").length, 0);
   });
 

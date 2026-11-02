@@ -68,3 +68,49 @@ export function positionAt(path: readonly Point[], progress: number): Point {
 
 /** Longueur du trajet en km. */
 export const routeKm = (path: readonly Point[]) => path.slice(1).reduce((sum, p, i) => sum + distanceKm(path[i], p), 0);
+
+/** Point le plus proche de `p` sur le trajet : index du segment, point projeté et distance en km. */
+export function closestOnPath(path: readonly Point[], p: Point): { index: number; point: Point; km: number } {
+  let best = { index: 0, point: path[0] ?? p, km: Infinity };
+  // Projection à plat, suffisante à l'échelle d'une rue.
+  const kx = Math.cos((p.lat * Math.PI) / 180);
+  for (let i = 0; i < path.length - 1; i++) {
+    const a = path[i];
+    const b = path[i + 1];
+    const dx = (b.lng - a.lng) * kx;
+    const dy = b.lat - a.lat;
+    const len = dx * dx + dy * dy;
+    const t = len ? Math.min(1, Math.max(0, (((p.lng - a.lng) * kx) * dx + (p.lat - a.lat) * dy) / len)) : 0;
+    const q = { lat: a.lat + (b.lat - a.lat) * t, lng: a.lng + (b.lng - a.lng) * t };
+    const km = distanceKm(p, q);
+    if (km < best.km) best = { index: i, point: q, km };
+  }
+  return best;
+}
+
+/** Ce qui reste à parcourir depuis `p` : le trajet coupé au point le plus proche. */
+export function remainingFrom(path: readonly Point[], p: Point): Point[] {
+  if (path.length < 2) return [...path];
+  const { index, point } = closestOnPath(path, p);
+  return [point, ...path.slice(index + 1)];
+}
+
+/** Partie déjà faite du trajet, jusqu'à la part `progress` (0 à 1). */
+export function travelledPart(path: readonly Point[], progress: number): Point[] {
+  const t = Math.min(1, Math.max(0, progress));
+  const lengths = path.slice(1).map((p, i) => distanceKm(path[i], p));
+  let left = t * lengths.reduce((a, b) => a + b, 0);
+  const out: Point[] = path.length ? [path[0]] : [];
+  for (let i = 0; i < lengths.length; i++) {
+    if (left <= lengths[i]) {
+      out.push(positionAt(path.slice(i, i + 2), lengths[i] ? left / lengths[i] : 0));
+      return out;
+    }
+    out.push(path[i + 1]);
+    left -= lengths[i];
+  }
+  return out;
+}
+
+/** Au-delà de 60 m du trajet prévu, le livreur a pris un autre chemin : l'itinéraire est recalculé. */
+export const OFF_ROUTE_KM = 0.06;

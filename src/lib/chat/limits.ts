@@ -7,8 +7,10 @@ export const CHAT_LIMITS = {
   maxUserMessageChars: 4_000,
   /** Longueur maximale d'un message stocké ou renvoyé dans l'historique. */
   maxStoredMessageChars: 40_000,
-  /** Nombre maximal de messages d'une conversation anonyme (10 échanges). */
-  anonymousMaxMessages: 20,
+  /** Nombre maximal de messages d'une conversation anonyme (5 échanges). */
+  anonymousMaxMessages: 10,
+  /** Messages d'essai sans compte, toutes conversations confondues (30 jours, par appareil) ; au-delà, compte obligatoire. */
+  guestTrialMessages: 5,
   /** Taille cumulée maximale de l'historique anonyme envoyé par le client. */
   anonymousMaxHistoryChars: 60_000,
   /** Nombre maximal de messages dans une conversation enregistrée. */

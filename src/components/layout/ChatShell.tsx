@@ -4,6 +4,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { ActiveOrderTab } from "@/components/chat/OrderTracker";
+import { CelebrationToast } from "@/components/ui/Celebration";
 import {
   personaStyle,
   PersonalityProvider,
@@ -141,6 +142,8 @@ function PersonaMain({ children }: { children: ReactNode }) {
       {children}
       {/* Commande en cours : toujours à portée, sans remonter la conversation. */}
       <ActiveOrderTab />
+      {/* Bonne nouvelle animée (place de code réservée…). */}
+      <CelebrationToast />
     </main>
   );
 }

@@ -1,9 +1,11 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { FoodResponse } from "@/app/api/food/route";
 import type { FoodCartLine, FoodItem, FoodRestaurant } from "@/lib/food/catalog";
 import type { GeoPoint } from "@/lib/address";
+import { blockKey as keyOf, moveBlockValue, readBlockValue } from "@/lib/chat/block-key";
 import { MAYOTTE_COMMUNES } from "@/lib/code-exam/candidate";
 import { DISH_KINDS, dishKindOf, illustrationOf, matchFoodQuery, normalizeFood } from "@/lib/food/match";
 import { COMMUNE_CENTERS, distanceKm, locateMe, PETITE_TERRE } from "@/lib/geo/communes";
@@ -17,10 +19,21 @@ const PERSONA = "var(--persona,var(--accent))";
 /** Au-delà, le suivi d'une commande livrée laisse revenir le menu. */
 const ORDER_KEPT_MS = 30 * 60_000;
 
-function savedOrder(query: string): PlacedOrder | null {
+/**
+ * Clé d'un bloc de commande : la conversation, le rang du bloc dans la page et
+ * la recherche. Deux demandes identiques (« eau » puis « eau ») ont chacune la leur.
+ */
+function blockKey(el: HTMLElement | null, query: string) {
+  return keyOf(ORDER_KEY, el, "[data-food-block]", `:${query}`);
+}
+
+/** Commande payée depuis ce bloc ; « received » une fois reçue (le bloc s'efface). */
+function savedOrder(key: string, own = false): PlacedOrder | "received" | null {
   try {
-    const order = JSON.parse(localStorage.getItem(ORDER_KEY + query) ?? "null") as PlacedOrder | null;
-    return order && Date.parse(order.arrivesAt) + ORDER_KEPT_MS > Date.now() ? order : null;
+    const order = JSON.parse(readBlockValue(key, own) ?? "null") as (PlacedOrder & { receivedAt?: string }) | null;
+    if (!order) return null;
+    if (order.receivedAt) return "received";
+    return Date.parse(order.arrivesAt) + ORDER_KEPT_MS > Date.now() ? order : null;
   } catch {
     return null;
   }
@@ -221,6 +234,32 @@ export function FoodOrder({ query = "" }: { query?: string }) {
   const [askWhere, setAskWhere] = useState(false);
   const [unsorted, setUnsorted] = useState(false);
   const rail = useRef<HTMLDivElement>(null);
+  // Le bloc dans la page : son rang donne la clé de sa commande (blockKey).
+  const root = useRef<HTMLElement>(null);
+  // Commande de ce bloc reçue : le bloc s'efface de la conversation.
+  const [done, setDone] = useState(false);
+  // Clé de la commande payée : elle suit la conversation quand son adresse change (« / » → /c/<id>).
+  const savedKey = useRef<string | null>(null);
+  const pathname = usePathname();
+  useEffect(() => {
+    if (!savedKey.current) return;
+    const next = blockKey(root.current, query);
+    moveBlockValue(savedKey.current, next);
+    savedKey.current = next;
+  }, [pathname, query]);
+
+  const readOrder = useCallback(() => {
+    const key = blockKey(root.current, query);
+    const saved = savedOrder(key, savedKey.current === key);
+    setDone(saved === "received");
+    setPlaced(saved === "received" ? null : saved);
+  }, [query]);
+
+  // Commande reçue depuis la pastille ou le panneau : relue tout de suite.
+  useEffect(() => {
+    window.addEventListener(ORDER_EVENT, readOrder);
+    return () => window.removeEventListener(ORDER_EVENT, readOrder);
+  }, [readOrder]);
 
   const load = useCallback(async () => {
     try {
@@ -230,7 +269,7 @@ export function FoodOrder({ query = "" }: { query?: string }) {
       else {
         // Ouverture sur ce que la personne a demandé.
         const wanted = matchFoodQuery(query, body.restaurants);
-        setPlaced(savedOrder(query));
+        readOrder();
         setKind(wanted.kind);
         setRestaurantId(wanted.restaurantId);
         setBrowse(!(wanted.kind || wanted.restaurantId) || BROWSE.test(normalizeFood(query)));
@@ -240,7 +279,7 @@ export function FoodOrder({ query = "" }: { query?: string }) {
     } catch {
       setError("Pas de connexion : réessaie.");
     }
-  }, [query]);
+  }, [query, readOrder]);
 
   useEffect(() => {
     // Chargement des restaurants à l'affichage.
@@ -252,6 +291,8 @@ export function FoodOrder({ query = "" }: { query?: string }) {
 
   const shell = (children: ReactNode) => (
     <section
+      ref={root}
+      data-food-block
       aria-label="Commander un repas"
       className="w-full max-w-2xl overflow-hidden rounded-3xl border border-border bg-bg text-sm leading-normal shadow-sm"
     >
@@ -259,6 +300,8 @@ export function FoodOrder({ query = "" }: { query?: string }) {
     </section>
   );
 
+  // Repère invisible : les blocs suivants gardent leur rang (et leur commande).
+  if (done) return <section ref={root} data-food-block hidden />;
   if (error) return shell(<p className="p-4 text-fg-muted">{error}</p>);
   if (!data) {
     return shell(
@@ -592,7 +635,8 @@ export function FoodOrder({ query = "" }: { query?: string }) {
         onChangeQuantity={changeLine}
         here={spot}
         onPlaced={(order) => {
-          localStorage.setItem(ORDER_KEY + query, JSON.stringify(order));
+          savedKey.current = blockKey(root.current, query);
+          localStorage.setItem(savedKey.current, JSON.stringify(order));
           window.dispatchEvent(new Event(ORDER_EVENT));
           setPlaced(order);
           setCheckout(false);

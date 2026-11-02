@@ -22,6 +22,7 @@ export const RATE_LIMIT_POLICIES = {
   walletTopup: [{ name: "wallet-topup-hour", limit: 10, windowSeconds: 3_600 }],
   // Formulaires avec téléphone et adresse : assez pour se tromper, pas pour inonder l'équipe.
   foodOrder: [{ name: "food-order-hour", limit: 10, windowSeconds: 3_600 }],
+  bargeTicket: [{ name: "barge-ticket-hour", limit: 10, windowSeconds: 3_600 }],
   // Mot de passe redemandé avant de modifier le Profil de l'entreprise : quelques essais, pas plus.
   profileUnlock: [{ name: "profile-unlock-15min", limit: 5, windowSeconds: 900 }],
   codeExamRequest: [{ name: "code-exam-request-hour", limit: 5, windowSeconds: 3_600 }],

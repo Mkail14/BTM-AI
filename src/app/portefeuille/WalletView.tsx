@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState, type ComponentType, type ReactNode, type SVGProps } from "react";
-import { IconClose, IconLock, IconMessage, IconPlus, IconShield, IconWallet } from "@/components/ui/icons";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { IconClose, IconHelp, IconLock, IconMessage, IconPlus, IconWallet } from "@/components/ui/icons";
 import {
   formatEuros,
   parseEuros,
@@ -57,20 +57,6 @@ function BigAmount({ cents, className = "" }: { cents: number; className?: strin
   );
 }
 
-/** Ligne « bon à savoir » : icône, titre, explication. */
-function Fact({ icon: Icon, title, children }: { icon: ComponentType<SVGProps<SVGSVGElement>>; title: string; children: ReactNode }) {
-  return (
-    <li className="flex gap-3">
-      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-bg-subtle text-fg-muted">
-        <Icon width={16} height={16} />
-      </span>
-      <span className="min-w-0">
-        <span className="block text-sm font-medium">{title}</span>
-        <span className="block text-xs leading-relaxed text-fg-muted">{children}</span>
-      </span>
-    </li>
-  );
-}
 
 /** Panneau qui monte du bas (téléphone) ou fenêtre centrée (ordinateur), fond flouté. */
 function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
@@ -246,19 +232,21 @@ export function WalletView({
             {room < WALLET_MIN_TOPUP ? <p className="mt-2 text-center text-xs text-fg-muted">Ton solde est au plafond.</p> : null}
           </section>
 
-          <section aria-label="Bon à savoir" className="rounded-3xl border border-border bg-bg p-5">
-            <ul className="space-y-4">
-              <Fact icon={IconMessage} title="À quoi il sert">
-                Payer tes réservations et commandes faites avec Awa, en un geste.
-              </Fact>
-              <Fact icon={IconShield} title={`Plafond de ${formatEuros(WALLET_MAX_BALANCE)}`}>
-                En cas de vol de ton compte, la perte reste limitée.
-              </Fact>
-              <Fact icon={IconLock} title="Paiement sécurisé">
-                {demo ? "En démonstration, l'argent est fictif : aucune carte n'est demandée." : "Par Stripe : ta carte n'est jamais enregistrée chez BTM."}
-              </Fact>
+          {/* Bon à savoir : discret, ouvert seulement à la demande. */}
+          <details className="group px-1 text-xs text-fg-muted">
+            <summary className="flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-md py-1 hover:text-fg [&::-webkit-details-marker]:hidden">
+              <IconHelp width={14} height={14} />
+              Comment ça marche ?
+              <span aria-hidden="true" className="transition-transform group-open:rotate-180">
+                ▾
+              </span>
+            </summary>
+            <ul className="mt-2 space-y-1.5 border-l border-border pl-3 leading-relaxed">
+              <li>Il sert à payer tes réservations et commandes faites avec Awa, en un geste.</li>
+              <li>Plafond de {formatEuros(WALLET_MAX_BALANCE)} : en cas de vol de ton compte, la perte reste limitée.</li>
+              <li>{demo ? "Démonstration : l'argent est fictif, aucune carte n'est demandée." : "Paiement par Stripe : ta carte n'est jamais enregistrée chez BTM."}</li>
             </ul>
-          </section>
+          </details>
         </div>
 
         {/* Colonne droite : activité */}

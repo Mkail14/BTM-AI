@@ -1,143 +1,239 @@
 "use client";
 
+import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
+import type { Map as MapLibreMap, Marker } from "maplibre-gl";
 import type { Point } from "@/lib/food/route";
 
 /**
- * Carte du suivi : tuiles OpenStreetMap (sans clé ni bibliothèque), cadrée
- * sur le restaurant et le lieu de livraison. Trajet en pointillés, partie
- * déjà faite en couleur, livreur qui avance. Le cadrage suit la taille du
- * cadre : la carte prend la place qui reste dans le panneau.
+ * Carte du suivi, vectorielle et fluide (MapLibre, fond OpenFreeMap, données
+ * OpenStreetMap, sans clé) : on zoome et on déplace au doigt. Le reste du
+ * trajet est tracé finement en couleur sur les vraies routes, la partie déjà
+ * faite en gris, et le scooter glisse d'une position à l'autre. Dès qu'il
+ * roule, la carte zoome sur lui et le suit, tant qu'on ne l'a pas déplacée soi-même.
  */
 
-const TILE = 256;
-const MAX_ZOOM = 17;
-const PERSONA = "var(--persona,var(--accent))";
-
-/** Coordonnées « monde » en pixels au zoom z (projection de Mercator, comme les tuiles). */
-function project(p: Point, z: number) {
-  const scale = TILE * 2 ** z;
-  const sin = Math.sin((p.lat * Math.PI) / 180);
-  return { x: ((p.lng + 180) / 360) * scale, y: (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * scale };
-}
+const STYLE_LIGHT = "https://tiles.openfreemap.org/styles/positron";
+const STYLE_DARK = "https://tiles.openfreemap.org/styles/dark";
 
 type Props = {
   from: Point;
   to: Point;
-  path: readonly Point[];
+  /** Ce qui reste à parcourir (vraies routes). */
+  route: readonly Point[];
+  /** Ce que le livreur a déjà parcouru. */
+  trail: readonly Point[];
   courier: Point | null;
-  /** Part du trajet déjà faite (0 à 1). */
-  done: number;
   restaurantEmoji: string;
-  /** Le livreur roule : le scooter bouge et pulse. */
+  /** Le livreur roule : le scooter pulse. */
   moving: boolean;
 };
 
-export function CourierMap({ from, to, path, courier, done, restaurantEmoji, moving }: Props) {
-  const frame = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({ w: 0, h: 0 });
+const lngLat = (p: Point): [number, number] => [p.lng, p.lat];
+/** Zoom quand la carte suit le livreur : on voit les rues autour de lui. */
+const FOLLOW_ZOOM = 16;
+const line = (points: readonly Point[]) => ({
+  type: "Feature" as const,
+  properties: {},
+  geometry: { type: "LineString" as const, coordinates: points.map(lngLat) },
+});
 
+/**
+ * Élément d'un repère. MapLibre place le repère en modifiant la transformation
+ * de cet élément : tout le dessin (et ses propres rotations) va dans l'élément intérieur.
+ */
+function pin(className: string, html: string) {
+  const el = document.createElement("div");
+  const inner = document.createElement("div");
+  inner.className = className;
+  inner.innerHTML = html;
+  el.appendChild(inner);
+  return el;
+}
+
+/** Scooter vu de côté, dessiné au trait blanc. */
+const SCOOTER_SVG =
+  '<svg viewBox="0 0 64 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="14" cy="36" r="7"/><circle cx="50" cy="36" r="7"/><path d="M21 36h16l6-14h-9"/><path d="M43 22l7 14"/><path d="M38 12h7l-2 10"/><rect x="6" y="14" width="16" height="12" rx="2.5" fill="currentColor" fill-opacity="0.25"/><path d="M6 26h20l4 6"/></svg>';
+
+export function CourierMap({ from, to, route, trail, courier, restaurantEmoji, moving }: Props) {
+  const frame = useRef<HTMLDivElement>(null);
+  const map = useRef<MapLibreMap | null>(null);
+  const courierMarker = useRef<Marker | null>(null);
+  const courierEl = useRef<HTMLDivElement | null>(null);
+  const shown = useRef<Point | null>(null);
+  const followed = useRef(true);
+  const [ready, setReady] = useState(false);
+  const [free, setFree] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  // Derniers tracés, relus quand la carte finit de charger.
+  const latest = useRef({ from, to, route, trail });
   useEffect(() => {
-    const el = frame.current;
-    if (!el) return;
-    const observer = new ResizeObserver(([entry]) => setSize({ w: entry.contentRect.width, h: entry.contentRect.height }));
-    observer.observe(el);
-    return () => observer.disconnect();
+    latest.current = { from, to, route, trail };
+  });
+
+  // Création de la carte (une seule fois).
+  useEffect(() => {
+    let cancelled = false;
+    let created: MapLibreMap | null = null;
+    (async () => {
+      const maplibre = await import("maplibre-gl");
+      if (cancelled || !frame.current) return;
+      // Le travail lourd (tuiles) se fait dans un worker, servi par le site lui-même.
+      maplibre.setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
+      const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const { from: a, to: b } = latest.current;
+      created = new maplibre.Map({
+        container: frame.current,
+        style: dark ? STYLE_DARK : STYLE_LIGHT,
+        bounds: [
+          [Math.min(a.lng, b.lng), Math.min(a.lat, b.lat)],
+          [Math.max(a.lng, b.lng), Math.max(a.lat, b.lat)],
+        ],
+        fitBoundsOptions: { padding: { top: 80, bottom: 60, left: 50, right: 50 }, maxZoom: 16 },
+        attributionControl: { compact: true },
+        pitchWithRotate: false,
+        dragRotate: false,
+        fadeDuration: 150,
+      });
+      map.current = created;
+      created.touchZoomRotate.disableRotation();
+      created.on("error", (e) => console.warn("[carte]", e.error?.message));
+      // Déplacée à la main : on arrête de recadrer, le bouton « Recentrer » apparaît.
+      created.on("dragstart", () => {
+        followed.current = false;
+        setFree(true);
+      });
+
+      new maplibre.Marker({ element: pin("map-pin", `<span class="map-pin-head">${restaurantEmoji}</span><span class="map-pin-tip"></span>`), anchor: "bottom" }).setLngLat(lngLat(a)).addTo(created);
+      new maplibre.Marker({ element: pin("map-pin map-pin-home", '<span class="map-pin-head">🏠</span><span class="map-pin-tip"></span>'), anchor: "bottom" }).setLngLat(lngLat(b)).addTo(created);
+      courierEl.current = pin("map-courier", `<span class="map-courier-ring"></span><span class="map-courier-dot">${SCOOTER_SVG}</span>`);
+      courierMarker.current = new maplibre.Marker({ element: courierEl.current });
+
+      created.on("load", () => {
+        if (!created) return;
+        const accent = getComputedStyle(frame.current!).getPropertyValue("--persona").trim() || getComputedStyle(frame.current!).getPropertyValue("--accent").trim() || "#c8295f";
+        const { route: r, trail: t } = latest.current;
+        created.addSource("trail", { type: "geojson", data: line(t) });
+        created.addSource("route", { type: "geojson", data: line(r) });
+        // Traits fins, plus épais seulement de près : déjà parcouru en gris, reste à parcourir en couleur par-dessus.
+        const round = { "line-cap": "round", "line-join": "round" } as const;
+        const width = (near: number) => ["interpolate", ["linear"], ["zoom"], 11, near * 0.5, 16, near] as unknown as number;
+        created.addLayer({ id: "trail", type: "line", source: "trail", layout: round, paint: { "line-color": "#9aa1ab", "line-width": width(3), "line-opacity": 0.8 } });
+        created.addLayer({ id: "route-casing", type: "line", source: "route", layout: round, paint: { "line-color": "#ffffff", "line-width": width(5.5), "line-opacity": 0.9 } });
+        created.addLayer({ id: "route", type: "line", source: "route", layout: round, paint: { "line-color": accent, "line-width": width(3.5) } });
+        // Crédits de la carte (obligatoires) : repliés en un petit « i », dépliés seulement au toucher.
+        frame.current?.querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show");
+        setReady(true);
+      });
+    })().catch((error) => {
+      console.warn("[carte] Chargement impossible", error);
+      setFailed(true);
+    });
+    return () => {
+      cancelled = true;
+      created?.remove();
+      map.current = null;
+    };
+    // La carte est créée une fois ; les tracés suivent par les effets ci-dessous.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const { w, h } = size;
-  // Zoom le plus fort qui garde le restaurant et la livraison dans le cadre, avec une marge pour les épingles.
-  let z = MAX_ZOOM;
-  while (z > 10) {
-    const a = project(from, z);
-    const b = project(to, z);
-    if (Math.abs(a.x - b.x) <= w - 90 && Math.abs(a.y - b.y) <= h - 100) break;
-    z--;
-  }
-  const a = project(from, z);
-  const b = project(to, z);
-  const center = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 + 8 };
-  const left = center.x - w / 2;
-  const top = center.y - h / 2;
-  const toScreen = (p: Point) => {
-    const q = project(p, z);
-    return { x: q.x - left, y: q.y - top };
-  };
+  // Tracés : mis à jour sans recharger la carte.
+  useEffect(() => {
+    const m = map.current;
+    if (!ready || !m) return;
+    (m.getSource("route") as { setData?: (d: unknown) => void } | undefined)?.setData?.(line(route));
+    (m.getSource("trail") as { setData?: (d: unknown) => void } | undefined)?.setData?.(line(trail));
+  }, [ready, route, trail]);
 
-  const tiles: { x: number; y: number; key: string }[] = [];
-  if (w && h) {
-    const max = 2 ** z;
-    for (let ty = Math.floor(top / TILE); ty <= Math.floor((top + h) / TILE); ty++) {
-      for (let tx = Math.floor(left / TILE); tx <= Math.floor((left + w) / TILE); tx++) {
-        if (ty >= 0 && ty < max) tiles.push({ x: tx, y: ty, key: `${z}/${((tx % max) + max) % max}/${ty}` });
-      }
+  // Recadrage sur le reste du trajet (livreur compris), tant qu'on n'a pas déplacé la carte.
+  const frameKey = `${route.length}:${route[route.length - 1]?.lat}:${route[0]?.lat.toFixed(3)}:${route[0]?.lng.toFixed(3)}`;
+  useEffect(() => {
+    const m = map.current;
+    if (!ready || !m || !followed.current || courier) return;
+    const pts = [...route, from, to];
+    const lats = pts.map((p) => p.lat);
+    const lngs = pts.map((p) => p.lng);
+    m.fitBounds(
+      [
+        [Math.min(...lngs), Math.min(...lats)],
+        [Math.max(...lngs), Math.max(...lats)],
+      ],
+      { padding: { top: 80, bottom: 60, left: 50, right: 50 }, maxZoom: 16, duration: 900 },
+    );
+    // frameKey résume le trajet : inutile de recadrer à chaque seconde pour quelques mètres.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, frameKey, Boolean(courier)]);
+
+  // Scooter : glisse en douceur jusqu'à sa nouvelle position (une par seconde).
+  useEffect(() => {
+    const m = map.current;
+    const marker = courierMarker.current;
+    if (!m || !marker) return;
+    if (!courier) {
+      marker.remove();
+      shown.current = null;
+      return;
     }
-  }
+    const start = shown.current ?? courier;
+    if (!shown.current) {
+      marker.setLngLat(lngLat(courier)).addTo(m);
+      // Premier signal du livreur : la carte zoome sur lui.
+      if (followed.current) m.easeTo({ center: lngLat(courier), zoom: Math.max(m.getZoom(), FOLLOW_ZOOM), duration: 1200 });
+    }
+    // Le scooter (vu de côté) regarde dans le sens où il roule.
+    if (Math.abs(courier.lng - start.lng) > 1e-6) {
+      courierEl.current?.firstElementChild?.classList.toggle("is-west", courier.lng < start.lng);
+    }
+    let frameId = 0;
+    const t0 = performance.now();
+    const step = (t: number) => {
+      const k = Math.min(1, (t - t0) / 950);
+      const p = { lat: start.lat + (courier.lat - start.lat) * k, lng: start.lng + (courier.lng - start.lng) * k };
+      marker.setLngLat(lngLat(p));
+      shown.current = p;
+      // Suivi : la carte reste centrée sur le livreur pendant qu'il glisse.
+      if (followed.current && !m.isMoving()) m.setCenter(lngLat(p));
+      if (k < 1) frameId = requestAnimationFrame(step);
+    };
+    frameId = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frameId);
+  }, [courier, ready]);
 
-  const points = path.map(toScreen);
-  const line = points.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
-  const cut = Math.max(1, Math.round(done * (points.length - 1)));
-  const travelled = points.slice(0, cut + 1).map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`);
-  const c = courier ? toScreen(courier) : null;
-  if (c && done > 0) travelled.push(`${c.x.toFixed(1)},${c.y.toFixed(1)}`);
-  const r = toScreen(from);
-  const d = toScreen(to);
+  useEffect(() => {
+    courierEl.current?.firstElementChild?.classList.toggle("is-moving", moving);
+  }, [moving, ready]);
 
   return (
-    <div ref={frame} className="relative size-full overflow-hidden bg-[#e8e4dc] dark:bg-[#1d2024]">
-      {tiles.map((t) => (
-        // eslint-disable-next-line @next/next/no-img-element -- tuiles OpenStreetMap, déjà à la bonne taille
-        <img
-          key={t.key}
-          src={`https://tile.openstreetmap.org/${t.key}.png`}
-          alt=""
-          draggable={false}
-          loading="lazy"
-          className="map-tile pointer-events-none absolute size-64 max-w-none select-none"
-          style={{ left: t.x * TILE - left, top: t.y * TILE - top }}
-        />
-      ))}
-
-      {w ? (
-        <svg className="pointer-events-none absolute inset-0 size-full" aria-hidden="true">
-          <polyline points={line} fill="none" stroke="white" strokeWidth={7} strokeLinecap="round" strokeLinejoin="round" opacity={0.9} />
-          <polyline points={line} fill="none" stroke={PERSONA} strokeWidth={3} strokeDasharray="1 7" strokeLinecap="round" opacity={0.8} />
-          {done > 0 ? (
-            <polyline points={travelled.join(" ")} fill="none" stroke={PERSONA} strokeWidth={4.5} strokeLinecap="round" strokeLinejoin="round" />
-          ) : null}
-        </svg>
+    <div className="relative size-full overflow-hidden bg-[#eef0f2] dark:bg-[#1b1e22]">
+      <div ref={frame} className="size-full" />
+      {!ready && !failed ? <div aria-hidden="true" className="map-loading absolute inset-0" /> : null}
+      {failed ? <p className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-fg-muted">Carte indisponible pour le moment.</p> : null}
+      {free ? (
+        <button
+          type="button"
+          onClick={() => {
+            followed.current = true;
+            setFree(false);
+            if (shown.current) {
+              map.current?.easeTo({ center: lngLat(shown.current), zoom: FOLLOW_ZOOM, duration: 700 });
+              return;
+            }
+            const pts = [...latest.current.route, from, to];
+            map.current?.fitBounds(
+              [
+                [Math.min(...pts.map((p) => p.lng)), Math.min(...pts.map((p) => p.lat))],
+                [Math.max(...pts.map((p) => p.lng)), Math.max(...pts.map((p) => p.lat))],
+              ],
+              { padding: { top: 80, bottom: 60, left: 50, right: 50 }, maxZoom: 16, duration: 700 },
+            );
+          }}
+          className="absolute right-3 bottom-9 rounded-full bg-bg/95 px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur hover:bg-bg"
+        >
+          ◎ Recentrer
+        </button>
       ) : null}
-
-      {w ? (
-        <>
-          {/* Restaurant */}
-          <span className="absolute -translate-x-1/2 -translate-y-full" style={{ left: r.x, top: r.y }}>
-            <span className="grid size-9 place-items-center rounded-full border-2 border-white bg-bg text-lg shadow-lg">{restaurantEmoji}</span>
-          </span>
-          {/* Livraison */}
-          <span className="absolute -translate-x-1/2 -translate-y-full" style={{ left: d.x, top: d.y }}>
-            <span className="grid size-9 place-items-center rounded-full border-2 border-white text-base text-white shadow-lg" style={{ background: PERSONA }}>
-              🏠
-            </span>
-          </span>
-          {/* Livreur */}
-          {c ? (
-            <span className="absolute -translate-x-1/2 -translate-y-1/2 transition-[left,top] duration-1000 ease-linear" style={{ left: c.x, top: c.y }}>
-              {moving ? <span className="map-courier-pulse absolute inset-0 rounded-full" style={{ background: PERSONA }} /> : null}
-              <span className="relative grid size-10 place-items-center rounded-full border-[3px] border-white bg-fg text-lg shadow-xl">🛵</span>
-            </span>
-          ) : null}
-        </>
-      ) : null}
-
-      <a
-        href="https://www.openstreetmap.org/copyright"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="absolute right-1 bottom-1 rounded bg-white/80 px-1 text-[9px] text-neutral-700"
-      >
-        © OpenStreetMap
-      </a>
     </div>
   );
 }

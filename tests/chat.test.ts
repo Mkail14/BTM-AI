@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildModelHistory, deriveTitle } from "@/lib/chat/history";
+import { buildModelHistory } from "@/lib/chat/history";
+import { cleanAiTitle, quickTitle } from "@/lib/chat/title";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
 import { createStreamEventParser, encodeStreamEvent } from "@/lib/chat/stream-protocol";
 import { chatRequestSchema, importConversationSchema } from "@/lib/chat/validation";
@@ -49,13 +50,20 @@ describe("buildModelHistory", () => {
   });
 });
 
-describe("deriveTitle", () => {
-  it("met le titre sur une ligne et le tronque", () => {
-    assert.equal(deriveTitle("  Bonjour\n\ntout   le monde ", 80), "Bonjour tout le monde");
-    const long = deriveTitle("a".repeat(100), 10);
-    assert.equal(long.length, 10);
-    assert.ok(long.endsWith("…"));
-    assert.equal(deriveTitle("   ", 10), "Nouvelle conversation");
+describe("titres de l'historique", () => {
+  it("retire les salutations et garde le sujet, en court", () => {
+    assert.equal(quickTitle("coucou awa jai trop faim je veux manger"), "Jai trop faim je veux manger");
+    assert.equal(quickTitle("Salut AWA, j'ai faim"), "J'ai faim");
+    assert.equal(quickTitle("  coucou  "), "Coucou");
+    assert.equal(quickTitle("   "), "Nouvelle conversation");
+    const long = quickTitle("je veux passer mon code a mamoudzou le plus vite possible avec la poste");
+    assert.ok(long.length <= 41 && long.endsWith("…"));
+  });
+
+  it("nettoie le titre donné par l'IA", () => {
+    assert.equal(cleanAiTitle("« Commande de repas. »"), "Commande de repas");
+    assert.equal(cleanAiTitle("Titre : passer le code\nautre ligne"), "Passer le code");
+    assert.equal(cleanAiTitle(""), null);
   });
 });
 

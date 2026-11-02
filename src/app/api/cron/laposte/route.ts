@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
-import { getCodeExamHealth } from "@/lib/code-exam/laposte";
+import { checkLaPosteNow } from "@/lib/code-exam/laposte";
 
 /** Toujours exécutée : jamais de réponse mise en cache. */
 export const dynamic = "force-dynamic";
@@ -14,13 +14,14 @@ function authorized(request: NextRequest): boolean {
 }
 
 /**
- * Surveillance du site de La Poste, appelée toutes les 2 h par GitHub
- * (.github/workflows/surveillance-laposte.yml). Relit les horaires maintenant :
- * 200 si tout va bien, 503 si le site a changé ou ne répond plus — GitHub
- * envoie alors un e-mail. Protégée par CRON_SECRET.
+ * Surveillance du site de La Poste, appelée toutes les heures par GitHub
+ * (.github/workflows/surveillance-laposte.yml). Relit les horaires maintenant,
+ * étape par étape (même vérification que « Vérifier maintenant » dans
+ * /admin/code) : 200 si tout va bien, 503 sinon — GitHub envoie alors un
+ * e-mail, avec l'étape qui casse dans le journal. Protégée par CRON_SECRET.
  */
 export async function GET(request: NextRequest) {
   if (!authorized(request)) return NextResponse.json({ error: "Accès refusé." }, { status: 401 });
-  const health = await getCodeExamHealth({ fresh: true });
-  return NextResponse.json(health, { status: health.ok ? 200 : 503, headers: { "Cache-Control": "no-store" } });
+  const check = await checkLaPosteNow();
+  return NextResponse.json(check, { status: check.ok ? 200 : 503, headers: { "Cache-Control": "no-store" } });
 }

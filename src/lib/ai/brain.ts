@@ -3,7 +3,7 @@ import type { ValidatedExample } from "@/lib/language/types";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { selectKnowledge, type KnowledgeEntry } from "./knowledge";
 import type { PersonalityId } from "./personalities";
-import { selectWords, type WordEntry } from "./words";
+import { glossMessage, selectWords, type Gloss, type WordEntry } from "./words";
 import { translationTable } from "@/lib/language/unknown-words";
 
 /**
@@ -121,6 +121,11 @@ export function lexiconFor(brain: AwaBrain, personality: PersonalityId): Validat
 /** Mots du dictionnaire utiles pour ce message ; avec son maître, Awa parle shimaoré et reçoit tout son vocabulaire. */
 export function wordsFor(brain: AwaBrain, message: string, speaksShimaore = false): WordEntry[] {
   return selectWords(brain.words, message, { topic: speaksShimaore });
+}
+
+/** Lecture du message mot à mot avec tout le vocabulaire (mots et expressions validés). */
+export function glossFor(brain: AwaBrain, message: string): Gloss {
+  return glossMessage([...brain.lexicon, ...brain.words], message);
 }
 
 /** Tout ce que le maître a appris à Awa (mots et expressions), pour remplacer les [[mots]] déjà traduits. */

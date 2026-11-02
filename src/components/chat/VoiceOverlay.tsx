@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect } from "react";
+import { AwaBlob } from "./AwaBlob";
 import { IconClose, IconMic } from "@/components/ui/icons";
 import { speakableText } from "@/lib/chat/voice";
 import { splitUnknownWords } from "@/lib/language/unknown-words";
@@ -28,23 +29,13 @@ export function VoiceOverlay({
   /** Après l'arrêt (bouton ✕ ou Échap). */
   onClose?: () => void;
 }) {
-  const orbRef = useRef<HTMLButtonElement>(null);
-  const { state, beat, transcript, reply, error, start, interrupt } = voice;
+  const { state, transcript, reply, error, start, interrupt } = voice;
   const stopVoice = voice.stop;
   const talk = state === "off" ? start : interrupt;
   const close = useCallback(() => {
     stopVoice();
     onClose?.();
   }, [onClose, stopVoice]);
-
-  // Pulsation : le globe grossit d'un coup puis revient doucement.
-  useEffect(() => {
-    const orb = orbRef.current;
-    if (!orb || beat === 0) return;
-    orb.style.setProperty("--orb-pulse", String(1.06 + Math.random() * 0.06));
-    const timer = window.setTimeout(() => orb.style.setProperty("--orb-pulse", "1"), 140);
-    return () => window.clearTimeout(timer);
-  }, [beat]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
@@ -81,21 +72,15 @@ export function VoiceOverlay({
       <p className="text-sm font-medium tracking-[0.3em] text-white/50 uppercase">Awa</p>
 
       <div className="flex w-full flex-1 flex-col items-center justify-center gap-10">
-        <button
-          ref={orbRef}
-          type="button"
-          onClick={talk}
-          data-state={state}
-          aria-label={state === "speaking" ? "Couper Awa et parler" : "Parler"}
-          className="voice-orb"
-        >
-          <span className="voice-orb__halo" aria-hidden="true" />
-          <span className="voice-orb__ring" aria-hidden="true" />
-          <span className="voice-orb__ring voice-orb__ring--outer" aria-hidden="true" />
-          <span className="voice-orb__core" aria-hidden="true">
-            <span className="voice-orb__swirl" />
-          </span>
-        </button>
+        {/* La même Awa que sur l'accueil, en grand : elle suit sa voix quand elle parle, frémit quand on lui parle. */}
+        <AwaBlob
+          label={state === "speaking" ? "Couper Awa et parler" : "Parler"}
+          onActivate={talk}
+          immediate
+          busy={state === "waiting"}
+          size="min(60vw, 16rem)"
+          goo={13}
+        />
 
         <div className="w-full max-w-xl text-center" aria-live="polite">
           <p className={`text-base font-medium ${error && state === "off" ? "text-red-300" : "text-white/80"}`}>

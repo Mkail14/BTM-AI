@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAIProvider } from "@/lib/ai";
 import { completeText } from "@/lib/ai/complete";
-import { ALL_GROUP_CATEGORIES, buildLexiconTree, type KnownEntry } from "./curriculum";
+import { ALL_GROUP_CATEGORIES, buildLexiconTree, type BranchDef, type KnownEntry } from "./curriculum";
 
 /** Mot que Gemini n'a pas su ranger : il reste « À ranger » sans être renvoyé à chaque visite. */
 export const UNSORTED = "À ranger";
@@ -41,9 +41,13 @@ export function parseSorting(output: string, count: number): Map<number, string>
  * Ne bloque jamais plus de quelques secondes ; ce qui reste sera rangé
  * au prochain passage. Renvoie la nouvelle catégorie de chaque mot rangé (par id).
  */
-export async function sortNewWords(supabase: SupabaseClient, entries: readonly KnownEntry[]): Promise<Map<string, string>> {
-  // Les mots du programme ont déjà leur place : seuls ceux « À ranger » sont envoyés.
-  const tree = buildLexiconTree(entries);
+export async function sortNewWords(
+  supabase: SupabaseClient,
+  entries: readonly KnownEntry[],
+  branches: readonly BranchDef[] = [],
+): Promise<Map<string, string>> {
+  // Les mots du programme (et des branches d'Awa) ont déjà leur place : seuls ceux « À ranger » sont envoyés.
+  const tree = buildLexiconTree(entries, branches);
   const words = entries.filter((e) => e.category !== UNSORTED && isWaiting(tree, e)).slice(0, MAX_WORDS);
   const done = new Map<string, string>();
   if (!words.length) return done;

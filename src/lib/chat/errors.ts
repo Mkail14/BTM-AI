@@ -6,6 +6,7 @@ export const CHAT_ERROR_MESSAGES: Record<ChatErrorCode, string> = {
     "Le service d'IA n'est pas encore configuré sur ce serveur. L'administrateur doit renseigner AI_PROVIDER, AI_API_KEY et AI_MODEL (voir README).",
   rate_limited:
     "Vous avez atteint la limite d'utilisation pour le moment. Réessayez un peu plus tard.",
+  signup_required: "Tes 5 messages d'essai sont utilisés. Crée ton compte gratuit pour continuer à parler avec Awa.",
   invalid_request: "La requête est invalide.",
   conversation_too_long:
     "Cette conversation a atteint sa longueur maximale. Démarrez une nouvelle conversation.",

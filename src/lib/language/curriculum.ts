@@ -262,6 +262,8 @@ export type MapNode = {
   learned: number;
   total: number;
   children?: MapNode[];
+  /** Branche proposée par Awa (bouton « + ») : son emoji. */
+  emoji?: string;
   /** Seulement pour un mot : sa traduction (null = à apprendre) et la catégorie où l'enregistrer. */
   word?: { french: string; shimaore: string | null; category: string; bonus?: boolean; source?: KnownEntry };
 };
@@ -340,7 +342,10 @@ const bonusNode = (id: string, hue: number, entry: KnownEntry, category: string)
  * sans catégorie connue, il attend dans « À ranger », et les expressions
  * libres dans « Phrases utiles › Apprises en parlant ».
  */
-export function buildLexiconTree(entries: readonly KnownEntry[]): MapNode {
+/** Branche ajoutée par le « + » de la carte (table awa_branches) : ses mots attendent leur traduction. */
+export type BranchDef = { id: string; label: string; emoji: string; hue: number; reason: string; words: string[] };
+
+export function buildLexiconTree(entries: readonly KnownEntry[], branches: readonly BranchDef[] = []): MapNode {
   const byFrench = new Map<string, KnownEntry>();
   const keysOf = (french: string) => french.split(/[,/;]| ou /).map(normalizeFrench).filter(Boolean);
   for (const entry of entries) {
@@ -361,12 +366,29 @@ export function buildLexiconTree(entries: readonly KnownEntry[]): MapNode {
     ),
   );
 
+  // Mots des branches d'Awa, reconnus de la même façon.
+  const branchTargets = branches.map((b) =>
+    b.words.map((french) => {
+      const key = normalizeFrench(french);
+      const source = byFrench.get(key);
+      if (source && !used.has(source)) used.add(source);
+      return { french, source };
+    }),
+  );
+  const branchByCategory = new Map(branches.map((b, i) => [normalizeFrench(b.label), i]));
+  const branchExtra = branches.map(() => [] as KnownEntry[]);
+
   // Les autres mots appris, rangés par thème et par groupe (-1 : « En plus »).
   const extra = new Map<string, KnownEntry[]>();
   const toSort: KnownEntry[] = [];
   const spoken: KnownEntry[] = [];
   for (const entry of entries) {
     if (used.has(entry) || !entry.shimaore) continue;
+    const inBranch = branchByCategory.get(normalizeFrench(entry.category ?? ""));
+    if (inBranch !== undefined) {
+      branchExtra[inBranch].push(entry);
+      continue;
+    }
     const place = placeCategory(entry.category);
     if (place) {
       const key = `${place.theme.id}:${place.group}`;
@@ -397,6 +419,22 @@ export function buildLexiconTree(entries: readonly KnownEntry[]): MapNode {
     }
     if (loose.length) groups.push(branch(`${theme.id}-plus`, theme.id === "phrases" ? "Apprises en parlant" : "En plus", theme.hue, paginate(`${theme.id}-plus`, theme.hue, loose)));
     return branch(theme.id, theme.label, theme.hue, groups);
+  });
+
+  branches.forEach((b, i) => {
+    const id = `branche-${b.id}`;
+    const words = branchTargets[i].map(
+      ({ french, source }, w): MapNode => ({
+        id: `${id}-${w}`,
+        label: french,
+        hue: b.hue,
+        learned: source ? 1 : 0,
+        total: 1,
+        word: { french, shimaore: source?.shimaore ?? null, category: b.label, source },
+      }),
+    );
+    const more = branchExtra[i].map((entry, k) => bonusNode(`${id}-plus-${k}`, b.hue, entry, b.label));
+    themes.push({ ...branch(id, b.label, b.hue, paginate(id, b.hue, [...words, ...more])), emoji: b.emoji });
   });
 
   if (toSort.length) {

@@ -2,6 +2,8 @@ import { isValidElement, memo, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { markUnknownWords } from "@/lib/language/unknown-words";
+import { BARGE_BLOCK } from "@/lib/barge/intent";
+import { BargeTickets } from "./BargeTickets";
 import { CodeExamSlots } from "./CodeExamSlots";
 import { FoodOrder } from "./FoodOrder";
 import { UnknownWord } from "./UnknownWord";
@@ -24,9 +26,15 @@ const components: Components = {
   pre: ({ children }) => {
     const code = isValidElement<{ className?: string }>(children) ? children.props.className : undefined;
     // Le contenu du bloc nomme le bureau visé (« Kaweni ») : le tableau s'ouvre sur ses horaires.
-    if (code === `language-${CODE_EXAM_BLOCK}`) return <CodeExamSlots office={textOf(children).trim()} />;
+    // Bureau, puis jour et moment voulus (« jour: 2026-11-03 ») ajoutés par le serveur : nouveau contenu, tableau rouvert.
+    if (code === `language-${CODE_EXAM_BLOCK}`) {
+      const block = textOf(children).trim();
+      return <CodeExamSlots key={block} office={block} />;
+    }
     // Le contenu du bloc dit ce que la personne veut manger (« tacos », « pizza Pizza Mangrove »).
     if (code === `language-${FOOD_BLOCK}`) return <FoodOrder query={textOf(children).trim()} />;
+    // Bloc ```ticket-barge``` : achat de tickets de barge (Mamoudzou → Dzaoudzi).
+    if (code === `language-${BARGE_BLOCK}`) return <BargeTickets query={textOf(children).trim()} />;
     return <pre>{children}</pre>;
   },
   a: ({ href, title, children }) =>

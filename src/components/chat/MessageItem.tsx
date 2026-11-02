@@ -1,6 +1,7 @@
 "use client";
 
-import { memo, useEffect, useState, useSyncExternalStore } from "react";
+import { memo, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { speak } from "@/lib/chat/voice";
 import { useCurrentPersonality } from "@/components/personality/PersonalityContext";
 import { IconCheck, IconCopy, IconRetry, IconSpeaker, IconStop } from "@/components/ui/icons";
 import { PERSONALITIES } from "@/lib/ai/personalities";
@@ -18,6 +19,8 @@ export type UiMessage = {
   status: UiMessageStatus;
   /** Information complémentaire (erreur, réponse tronquée…). */
   notice?: string;
+  /** Mode maître : shimaoré retenu du message auquel cette réponse répond. */
+  learned?: { french: string; shimaore: string }[];
 };
 
 /** Texte lisible d'une réponse : sans blocs spéciaux (commande, créneaux), sans Markdown. */
@@ -66,10 +69,11 @@ function CopyAction({ text }: { text: string }) {
 
 const noSubscribe = () => () => {};
 
-/** Lecture à voix haute par le navigateur (voix française). */
+/** Lecture à voix haute par le navigateur (shimaoré et français, voir speak) ; le globe d'Awa suit la voix. */
 function SpeakAction({ text }: { text: string }) {
   const [speaking, setSpeaking] = useState(false);
-  useEffect(() => () => window.speechSynthesis?.cancel(), []);
+  const stopRef = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopRef.current?.(), []);
   // Lu après l'hydratation : le serveur ne sait pas si le navigateur peut lire à voix haute.
   const supported = useSyncExternalStore(noSubscribe, () => "speechSynthesis" in window, () => false);
   if (!supported) return null;
@@ -77,14 +81,11 @@ function SpeakAction({ text }: { text: string }) {
     <Action
       label={speaking ? "Arrêter la lecture" : "Écouter"}
       onClick={() => {
-        const synth = window.speechSynthesis;
-        synth.cancel();
+        stopRef.current?.();
+        stopRef.current = null;
         if (speaking) return setSpeaking(false);
-        const utterance = new SpeechSynthesisUtterance(text);
-        utterance.lang = "fr-FR";
-        utterance.onend = utterance.onerror = () => setSpeaking(false);
         setSpeaking(true);
-        synth.speak(utterance);
+        stopRef.current = speak(text, { onDone: () => setSpeaking(false) });
       }}
     >
       {speaking ? <IconStop width={14} height={14} /> : <IconSpeaker width={16} height={16} />}
@@ -117,12 +118,16 @@ export const MessageItem = memo(function MessageItem({
 }) {
   if (message.role === "user") {
     return (
-      <article className="group flex flex-col items-end gap-1">
+      <article className="group relative flex flex-col items-end">
         <h3 className="sr-only">Vous avez écrit :</h3>
-        <div className="max-w-[85%] rounded-3xl rounded-br-lg bg-[var(--persona-soft,var(--bg-muted))] px-4 py-2.5 leading-relaxed whitespace-pre-wrap break-words sm:max-w-[75%]">
+        <div className="max-w-[88%] rounded-3xl rounded-br-lg bg-[var(--persona-soft,var(--bg-muted))] px-4 py-2.5 leading-relaxed whitespace-pre-wrap break-words sm:max-w-[75%]">
           {message.content}
         </div>
-        <div className="flex items-center gap-0.5 opacity-100 transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-within:opacity-100">
+        <div
+          className={`absolute top-full right-0 z-10 items-center gap-0.5 pt-0.5 transition-opacity pointer-fine:flex pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-within:opacity-100 ${
+            onRetry ? "flex" : "hidden"
+          }`}
+        >
           {onRetry ? (
             <Action label="Relancer ce message" onClick={onRetry}>
               <IconRetry width={16} height={16} />
@@ -147,10 +152,10 @@ function AssistantMessage({ message, question }: { message: UiMessage; question?
   const readable = writing ? "" : plainText(message.content);
 
   return (
-    <article className="group flex min-w-0 gap-3" aria-busy={writing}>
+    <article className="group flex min-w-0 gap-2.5 sm:gap-3" aria-busy={writing}>
       <h3 className="sr-only">Awa a répondu :</h3>
       <AwaAvatar busy={waiting} />
-      <div className="min-w-0 flex-1 pt-1">
+      <div className="relative min-w-0 flex-1 pt-1">
         {waiting ? (
           <p className="flex h-6 items-center gap-1 text-[var(--persona,var(--fg-muted))]" aria-label="Awa rédige une réponse">
             <span className="size-1.5 animate-bounce rounded-full bg-current" />
@@ -171,6 +176,28 @@ function AssistantMessage({ message, question }: { message: UiMessage; question?
           )
         ) : null}
 
+        {/* Mode maître : le shimaoré qu'Awa vient de retenir, pour voir qu'elle a bien appris. */}
+        {message.learned?.length && !typing ? (
+          <ul aria-label="Shimaoré retenu" className="learned-chips mt-2 flex flex-wrap gap-1.5">
+            {message.learned.map((w) => (
+              <li
+                key={`${w.french}=${w.shimaore}`}
+                className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success-soft px-2.5 py-1 text-xs"
+              >
+                <span aria-hidden="true" className="font-bold text-success">
+                  ✓
+                </span>
+                <span className="text-fg-muted">Retenu :</span>
+                <span className="font-medium">{w.french}</span>
+                <span aria-hidden="true" className="text-fg-muted">
+                  →
+                </span>
+                <span className="font-semibold text-success">{w.shimaore}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+
         {message.status === "interrupted" && !typing ? (
           <p className="mt-2 text-xs text-fg-muted">{message.notice ?? "Réponse interrompue."}</p>
         ) : null}
@@ -183,7 +210,7 @@ function AssistantMessage({ message, question }: { message: UiMessage; question?
 
         {/* Actions, une fois la réponse terminée : discrètes, visibles au survol sur ordinateur. */}
         {readable && message.status !== "error" ? (
-          <div className="-ml-1.5 mt-1 flex items-center gap-0.5 opacity-100 transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-within:opacity-100">
+          <div className="absolute top-full -left-1.5 z-10 flex items-center gap-0.5 pt-0.5 opacity-100 transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100 pointer-fine:focus-within:opacity-100">
             <CopyAction text={readable} />
             <SpeakAction text={readable} />
           </div>

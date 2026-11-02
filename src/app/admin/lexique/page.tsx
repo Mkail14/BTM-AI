@@ -6,6 +6,7 @@ import { LexiconEditor } from "./LexiconEditor";
 import { LexiconMap } from "./LexiconMap";
 import { LexiconTabs } from "./LexiconTabs";
 import { buildLexiconTree } from "@/lib/language/curriculum";
+import { listBranches } from "@/lib/language/branches";
 import { sortNewWords } from "@/lib/language/sort-words";
 import { readVariants } from "@/lib/ai/brain";
 import { PERSONALITY_IDS } from "@/lib/ai/personalities";
@@ -25,7 +26,7 @@ function toVariants(shimaore: string, stored: unknown): LexiconVariants {
 
 export default async function AdminLexiconPage() {
   const { supabase, user } = await requireAdmin("/admin/lexique");
-  const [lexicon, words, requests] = await Promise.all([
+  const [lexicon, words, requests, branches] = await Promise.all([
     supabase
       .from("awa_lexicon")
       // « * » : la colonne variants peut ne pas exister encore (migration lexicon_variants).
@@ -43,6 +44,7 @@ export default async function AdminLexiconPage() {
       .eq("status", "pending")
       .order("last_seen_at", { ascending: false })
       .limit(200),
+    listBranches(supabase),
   ]);
   if (lexicon.error) console.error("[admin] Lexique illisible", lexicon.error);
   if (words.error) console.error("[admin] Dictionnaire illisible", words.error);
@@ -68,15 +70,15 @@ export default async function AdminLexiconPage() {
   // Mots actifs du dictionnaire et expressions actives : ce qu'Awa sait déjà dire.
   // Les mots appris sans place (conversation, traduction, liste…) sont rangés par Gemini avant l'affichage.
   const activeWords = wordRows.filter((w) => w.isActive);
-  const sorted = await sortNewWords(supabase, activeWords).catch((error: unknown) => {
+  const sorted = await sortNewWords(supabase, activeWords, branches ?? []).catch((error: unknown) => {
     console.error("[admin] Rangement des mots impossible", error);
     return new Map<string, string>();
   });
   for (const word of wordRows) word.category = sorted.get(word.id) ?? word.category;
-  const tree = buildLexiconTree([
-    ...activeWords,
-    ...rows.filter((r) => r.isActive).map((r) => ({ french: r.french, shimaore: Object.values(r.variants).find(Boolean) ?? "" })),
-  ]);
+  const tree = buildLexiconTree(
+    [...activeWords, ...rows.filter((r) => r.isActive).map((r) => ({ french: r.french, shimaore: Object.values(r.variants).find(Boolean) ?? "" }))],
+    branches ?? [],
+  );
 
   const requestRows: WordRequestRow[] = (requests.data ?? []).map((r) => ({
     id: r.id,
@@ -94,7 +96,7 @@ export default async function AdminLexiconPage() {
         id="contenu"
         className="mx-auto grid grid-cols-1 w-full max-w-[1600px] min-h-0 flex-1 gap-4 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] lg:grid-cols-[minmax(0,1fr)_26rem] lg:grid-rows-[minmax(0,1fr)]"
       >
-        <LexiconMap tree={tree} />
+        <LexiconMap tree={tree} branches={branches} />
         <div className="flex h-[80dvh] min-h-0 flex-col gap-3 lg:h-auto">
           {lexicon.error ? <MigrationWarning file="20261029000000_awa_brain.sql" /> : null}
           <LexiconTabs

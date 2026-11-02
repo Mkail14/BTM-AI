@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type InputHTMLAttributes, type ReactNode } from "react";
-import type { CandidatePrefill } from "@/app/api/code-exam/requests/route";
+import type { BookingPayment, CandidatePrefill } from "@/app/api/code-exam/requests/route";
+import { celebrate } from "@/components/ui/Celebration";
 import { IconClose } from "@/components/ui/icons";
+import { formatEuros } from "@/lib/wallet/limits";
 import { authRequiredPath } from "@/lib/auth/redirect";
 import {
   CANDIDATE_FIELDS,
@@ -22,14 +24,13 @@ const PERSONA = "var(--persona,var(--accent))";
 
 export type BookingSlot = { centerId: string; centerName: string; startsAt: string; types: string[]; when: string };
 
-type Step = "infos" | "type" | "neph" | "recap" | "done";
+type Step = "infos" | "type" | "neph" | "recap";
 const STEPS: Step[] = ["infos", "type", "neph", "recap"];
 const TITLES: Record<Step, string> = {
   infos: "Tes informations",
   type: "Quel code veux-tu passer ?",
   neph: "Ton numéro NEPH",
   recap: "On vérifie ensemble",
-  done: "Demande envoyée",
 };
 
 type Values = Record<CandidateField | "neph", string>;
@@ -78,6 +79,11 @@ export function BookingDialog({ slot, onClose }: { slot: BookingSlot; onClose: (
   const [sending, setSending] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [needsLogin, setNeedsLogin] = useState(false);
+  // Informations déjà connues et complètes : affichées en résumé, le formulaire ne s'ouvre que sur « Modifier ».
+  const [loading, setLoading] = useState(true);
+  const [editingInfos, setEditingInfos] = useState(true);
+  // Prix de l'examen et solde du portefeuille (fictif en démonstration).
+  const [payment, setPayment] = useState<BookingPayment | null>(null);
 
   useEffect(() => {
     ref.current?.showModal();
@@ -85,12 +91,17 @@ export function BookingDialog({ slot, onClose }: { slot: BookingSlot; onClose: (
     fetch("/api/code-exam/requests", { cache: "no-store" })
       .then((res) => {
         if (res.status === 401) setNeedsLogin(true);
-        return res.ok ? (res.json() as Promise<{ prefill: CandidatePrefill }>) : null;
+        return res.ok ? (res.json() as Promise<{ prefill: CandidatePrefill; payment?: BookingPayment }>) : null;
       })
       .then((body) => {
-        if (body) setValues((v) => ({ ...v, ...Object.fromEntries(Object.entries(body.prefill).filter(([, x]) => x)) }));
+        if (!body) return;
+        setPayment(body.payment ?? null);
+        const known = { ...EMPTY, ...Object.fromEntries(Object.entries(body.prefill).filter(([, x]) => x)) } as Values;
+        setValues(known);
+        if (CANDIDATE_FIELDS.every((f) => !fieldError(f, known[f]))) setEditingInfos(false);
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   const types = (slot.types.length ? slot.types : Object.keys(EXAM_TYPES)).filter((t): t is ExamType => t in EXAM_TYPES);
@@ -114,8 +125,24 @@ export function BookingDialog({ slot, onClose }: { slot: BookingSlot; onClose: (
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...values, centerId: slot.centerId, startsAt: slot.startsAt, examType, snu }),
       });
-      if (res.ok) setStep("done");
-      else setServerError(((await res.json().catch(() => ({}))) as { error?: string }).error ?? "Envoi impossible.");
+      const answer = (await res.json().catch(() => ({}))) as { error?: string; paidCents?: number };
+      if (res.ok) {
+        const paid = answer.paidCents ?? 0;
+        // La barre latérale relit le solde.
+        window.dispatchEvent(new Event("focus"));
+        // La fenêtre se ferme et une notification animée annonce la bonne nouvelle.
+        celebrate({
+          emoji: "🚗",
+          title: paid ? "Ta place est bien réservée !" : "Ta réservation est enregistrée !",
+          subtitle: `La Poste de ${slot.centerName} · ${slot.when}${paid ? ` · ${formatEuros(paid)} payés` : ""}`,
+          note: paid
+            ? payment?.mode === "demo"
+              ? "Démonstration : aucune place prise chez La Poste, aucun e-mail envoyé."
+              : "Ta convocation de La Poste arrive par e-mail."
+            : "GROUPE BTM te recontacte pour confirmer ta place.",
+        });
+        ref.current?.close();
+      } else setServerError(answer.error ?? "Réservation impossible.");
     } catch {
       setServerError("Pas de connexion : réessaie.");
     } finally {
@@ -157,7 +184,7 @@ export function BookingDialog({ slot, onClose }: { slot: BookingSlot; onClose: (
       <div className="p-5 sm:p-6">
         {/* En-tête : retour, titre, créneau choisi, fermer */}
         <div className="flex items-start gap-2">
-          {index > 0 && step !== "done" ? (
+          {index > 0 ? (
             <button
               type="button"
               onClick={back}
@@ -186,7 +213,7 @@ export function BookingDialog({ slot, onClose }: { slot: BookingSlot; onClose: (
         </div>
 
         {/* Avancement */}
-        {step !== "done" && !needsLogin ? (
+        {!needsLogin ? (
           <div className="mt-4 flex gap-1.5" aria-label={`Étape ${index + 1} sur ${STEPS.length}`}>
             {STEPS.map((s, i) => (
               <span key={s} className="h-1 flex-1 overflow-hidden rounded-full bg-bg-muted">
@@ -214,13 +241,64 @@ export function BookingDialog({ slot, onClose }: { slot: BookingSlot; onClose: (
               </button>
             </div>
           ) : null}
-          {!needsLogin && step === "infos" ? (
+          {!needsLogin && step === "infos" && loading ? (
+            <div className="space-y-3" aria-busy="true" aria-label="Chargement de tes informations">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="h-12 animate-pulse rounded-xl bg-bg-muted" />
+              ))}
+            </div>
+          ) : null}
+          {!needsLogin && step === "infos" && !loading && !editingInfos ? (
+            <div className="space-y-4">
+              <div className="rounded-2xl border border-border">
+                <div className="flex items-center gap-3 border-b border-border px-4 py-3">
+                  <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full text-sm font-semibold text-white uppercase" style={{ background: PERSONA }}>
+                    {values.firstName.charAt(0)}
+                    {values.lastName.charAt(0)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">
+                      {values.civility === "Mme" ? "Madame" : "Monsieur"} {values.firstName} {values.lastName.toUpperCase()}
+                    </p>
+                    <p className="text-xs text-fg-muted">Informations déjà enregistrées</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setEditingInfos(true)}
+                    className="shrink-0 rounded-lg px-2.5 py-1.5 text-sm font-semibold hover:bg-bg-muted"
+                    style={{ color: PERSONA }}
+                  >
+                    Modifier
+                  </button>
+                </div>
+                <dl className="divide-y divide-border text-sm">
+                  {[
+                    ["Né(e) le", new Date(values.birthDate).toLocaleDateString("fr-FR", { timeZone: "UTC" })],
+                    ["Ville", values.city],
+                    ["Téléphone", values.phone],
+                    ["E-mail", values.email],
+                  ].map(([label, value]) => (
+                    <div key={label} className="flex justify-between gap-3 px-4 py-2.5">
+                      <dt className="shrink-0 text-fg-muted">{label}</dt>
+                      <dd className="min-w-0 truncate text-right font-medium">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </div>
+              <button type="button" onClick={() => setStep("type")} className={PRIMARY} style={{ background: PERSONA }}>
+                C&apos;est bien moi, continuer
+              </button>
+            </div>
+          ) : null}
+          {!needsLogin && step === "infos" && !loading && editingInfos ? (
             <form
               noValidate
               onSubmit={(e) => {
                 e.preventDefault();
                 setTouched(Object.fromEntries(CANDIDATE_FIELDS.map((f) => [f, true])));
-                if (infosValid) setStep("type");
+                if (!infosValid) return;
+                setEditingInfos(false);
+                setStep("type");
               }}
               className="space-y-3.5"
             >
@@ -355,30 +433,46 @@ export function BookingDialog({ slot, onClose }: { slot: BookingSlot; onClose: (
                   </div>
                 ))}
               </dl>
+              {payment ? (
+                <div className="mt-3 rounded-xl bg-bg-subtle px-3.5 py-3 text-sm">
+                  <div className="flex justify-between gap-3">
+                    <span className="text-fg-muted">Examen du code · La Poste</span>
+                    <span className="font-semibold tabular-nums">{formatEuros(payment.feeCents)}</span>
+                  </div>
+                  {payment.mode !== "manual" ? (
+                    <div className="mt-1 flex justify-between gap-3 text-xs">
+                      <span className="text-fg-muted">{payment.mode === "demo" ? "Portefeuille (démo)" : "Payé avec ton portefeuille"}</span>
+                      <span className={`tabular-nums ${payment.balanceCents < payment.feeCents ? "text-danger" : "text-fg-muted"}`}>
+                        solde {formatEuros(payment.balanceCents)}
+                      </span>
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-xs text-fg-muted">À régler une fois ta place confirmée par GROUPE BTM.</p>
+                  )}
+                </div>
+              ) : null}
               {serverError ? (
                 <p role="alert" className="booking-shake mt-3 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">
                   {serverError}
                 </p>
               ) : null}
-              <button type="button" onClick={() => void send()} disabled={sending} className={`${PRIMARY} mt-4`} style={{ background: PERSONA }}>
-                {sending ? "Envoi…" : "Envoyer ma demande"}
-              </button>
+              {payment && payment.mode !== "manual" && payment.balanceCents < payment.feeCents ? (
+                <a href="/portefeuille" className={`${PRIMARY} mt-4 block text-center`} style={{ background: PERSONA }}>
+                  Il manque {formatEuros(payment.feeCents - payment.balanceCents)} · recharger
+                </a>
+              ) : (
+                <button type="button" onClick={() => void send()} disabled={sending} className={`${PRIMARY} mt-4`} style={{ background: PERSONA }}>
+                  {sending
+                    ? "Réservation…"
+                    : payment && payment.mode !== "manual"
+                      ? `Réserver ma place · ${formatEuros(payment.feeCents)}`
+                      : "Réserver ma place"}
+                </button>
+              )}
               <p className="mt-2 text-center text-xs text-fg-muted">Vérifie bien : ces informations doivent être exactes.</p>
             </div>
           ) : null}
 
-          {!needsLogin && step === "done" ? (
-            <div className="py-2 text-center">
-              <div className="booking-pop mx-auto grid size-14 place-items-center rounded-full text-2xl text-white" style={{ background: PERSONA }}>
-                ✓
-              </div>
-              <p className="mt-4 font-medium">C&apos;est envoyé !</p>
-              <p className="mt-1 text-sm text-fg-muted">On revient vers toi par téléphone ou e-mail pour confirmer ta place.</p>
-              <button type="button" onClick={() => ref.current?.close()} className={`${PRIMARY} mt-5`} style={{ background: PERSONA }}>
-                Fermer
-              </button>
-            </div>
-          ) : null}
         </div>
       </div>
     </dialog>

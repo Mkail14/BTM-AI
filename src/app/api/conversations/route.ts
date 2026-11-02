@@ -1,8 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getAuthContext } from "@/lib/auth/session";
 import { chatErrorBody } from "@/lib/chat/errors";
-import { deriveTitle } from "@/lib/chat/history";
-import { CHAT_LIMITS } from "@/lib/chat/limits";
+import { quickTitle } from "@/lib/chat/title";
 import { importConversationSchema } from "@/lib/chat/validation";
 import { importConversation, listConversations } from "@/lib/conversations/repository";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
@@ -65,7 +64,7 @@ export async function POST(request: NextRequest) {
     const conversation = await importConversation(
       supabase,
       user.id,
-      deriveTitle(firstUser, CHAT_LIMITS.maxTitleChars),
+      quickTitle(firstUser),
       messages,
     );
     return NextResponse.json({ conversation }, { status: 201 });

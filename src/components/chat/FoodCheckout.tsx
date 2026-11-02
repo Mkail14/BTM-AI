@@ -207,8 +207,9 @@ export function FoodCheckout({
         setError(body.error ?? "Paiement impossible.");
         return;
       }
-      // Places sur la carte du suivi (restaurant dans sa commune, livraison au GPS donné sinon dans la commune).
-      const from = restaurantPoint(restaurant.id, restaurant.commune);
+      // Places sur la carte du suivi, trouvées par le serveur (vraie rue, posées sur une route) ;
+      // à défaut, le restaurant dans sa commune et la livraison au GPS donné, sinon dans la commune.
+      const from = body.from ?? restaurantPoint(restaurant.id, restaurant.commune);
       onPlaced({
         code: body.code,
         restaurant: restaurant.name,
@@ -222,7 +223,7 @@ export function FoodCheckout({
         arrivesAt: body.arrivesAt,
         courier: body.courier ?? null,
         from,
-        to: deliveryPoint(body.code, delivery.commune, delivery.geo, from),
+        to: body.to ?? deliveryPoint(body.code, delivery.commune, delivery.geo, from),
         address: where === "here" ? "Position GPS" : delivery.line,
         note: note || undefined,
       });
