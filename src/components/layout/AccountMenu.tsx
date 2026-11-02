@@ -8,17 +8,17 @@ import type { AuthUser } from "@/components/auth/AuthProvider";
 import { IconChevronUpDown, IconGauge, IconHelp, IconLogout, IconSettings, IconWallet } from "@/components/ui/icons";
 import { formatEuros } from "@/lib/wallet/limits";
 
-/** Solde du portefeuille, relu à chaque changement de page et au retour sur l'onglet. */
-function useBalance(): number | null {
+/** Solde du portefeuille (demo : solde fictif de la démonstration), relu à chaque changement de page et au retour sur l'onglet. */
+function useBalance(): { cents: number; demo: boolean } | null {
   const pathname = usePathname();
-  const [balance, setBalance] = useState<number | null>(null);
+  const [balance, setBalance] = useState<{ cents: number; demo: boolean } | null>(null);
   useEffect(() => {
     let alive = true;
     const load = () =>
       fetch("/api/wallet", { cache: "no-store" })
         .then((res) => (res.ok ? res.json() : null))
-        .then((data: { balanceCents?: number } | null) => {
-          if (alive && typeof data?.balanceCents === "number") setBalance(data.balanceCents);
+        .then((data: { balanceCents?: number; demo?: boolean } | null) => {
+          if (alive && typeof data?.balanceCents === "number") setBalance({ cents: data.balanceCents, demo: Boolean(data.demo) });
         })
         .catch(() => {});
     load();
@@ -124,7 +124,10 @@ export function AccountMenu({
             <Link href="/portefeuille" role="menuitem" onClick={close} className={`${itemClass} max-md:hidden`}>
               <IconWallet /> Portefeuille
               {balance !== null ? (
-                <span className="ml-auto text-xs font-semibold text-fg-muted tabular-nums">{formatEuros(balance)}</span>
+                <span className="ml-auto text-xs font-semibold text-fg-muted tabular-nums">
+                  {formatEuros(balance.cents)}
+                  {balance.demo ? " (démo)" : ""}
+                </span>
               ) : null}
             </Link>
           ) : null}
@@ -182,11 +185,13 @@ export function AccountMenu({
       <Link
         href="/portefeuille"
         onClick={onNavigate}
-        aria-label={balance !== null ? `Portefeuille : ${formatEuros(balance)}` : "Portefeuille"}
+        aria-label={balance !== null ? `Portefeuille : ${formatEuros(balance.cents)}${balance.demo ? " (solde fictif de démonstration)" : ""}` : "Portefeuille"}
+        title={balance?.demo ? "Solde fictif de démonstration" : undefined}
         className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border border-border bg-bg px-2.5 py-1.5 text-xs font-semibold tabular-nums transition hover:border-accent/40 hover:text-accent ${compact ? "md:hidden" : ""}`}
       >
         <IconWallet width={14} height={14} className="text-accent" />
-        {balance !== null ? formatEuros(balance) : "—"}
+        {balance !== null ? formatEuros(balance.cents) : "—"}
+        {balance?.demo ? <span className="font-normal text-fg-muted">démo</span> : null}
       </Link>
       </div>
     </div>
