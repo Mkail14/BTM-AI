@@ -16,6 +16,7 @@ const TINTS: Record<string, [string, string]> = {
   burger: ["#f97316", "#9a3412"],
   kebab: ["#a16207", "#57340b"],
   mahorais: ["#16a34a", "#14532d"],
+  asiatique: ["#dc2626", "#7f1d1d"],
   poulet: ["#eab308", "#a16207"],
   dessert: ["#ec4899", "#9d174d"],
   boisson: ["#0ea5e9", "#075985"],
@@ -39,7 +40,7 @@ function DishPicture({ dish, className = "" }: { dish: Dish; className?: string 
   const [from, to] = TINTS[dish.kind ?? ""] ?? ["#64748b", "#334155"];
   if (dish.item.photo) {
     // eslint-disable-next-line @next/next/no-img-element -- photos des partenaires, domaines inconnus à l'avance.
-    return <img src={dish.item.photo} alt="" className={`object-cover ${className}`} />;
+    return <img src={dish.item.photo} alt="" loading="lazy" className={`object-cover ${className}`} />;
   }
   return (
     <div

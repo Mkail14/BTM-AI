@@ -4,7 +4,8 @@ import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { CodeExamSourceError, centerName, extractAccess, parseCenters, parseSessions } from "@/lib/code-exam/laposte";
 import { enforceShimaore } from "@/lib/language/unknown-words";
 import { fieldError, normalizePhone, requestSchema } from "@/lib/code-exam/candidate";
-import { FOOD_DELIVERY_FEE_CENTS, priceOrder } from "@/lib/food/catalog";
+import { FOOD_CATALOG, FOOD_DELIVERY_FEE_CENTS, priceOrder } from "@/lib/food/catalog";
+import { matchFoodQuery } from "@/lib/food/match";
 
 // Extraits des réponses réelles de lecode.laposte.fr (novembre 2026).
 const PAGE = `<script>window.__NUXT__.config={public:{siteRoot:"https://www.lecode.laposte.fr",idPartenaire:"partenaire-1",baseApiVente:"https:\\u002F\\u002Fapi.laposte.fr",apiVente:"/silex-vente/v1",apiKey:"cle-1"}}</script>`;
@@ -111,20 +112,38 @@ describe("informations du candidat", () => {
 
 describe("commande de repas (prototype)", () => {
   it("calcule le total avec les prix du catalogue et la livraison", () => {
-    const order = priceOrder("kebab-du-lagon", [
-      { itemId: "kebab-classique", quantity: 2 },
-      { itemId: "soda", quantity: 1 },
+    const order = priceOrder("brochette-mangrove", [
+      { itemId: "brochette-mangrove-1", quantity: 2 },
+      { itemId: "brochette-mangrove-2", quantity: 1 },
     ]);
-    assert.equal(order?.itemsCents, 750 * 2 + 250);
-    assert.equal(order?.totalCents, 750 * 2 + 250 + FOOD_DELIVERY_FEE_CENTS);
+    assert.equal(order?.itemsCents, 250 * 2 + 1200);
+    assert.equal(order?.totalCents, 250 * 2 + 1200 + FOOD_DELIVERY_FEE_CENTS);
   });
 
   it("refuse un plat inconnu, d'un autre restaurant, ou une quantité invalide", () => {
-    assert.equal(priceOrder("kebab-du-lagon", [{ itemId: "pizza-thon", quantity: 1 }]), null);
-    assert.equal(priceOrder("kebab-du-lagon", [{ itemId: "frites", quantity: 0 }]), null);
-    assert.equal(priceOrder("kebab-du-lagon", [{ itemId: "frites", quantity: 1.5 }]), null);
-    assert.equal(priceOrder("inconnu", [{ itemId: "frites", quantity: 1 }]), null);
-    assert.equal(priceOrder("kebab-du-lagon", []), null);
+    assert.equal(priceOrder("brochette-mangrove", [{ itemId: "delices-dashi-1", quantity: 1 }]), null);
+    assert.equal(priceOrder("brochette-mangrove", [{ itemId: "brochette-mangrove-1", quantity: 0 }]), null);
+    assert.equal(priceOrder("brochette-mangrove", [{ itemId: "brochette-mangrove-1", quantity: 1.5 }]), null);
+    assert.equal(priceOrder("inconnu", [{ itemId: "brochette-mangrove-1", quantity: 1 }]), null);
+    assert.equal(priceOrder("brochette-mangrove", []), null);
+  });
+
+  it("n'a ni plat gratuit ni identifiant de plat en double", () => {
+    const items = FOOD_CATALOG.flatMap((r) => r.menu.flatMap((s) => s.items));
+    assert.ok(items.every((i) => i.priceCents > 0));
+    assert.equal(new Set(items.map((i) => i.id)).size, items.length);
+  });
+
+  it("reconnaît les restaurants cités, même mal écrits", () => {
+    const find = (query: string) => matchFoodQuery(query, FOOD_CATALOG).restaurantId;
+    assert.equal(find("Délices d'Ashi"), "delices-dashi");
+    assert.equal(find("delice d ashi"), "delices-dashi");
+    assert.equal(find("brochette mangrove"), "brochette-mangrove");
+    assert.equal(find("jéjé pizza"), "jeje-pizza-mamoudzou");
+    assert.equal(find("jeje kebab"), "jeje-kebab-mamoudzou");
+    assert.equal(find("kebab house"), "kebab-house");
+    assert.equal(find("tacos"), null);
+    assert.equal(matchFoodQuery("tacos", FOOD_CATALOG).kind, "tacos");
   });
 
   it("n'apprend la commande de repas à Awa que pour les comptes autorisés", () => {

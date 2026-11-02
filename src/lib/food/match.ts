@@ -13,6 +13,7 @@ export const DISH_KINDS: readonly DishKind[] = [
   { id: "burger", label: "Burgers", emoji: "🍔", pattern: /\b(?:burgers?|hamburgers?|cheese ?burgers?)\b/ },
   { id: "kebab", label: "Kebabs", emoji: "🥙", pattern: /\b(?:kebabs?|grecs?|galettes?|durum)\b/ },
   { id: "mahorais", label: "Plats mahorais", emoji: "🍢", pattern: /\b(?:mahorais|mataba|madaba|manioc|brochettes?|mabawa|pilao|bananes? frites?|voule)\b/ },
+  { id: "asiatique", label: "Asiatique", emoji: "🥢", pattern: /(?:asiatiques?|chinois(?:es?)?|nems?|nouilles|mines|cantonnais|[cs]hop ?suey|bol renverse|wane? ?tane?|gyozas?|dim sum|fuyung|sushis?)/ },
   { id: "poulet", label: "Poulet", emoji: "🍗", pattern: /\b(?:poulets?|ailes?|wings|nuggets?|tenders?)\b/ },
   { id: "dessert", label: "Desserts", emoji: "🍰", pattern: /\b(?:desserts?|gateaux?|glaces?|tiramisu|crepes?)\b/ },
   { id: "boisson", label: "Boissons", emoji: "🥤", pattern: /\b(?:boissons?|jus|sodas?|eau|coca)\b/ },
@@ -27,8 +28,18 @@ export const normalizeFood = (text: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
-/** Mots qui ne désignent pas un restaurant (« pizza » dans « Pizza Mangrove »). */
-const GENERIC = new Set(["le", "la", "les", "du", "de", "des", "chez", "restaurant", "resto", "snack", ...DISH_KINDS.flatMap((k) => k.id)]);
+/**
+ * Mots qui ne désignent pas un restaurant à eux seuls (« pizza » dans « Jéjé
+ * pizza Mamoudzou », la commune, les mots courants).
+ */
+const GENERIC = new Set([
+  "le", "la", "les", "du", "de", "des", "chez", "restaurant", "resto", "snack", "food", "cuisine", "traiteur", "top", "good", "eat",
+  "mamoudzou", "koungou", "dembeni", "kaweni", "passamainty", "tsararano",
+  ...DISH_KINDS.map((k) => k.id),
+]);
+
+/** Mot sans s final, pour que « délice » trouve « Délices ». */
+const stem = (word: string) => word.replace(/s$/, "");
 
 /** Type d'un plat, d'après son nom, sa description et sa rubrique (sinon, le type du restaurant). */
 export function dishKindOf(item: { name: string; description?: string }, section: string, restaurantKind: string): string | null {
@@ -41,15 +52,26 @@ export function dishKindOf(item: { name: string; description?: string }, section
 
 export type FoodQuery ={ kind: string | null; restaurantId: string | null };
 
-/** Type de plat et restaurant cherchés. Un restaurant est reconnu par un mot distinctif de son nom. */
-export function matchFoodQuery(query: string, restaurants: readonly { id: string; name: string }[]): FoodQuery {
+/**
+ * Type de plat et restaurant cherchés. Un restaurant est reconnu par les mots
+ * distinctifs de son nom : celui dont le plus de mots sont cités l'emporte
+ * (« brochette mangrove » : BROCHETTE MANGROVE, pas Pizza Mangrove), à égalité
+ * celui qui sert le plat demandé (« jéjé pizza » : Jéjé pizza, pas Jéjé kebab).
+ */
+export function matchFoodQuery(query: string, restaurants: readonly { id: string; name: string; kind: string }[]): FoodQuery {
   const text = ` ${normalizeFood(query)} `;
-  const kind = DISH_KINDS.find((k) => k.pattern.test(text))?.id ?? null;
-  const restaurant = restaurants.find((r) =>
-    normalizeFood(r.name)
+  const words = new Set(text.trim().split(" ").map(stem));
+  const kind = DISH_KINDS.find((k) => k.pattern.test(text)) ?? null;
+  let best: { id: string; score: number } | null = null;
+  for (const r of restaurants) {
+    const own = normalizeFood(r.name)
       .split(" ")
-      .filter((word) => word.length >= 3 && !GENERIC.has(word) && !GENERIC.has(word.replace(/s$/, "")))
-      .some((word) => text.includes(` ${word} `)),
-  );
-  return { kind, restaurantId: restaurant?.id ?? null };
+      .map(stem)
+      .filter((word) => word.length >= 3 && !GENERIC.has(word));
+    const found = own.filter((word) => words.has(word)).length;
+    if (!found) continue;
+    const score = found + (kind?.pattern.test(` ${normalizeFood(`${r.name} ${r.kind}`)} `) ? 0.5 : 0);
+    if (!best || score > best.score) best = { id: r.id, score };
+  }
+  return { kind: kind?.id ?? null, restaurantId: best?.id ?? null };
 }

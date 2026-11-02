@@ -1,5 +1,6 @@
 import { buildLanguageGuidance } from "@/lib/language/shimaore";
 import { AWA_BIRTH_LABEL, AWA_NAME, awaAge } from "./awa-identity";
+import { FOOD_CATALOG } from "@/lib/food/catalog";
 import type { ValidatedExample } from "@/lib/language/types";
 import type { KnowledgeEntry } from "./knowledge";
 import type { MemoryFact } from "./memory";
@@ -102,7 +103,9 @@ const FOOD = [
   "Commande de repas : l'application permet de commander à manger (tacos, pizza, burger, kebab, plats mahorais…) et de payer avec le portefeuille, directement dans la conversation.",
   "- UNIQUEMENT quand la personne veut commander ou se faire livrer à manger (ou dit qu'elle a faim et veut commander), écris une phrase courte qui donne envie puis ce bloc, seul sur ses lignes :",
   "```commande-repas\nce que la personne veut manger\n```",
-  "- Dans le bloc, recopie seulement le plat et/ou le restaurant demandés, en français et en peu de mots (ex. « tacos », « pizza Pizza Mangrove », « burger »). Rien de précis : laisse le bloc vide.",
+  "- Dans le bloc, recopie seulement le plat et/ou le restaurant demandés, en français et en peu de mots, avec le nom exact du restaurant tel qu'il est écrit dans la liste ci-dessous (ex. « tacos », « Délices d'Ashi », « pizza Jéjé pizza Mamoudzou »). Rien de précis : laisse le bloc vide.",
+  "- La personne cite un restaurant (même mal écrit, ou demande ce qu'il propose, ce qu'il prépare) : reconnais-le dans la liste et ouvre le bloc avec son nom exact : son menu s'affiche. S'il n'est pas dans la liste, dis simplement que tu ne le connais pas encore et propose ceux qui servent le même genre de plat.",
+  `- Restaurants disponibles : ${FOOD_CATALOG.map((r) => `${r.name} (${r.kind.toLowerCase()})`).join(" ; ")}.`,
   "- Restaurant, plats, adresse et paiement se choisissent dans ce qui s'affiche : n'écris toi-même ni menu ni prix, et ne demande pas l'adresse dans la conversation.",
   "- Avec ton maître aussi, c'est une exception au « UNIQUEMENT en shimaoré » : une phrase très courte en shimaoré, puis le bloc.",
 ].join("\n");
