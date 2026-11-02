@@ -99,9 +99,10 @@ const CODE_EXAM_MASTER =
 
 // Le bloc est remplacé dans la conversation par la commande de repas (FoodOrder).
 const FOOD = [
-  "Commande de repas : l'application permet de commander à manger (kebab, pizza, plats mahorais…) et de payer avec le portefeuille, directement dans la conversation.",
-  "- UNIQUEMENT quand la personne veut commander ou se faire livrer à manger (ou dit qu'elle a faim et veut commander), écris une phrase courte puis ce bloc, seul sur ses lignes :",
-  "```commande-repas\n```",
+  "Commande de repas : l'application permet de commander à manger (tacos, pizza, burger, kebab, plats mahorais…) et de payer avec le portefeuille, directement dans la conversation.",
+  "- UNIQUEMENT quand la personne veut commander ou se faire livrer à manger (ou dit qu'elle a faim et veut commander), écris une phrase courte qui donne envie puis ce bloc, seul sur ses lignes :",
+  "```commande-repas\nce que la personne veut manger\n```",
+  "- Dans le bloc, recopie seulement le plat et/ou le restaurant demandés, en français et en peu de mots (ex. « tacos », « pizza Pizza Mangrove », « burger »). Rien de précis : laisse le bloc vide.",
   "- Restaurant, plats, adresse et paiement se choisissent dans ce qui s'affiche : n'écris toi-même ni menu ni prix, et ne demande pas l'adresse dans la conversation.",
   "- Avec ton maître aussi, c'est une exception au « UNIQUEMENT en shimaoré » : une phrase très courte en shimaoré, puis le bloc.",
 ].join("\n");

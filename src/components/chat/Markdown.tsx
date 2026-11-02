@@ -24,7 +24,8 @@ const components: Components = {
   pre: ({ children }) => {
     const code = isValidElement<{ className?: string }>(children) ? children.props.className : undefined;
     if (code === `language-${CODE_EXAM_BLOCK}`) return <CodeExamSlots />;
-    if (code === `language-${FOOD_BLOCK}`) return <FoodOrder />;
+    // Le contenu du bloc dit ce que la personne veut manger (« tacos », « pizza Pizza Mangrove »).
+    if (code === `language-${FOOD_BLOCK}`) return <FoodOrder query={textOf(children).trim()} />;
     return <pre>{children}</pre>;
   },
   a: ({ href, title, children }) =>

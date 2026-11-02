@@ -26,6 +26,22 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
+/**
+ * Après une vraie connexion : le serveur reconnaît (ou non) ce navigateur et
+ * prévient par e-mail d’une connexion depuis un nouvel appareil. Une fois par
+ * onglet et par compte suffit.
+ */
+function checkDevice(userId: string) {
+  const key = `btm-appareil-verifie:${userId}`;
+  try {
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, "1");
+  } catch {
+    // Stockage indisponible (navigation privée stricte) : on vérifie quand même.
+  }
+  void fetch("/api/auth/device", { method: "POST" }).catch(() => {});
+}
+
 export function useAuth() {
   const value = use(AuthContext);
   if (!value) throw new Error("useAuth doit être utilisé dans <AuthProvider>.");
@@ -96,6 +112,7 @@ export function AuthProvider({
         router.refresh();
       } else if (event === "SIGNED_IN" && session?.user) {
         const sessionUser = session.user;
+        checkDevice(sessionUser.id);
         setUser((current) => {
           if (current?.id === sessionUser.id) return current;
           router.refresh();

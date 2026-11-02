@@ -5,8 +5,9 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { BrandLogo } from "@/components/brand/BrandLogo";
-import { IconClose, IconDashboard, IconLock, IconPlus, IconSettings, IconSidebar, IconTrash } from "@/components/ui/icons";
+import { IconClose, IconDashboard, IconLock, IconPlus, IconSettings, IconSidebar } from "@/components/ui/icons";
 import { AccountMenu } from "./AccountMenu";
+import { ConversationItem } from "./ConversationItem";
 import { useChatShell } from "./ChatShell";
 
 const COLLAPSED_KEY = "btm.sidebar.collapsed";
@@ -156,28 +157,15 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                 {conversations.map((conversation) => {
                   const active = pathname === `/c/${conversation.id}`;
                   return (
-                    <li key={conversation.id} className="group relative">
-                      <Link
-                        href={`/c/${conversation.id}`}
-                        onClick={onClose}
-                        aria-current={active ? "page" : undefined}
-                        className={`block truncate rounded-lg py-2 pr-9 pl-2 text-sm ${
-                          active ? "bg-bg-muted font-medium" : "hover:bg-bg-muted"
-                        }`}
-                      >
-                        {conversation.title}
-                      </Link>
-                      <button
-                        type="button"
-                        onClick={() => handleDelete(conversation.id, conversation.title)}
-                        disabled={deletingId === conversation.id}
-                        aria-label={`Supprimer « ${conversation.title} »`}
-                        // Souris : visible au survol. Tactile (téléphone, iPad) : toujours visible, sinon introuvable.
-                        className="absolute top-1/2 right-1 -translate-y-1/2 rounded-md p-1.5 text-fg-muted opacity-100 hover:bg-bg hover:text-danger focus:opacity-100 pointer-coarse:p-2 pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100"
-                      >
-                        <IconTrash width={15} height={15} />
-                      </button>
-                    </li>
+                    <ConversationItem
+                      key={conversation.id}
+                      id={conversation.id}
+                      title={conversation.title}
+                      active={active}
+                      deleting={deletingId === conversation.id}
+                      onNavigate={onClose}
+                      onDelete={() => handleDelete(conversation.id, conversation.title)}
+                    />
                   );
                 })}
               </ul>

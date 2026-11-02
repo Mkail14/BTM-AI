@@ -5,7 +5,10 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { IconClose } from "@/components/ui/icons";
+import { AddressFields, EMPTY_ADDRESS, type AddressDraft } from "@/components/ui/AddressFields";
 import { PasswordInput } from "@/components/ui/PasswordInput";
+import { addressFieldErrors } from "@/lib/address";
+import { DISPOSABLE_EMAIL_MESSAGE, isDisposableEmail } from "@/lib/auth/disposable-email";
 import {
   isPasswordValid,
   MAX_DISPLAY_NAME_LENGTH,
@@ -379,6 +382,7 @@ function SignUpForm({
   onGoToSignIn: () => void;
 }) {
   const [displayName, setDisplayName] = useState("");
+  const [address, setAddress] = useState<AddressDraft>(EMPTY_ADDRESS);
   const [password, setPassword] = useState("");
   const [consent, setConsent] = useState(false);
   const [pending, setPending] = useState(false);
@@ -388,6 +392,8 @@ function SignUpForm({
   const checks = passwordChecks(password, email);
   const passwordOk = isPasswordValid(password, email);
   const suggestion = suggestEmailCorrection(email);
+  const disposable = isDisposableEmail(email);
+  const addressErrors = addressFieldErrors(address);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -396,6 +402,14 @@ function SignUpForm({
     const name = normalizeDisplayName(displayName);
     if (!name) {
       setError({ message: "Indiquez comment vous souhaitez qu'on vous appelle." });
+      return;
+    }
+    if (disposable) {
+      setError({ message: DISPOSABLE_EMAIL_MESSAGE });
+      return;
+    }
+    if (addressErrors.commune || addressErrors.line) {
+      setError({ message: addressErrors.commune ?? addressErrors.line ?? "" });
       return;
     }
     if (!passwordOk) {
@@ -417,7 +431,8 @@ function SignUpForm({
         password,
         options: {
           emailRedirectTo: confirmationRedirect(next),
-          data: { display_name: name },
+          // Recopiés dans le profil par la base (handle_new_user), qui les revérifie.
+          data: { display_name: name, address_commune: address.commune, address_line: address.line.replace(/s+/g, " ").trim() },
         },
       });
       if (signUpError) {
@@ -469,7 +484,11 @@ function SignUpForm({
           aria-describedby={suggestion ? "signup-email-suggestion" : undefined}
           className={`mt-1.5 ${INPUT_CLASS}`}
         />
-        {suggestion ? (
+        {disposable ? (
+          <p className="mt-1.5 text-sm text-danger" aria-live="polite">
+            {DISPOSABLE_EMAIL_MESSAGE}
+          </p>
+        ) : suggestion ? (
           <p id="signup-email-suggestion" className="mt-1.5 text-sm text-fg-muted" aria-live="polite">
             Vouliez-vous dire{" "}
             <button
@@ -483,6 +502,21 @@ function SignUpForm({
           </p>
         ) : null}
       </Field>
+
+      <fieldset>
+        <legend className="text-sm font-medium">Votre adresse</legend>
+        <p className="mt-0.5 mb-2 text-xs text-fg-muted">
+          Elle sert aux services BTM (livraisons…). Pas d&apos;inquiétude si elle n&apos;est pas parfaite : elle vous sera
+          redemandée à chaque livraison, avec la possibilité de la corriger ou d&apos;utiliser votre position.
+        </p>
+        <AddressFields
+          id="signup-address"
+          value={address}
+          onChange={setAddress}
+          errors={submitted ? addressErrors : { commune: null, line: null }}
+          inputClass={`mt-1.5 ${INPUT_CLASS}`}
+        />
+      </fieldset>
 
       <div>
         <label htmlFor="signup-password" className="block text-sm font-medium">

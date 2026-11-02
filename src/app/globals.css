@@ -671,14 +671,21 @@ html.chargement body {
 }
 
 /*
- * Tableau de bord sur un seul écran (dès 768 px, comme md:h-dvh) : la page
- * entière ne défile pas, même si un élément ajouté hors du cadre (portail,
- * lien d'évitement…) la dépasse de quelques pixels.
+ * Tableau de bord figé sur un seul écran, téléphone compris : la page ne
+ * défile pas du tout. Sur iPhone, overflow seul ne suffit pas (effet élastique,
+ * « tirer pour rafraîchir ») : html et body sont bloqués, et le cadre est
+ * épinglé à l'écran (.ecran-fixe en position fixed).
  */
-@media (min-width: 768px) {
-  html:has(.ecran-fixe) {
-    overflow: hidden;
-  }
+html:has(.ecran-fixe),
+html:has(.ecran-fixe) body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+.ecran-fixe {
+  position: fixed;
+  inset: 0;
+  overscroll-behavior: none;
 }
 
 /*

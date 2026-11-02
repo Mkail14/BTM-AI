@@ -7,7 +7,8 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 const MIN_PASSWORD_LENGTH = 8;
 
-export function UpdatePasswordForm() {
+/** `reason` : après un oubli (lien reçu par e-mail) ou une simple modification. */
+export function UpdatePasswordForm({ reason }: { reason: "oubli" | "modification" }) {
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [pending, setPending] = useState(false);
@@ -41,6 +42,12 @@ export function UpdatePasswordForm() {
         );
       } else {
         setDone(true);
+        // E-mail de confirmation, envoyé par le serveur ; sans effet sur l’écran.
+        void fetch("/api/auth/password-notice", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reason }),
+        }).catch(() => {});
       }
     } catch {
       setError("Connexion au service impossible. Vérifiez votre connexion internet.");

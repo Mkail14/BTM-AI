@@ -11,6 +11,7 @@ import {
   IconDashboard,
   IconDatabase,
   IconLanguage,
+  IconMail,
   IconMenu,
   IconSettings,
   IconSparkle,
@@ -52,6 +53,7 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
     items: [
       { label: "Utilisateurs", icon: IconUsers, href: "/admin/utilisateurs" },
       { label: "Circuit d'Awa", icon: IconChip, href: "/admin/circuit" },
+      { label: "E-mails", icon: IconMail, href: "/admin/emails" },
     ],
   },
 ];

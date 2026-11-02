@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { getAuthContext } from "@/lib/auth/session";
 import { requestSchema } from "@/lib/code-exam/candidate";
 import { loadCodeExam } from "@/lib/code-exam/laposte";
+import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
 
 const fail = (status: number, message: string) => NextResponse.json({ error: message }, { status });
@@ -48,6 +49,9 @@ export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return fail(403, "Requête refusée.");
   const { supabase, user } = await getAuthContext();
   if (!supabase || !user) return fail(401, "Connecte-toi pour réserver.");
+
+  const limit = await consumeRateLimits([{ key: `code-exam:${user.id}`, rules: RATE_LIMIT_POLICIES.codeExamRequest }]);
+  if (!limit.allowed) return fail(429, "Trop de demandes d'un coup : réessaie dans une heure.");
 
   const parsed = requestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail(400, parsed.error.issues[0]?.message ?? "Informations invalides.");

@@ -70,12 +70,16 @@ function Card({
   );
 }
 
-function Tile({ label, value, hint }: { label: string; value: string; hint?: string }) {
+/** Chiffre clé. Téléphone : libellé court, sans détail, pour tenir à quatre sur une ligne. */
+function Tile({ label, short, value, hint }: { label: string; short: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-2xl border border-border bg-bg px-4 py-3">
-      <dt className="truncate text-xs text-fg-muted">{label}</dt>
-      <dd className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">{value}</dd>
-      {hint ? <dd className="truncate text-xs text-fg-muted">{hint}</dd> : null}
+    <div className="flex min-w-0 flex-col rounded-2xl border border-border bg-bg px-2.5 py-2 md:px-4 md:py-3">
+      <dt className="order-2 truncate text-[11px] text-fg-muted md:order-1 md:text-xs">
+        <span className="md:hidden">{short}</span>
+        <span className="hidden md:inline">{label}</span>
+      </dt>
+      <dd className="order-1 text-lg font-semibold tracking-tight tabular-nums md:order-2 md:mt-1 md:text-2xl">{value}</dd>
+      {hint ? <dd className="order-3 hidden truncate text-xs text-fg-muted md:block">{hint}</dd> : null}
     </div>
   );
 }
@@ -94,9 +98,39 @@ const ALERT_STYLES: Record<AdminAlert["level"], { label: string; icon: string; b
   info: { label: "Info", icon: "i", box: "border-border bg-bg-subtle", badge: "bg-fg-muted text-bg" },
 };
 
+/** Téléphone : une pastille « 3 points à vérifier » ; la liste s'ouvre par-dessus la page, sans la pousser. */
+function AlertsSummary({ alerts }: { alerts: AdminAlert[] }) {
+  const critical = alerts.some((a) => a.level === "critical");
+  return (
+    <details className="group relative md:hidden">
+      <summary
+        className={`flex cursor-pointer list-none items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium [&::-webkit-details-marker]:hidden ${
+          critical ? "border-danger/40 bg-danger-soft text-danger" : "border-border bg-warning-soft"
+        }`}
+      >
+        <span
+          aria-hidden="true"
+          className={`grid size-5 place-items-center rounded-full text-[11px] font-bold ${critical ? "bg-danger text-white" : "bg-fg text-bg"}`}
+        >
+          !
+        </span>
+        <span className="flex-1">
+          {alerts.length} point{alerts.length > 1 ? "s" : ""} à vérifier
+        </span>
+        <span aria-hidden="true" className="text-fg-muted transition-transform group-open:rotate-180">
+          ⌄
+        </span>
+      </summary>
+      <div className="absolute inset-x-0 top-full z-30 mt-2 max-h-[60dvh] overflow-y-auto overscroll-contain rounded-2xl border border-border bg-bg p-2 shadow-xl">
+        <Alerts alerts={alerts} />
+      </div>
+    </details>
+  );
+}
+
 function Alerts({ alerts }: { alerts: AdminAlert[] }) {
   return (
-    <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 md:grid-cols-1">
+    <ul className="grid grid-cols-1 gap-2">
       {alerts.map((alert) => {
         const style = ALERT_STYLES[alert.level];
         return (
@@ -146,7 +180,7 @@ function ActivityChart({ daily }: { daily: AdminOverview["daily"] }) {
   const longLabel = (day: string) => weekdayFormat.format(new Date(`${day}T00:00:00Z`));
 
   return (
-    <div className="flex min-h-40 flex-1 flex-col md:min-h-0">
+    <div className="flex min-h-24 flex-1 flex-col md:min-h-0">
       <div className="flex min-h-0 flex-1 gap-2">
         {/* Graduations : valeurs rondes, quadrillage discret */}
         <div className="flex flex-col justify-between text-right text-[11px] text-fg-muted tabular-nums" aria-hidden="true">
@@ -264,24 +298,24 @@ function ProgressCard({
   const clamped = Math.min(Math.max(ratio, 0), 1);
   const percent = Math.round(clamped * 100);
   return (
-    <section className="rounded-2xl border border-border bg-bg px-4 py-3">
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-semibold">{title}</h2>
+    <section className="min-w-0 rounded-2xl border border-border bg-bg px-3 py-2.5 md:px-4 md:py-3">
+      <div className="flex items-baseline justify-between gap-2">
+        <h2 className="truncate text-xs font-semibold md:text-sm">{title}</h2>
         <span className="text-xs text-fg-muted tabular-nums">{percent} %</span>
       </div>
-      <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums">{value}</p>
+      <p className="mt-0.5 truncate text-lg font-semibold tracking-tight tabular-nums md:mt-1 md:text-2xl">{value}</p>
       <div
         role="progressbar"
         aria-label={title}
         aria-valuemin={0}
         aria-valuemax={100}
         aria-valuenow={percent}
-        className="mt-2 h-2.5 overflow-hidden rounded-full bg-bg-muted"
+        className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-bg-muted md:mt-2 md:h-2.5"
       >
         {/* Au moins un trait visible dès qu'il y a quelque chose. */}
         <div className={`h-full rounded-full ${bar}`} style={{ width: `${clamped > 0 ? Math.max(clamped * 100, 1) : 0}%` }} />
       </div>
-      <p className="mt-1.5 text-xs text-fg-muted">{children}</p>
+      <p className="mt-1.5 hidden text-xs text-fg-muted md:block">{children}</p>
     </section>
   );
 }
@@ -447,13 +481,13 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
     : "Statistiques indisponibles : SUPABASE_SECRET_KEY n'est pas définie.";
 
   return (
-    // Écran fixe dès 768 px de large : le graphique et la liste des comptes rétrécissent, seule la liste défile.
-    <div className="ecran-fixe flex min-h-dvh flex-col bg-bg-subtle md:h-dvh md:overflow-hidden">
+    // Un seul écran, téléphone compris : le graphique prend la place restante, seule la liste des comptes défile.
+    <div className="ecran-fixe flex flex-col overflow-hidden bg-bg-subtle">
       <AdminHeader />
 
       <main
         id="contenu"
-        className={`mx-auto grid w-full max-w-[1600px] min-h-0 flex-1 grid-cols-[minmax(0,1fr)] gap-4 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] md:grid-cols-[minmax(0,1fr)_18rem] xl:grid-cols-[minmax(0,1fr)_22rem] ${
+        className={`mx-auto flex w-full max-w-[1600px] min-h-0 flex-1 flex-col gap-3 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:grid md:grid-cols-[minmax(0,1fr)_18rem] md:gap-4 md:p-4 xl:grid-cols-[minmax(0,1fr)_22rem] ${
           alerts.length > 0 ? "md:grid-rows-[auto_minmax(0,1fr)]" : ""
         }`}
       >
@@ -461,36 +495,42 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
 
         {/* Rien quand tout va bien ; en cas de problème, en tête sur mobile et au-dessus des comptes sur ordinateur. */}
         {alerts.length > 0 ? (
-          <section aria-label="Problèmes à régler" className="md:col-start-2 md:row-start-1">
-            <Alerts alerts={alerts} />
+          <section aria-label="Problèmes à régler" className="shrink-0 md:col-start-2 md:row-start-1">
+            <AlertsSummary alerts={alerts} />
+            <div className="hidden md:block">
+              <Alerts alerts={alerts} />
+            </div>
           </section>
         ) : null}
 
         {/* Colonne principale : progressions, chiffres clés, activité */}
         <div
-          className={`flex min-h-0 flex-col gap-4 md:col-start-1 md:row-start-1 ${alerts.length > 0 ? "md:row-span-2" : ""}`}
+          className={`flex min-h-0 flex-1 flex-col gap-3 md:col-start-1 md:row-start-1 md:gap-4 ${alerts.length > 0 ? "md:row-span-2" : ""}`}
         >
           {/* Les deux progressions à suivre : le vocabulaire d'Awa et le crédit payé. */}
-          <div className="grid shrink-0 grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="grid shrink-0 grid-cols-2 gap-3 md:gap-4">
             <AwaProgressCard progress={progress} />
             <GoogleCreditCard spend={spend} />
           </div>
 
           {overview ? (
-            <dl className="grid shrink-0 grid-cols-2 gap-3 xl:grid-cols-4" aria-label="Chiffres clés">
+            <dl className="grid shrink-0 grid-cols-4 gap-2 md:grid-cols-2 md:gap-3 xl:grid-cols-4" aria-label="Chiffres clés">
               <Tile
                 label="Messages aujourd'hui"
+                short="Messages"
                 value={fmt(overview.questionsToday + overview.anonMessagesToday)}
                 hint={`${fmt(overview.questionsToday)} comptes · ~${fmt(overview.anonMessagesToday)} visiteurs`}
               />
               <Tile
                 label="Utilisateurs actifs (7 j)"
+                short="Actifs 7 j"
                 value={fmt(overview.usersActive7d)}
                 hint={`${fmt(overview.usersTotal)} inscrits au total`}
               />
-              <Tile label="Inscriptions (7 j)" value={fmt(overview.usersNew7d)} hint={`${fmt(overview.usersNewToday)} aujourd'hui`} />
+              <Tile label="Inscriptions (7 j)" short="Inscrits 7 j" value={fmt(overview.usersNew7d)} hint={`${fmt(overview.usersNewToday)} aujourd'hui`} />
               <Tile
                 label="Réponses en erreur (7 j)"
+                short="Erreurs"
                 value={pct(overview.errors7d, overview.answers7d)}
                 hint={`${fmt(overview.errors7d)} sur ${fmt(overview.answers7d)} réponses`}
               />
@@ -501,19 +541,33 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
             id="activite"
             title="Questions des comptes connectés · 14 jours"
             aside={overview ? `${fmt(overview.questions7d)} sur 7 j · ${fmt(overview.questions30d)} sur 30 j` : undefined}
-            className="min-h-64 flex-1 md:min-h-0"
+            className="min-h-0 flex-1"
           >
             {overview ? <ActivityChart daily={overview.daily} /> : <Unavailable>{statsMissing}</Unavailable>}
           </Card>
         </div>
 
         {/* Colonne latérale : comptes */}
-        <div className={`flex min-h-0 flex-col gap-4 md:col-start-2 ${alerts.length > 0 ? "md:row-start-2" : "md:row-start-1"}`}>
+        {/* Téléphone : un lien vers la page des comptes à la place de la liste. */}
+        <Link
+          href="/admin/utilisateurs"
+          className="flex shrink-0 items-center justify-between rounded-2xl border border-border bg-bg px-4 py-3 text-sm md:hidden"
+        >
+          <span>
+            <span className="font-semibold">Comptes{usersPage ? ` (${fmt(usersPage.total)})` : ""}</span>
+            {overview ? <span className="text-fg-muted"> · {fmt(overview.conversationsTotal)} conversations</span> : null}
+          </span>
+          <span aria-hidden="true" className="text-fg-muted">
+            →
+          </span>
+        </Link>
+
+        <div className={`hidden min-h-0 flex-col gap-4 md:col-start-2 md:flex ${alerts.length > 0 ? "md:row-start-2" : "md:row-start-1"}`}>
           <Card
             id="comptes"
             title={usersPage ? `Comptes (${fmt(usersPage.total)})` : "Comptes"}
             aside={overview ? `${fmt(overview.conversationsTotal)} conversations` : undefined}
-            className="min-h-72 flex-1 md:min-h-0"
+            className="min-h-0 flex-1"
           >
             {usersPage ? (
               <>

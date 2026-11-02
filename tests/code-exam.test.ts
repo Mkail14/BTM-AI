@@ -104,7 +104,7 @@ describe("informations du candidat", () => {
 
   it("reconnaît les numéros de Mayotte et de métropole", () => {
     assert.equal(normalizePhone("0639.12.34.56"), "0639123456");
-    assert.equal(normalizePhone("0033 6 12 34 56 78"), "0612345678");
+    assert.equal(normalizePhone("0033 6 24 81 57 93"), "0624815793");
     assert.equal(normalizePhone("639123456"), null);
   });
 });

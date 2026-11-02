@@ -245,3 +245,18 @@ export const IconGauge = (p: IconProps) => (
     <circle cx="12" cy="13" r="1" />
   </Icon>
 );
+
+export const IconDots = (p: IconProps) => (
+  <Icon {...p}>
+    <circle cx="5" cy="12" r="1.3" fill="currentColor" stroke="none" />
+    <circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" />
+    <circle cx="19" cy="12" r="1.3" fill="currentColor" stroke="none" />
+  </Icon>
+);
+
+export const IconMail = (p: IconProps) => (
+  <Icon {...p}>
+    <rect x="3" y="5" width="18" height="14" rx="2.5" />
+    <path d="m4 7 8 6 8-6" />
+  </Icon>
+);

@@ -11,7 +11,14 @@
 
 export const FOOD_DEMO = true;
 
-export type FoodItem = { id: string; name: string; description?: string; priceCents: number };
+export type FoodItem = {
+  id: string;
+  name: string;
+  description?: string;
+  priceCents: number;
+  /** Photo fournie par le restaurant partenaire (sinon, une vignette illustrée). */
+  photo?: string;
+};
 export type FoodSection = { title: string; items: FoodItem[] };
 export type FoodRestaurant = {
   id: string;
@@ -20,6 +27,8 @@ export type FoodRestaurant = {
   /** Délai de préparation et livraison annoncé, en minutes. */
   etaMinutes: [number, number];
   emoji: string;
+  /** Commune du restaurant (une de FOOD_ZONES). */
+  commune: string;
   menu: FoodSection[];
 };
 
@@ -30,6 +39,7 @@ export const FOOD_CATALOG: readonly FoodRestaurant[] = [
     kind: "Kebab",
     etaMinutes: [25, 40],
     emoji: "🥙",
+    commune: "Mamoudzou",
     menu: [
       {
         title: "Sandwichs",
@@ -37,6 +47,7 @@ export const FOOD_CATALOG: readonly FoodRestaurant[] = [
           { id: "kebab-classique", name: "Kebab classique", description: "Viande, salade, tomate, oignon", priceCents: 750 },
           { id: "kebab-galette", name: "Galette kebab", description: "Roulé dans une galette", priceCents: 800 },
           { id: "kebab-poulet", name: "Kebab poulet", description: "Poulet mariné, crudités", priceCents: 750 },
+          { id: "kebab-tacos", name: "Tacos kebab", description: "Viande kebab, frites, sauce fromagère", priceCents: 850 },
         ],
       },
       {
@@ -62,6 +73,7 @@ export const FOOD_CATALOG: readonly FoodRestaurant[] = [
     kind: "Pizza",
     etaMinutes: [35, 50],
     emoji: "🍕",
+    commune: "Mamoudzou",
     menu: [
       {
         title: "Pizzas",
@@ -87,6 +99,7 @@ export const FOOD_CATALOG: readonly FoodRestaurant[] = [
     kind: "Mahorais",
     etaMinutes: [30, 45],
     emoji: "🍢",
+    commune: "Dembéni",
     menu: [
       {
         title: "Plats",
@@ -102,10 +115,110 @@ export const FOOD_CATALOG: readonly FoodRestaurant[] = [
       },
     ],
   },
+  {
+    id: "tacos-lagon-street",
+    name: "Lagon Street Tacos",
+    kind: "Tacos",
+    etaMinutes: [20, 35],
+    emoji: "🌮",
+    commune: "Mamoudzou",
+    menu: [
+      {
+        title: "Tacos",
+        items: [
+          { id: "lst-tacos-poulet", name: "Tacos poulet", description: "Poulet, frites, sauce fromagère", priceCents: 800 },
+          { id: "lst-tacos-viande", name: "Tacos viande hachée", description: "Viande hachée, frites, sauce algérienne", priceCents: 850 },
+          { id: "lst-tacos-mixte", name: "Tacos mixte XL", description: "Deux viandes, frites, cheddar", priceCents: 1100 },
+          { id: "lst-tacos-cordon", name: "Tacos cordon bleu", description: "Cordon bleu, frites, sauce blanche", priceCents: 900 },
+        ],
+      },
+      {
+        title: "À côté",
+        items: [
+          { id: "lst-nuggets", name: "Nuggets x6", priceCents: 400 },
+          { id: "lst-soda", name: "Soda 33 cl", priceCents: 250 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "tacos-koungou",
+    name: "Koungou Tacos House",
+    kind: "Tacos",
+    etaMinutes: [25, 40],
+    emoji: "🌮",
+    commune: "Koungou",
+    menu: [
+      {
+        title: "Tacos",
+        items: [
+          { id: "kth-tacos-classique", name: "Tacos classique", description: "Poulet ou viande, frites, sauce maison", priceCents: 750 },
+          { id: "kth-tacos-coco", name: "Tacos poulet coco", description: "Poulet au coco, frites, oignons", priceCents: 900 },
+          { id: "kth-tacos-geant", name: "Tacos géant", description: "Trois viandes, frites, gratiné", priceCents: 1300 },
+        ],
+      },
+      {
+        title: "Boissons",
+        items: [
+          { id: "kth-jus", name: "Jus local", description: "Goyave ou maracuja", priceCents: 300 },
+          { id: "kth-eau", name: "Eau 50 cl", priceCents: 150 },
+        ],
+      },
+    ],
+  },
+  {
+    id: "tacos-dembeni",
+    name: "Tacos Grill Tsararano",
+    kind: "Tacos",
+    etaMinutes: [30, 45],
+    emoji: "🌮",
+    commune: "Dembéni",
+    menu: [
+      {
+        title: "Tacos",
+        items: [
+          { id: "tgt-tacos-brochette", name: "Tacos brochette", description: "Brochettes grillées, frites, piment doux", priceCents: 900 },
+          { id: "tgt-tacos-poulet", name: "Tacos poulet grillé", description: "Poulet grillé, frites, sauce blanche", priceCents: 800 },
+        ],
+      },
+      {
+        title: "Boissons",
+        items: [{ id: "tgt-soda", name: "Soda 33 cl", priceCents: 250 }],
+      },
+    ],
+  },
+  {
+    id: "burger-baobab",
+    name: "Baobab Burger",
+    kind: "Burger",
+    etaMinutes: [25, 40],
+    emoji: "🍔",
+    commune: "Mamoudzou",
+    menu: [
+      {
+        title: "Burgers",
+        items: [
+          { id: "bb-cheese", name: "Cheeseburger", description: "Bœuf, cheddar, cornichons", priceCents: 850 },
+          { id: "bb-double", name: "Double burger", description: "Deux steaks, cheddar, oignons frits", priceCents: 1150 },
+          { id: "bb-poulet", name: "Burger poulet croustillant", description: "Poulet pané, salade, sauce", priceCents: 950 },
+        ],
+      },
+      {
+        title: "Desserts",
+        items: [
+          { id: "bb-glace", name: "Glace coco", priceCents: 350 },
+          { id: "bb-gateau", name: "Gâteau au chocolat", priceCents: 400 },
+        ],
+      },
+    ],
+  },
 ];
 
-/** Communes livrées (centre et nord de Grande-Terre). */
-export const FOOD_ZONES = ["Mamoudzou", "Kawéni", "Koungou", "Passamainty", "Tsararano"] as const;
+/**
+ * Communes livrées, comparées à la commune de l'adresse du compte (Kawéni et
+ * Passamainty sont dans Mamoudzou, Tsararano dans Dembéni).
+ */
+export const FOOD_ZONES: readonly string[] = ["Mamoudzou", "Koungou", "Dembéni"];
 
 export const FOOD_DELIVERY_FEE_CENTS = 350;
 export const FOOD_MAX_QUANTITY = 20;

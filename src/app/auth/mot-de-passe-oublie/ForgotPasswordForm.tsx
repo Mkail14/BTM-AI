@@ -17,7 +17,8 @@ export function ForgotPasswordForm() {
     setError(null);
     try {
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/callback?next=/auth/nouveau-mot-de-passe`,
+        // « origine=oubli » : l’e-mail de confirmation dira « nouveau mot de passe créé ».
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/auth/nouveau-mot-de-passe?origine=oubli")}`,
       });
       if (resetError?.code === "over_email_send_rate_limit" || resetError?.code === "over_request_rate_limit") {
         setError("L'envoi d'e-mails est momentanément saturé. Réessayez un peu plus tard.");

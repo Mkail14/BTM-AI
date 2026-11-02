@@ -3,21 +3,23 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import type { FoodResponse } from "@/app/api/food/route";
+import { AddressFields, EMPTY_ADDRESS, type AddressDraft } from "@/components/ui/AddressFields";
 import { IconClose } from "@/components/ui/icons";
+import { addressFieldErrors } from "@/lib/address";
 import { fieldError } from "@/lib/code-exam/candidate";
 import type { FoodCartLine, FoodRestaurant } from "@/lib/food/catalog";
 import { formatEuros } from "@/lib/wallet/limits";
+import { OrderTicket } from "./OrderTicket";
 
 const INPUT_CLASS =
   "mt-1.5 w-full rounded-xl border border-border bg-bg px-3.5 py-3 text-base outline-none transition-colors focus:border-[var(--persona,var(--accent))] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--persona,var(--accent))_20%,transparent)] sm:py-2.5";
 const PRIMARY =
   "w-full rounded-xl px-4 py-3.5 text-base font-semibold text-white transition hover:brightness-110 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45 disabled:hover:brightness-100 sm:py-2.5 sm:text-sm";
 const PERSONA = "var(--persona,var(--accent))";
-/** Dernière adresse de livraison, gardée sur l'appareil pour la prochaine commande. */
-const STORAGE_KEY = "btm-ai-livraison";
+/** Ancienne copie de l'adresse et du téléphone en clair sur l'appareil : effacée (ils sont dans le profil). */
+const LEGACY_STORAGE_KEY = "btm-ai-livraison";
 
 type Step = "delivery" | "pay" | "done";
-type Delivery = { address: string; zone: string; phone: string; note: string };
 
 const time = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Indian/Mayotte" });
 
@@ -25,6 +27,10 @@ const time = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digi
  * Paiement d'une commande de repas, au centre du site sur fond flouté (même
  * fenêtre que la réservation du code) : adresse de livraison, puis
  * récapitulatif payé avec le portefeuille, puis confirmation.
+ *
+ * L'adresse du compte peut être fausse ou ancienne : elle est reconfirmée à
+ * chaque commande (« Oui, c'est ici »), sinon corrigée ou remplacée par la
+ * position GPS, et gardée pour la fois suivante.
  */
 export function FoodCheckoutDialog({
   data,
@@ -45,34 +51,35 @@ export function FoodCheckoutDialog({
   const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const [step, setStep] = useState<Step>("delivery");
-  const [delivery, setDelivery] = useState<Delivery>({ address: "", zone: "", phone: "", note: "" });
+  const [address, setAddress] = useState<AddressDraft>(data.address ?? EMPTY_ADDRESS);
+  // Pas d'adresse enregistrée : le formulaire est ouvert d'emblée.
+  const [editingAddress, setEditingAddress] = useState(!data.address);
+  const [saveAddress, setSaveAddress] = useState(true);
+  // Numéro enregistré : seule sa version masquée est connue ici, le serveur le réutilise.
+  const [editingPhone, setEditingPhone] = useState(!data.savedPhone);
+  const [phone, setPhone] = useState("");
+  const [note, setNote] = useState("");
   const [tried, setTried] = useState(false);
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [arrivesAt, setArrivesAt] = useState<string | null>(null);
+  const [code, setCode] = useState<string | null>(null);
 
   useEffect(() => {
     ref.current?.showModal();
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "null") as Partial<Delivery> | null;
-      // Adresse de la dernière commande : pré-remplie.
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      if (saved) setDelivery((d) => ({ ...d, ...saved, note: "" }));
-    } catch {
-      // Rien d'enregistré.
-    }
+    localStorage.removeItem(LEGACY_STORAGE_KEY);
   }, []);
 
   const totalCents = itemsCents + data.deliveryCents;
   const missingCents = Math.max(0, totalCents - data.balanceCents);
-  const errors = {
-    address: delivery.address.trim().length < 5 ? "Indique ton adresse (rue, quartier, repère)." : null,
-    zone: delivery.zone ? null : "Choisis ta commune.",
-    phone: fieldError("phone", delivery.phone),
-  };
-  const deliveryValid = !errors.address && !errors.zone && !errors.phone;
+  const addressErrors = addressFieldErrors(address);
+  const zoneError =
+    address.commune && !data.zones.includes(address.commune)
+      ? `On ne livre pas encore à ${address.commune} (seulement ${data.zones.join(", ")}).`
+      : null;
+  const phoneError = editingPhone ? fieldError("phone", phone) : null;
+  const deliveryValid = !addressErrors.commune && !addressErrors.line && !zoneError && !phoneError;
   const items = new Map(restaurant.menu.flatMap((s) => s.items).map((i) => [i.id, i]));
-  const set = (field: keyof Delivery, value: string) => setDelivery((d) => ({ ...d, [field]: value }));
 
   async function pay() {
     setPaying(true);
@@ -81,15 +88,23 @@ export function FoodCheckoutDialog({
       const res = await fetch("/api/food", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ restaurantId: restaurant.id, cart: lines, ...delivery, note: delivery.note || undefined }),
+        body: JSON.stringify({
+          restaurantId: restaurant.id,
+          cart: lines,
+          address,
+          // Adresse corrigée : gardée pour la prochaine fois si la personne le veut.
+          saveAddress: editingAddress && saveAddress,
+          phone: editingPhone ? phone : undefined,
+          note: note || undefined,
+        }),
       });
-      const body = (await res.json().catch(() => ({}))) as { arrivesAt?: string; error?: string };
+      const body = (await res.json().catch(() => ({}))) as { arrivesAt?: string; code?: string; error?: string };
       if (!res.ok) {
         setError(body.error ?? "Paiement impossible.");
         return;
       }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({ address: delivery.address, zone: delivery.zone, phone: delivery.phone }));
       setArrivesAt(body.arrivesAt ?? null);
+      setCode(body.code ?? null);
       setStep("done");
       onPaid();
     } catch {
@@ -154,74 +169,91 @@ export function FoodCheckoutDialog({
               }}
               className="space-y-3.5"
             >
-              <div>
-                <span id={`${titleId}-zone`} className="block text-sm font-medium">
-                  Commune
-                </span>
-                <div className="mt-1.5 flex flex-wrap gap-1.5" role="radiogroup" aria-labelledby={`${titleId}-zone`}>
-                  {data.zones.map((z) => (
-                    <button
-                      key={z}
-                      type="button"
-                      role="radio"
-                      aria-checked={delivery.zone === z}
-                      onClick={() => set("zone", z)}
-                      className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
-                        delivery.zone === z ? "border-transparent text-white" : "border-border hover:bg-bg-muted"
-                      }`}
-                      style={delivery.zone === z ? { background: PERSONA } : undefined}
-                    >
-                      {z}
-                    </button>
-                  ))}
+              {editingAddress ? (
+                <div>
+                  <AddressFields
+                    id={`${titleId}-address`}
+                    value={address}
+                    onChange={setAddress}
+                    errors={tried ? addressErrors : { commune: null, line: null }}
+                    inputClass={INPUT_CLASS}
+                    gps
+                  />
+                  {errorLine(zoneError)}
+                  {data.address ? (
+                    <label className="mt-2.5 flex cursor-pointer items-center gap-2.5 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={saveAddress}
+                        onChange={(e) => setSaveAddress(e.target.checked)}
+                        className="size-4 shrink-0 accent-[var(--persona,var(--accent))]"
+                      />
+                      Garder cette adresse pour les prochaines fois
+                    </label>
+                  ) : null}
                 </div>
-                {errorLine(errors.zone)}
-              </div>
-              <div>
-                <label htmlFor={`${titleId}-address`} className="block text-sm font-medium">
-                  Adresse
-                </label>
-                <input
-                  id={`${titleId}-address`}
-                  value={delivery.address}
-                  onChange={(e) => set("address", e.target.value)}
-                  autoComplete="street-address"
-                  placeholder="Rue, quartier, repère (près de la mosquée…)"
-                  className={fieldClass(errors.address)}
-                />
-                {errorLine(errors.address)}
-              </div>
-              <div>
-                <label htmlFor={`${titleId}-phone`} className="block text-sm font-medium">
-                  Téléphone du livreur
-                </label>
-                <input
-                  id={`${titleId}-phone`}
-                  value={delivery.phone}
-                  onChange={(e) => set("phone", e.target.value)}
-                  type="tel"
-                  inputMode="tel"
-                  autoComplete="tel"
-                  placeholder="0639 12 34 56"
-                  className={fieldClass(errors.phone)}
-                />
-                {errorLine(errors.phone)}
-              </div>
+              ) : (
+                // Adresse du compte : on redemande à chaque fois si elle est toujours exacte.
+                <div className="rounded-xl border border-border p-3.5">
+                  <p className="text-sm text-fg-muted">Est-ce bien ici qu&apos;on te livre ?</p>
+                  <p className="mt-1 font-medium">{address.line}</p>
+                  <p className="text-sm text-fg-muted">
+                    {address.commune}
+                    {address.geo ? " · 📍 position GPS enregistrée" : ""}
+                  </p>
+                  {errorLine(zoneError)}
+                  <button
+                    type="button"
+                    onClick={() => setEditingAddress(true)}
+                    className="mt-2.5 text-sm font-medium underline underline-offset-2"
+                  >
+                    Non, corriger ou utiliser ma position
+                  </button>
+                </div>
+              )}
+
+              {editingPhone ? (
+                <div>
+                  <label htmlFor={`${titleId}-phone`} className="block text-sm font-medium">
+                    Téléphone pour le livreur
+                  </label>
+                  <input
+                    id={`${titleId}-phone`}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    type="tel"
+                    inputMode="tel"
+                    autoComplete="tel"
+                    maxLength={30}
+                    placeholder="0639 12 34 56"
+                    className={fieldClass(phoneError)}
+                  />
+                  {errorLine(phoneError)}
+                </div>
+              ) : (
+                <p className="text-sm text-fg-muted">
+                  Le livreur t&apos;appellera au <span className="font-medium text-fg tabular-nums">{data.savedPhone}</span> ·{" "}
+                  <button type="button" onClick={() => setEditingPhone(true)} className="font-medium text-fg underline underline-offset-2">
+                    Changer
+                  </button>
+                </p>
+              )}
+
               <div>
                 <label htmlFor={`${titleId}-note`} className="block text-sm font-medium">
                   Un mot pour le restaurant <span className="font-normal text-fg-muted">(facultatif)</span>
                 </label>
                 <input
                   id={`${titleId}-note`}
-                  value={delivery.note}
-                  onChange={(e) => set("note", e.target.value)}
+                  value={note}
+                  onChange={(e) => setNote(e.target.value)}
                   maxLength={200}
                   placeholder="Sans oignon, sauce à part…"
                   className={INPUT_CLASS}
                 />
               </div>
               <button type="submit" className={`${PRIMARY} mt-1`} style={{ background: PERSONA }}>
-                Continuer
+                {editingAddress ? "Continuer" : "Oui, c'est la bonne adresse"}
               </button>
             </form>
           ) : null}
@@ -241,7 +273,7 @@ export function FoodCheckoutDialog({
                   ) : null;
                 })}
                 <li className="flex justify-between gap-3 px-3.5 py-2.5 text-fg-muted">
-                  <span>Livraison · {delivery.zone}</span>
+                  <span>Livraison · {address.commune}</span>
                   <span className="tabular-nums">{formatEuros(data.deliveryCents)}</span>
                 </li>
                 <li className="flex justify-between gap-3 px-3.5 py-3 text-base font-semibold">
@@ -290,8 +322,11 @@ export function FoodCheckoutDialog({
               <p className="mt-4 font-medium">{restaurant.name} prépare ta commande !</p>
               {arrivesAt ? (
                 <p className="mt-1 text-sm text-fg-muted">
-                  Arrivée prévue vers <span className="font-semibold text-fg">{time.format(new Date(arrivesAt))}</span> · {delivery.zone}
+                  Arrivée prévue vers <span className="font-semibold text-fg">{time.format(new Date(arrivesAt))}</span> · {address.commune}
                 </p>
+              ) : null}
+              {code ? (
+                <OrderTicket code={code} summary={`${restaurant.name} · ${formatEuros(itemsCents + data.deliveryCents)}`} />
               ) : null}
               {data.demo ? <p className="mt-2 text-xs text-fg-muted">Démonstration : aucun restaurant n&apos;a reçu cette commande.</p> : null}
               <button type="button" onClick={() => ref.current?.close()} className={`${PRIMARY} mt-5`} style={{ background: PERSONA }}>

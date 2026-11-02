@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { DISPOSABLE_EMAIL_MESSAGE, isDisposableEmail } from "@/lib/auth/disposable-email";
 
 /**
  * Informations du candidat demandées avant de réserver une place à l'examen
@@ -41,10 +42,27 @@ export const MAYOTTE_COMMUNES = [
 /** Âge minimal pour passer le code (15 ans, conduite accompagnée). */
 export const MIN_AGE = 15;
 
-/** « +262 639 12 34 56 », « 0639.12.34.56 » → « 0639123456 » ; null si ce n'est pas un numéro français. */
+/** Numéros bidons tapés pour passer le formulaire (« 06 12 34 56 78 », « 06 00 00 00 00 »). */
+const FAKE_PHONE_ENDINGS = new Set(["12345678", "23456789", "87654321", "98765432"]);
+
+/**
+ * « +262 639 12 34 56 », « 0639.12.34.56 » → « 0639123456 » ; null si ce n'est
+ * pas un numéro français joignable. Refusés : les 08 (numéros spéciaux ou
+ * surtaxés), les indicatifs étrangers (+269 est celui des Comores, pas de
+ * Mayotte : là-bas, 0269 est un fixe mahorais, +262 269 en international) et
+ * les numéros visiblement inventés.
+ */
 export function normalizePhone(value: string): string | null {
-  const digits = value.replace(/[\s.()-]/g, "").replace(/^(\+|00)(262|269|33)/, "0");
-  return /^0[1-9]\d{8}$/.test(digits) ? digits : null;
+  const digits = value.replace(/[\s.()/-]/g, "").replace(/^(\+|00)(262|33)/, "0");
+  if (!/^0[1-79]\d{8}$/.test(digits)) return null;
+  const ending = digits.slice(2);
+  if (/^(\d)\1{7}$/.test(ending) || FAKE_PHONE_ENDINGS.has(ending)) return null;
+  return digits;
+}
+
+/** « 0639123456 » → « 06 •• •• •• 56 » : affiché aux administrateurs et dans les récapitulatifs. */
+export function maskPhone(phone: string): string {
+  return phone.length === 10 ? `${phone.slice(0, 2)} •• •• •• ${phone.slice(8)}` : "••";
 }
 
 /** NEPH : 12 chiffres, espaces permis à la saisie. */
@@ -81,7 +99,11 @@ export const candidateFields = {
     .string()
     .refine((v) => normalizePhone(v) !== null, "Numéro invalide : 10 chiffres, par exemple 0639 12 34 56.")
     .transform((v) => normalizePhone(v)!),
-  email: z.email("Adresse e-mail invalide.").trim().max(200),
+  email: z
+    .email("Adresse e-mail invalide.")
+    .trim()
+    .max(200)
+    .refine((v) => !isDisposableEmail(v), DISPOSABLE_EMAIL_MESSAGE),
 };
 
 export type CandidateField = keyof typeof candidateFields;
