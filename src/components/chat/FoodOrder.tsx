@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { FoodResponse } from "@/app/api/food/route";
 import type { FoodCartLine, FoodItem, FoodRestaurant } from "@/lib/food/catalog";
-import { DISH_KINDS, dishKindOf, matchFoodQuery } from "@/lib/food/match";
+import { DISH_KINDS, dishKindOf, illustrationOf, matchFoodQuery } from "@/lib/food/match";
 import { formatEuros } from "@/lib/wallet/limits";
 import { FoodCheckoutDialog } from "./FoodCheckoutDialog";
 
@@ -22,25 +22,40 @@ const TINTS: Record<string, [string, string]> = {
   boisson: ["#0ea5e9", "#075985"],
 };
 
-type Dish = { item: FoodItem; restaurant: FoodRestaurant; kind: string | null };
+/** illustration : photo créée pour la démonstration, quand le restaurant n'a pas photographié le plat. */
+type Dish = { item: FoodItem; restaurant: FoodRestaurant; kind: string | null; illustration: string | null };
 
 /** Tous les plats du catalogue, avec leur type. */
 function allDishes(restaurants: readonly FoodRestaurant[]): Dish[] {
   return restaurants.flatMap((restaurant) =>
     restaurant.menu.flatMap((section) =>
-      section.items.map((item) => ({ item, restaurant, kind: dishKindOf(item, section.title, restaurant.kind) })),
+      section.items.map((item) => ({
+        item,
+        restaurant,
+        kind: dishKindOf(item, section.title, restaurant.kind),
+        illustration: item.photo ? null : illustrationOf(item, section.title),
+      })),
     ),
   );
 }
 
 const emojiOf = (kind: string | null, fallback: string) => DISH_KINDS.find((k) => k.id === kind)?.emoji ?? fallback;
 
-/** Photo du plat, sinon une vignette dégradée avec le grand emoji de son type. */
+/** Photo du plat, sinon une photo d'illustration (signalée), sinon une vignette dégradée avec le grand emoji de son type. */
 function DishPicture({ dish, className = "" }: { dish: Dish; className?: string }) {
   const [from, to] = TINTS[dish.kind ?? ""] ?? ["#64748b", "#334155"];
   if (dish.item.photo) {
     // eslint-disable-next-line @next/next/no-img-element -- photos des partenaires, domaines inconnus à l'avance.
     return <img src={dish.item.photo} alt="" loading="lazy" className={`object-cover ${className}`} />;
+  }
+  if (dish.illustration) {
+    return (
+      <div className={`relative overflow-hidden ${className}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- petite vignette locale, déjà compressée. */}
+        <img src={dish.illustration} alt="" loading="lazy" className="size-full object-cover" />
+        <span className="absolute bottom-1 left-1 rounded bg-black/55 px-1 text-[9px] leading-tight text-white">Illustration</span>
+      </div>
+    );
   }
   return (
     <div
@@ -397,7 +412,11 @@ export function FoodOrder({ query = "" }: { query?: string }) {
           lines={lines}
           itemsCents={itemsCents}
           onClose={() => setCheckout(false)}
-          onPaid={() => setCart({ restaurantId: null, items: {} })}
+          onPaid={() => {
+            setCart({ restaurantId: null, items: {} });
+            // Le solde affiché baisse comme après un vrai paiement (fictif pendant la démonstration).
+            setData((d) => (d ? { ...d, balanceCents: Math.max(0, d.balanceCents - itemsCents - d.deliveryCents) } : d));
+          }}
         />
       ) : null}
     </>,

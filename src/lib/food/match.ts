@@ -75,3 +75,28 @@ export function matchFoodQuery(query: string, restaurants: readonly { id: string
   }
   return { kind: kind?.id ?? null, restaurantId: best?.id ?? null };
 }
+
+/**
+ * Photos d'illustration (créées pour la démonstration, dans public/food) des
+ * plats que le restaurant n'a pas photographiés. Du plus précis au plus général ;
+ * sans correspondance, la vignette illustrée reste.
+ */
+const ILLUSTRATIONS: readonly [RegExp, string][] = [
+  // Plats qui ressembleraient trop peu à l'image de leur rubrique.
+  [/\b(?:biryani|jus|cafe au lait|the marrakech|cappuccino|milkshake|salades?|assiettes?|brochet\w*|milanaise)\b/, ""],
+  [/\b(?:pizz?as?|calzone|regina|margherita)\b/, "/food/pizza.webp"],
+  [/\b(?:\w*burgers?)\b/, "/food/burger.webp"],
+  [/\btacos?\b/, "/food/tacos.webp"],
+  [/\b(?:sandwich\w*|paninis?|baguettes?)\b/, "/food/sandwich.webp"],
+  [/\b(?:crousty|poulets?|cuisses?|ailes?|wings|nuggets?|panes?|tenders?|chicken)\b/, "/food/poulet.webp"],
+  [/\b(?:frites?|fries)\b/, "/food/frites.webp"],
+  [/\b(?:boissons?|coca|sprite|fanta|oasis|orangina|schweppes|eau|pepsi|red ?bull|monster|7 ?up|seven|lipton|capri|perrier|sambo)\b/, "/food/boisson.webp"],
+];
+
+export function illustrationOf(item: { name: string }, section: string): string | null {
+  for (const text of [` ${normalizeFood(item.name)} `, ` ${normalizeFood(section)} `]) {
+    const found = ILLUSTRATIONS.find(([pattern]) => pattern.test(text));
+    if (found) return found[1] || null;
+  }
+  return null;
+}

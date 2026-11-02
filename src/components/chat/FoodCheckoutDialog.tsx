@@ -284,7 +284,7 @@ export function FoodCheckoutDialog({
 
               {/* Portefeuille : solde, et ce qu'il manque s'il ne suffit pas */}
               <div className="mt-3 flex items-center justify-between rounded-xl bg-bg-subtle px-3.5 py-2.5 text-sm">
-                <span className="text-fg-muted">Mon portefeuille</span>
+                <span className="text-fg-muted">{data.demo ? "Mon portefeuille (démo)" : "Mon portefeuille"}</span>
                 <span className={`font-medium tabular-nums ${missingCents ? "text-danger" : ""}`}>{formatEuros(data.balanceCents)}</span>
               </div>
 
@@ -307,7 +307,7 @@ export function FoodCheckoutDialog({
                     {paying ? "Paiement…" : `Payer ${formatEuros(totalCents)}`}
                   </button>
                   <p className="mt-2 text-center text-xs text-fg-muted">
-                    {data.demo ? "Démonstration : ton solde est vérifié, rien n'est débité." : "Débité de ton portefeuille."}
+                    {data.demo ? "Démonstration : solde fictif, ton vrai portefeuille n'est pas touché." : "Débité de ton portefeuille."}
                   </p>
                 </>
               )}

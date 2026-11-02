@@ -13,6 +13,9 @@ import { JEJE_RESTAURANTS } from "./jeje-catalog";
 
 export const FOOD_DEMO = true;
 
+/** Solde fictif des administrateurs pendant la démonstration : de quoi commander sans recharger. */
+export const FOOD_DEMO_BALANCE_CENTS = 15_000;
+
 export type FoodItem = {
   id: string;
   name: string;

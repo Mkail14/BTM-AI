@@ -5,7 +5,7 @@ import { getAuthContext } from "@/lib/auth/session";
 import { maskPhone, normalizePhone } from "@/lib/code-exam/candidate";
 import { canOrderFood } from "@/lib/food/access";
 import { orderCode } from "@/lib/food/order-code";
-import { FOOD_CATALOG, FOOD_DELIVERY_FEE_CENTS, FOOD_DEMO, FOOD_ZONES, priceOrder, type FoodRestaurant } from "@/lib/food/catalog";
+import { FOOD_CATALOG, FOOD_DELIVERY_FEE_CENTS, FOOD_DEMO, FOOD_DEMO_BALANCE_CENTS, FOOD_ZONES, priceOrder, type FoodRestaurant } from "@/lib/food/catalog";
 import { getProfileContact, saveProfileAddress, saveProfilePhone } from "@/lib/profile-contact";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
@@ -38,7 +38,8 @@ export async function GET() {
     restaurants: [...FOOD_CATALOG],
     zones: FOOD_ZONES,
     deliveryCents: FOOD_DELIVERY_FEE_CENTS,
-    balanceCents: wallet.balanceCents,
+    // Démonstration : solde fictif, le vrai portefeuille n'est pas touché.
+    balanceCents: FOOD_DEMO ? FOOD_DEMO_BALANCE_CENTS : wallet.balanceCents,
     address: contact.address,
     savedPhone: contact.phone ? maskPhone(contact.phone) : null,
   };
@@ -63,8 +64,8 @@ const orderSchema = z.object({
 
 /**
  * Paie une commande avec le portefeuille. Prix recalculés ici (jamais ceux du
- * navigateur). Prototype : aucun restaurant ne reçoit la commande, donc le
- * solde est vérifié mais rien n'est débité.
+ * navigateur). Démonstration : aucun restaurant ne reçoit la commande, le
+ * solde fictif est vérifié et le vrai portefeuille n'est pas débité.
  */
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return fail(403, "Requête refusée.");
@@ -88,9 +89,9 @@ export async function POST(request: NextRequest) {
   const phone = parsed.data.phone ?? contact.phone;
   if (!phone) return fail(400, "Indique ton numéro : le livreur doit pouvoir t'appeler.");
 
-  const wallet = await loadWallet(supabase, user.id, 1);
-  if (wallet.balanceCents < order.totalCents) {
-    return fail(402, `Solde insuffisant : il te manque ${formatEuros(order.totalCents - wallet.balanceCents)}.`);
+  const balanceCents = FOOD_DEMO ? FOOD_DEMO_BALANCE_CENTS : (await loadWallet(supabase, user.id, 1)).balanceCents;
+  if (balanceCents < order.totalCents) {
+    return fail(402, `Solde insuffisant : il te manque ${formatEuros(order.totalCents - balanceCents)}.`);
   }
 
   const label = `Repas ${order.restaurant.name}`.slice(0, 120);
