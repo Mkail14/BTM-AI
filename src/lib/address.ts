@@ -73,3 +73,28 @@ export function geolocationErrorMessage(code: number): string {
   if (code === 3) return "La localisation a pris trop de temps. Réessaie, ou écris ton adresse.";
   return "Position introuvable pour le moment. Écris ton adresse.";
 }
+
+/**
+ * Carnet d'adresses : en plus de la maison (adresse du compte), le travail,
+ * les amis, la famille… Proposées à chaque livraison.
+ */
+export const SAVED_ADDRESS_KINDS = [
+  { id: "travail", label: "Travail", emoji: "💼" },
+  { id: "ami", label: "Ami", emoji: "🤝" },
+  { id: "famille", label: "Famille", emoji: "👨‍👩‍👧" },
+  { id: "autre", label: "Autre", emoji: "📌" },
+] as const;
+export type SavedAddressKind = (typeof SAVED_ADDRESS_KINDS)[number]["id"];
+export const MAX_SAVED_ADDRESSES = 10;
+
+export const savedAddressSchema = addressSchema.extend({
+  kind: z.enum(["travail", "ami", "famille", "autre"], { error: "Choisis le type d'adresse." }),
+  label: z
+    .string()
+    .transform((v) => v.replace(/\s+/g, " ").trim())
+    .pipe(z.string().min(1, "Donne un nom à cette adresse (Bureau, Chez Fatima…).").max(40, "Nom trop long (40 caractères maximum).")),
+});
+
+export type SavedAddress = Address & { id: string; kind: SavedAddressKind; label: string };
+
+export const kindOf = (kind: string) => SAVED_ADDRESS_KINDS.find((k) => k.id === kind) ?? SAVED_ADDRESS_KINDS[3];

@@ -10,6 +10,7 @@ import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 import { isValidBic, isValidIban, normalizeBic, normalizeIban } from "@/lib/site/iban";
 import { saveBankDetails, saveSiteFlags } from "@/lib/site/settings";
+import { forgetDemoWallet } from "@/lib/wallet/demo";
 
 const FAILED: ActionResult = { ok: false, message: "L'enregistrement a échoué (migration site_settings appliquée ?)." };
 
@@ -83,6 +84,8 @@ export async function saveFlagsAction(input: unknown): Promise<ActionResult> {
   if (!(await saveSiteFlags(parsed.data, auth.user.id))) return FAILED;
   revalidatePath("/", "layout");
   const { maintenance, demoMode } = parsed.data;
+  // Chaque démonstration repart de 150 € (les autres navigateurs oublient le leur à leur prochaine page, démo éteinte).
+  if (demoMode !== undefined) await forgetDemoWallet();
   const message =
     maintenance !== undefined
       ? maintenance

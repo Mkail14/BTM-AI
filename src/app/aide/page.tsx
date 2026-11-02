@@ -27,7 +27,7 @@ const TOPICS: { title: string; questions: Question[] }[] = [
         a: "Appuie sur le micro dans la barre de message. Il faut autoriser le micro dans ton navigateur ; Chrome, Edge et Safari fonctionnent le mieux.",
       },
       {
-        q: "C'est quoi « Professionnelle » à côté du message ?",
+        q: "C'est quoi « Normale » à côté du message ?",
         a: "Le caractère d'Awa. Clique dessus pour en choisir un autre : elle change sa façon de te parler, pas ce qu'elle sait.",
       },
       {

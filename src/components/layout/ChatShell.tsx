@@ -3,6 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { ActiveOrderTab } from "@/components/chat/OrderTracker";
 import {
   personaStyle,
   PersonalityProvider,
@@ -138,6 +139,8 @@ function PersonaMain({ children }: { children: ReactNode }) {
     >
       <div aria-hidden="true" className="persona-line pointer-events-none absolute inset-x-0 top-0 z-20 h-0.5" />
       {children}
+      {/* Commande en cours : toujours à portée, sans remonter la conversation. */}
+      <ActiveOrderTab />
     </main>
   );
 }

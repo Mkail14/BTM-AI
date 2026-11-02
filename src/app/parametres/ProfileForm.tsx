@@ -27,7 +27,7 @@ export function ProfileForm({ displayName }: { displayName: string | null }) {
 
   if (!editing) {
     return (
-      <div className="max-w-xl space-y-3">
+      <div className="space-y-3">
         <div className="flex items-center justify-between gap-4">
           <div className="min-w-0">
             <p className="text-sm font-medium">Nom affiché</p>

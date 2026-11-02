@@ -181,3 +181,12 @@ describe("bureau du code le plus proche", () => {
     assert.match(prompt, /SANS le bloc/);
   });
 });
+
+describe("position et commune", () => {
+  it("retrouve la commune d'une position GPS", async () => {
+    const { nearestCommune } = await import("@/lib/geo/communes");
+    assert.equal(nearestCommune({ lat: -12.7806, lng: 45.2279 }), "Mamoudzou");
+    assert.equal(nearestCommune({ lat: -12.7967, lng: 45.2797 }), "Pamandzi");
+    assert.equal(nearestCommune({ lat: -12.85, lng: 45.105 }), "Sada");
+  });
+});

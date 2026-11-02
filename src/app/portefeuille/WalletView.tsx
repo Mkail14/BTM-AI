@@ -19,16 +19,17 @@ type Notice = "paid" | "pending" | "failed" | "cancelled" | null;
 type Filter = "all" | "topup" | "spent";
 
 const NOTICES: Record<Exclude<Notice, null>, { tone: string; text: string }> = {
-  paid: { tone: "bg-success-soft text-success", text: "Recharge réussie : ton solde est à jour." },
-  pending: { tone: "bg-warning-soft text-warning", text: "Paiement en cours de validation : ton solde sera crédité dans quelques minutes." },
-  failed: { tone: "bg-danger-soft text-danger", text: "Le paiement n'a pas abouti : rien n'a été débité." },
-  cancelled: { tone: "bg-bg-muted text-fg-muted", text: "Recharge annulée : rien n'a été débité." },
+  paid: { tone: "border-success/30 bg-success-soft text-success", text: "Recharge réussie : ton solde est à jour." },
+  pending: { tone: "border-warning/30 bg-warning-soft text-warning", text: "Paiement en cours de validation : ton solde sera crédité dans quelques minutes." },
+  failed: { tone: "border-danger/30 bg-danger-soft text-danger", text: "Le paiement n'a pas abouti : rien n'a été débité." },
+  cancelled: { tone: "border-border bg-bg-subtle text-fg-muted", text: "Recharge annulée : rien n'a été débité." },
 };
 
 const STATUS: Record<WalletTransaction["status"], string> = { pending: "En attente", succeeded: "", failed: "Échouée" };
 
 const TZ = "Indian/Mayotte";
 const dayKey = new Intl.DateTimeFormat("en-CA", { timeZone: TZ });
+const monthKey = new Intl.DateTimeFormat("en-CA", { year: "numeric", month: "2-digit", timeZone: TZ });
 const dayLabel = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: TZ });
 const clock = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: TZ });
 const METHODS = ["Carte bancaire", "Apple Pay", "Google Pay", "PayPal"];
@@ -43,45 +44,31 @@ function dayTitle(key: string) {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-/** Solde en grand, les centimes plus petits (« 42,50 € »). */
-function BigAmount({ cents }: { cents: number }) {
+/** Montant en grand, les centimes plus discrets (« 42,50 € »). */
+function BigAmount({ cents, className = "" }: { cents: number; className?: string }) {
   const [whole, decimals] = formatEuros(cents).replace(/\s?€$/, "").split(",");
   return (
-    <span className="tabular-nums">
-      <span className="text-5xl font-semibold tracking-tight">{whole}</span>
-      <span className="text-2xl font-semibold opacity-80">{decimals ? `,${decimals}` : ""} €</span>
+    <span className={`tabular-nums ${className}`}>
+      <span className="text-[2.75rem] leading-none font-semibold tracking-tight">{whole}</span>
+      <span className="text-xl font-semibold text-fg-muted">
+        {decimals ? `,${decimals}` : ""} €
+      </span>
     </span>
   );
 }
 
-/** Bouton rond sous le solde, avec son libellé dessous (comme les actions d'une appli bancaire). */
-function Action({
-  icon: Icon,
-  label,
-  onClick,
-  href,
-}: {
-  icon: ComponentType<SVGProps<SVGSVGElement>>;
-  label: string;
-  onClick?: () => void;
-  href?: string;
-}) {
-  const circle = (
-    <span className="grid size-12 place-items-center rounded-full bg-white/20 backdrop-blur transition group-hover:bg-white/30 group-active:scale-95">
-      <Icon width={20} height={20} />
-    </span>
-  );
-  const className = "group flex flex-col items-center gap-1.5 text-xs font-medium";
-  return href ? (
-    <Link href={href} className={className}>
-      {circle}
-      {label}
-    </Link>
-  ) : (
-    <button type="button" onClick={onClick} className={className}>
-      {circle}
-      {label}
-    </button>
+/** Ligne « bon à savoir » : icône, titre, explication. */
+function Fact({ icon: Icon, title, children }: { icon: ComponentType<SVGProps<SVGSVGElement>>; title: string; children: ReactNode }) {
+  return (
+    <li className="flex gap-3">
+      <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-bg-subtle text-fg-muted">
+        <Icon width={16} height={16} />
+      </span>
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{title}</span>
+        <span className="block text-xs leading-relaxed text-fg-muted">{children}</span>
+      </span>
+    </li>
   );
 }
 
@@ -97,7 +84,7 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
       onClick={(event) => {
         if (event.target === ref.current) ref.current?.close();
       }}
-      className="auth-sheet mx-0 mt-auto mb-0 max-h-[92dvh] w-full max-w-none scrollbar-none overflow-y-auto overscroll-contain rounded-t-3xl border-t border-border bg-bg p-0 pb-[env(safe-area-inset-bottom)] text-fg shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-md sm:m-auto sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100%-2rem)] sm:max-w-md sm:rounded-2xl sm:border sm:pb-0"
+      className="auth-sheet mx-0 mt-auto mb-0 max-h-[92dvh] w-full max-w-none scrollbar-none overflow-y-auto overscroll-contain rounded-t-3xl border-t border-border bg-bg p-0 pb-[env(safe-area-inset-bottom)] text-fg shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-sm sm:m-auto sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100%-2rem)] sm:max-w-md sm:rounded-2xl sm:border sm:pb-0"
     >
       <div className="p-5 sm:p-6">
         {/* Poignée du panneau, sur téléphone */}
@@ -120,10 +107,10 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
 }
 
 /**
- * Portefeuille, pensé pour le téléphone comme une appli bancaire : le solde en
- * grand sur la couleur du site, trois actions rondes, puis les opérations
- * groupées par jour. La recharge s'ouvre dans un panneau ; le paiement se fait
- * sur la page sécurisée de Stripe.
+ * Portefeuille : à gauche le solde, le plafond et les actions ; à droite
+ * l'activité, groupée par jour. Sobre, comme une application bancaire. La
+ * recharge s'ouvre dans un panneau ; le paiement se fait sur la page sécurisée
+ * de Stripe (en démonstration, l'argent fictif est ajouté tout de suite).
  */
 export function WalletView({
   balanceCents,
@@ -140,7 +127,7 @@ export function WalletView({
   notice: Notice;
 }) {
   const router = useRouter();
-  const [sheet, setSheet] = useState<"topup" | "info" | null>(null);
+  const [topup, setTopup] = useState(false);
   const [amount, setAmount] = useState<number>(WALLET_PRESETS[1]);
   const [custom, setCustom] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -154,18 +141,28 @@ export function WalletView({
   }, [notice, router]);
 
   const room = Math.max(0, WALLET_MAX_BALANCE - balanceCents);
+  const usedPercent = Math.min(100, (balanceCents / WALLET_MAX_BALANCE) * 100);
   const chosen = custom ? parseEuros(custom) : amount;
   const problem = chosen === null ? "Montant illisible." : topupError(chosen, balanceCents);
 
-  const shown = transactions.filter((t) =>
-    filter === "all" ? true : filter === "topup" ? t.kind !== "payment" : t.kind === "payment",
-  );
+  // Résumé du mois en cours (opérations réussies).
+  const thisMonth = monthKey.format(new Date());
+  const month = transactions.filter((t) => t.status === "succeeded" && monthKey.format(new Date(t.createdAt)) === thisMonth);
+  const addedCents = month.filter((t) => t.kind !== "payment").reduce((sum, t) => sum + t.amountCents, 0);
+  const spentCents = month.filter((t) => t.kind === "payment").reduce((sum, t) => sum + t.amountCents, 0);
+
+  const shown = transactions.filter((t) => (filter === "all" ? true : filter === "topup" ? t.kind !== "payment" : t.kind === "payment"));
   // Opérations groupées par jour (heure de Mayotte), les plus récentes d'abord.
   const days = new Map<string, WalletTransaction[]>();
   for (const t of shown) {
     const key = dayKey.format(new Date(t.createdAt));
     days.set(key, [...(days.get(key) ?? []), t]);
   }
+
+  const openTopup = () => {
+    setError(null);
+    setTopup(true);
+  };
 
   async function pay() {
     if (chosen === null || problem) return setError(problem);
@@ -180,7 +177,7 @@ export function WalletView({
       const data = (await res.json().catch(() => null)) as { url?: string; demo?: boolean; error?: string } | null;
       if (res.ok && data?.demo) {
         // Démonstration : solde crédité tout de suite, la page relit le solde et les opérations.
-        setSheet(null);
+        setTopup(false);
         setShownNotice("paid");
         setCustom("");
         setPending(false);
@@ -196,42 +193,78 @@ export function WalletView({
   }
 
   return (
-    // Seule cette colonne défile ; centrée et étroite sur ordinateur, comme une appli.
-    <div className="-mx-4 -my-5 min-h-0 flex-1 overflow-y-auto overscroll-contain md:-my-8">
-      <div className="mx-auto w-full max-w-lg pb-[max(1.5rem,env(safe-area-inset-bottom))]">
-        {/* Solde, en grand sur la couleur du site */}
-        <section
-          aria-label="Solde"
-          className="relative overflow-hidden bg-gradient-to-b from-accent to-accent-hover px-5 pt-8 pb-6 text-center text-accent-fg sm:mt-6 sm:rounded-3xl"
-        >
-          <div aria-hidden="true" className="absolute -top-24 left-1/2 size-72 -translate-x-1/2 rounded-full bg-white/10 blur-2xl" />
-          <div className="relative">
-            <p className="text-sm font-medium opacity-85">Portefeuille · Euro{demo ? " · démo" : ""}</p>
-            <p className="mt-2">
+    // Seule cette colonne défile.
+    <div className="-mx-4 -my-5 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 md:-my-8 md:py-8">
+      <div className="mx-auto grid w-full max-w-5xl gap-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start">
+        {/* Colonne gauche : solde et actions */}
+        <div className="space-y-5 lg:sticky lg:top-0">
+          <section aria-label="Solde" className="rounded-3xl border border-border bg-bg p-6 shadow-sm">
+            <div className="flex items-center justify-between">
+              <p className="flex items-center gap-2 text-sm font-medium text-fg-muted">
+                <IconWallet width={16} height={16} /> Solde disponible
+              </p>
+              {demo ? <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-warning">Démo</span> : null}
+            </div>
+            <p className="mt-4">
               <BigAmount cents={balanceCents} />
             </p>
-            <p className="mt-2 text-xs opacity-75">
-              Encore {formatEuros(room)} possible · plafond {formatEuros(WALLET_MAX_BALANCE)}
-            </p>
 
-            <div className="mx-auto mt-7 flex max-w-xs justify-around">
-              <Action
-                icon={IconPlus}
-                label="Ajouter"
-                onClick={() => {
-                  setError(null);
-                  setSheet("topup");
-                }}
-              />
-              <Action icon={IconMessage} label="Utiliser" href="/" />
-              <Action icon={IconShield} label="Infos" onClick={() => setSheet("info")} />
+            {/* Plafond : jauge fine */}
+            <div className="mt-6">
+              <div
+                className="h-1.5 overflow-hidden rounded-full bg-bg-muted"
+                role="meter"
+                aria-label="Solde par rapport au plafond"
+                aria-valuemin={0}
+                aria-valuemax={WALLET_MAX_BALANCE}
+                aria-valuenow={balanceCents}
+              >
+                <div className="h-full rounded-full bg-fg transition-[width] duration-500" style={{ width: `${usedPercent}%` }} />
+              </div>
+              <p className="mt-2 flex justify-between text-xs text-fg-muted">
+                <span>Encore {formatEuros(room)} possible</span>
+                <span>Plafond {formatEuros(WALLET_MAX_BALANCE)}</span>
+              </p>
             </div>
-          </div>
-        </section>
 
-        <div className="space-y-4 px-4 pt-4">
+            <div className="mt-6 grid gap-2">
+              <button
+                type="button"
+                onClick={openTopup}
+                disabled={room < WALLET_MIN_TOPUP}
+                className="flex items-center justify-center gap-2 rounded-xl bg-fg px-4 py-3 text-sm font-semibold text-bg transition hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                <IconPlus width={16} height={16} /> Ajouter de l&apos;argent
+              </button>
+              <Link
+                href="/"
+                className="flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-3 text-sm font-semibold transition hover:bg-bg-muted"
+              >
+                <IconMessage width={16} height={16} /> Payer avec Awa
+              </Link>
+            </div>
+            {room < WALLET_MIN_TOPUP ? <p className="mt-2 text-center text-xs text-fg-muted">Ton solde est au plafond.</p> : null}
+          </section>
+
+          <section aria-label="Bon à savoir" className="rounded-3xl border border-border bg-bg p-5">
+            <ul className="space-y-4">
+              <Fact icon={IconMessage} title="À quoi il sert">
+                Payer tes réservations et commandes faites avec Awa, en un geste.
+              </Fact>
+              <Fact icon={IconShield} title={`Plafond de ${formatEuros(WALLET_MAX_BALANCE)}`}>
+                En cas de vol de ton compte, la perte reste limitée.
+              </Fact>
+              <Fact icon={IconLock} title="Paiement sécurisé">
+                {demo ? "En démonstration, l'argent est fictif : aucune carte n'est demandée." : "Par Stripe : ta carte n'est jamais enregistrée chez BTM."}
+              </Fact>
+            </ul>
+          </section>
+        </div>
+
+        {/* Colonne droite : activité */}
+        <div className="space-y-4">
           {shownNotice ? (
-            <p role="status" className={`booking-step flex items-start gap-3 rounded-2xl px-4 py-3 text-sm ${NOTICES[shownNotice].tone}`}>
+            <p role="status" className={`booking-step flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm ${NOTICES[shownNotice].tone}`}>
               <span className="flex-1">{NOTICES[shownNotice].text}</span>
               <button type="button" onClick={() => setShownNotice(null)} aria-label="Masquer" className="opacity-70 hover:opacity-100">
                 ✕
@@ -239,13 +272,19 @@ export function WalletView({
             </p>
           ) : null}
 
-          {/* Opérations */}
-          <section aria-labelledby="operations" className="rounded-3xl bg-bg p-2 shadow-sm">
-            <div className="flex items-center justify-between gap-2 px-3 pt-2 pb-1">
-              <h2 id="operations" className="font-semibold">
-                Opérations
-              </h2>
-              <div role="tablist" aria-label="Filtrer les opérations" className="flex gap-1 text-xs font-medium">
+          <section aria-labelledby="operations" className="rounded-3xl border border-border bg-bg shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
+              <div>
+                <h2 id="operations" className="font-semibold">
+                  Activité
+                </h2>
+                <p className="text-xs text-fg-muted">
+                  Ce mois-ci : <span className="font-medium text-success">+{formatEuros(addedCents)}</span> ajoutés ·{" "}
+                  <span className="font-medium text-fg">−{formatEuros(spentCents)}</span> dépensés
+                </p>
+              </div>
+              {/* Contrôle segmenté */}
+              <div role="tablist" aria-label="Filtrer les opérations" className="flex rounded-xl bg-bg-muted p-1 text-xs font-medium">
                 {(
                   [
                     ["all", "Tout"],
@@ -259,7 +298,7 @@ export function WalletView({
                     role="tab"
                     aria-selected={filter === id}
                     onClick={() => setFilter(id)}
-                    className={`rounded-full px-3 py-1.5 transition ${filter === id ? "bg-fg text-bg" : "text-fg-muted hover:bg-bg-muted"}`}
+                    className={`rounded-lg px-3 py-1.5 transition ${filter === id ? "bg-bg text-fg shadow-sm" : "text-fg-muted hover:text-fg"}`}
                   >
                     {text}
                   </button>
@@ -268,79 +307,78 @@ export function WalletView({
             </div>
 
             {days.size ? (
-              [...days.entries()].map(([key, list]) => (
-                <div key={key}>
-                  <p className="px-3 pt-3 pb-1 text-xs font-medium text-fg-muted">{dayTitle(key)}</p>
-                  <ul>
-                    {list.map((t) => {
-                      const out = t.kind === "payment";
-                      const failed = t.status === "failed";
-                      return (
-                        <li key={t.id} className="flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors hover:bg-bg-subtle">
-                          <span
-                            aria-hidden="true"
-                            className={`grid size-10 shrink-0 place-items-center rounded-full text-lg font-semibold ${
-                              failed ? "bg-bg-muted text-fg-muted" : out ? "bg-bg-muted text-fg" : "bg-success-soft text-success"
-                            }`}
-                          >
-                            {out ? "↗" : "+"}
-                          </span>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate font-medium">{t.label}</span>
-                            <span className="block truncate text-xs text-fg-muted">
-                              {[clock.format(new Date(t.createdAt)), t.method].filter(Boolean).join(" · ")}
-                            </span>
-                          </span>
-                          <span className="text-right">
+              <div className="px-2 pb-2">
+                {[...days.entries()].map(([key, list]) => (
+                  <div key={key}>
+                    <p className="px-3 pt-4 pb-1.5 text-xs font-medium tracking-wide text-fg-muted uppercase">{dayTitle(key)}</p>
+                    <ul>
+                      {list.map((t) => {
+                        const out = t.kind === "payment";
+                        const failed = t.status === "failed";
+                        return (
+                          <li key={t.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-bg-subtle">
                             <span
-                              className={`block font-semibold tabular-nums ${failed ? "text-fg-muted line-through" : out ? "" : "text-success"}`}
+                              aria-hidden="true"
+                              className={`grid size-9 shrink-0 place-items-center rounded-full text-sm ${
+                                failed ? "bg-bg-muted text-fg-muted" : out ? "bg-bg-muted text-fg" : "bg-success-soft text-success"
+                              }`}
                             >
-                              {out ? "−" : "+"}
-                              {formatEuros(t.amountCents)}
+                              {out ? "↗" : "↙"}
                             </span>
-                            {STATUS[t.status] ? (
-                              <span className={`text-[11px] ${t.status === "pending" ? "text-warning" : "text-danger"}`}>
-                                {STATUS[t.status]}
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-medium">{t.label}</span>
+                              <span className="block truncate text-xs text-fg-muted">
+                                {[clock.format(new Date(t.createdAt)), t.method].filter(Boolean).join(" · ")}
                               </span>
-                            ) : null}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </div>
-              ))
+                            </span>
+                            <span className="text-right">
+                              <span
+                                className={`block text-sm font-semibold tabular-nums ${failed ? "text-fg-muted line-through" : out ? "" : "text-success"}`}
+                              >
+                                {out ? "−" : "+"}
+                                {formatEuros(t.amountCents)}
+                              </span>
+                              {STATUS[t.status] ? (
+                                <span
+                                  className={`inline-block rounded-full px-1.5 text-[10px] font-medium ${
+                                    t.status === "pending" ? "bg-warning-soft text-warning" : "bg-danger-soft text-danger"
+                                  }`}
+                                >
+                                  {STATUS[t.status]}
+                                </span>
+                              ) : null}
+                            </span>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                ))}
+              </div>
             ) : (
-              <div className="px-6 py-10 text-center">
-                <span className="mx-auto grid size-12 place-items-center rounded-2xl bg-accent-soft text-accent">
+              <div className="px-6 py-14 text-center">
+                <span className="mx-auto grid size-11 place-items-center rounded-xl bg-bg-muted text-fg-muted">
                   <IconWallet />
                 </span>
-                <p className="mt-3 font-medium">Aucune opération pour l&apos;instant</p>
-                <p className="mx-auto mt-1 max-w-xs text-sm text-fg-muted">Ajoute de l&apos;argent pour payer tes réservations et commandes avec Awa.</p>
-                <button
-                  type="button"
-                  onClick={() => setSheet("topup")}
-                  className="mt-4 rounded-full bg-accent px-5 py-2.5 text-sm font-semibold text-accent-fg hover:bg-accent-hover"
-                >
-                  Ajouter de l&apos;argent
-                </button>
+                <p className="mt-3 font-medium">{filter === "all" ? "Aucune opération pour l'instant" : "Rien dans cette catégorie"}</p>
+                <p className="mx-auto mt-1 max-w-xs text-sm text-fg-muted">Tes ajouts d&apos;argent et tes paiements apparaîtront ici.</p>
               </div>
             )}
           </section>
         </div>
       </div>
 
-      {/* Recharge : montant en grand, montants rapides, paiement Stripe */}
-      {sheet === "topup" ? (
-        <Sheet title="Ajouter de l'argent" onClose={() => setSheet(null)}>
+      {/* Recharge : montant en grand, montants rapides, paiement */}
+      {topup ? (
+        <Sheet title="Ajouter de l'argent" onClose={() => setTopup(false)}>
           <p className="mt-6 text-center">
-            {chosen !== null && chosen > 0 ? <BigAmount cents={chosen} /> : <span className="text-5xl font-semibold text-fg-muted">0 €</span>}
+            {chosen !== null && chosen > 0 ? <BigAmount cents={chosen} /> : <span className="text-[2.75rem] font-semibold text-fg-muted">0 €</span>}
           </p>
-          <p className="mt-1 text-center text-xs text-fg-muted">
+          <p className="mt-2 text-center text-xs text-fg-muted">
             De {formatEuros(WALLET_MIN_TOPUP)} à {formatEuros(Math.min(WALLET_MAX_TOPUP, room))}
           </p>
 
-          <div className="mt-6 flex flex-wrap justify-center gap-2">
+          <div className="mt-6 grid grid-cols-5 gap-1.5">
             {WALLET_PRESETS.map((preset) => {
               const selected = !custom && amount === preset;
               return (
@@ -354,8 +392,8 @@ export function WalletView({
                     setError(null);
                   }}
                   aria-pressed={selected}
-                  className={`rounded-full border px-4 py-2 text-sm font-semibold tabular-nums transition active:scale-95 disabled:cursor-not-allowed disabled:opacity-35 ${
-                    selected ? "border-transparent bg-fg text-bg" : "border-border hover:bg-bg-muted"
+                  className={`rounded-xl border py-2.5 text-sm font-semibold tabular-nums transition disabled:cursor-not-allowed disabled:opacity-35 ${
+                    selected ? "border-fg bg-fg text-bg" : "border-border hover:bg-bg-muted"
                   }`}
                 >
                   {formatEuros(preset)}
@@ -363,11 +401,7 @@ export function WalletView({
               );
             })}
           </div>
-          <label
-            className={`mx-auto mt-3 flex max-w-48 items-center rounded-full border px-4 transition focus-within:border-accent ${
-              custom ? "border-accent" : "border-border"
-            }`}
-          >
+          <label className={`mt-3 flex items-center rounded-xl border px-4 transition focus-within:border-fg ${custom ? "border-fg" : "border-border"}`}>
             <input
               inputMode="decimal"
               value={custom}
@@ -377,7 +411,7 @@ export function WalletView({
               }}
               placeholder="Autre montant"
               aria-label="Autre montant en euros"
-              className="w-full min-w-0 bg-transparent py-2 text-center text-sm font-semibold tabular-nums outline-none placeholder:font-normal placeholder:text-fg-muted"
+              className="w-full min-w-0 bg-transparent py-2.5 text-sm font-semibold tabular-nums outline-none placeholder:font-normal placeholder:text-fg-muted"
             />
             <span className="text-fg-muted">€</span>
           </label>
@@ -386,7 +420,7 @@ export function WalletView({
             type="button"
             onClick={pay}
             disabled={!paymentsOpen || pending || Boolean(problem)}
-            className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-accent px-4 py-3.5 text-base font-semibold text-accent-fg transition hover:bg-accent-hover active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+            className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-fg px-4 py-3.5 text-base font-semibold text-bg transition hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
           >
             {demo ? <IconPlus width={16} height={16} /> : <IconLock width={16} height={16} />}
             {demo
@@ -410,25 +444,6 @@ export function WalletView({
           <p className="mt-4 text-center text-[11px] text-fg-muted">
             {demo ? "Démonstration : argent fictif, aucune carte demandée." : `${METHODS.join(" · ")} · sécurisé par Stripe`}
           </p>
-        </Sheet>
-      ) : null}
-
-      {/* Infos : plafonds et sécurité */}
-      {sheet === "info" ? (
-        <Sheet title="Ton portefeuille" onClose={() => setSheet(null)}>
-          <ul className="mt-4 space-y-3 text-sm">
-            {[
-              ["À quoi il sert", "Payer tes réservations et commandes faites avec Awa, en un geste."],
-              ["Plafond", `Ton solde ne dépasse jamais ${formatEuros(WALLET_MAX_BALANCE)} : en cas de vol de ton compte, la perte reste limitée.`],
-              ["Recharges", `De ${formatEuros(WALLET_MIN_TOPUP)} à ${formatEuros(WALLET_MAX_TOPUP)} par carte, Apple Pay, Google Pay ou PayPal.`],
-              ["Sécurité", "Le paiement se fait sur la page de Stripe : ta carte n'est jamais enregistrée chez BTM."],
-            ].map(([title, text]) => (
-              <li key={title} className="rounded-2xl bg-bg-subtle px-4 py-3">
-                <p className="font-medium">{title}</p>
-                <p className="mt-0.5 text-fg-muted">{text}</p>
-              </li>
-            ))}
-          </ul>
         </Sheet>
       ) : null}
     </div>

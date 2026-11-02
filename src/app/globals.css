@@ -530,6 +530,116 @@ input::-ms-clear {
 }
 
 /*
+ * Suivi de commande : panneau qui glisse de la droite (du bas sur téléphone)
+ * avec la courbe des feuilles d'iOS, contenu qui monte en cascade, scooter
+ * qui roule pendant le trajet. data-closing joue la sortie.
+ */
+.order-sheet {
+  animation: order-sheet-up 520ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.order-backdrop {
+  animation: auth-backdrop-in 300ms ease-out;
+}
+
+[data-closing] .order-sheet {
+  animation: order-sheet-down 280ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+[data-closing] .order-backdrop {
+  animation: confirm-fade-out 280ms ease-in forwards;
+}
+
+@media (min-width: 640px) {
+  .order-sheet {
+    animation-name: order-sheet-in;
+  }
+
+  [data-closing] .order-sheet {
+    animation-name: order-sheet-out;
+  }
+}
+
+.order-rise {
+  animation: order-rise 600ms cubic-bezier(0.2, 0.8, 0.2, 1) 120ms backwards;
+}
+
+.order-pulse {
+  animation: order-pulse 1.6s ease-out infinite;
+}
+
+.order-scooter-ride {
+  animation: order-ride 0.9s ease-in-out infinite;
+}
+
+.order-scooter-park {
+  animation: booking-pop 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes order-sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes order-sheet-down {
+  to {
+    transform: translateY(100%);
+  }
+}
+
+@keyframes order-sheet-in {
+  from {
+    transform: translateX(calc(100% + 1rem)) scale(0.96);
+    opacity: 0.6;
+  }
+}
+
+@keyframes order-sheet-out {
+  to {
+    transform: translateX(calc(100% + 1rem));
+    opacity: 0.6;
+  }
+}
+
+@keyframes order-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.97);
+  }
+}
+
+@keyframes order-pulse {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--persona, var(--accent)) 55%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 10px transparent;
+  }
+}
+
+@keyframes order-ride {
+  0%,
+  100% {
+    transform: translate(-2px, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate(2px, -2px) rotate(-2deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .order-sheet,
+  .order-backdrop,
+  .order-rise,
+  .order-pulse,
+  .order-scooter-ride,
+  .order-scooter-park {
+    animation: none !important;
+  }
+}
+
+/*
  * Fenêtre de confirmation (ConfirmDialog) : feuille qui monte du bas sur
  * téléphone, fenêtre qui « rebondit » au centre sur ordinateur ; l'icône
  * arrive juste après. data-closing joue la sortie avant dialog.close().
@@ -561,6 +671,168 @@ input::-ms-clear {
 
   .confirm-dialog[data-closing] .confirm-dialog-panel {
     animation: confirm-pop-out 160ms ease-in forwards;
+  }
+}
+
+/*
+ * Accueil de la conversation (ChatView) : Awa en petit globe vivant, le même
+ * que le mode vocal, aux couleurs de la personnalité. Il flotte doucement ;
+ * au survol il grossit un peu, comme pour inviter à lui parler.
+ */
+.awa-hello {
+  --orb: var(--persona, var(--accent));
+  --orb-tech: color-mix(in srgb, var(--orb) 45%, #5ee7ff);
+  position: relative;
+  width: min(30vw, 7.5rem);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  animation:
+    awa-hello-in 900ms cubic-bezier(0.34, 1.4, 0.64, 1) both,
+    awa-float 6s ease-in-out 900ms infinite;
+  transition: scale 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.awa-hello:hover {
+  scale: 1.08;
+}
+
+.awa-hello:active {
+  scale: 0.96;
+}
+
+.awa-hello:focus-visible {
+  outline: 2px solid var(--orb-tech);
+  outline-offset: 1.25rem;
+}
+
+.awa-hello .voice-orb__core {
+  box-shadow:
+    0 0 40px 4px color-mix(in srgb, var(--orb) 55%, transparent),
+    inset 0 -12px 26px color-mix(in srgb, var(--orb) 50%, #000),
+    inset 0 8px 20px rgb(255 255 255 / 0.35);
+}
+
+.awa-hello .voice-orb__swirl {
+  filter: blur(12px);
+}
+
+.awa-hello-rise {
+  animation: awa-hello-rise 700ms cubic-bezier(0.2, 0.8, 0.2, 1) 250ms both;
+}
+
+@keyframes awa-hello-in {
+  from {
+    opacity: 0;
+    transform: scale(0.4);
+    filter: blur(10px);
+  }
+}
+
+@keyframes awa-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes awa-hello-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+    filter: blur(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .awa-hello,
+  .awa-hello *,
+  .awa-hello-rise {
+    animation: none !important;
+  }
+}
+
+/* Exemples qui défilent dans le champ de message vide (Composer) : montent, restent, puis s'effacent. */
+.composer-hint {
+  animation: composer-hint 3200ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes composer-hint {
+  0% {
+    opacity: 0;
+    transform: translateY(70%);
+    filter: blur(3px);
+  }
+  12%,
+  85% {
+    opacity: 1;
+    transform: none;
+    filter: none;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-70%);
+    filter: blur(3px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .composer-hint {
+    animation: none;
+  }
+}
+
+/* Suivi de commande : volets (code, détails, aide, messages) qui montent par-dessus le panneau. */
+.order-subsheet {
+  animation: order-sheet-up 420ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Carte du suivi (CourierMap) : tuiles assombries en thème sombre, livreur qui pulse quand il roule. */
+@media (prefers-color-scheme: dark) {
+  .map-tile {
+    filter: invert(1) hue-rotate(180deg) brightness(0.95) contrast(0.85) saturate(0.6);
+  }
+}
+
+.map-courier-pulse {
+  animation: map-courier-pulse 1.8s ease-out infinite;
+}
+
+@keyframes map-courier-pulse {
+  from {
+    opacity: 0.5;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(2.6);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .order-subsheet,
+  .map-courier-pulse {
+    animation: none;
+  }
+}
+
+/* QR code de la commande (OrderTicket) : apparaît en douceur, le logo BTM arrive avec un petit rebond. */
+.order-qr {
+  animation: auth-pop-in 360ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.order-qr-logo {
+  animation: confirm-icon-pop 520ms 180ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .order-qr,
+  .order-qr-logo {
+    animation: none;
   }
 }
 

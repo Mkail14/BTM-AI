@@ -197,7 +197,22 @@ export async function loadCodeExam({ fresh = false } = {}): Promise<CodeExamData
  * La lecture des horaires fonctionne-t-elle ? Pour l'administration, et pour la
  * surveillance toutes les 2 h (`fresh` : relit le site de La Poste maintenant).
  */
-export async function getCodeExamHealth({ fresh = false } = {}): Promise<{ ok: true } | { ok: false; message: string }> {
-  await loadCodeExam({ fresh });
+export async function getCodeExamHealth({
+  fresh = false,
+  waitMs,
+}: { fresh?: boolean; waitMs?: number } = {}): Promise<{ ok: true } | { ok: false; message: string }> {
+  const loading = loadCodeExam({ fresh });
+  if (waitMs === undefined) await loading;
+  else {
+    // Tableau de bord : La Poste peut mettre 10 s à répondre ; on n'attend pas.
+    // Lecture pas encore finie : pas d'alerte cette fois, elle sera prête au prochain affichage.
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const finished = await Promise.race([
+      loading.then(() => true),
+      new Promise<false>((resolve) => (timer = setTimeout(() => resolve(false), waitMs))),
+    ]);
+    clearTimeout(timer);
+    if (!finished) return { ok: true };
+  }
   return lastFailure ? { ok: false, message: lastFailure.message } : { ok: true };
 }

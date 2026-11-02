@@ -434,37 +434,46 @@ function Pagination({ page, hasNextPage }: { page: number; hasNextPage: boolean 
 /* Page                                                                       */
 /* -------------------------------------------------------------------------- */
 
+type Settled<T> = { status: "fulfilled"; value: T } | { status: "rejected"; reason: unknown };
+
+/** Comme Promise.allSettled, pour une seule promesse. */
+function settle<T>(promise: PromiseLike<T>): Promise<Settled<T>> {
+  return Promise.resolve(promise).then(
+    (value) => ({ status: "fulfilled", value }),
+    (reason: unknown) => ({ status: "rejected", reason }),
+  );
+}
+
 export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
   // Vérifie la session et le rôle avant toute lecture avec la clé secrète.
   await requireAdmin("/admin");
   const page = readPage((await searchParams).page);
   const admin = getSupabaseAdminClient();
   const hasSalt = Boolean(process.env.RATE_LIMIT_SALT?.trim());
-  const [ai, codeExam] = await Promise.all([getAIProvider(), getCodeExamHealth()]);
+  // Tout part en même temps : un seul temps d'attente au lieu de trois à la suite.
+  const [ai, codeExam, overviewResult, usersResult, progressResult, spendResult, pendingRequests] = await Promise.all([
+    getAIProvider(),
+    getCodeExamHealth({ waitMs: 1500 }),
+    admin ? settle(getAdminOverview(admin)) : null,
+    admin ? settle(listAdminUsers(admin, page)) : null,
+    admin ? settle(getAwaProgress(admin)) : null,
+    admin ? settle(getGeminiSpend(admin)) : null,
+    admin ? settle(admin.from("code_exam_requests").select("id", { count: "exact", head: true }).eq("status", "pending")) : null,
+  ]);
 
   let overview: AdminOverview | null = null;
   let usersPage: Awaited<ReturnType<typeof listAdminUsers>> | null = null;
   let progress: AwaProgress | null = null;
   let spend: GeminiSpend | null = null;
-  if (admin) {
-    const [overviewResult, usersResult, progressResult, spendResult] = await Promise.allSettled([
-      getAdminOverview(admin),
-      listAdminUsers(admin, page),
-      getAwaProgress(admin),
-      getGeminiSpend(admin),
-    ]);
-    if (progressResult.status === "fulfilled") progress = progressResult.value;
-    if (spendResult.status === "fulfilled") spend = spendResult.value;
-    if (overviewResult.status === "fulfilled") overview = overviewResult.value;
-    else console.error("[admin] Statistiques indisponibles", overviewResult.reason);
-    if (usersResult.status === "fulfilled") usersPage = usersResult.value;
-    else console.error("[admin] Liste des comptes indisponible", usersResult.reason);
-  }
+  if (progressResult?.status === "fulfilled") progress = progressResult.value;
+  if (spendResult?.status === "fulfilled") spend = spendResult.value;
+  if (overviewResult?.status === "fulfilled") overview = overviewResult.value;
+  else if (overviewResult) console.error("[admin] Statistiques indisponibles", overviewResult.reason);
+  if (usersResult?.status === "fulfilled") usersPage = usersResult.value;
+  else if (usersResult) console.error("[admin] Liste des comptes indisponible", usersResult.reason);
 
   const wordsToTranslate = progress?.toTranslate ?? 0;
-  const codeExamRequests = admin
-    ? ((await admin.from("code_exam_requests").select("id", { count: "exact", head: true }).eq("status", "pending")).count ?? 0)
-    : 0;
+  const codeExamRequests = pendingRequests?.status === "fulfilled" ? (pendingRequests.value.count ?? 0) : 0;
 
   const alerts = buildAdminAlerts({
     aiProblem: ai.ok ? null : ai.reason,

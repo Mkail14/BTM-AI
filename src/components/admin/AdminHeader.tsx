@@ -72,7 +72,7 @@ export async function AdminHeader({ section }: { section?: string; email?: strin
         </div>
 
         <div className="hidden lg:block">
-          <AdminTabs principal={principal} />
+          <AdminTabs />
         </div>
       </div>
     </header>

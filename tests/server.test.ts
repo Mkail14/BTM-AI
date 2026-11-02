@@ -120,10 +120,10 @@ describe("message système", () => {
     assert.match(prompt, /n'a pas été vérifiée/);
   });
 
-  it("applique la personnalité choisie (professionnelle par défaut)", () => {
+  it("applique la personnalité choisie (normale par défaut)", () => {
     assert.match(buildSystemPrompt(), /Tu es Awa/);
-    assert.match(buildSystemPrompt(), /PROFESSIONNELLE/);
-    assert.match(buildSystemPrompt(), /Vouvoiement par défaut/);
+    assert.match(buildSystemPrompt(), /NORMALE/);
+    assert.match(buildSystemPrompt(), /Ton naturel et poli/);
     assert.match(buildSystemPrompt("mechante"), /MÉCHANTE/);
     assert.match(buildSystemPrompt("mechante"), /laisse tomber le rôle/);
     assert.match(buildSystemPrompt("cool"), /À L'AISE/);

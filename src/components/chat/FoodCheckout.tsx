@@ -7,7 +7,10 @@ import { AddressFields, EMPTY_ADDRESS, type AddressDraft } from "@/components/ui
 import { IconClose } from "@/components/ui/icons";
 import { addressFieldErrors } from "@/lib/address";
 import { fieldError } from "@/lib/code-exam/candidate";
+import { kindOf, type GeoPoint } from "@/lib/address";
 import type { FoodCartLine, FoodRestaurant } from "@/lib/food/catalog";
+import { locateMe } from "@/lib/geo/communes";
+import { deliveryPoint, restaurantPoint } from "@/lib/food/route";
 import { formatEuros } from "@/lib/wallet/limits";
 import type { PlacedOrder } from "./OrderTracker";
 
@@ -125,6 +128,7 @@ export function FoodCheckout({
   onBack,
   onChangeQuantity,
   onPlaced,
+  here = null,
 }: {
   data: FoodResponse;
   restaurant: FoodRestaurant;
@@ -133,11 +137,18 @@ export function FoodCheckout({
   onBack: () => void;
   onChangeQuantity: (itemId: string, delta: number) => void;
   onPlaced: (order: PlacedOrder) => void;
+  /** Position donnée plus tôt dans la carte (« près de moi ») : proposée pour livrer là où on est. */
+  here?: { commune: string; geo: GeoPoint | null } | null;
 }) {
   const id = useId();
   const [address, setAddress] = useState<AddressDraft>(data.address ?? EMPTY_ADDRESS);
   const [saveAddress, setSaveAddress] = useState(!data.address);
   const [editingAddress, setEditingAddress] = useState(false);
+  // Livrer à l'adresse du compte, là où la personne se trouve (position GPS) ou à une adresse du carnet (son id).
+  const [where, setWhere] = useState<string>(data.address && !here?.geo ? "home" : "here");
+  const [spot, setSpot] = useState<{ commune: string; geo: GeoPoint } | null>(here?.geo ? { commune: here.commune, geo: here.geo } : null);
+  const [locating, setLocating] = useState(false);
+  const [spotError, setSpotError] = useState<string | null>(null);
   // Numéro enregistré : seule sa version masquée est connue ici, le serveur le réutilise.
   const [editingPhone, setEditingPhone] = useState(!data.savedPhone);
   const [phone, setPhone] = useState("");
@@ -151,13 +162,29 @@ export function FoodCheckout({
   const items = new Map(restaurant.menu.flatMap((s) => s.items).map((i) => [i.id, i]));
   const totalCents = itemsCents + data.deliveryCents;
   const missingCents = Math.max(0, totalCents - data.balanceCents);
-  const hasAddress = Boolean(address.commune && address.line);
-  const zoneError = address.commune && !data.zones.includes(address.commune) ? `On ne livre pas encore à ${address.commune}.` : null;
+  // Adresse envoyée : celle du compte (ou corrigée), ou la position GPS du moment.
+  const book = data.savedAddresses.find((a) => a.id === where) ?? null;
+  const delivery: AddressDraft | null =
+    where === "here" ? (spot ? { commune: spot.commune, line: "Position GPS : là où je suis", geo: spot.geo } : null) : (book ?? address);
+  const hasAddress = Boolean(delivery?.commune && delivery.line);
+  const zoneError =
+    delivery?.commune && !data.zones.includes(delivery.commune) ? `On ne livre pas encore à ${delivery.commune}.` : null;
+
+  async function locate() {
+    setWhere("here");
+    setLocating(true);
+    setSpotError(null);
+    const found = await locateMe();
+    setLocating(false);
+    if (found.ok) setSpot({ commune: found.commune, geo: found.geo });
+    else setSpotError(found.error);
+  }
   const phoneError = editingPhone ? fieldError("phone", phone) : null;
 
   async function pay() {
     setTried(true);
-    if (!hasAddress || zoneError) return setEditingAddress(true);
+    if (where === "here" && !spot) return void locate();
+    if (!delivery || !hasAddress || zoneError) return where === "home" ? setEditingAddress(true) : undefined;
     if (phoneError) return;
     setPaying(true);
     setError(null);
@@ -168,8 +195,9 @@ export function FoodCheckout({
         body: JSON.stringify({
           restaurantId: restaurant.id,
           cart: lines,
-          address,
-          saveAddress,
+          address: delivery,
+          // Position du moment : jamais gardée comme adresse du compte.
+          saveAddress: where === "home" && saveAddress,
           phone: editingPhone ? phone : undefined,
           note: note || undefined,
         }),
@@ -179,17 +207,24 @@ export function FoodCheckout({
         setError(body.error ?? "Paiement impossible.");
         return;
       }
+      // Places sur la carte du suivi (restaurant dans sa commune, livraison au GPS donné sinon dans la commune).
+      const from = restaurantPoint(restaurant.id, restaurant.commune);
       onPlaced({
         code: body.code,
         restaurant: restaurant.name,
         emoji: restaurant.emoji,
-        commune: address.commune,
+        commune: delivery.commune,
         lines: lines.map((l) => `${l.quantity}× ${items.get(l.itemId)?.name ?? ""}`),
         totalCents: body.totalCents ?? totalCents,
         demo: Boolean(body.demo),
         placedAt: body.placedAt,
         readyAt: body.readyAt,
         arrivesAt: body.arrivesAt,
+        courier: body.courier ?? null,
+        from,
+        to: deliveryPoint(body.code, delivery.commune, delivery.geo, from),
+        address: where === "here" ? "Position GPS" : delivery.line,
+        note: note || undefined,
       });
     } catch {
       setError("Pas de connexion : réessaie.");
@@ -261,34 +296,92 @@ export function FoodCheckout({
           </li>
         </ul>
 
-        {/* Adresse : reconfirmée à chaque commande, changée dans une petite fenêtre */}
-        <div className={`flex items-start gap-3 rounded-2xl border px-3 py-2.5 ${tried && (!hasAddress || zoneError) ? "border-danger" : "border-border"}`}>
-          <span aria-hidden="true" className="text-lg">
-            📍
-          </span>
-          <div className="min-w-0 flex-1">
-            {hasAddress ? (
-              <>
-                <p className="truncate font-medium">{address.line}</p>
-                <p className="text-xs text-fg-muted">
-                  {address.commune}
-                  {address.geo ? " · position GPS" : ""}
-                </p>
-                {zoneError ? <p className="mt-0.5 text-xs text-danger">{zoneError}</p> : null}
-              </>
-            ) : (
-              <p className="text-fg-muted">Aucune adresse de livraison</p>
-            )}
-          </div>
-          <button
-            type="button"
-            onClick={() => setEditingAddress(true)}
-            className="shrink-0 text-xs font-semibold hover:underline"
-            style={{ color: PERSONA }}
+        {/* Où livrer : chez moi (adresse du compte) ou là où je suis (GPS) */}
+        <fieldset className="grid gap-2 sm:grid-cols-2">
+          <legend className="mb-1.5 text-xs font-medium">Où te livrer ?</legend>
+          <label
+            className={`flex cursor-pointer items-start gap-2.5 rounded-2xl border px-3 py-2.5 transition ${
+              where === "home" ? "border-[var(--persona,var(--accent))] bg-bg-subtle" : "border-border hover:bg-bg-subtle"
+            }`}
           >
-            {hasAddress ? "Changer" : "Ajouter"}
-          </button>
-        </div>
+            <input type="radio" name={`${id}-where`} checked={where === "home"} onChange={() => setWhere("home")} className="sr-only" />
+            <span aria-hidden="true" className="text-lg">
+              🏠
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium">Chez moi</span>
+              {address.commune && address.line ? (
+                <span className="block truncate text-xs text-fg-muted">
+                  {address.line} · {address.commune}
+                </span>
+              ) : (
+                <span className="block text-xs text-fg-muted">Aucune adresse enregistrée</span>
+              )}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  setWhere("home");
+                  setEditingAddress(true);
+                }}
+                className="mt-0.5 text-xs font-semibold hover:underline"
+                style={{ color: PERSONA }}
+              >
+                {address.commune && address.line ? "Changer" : "Ajouter mon adresse"}
+              </button>
+            </span>
+          </label>
+          <label
+            className={`flex cursor-pointer items-start gap-2.5 rounded-2xl border px-3 py-2.5 transition ${
+              where === "here" ? "border-[var(--persona,var(--accent))] bg-bg-subtle" : "border-border hover:bg-bg-subtle"
+            }`}
+          >
+            <input
+              type="radio"
+              name={`${id}-where`}
+              checked={where === "here"}
+              onChange={() => (spot ? setWhere("here") : void locate())}
+              className="sr-only"
+            />
+            <span aria-hidden="true" className="text-lg">
+              📍
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block font-medium">Là où je suis</span>
+              <span className="block text-xs text-fg-muted">
+                {locating
+                  ? "Recherche de ta position…"
+                  : spot
+                    ? `Vers ${spot.commune} · à ${spot.geo.accuracy} m près`
+                    : "Le livreur vient à ta position GPS"}
+              </span>
+              {spotError ? <span className="block text-xs text-danger">{spotError}</span> : null}
+            </span>
+          </label>
+          {data.savedAddresses.map((a) => (
+            <label
+              key={a.id}
+              className={`flex cursor-pointer items-start gap-2.5 rounded-2xl border px-3 py-2.5 transition ${
+                where === a.id ? "border-[var(--persona,var(--accent))] bg-bg-subtle" : "border-border hover:bg-bg-subtle"
+              }`}
+            >
+              <input type="radio" name={`${id}-where`} checked={where === a.id} onChange={() => setWhere(a.id)} className="sr-only" />
+              <span aria-hidden="true" className="text-lg">
+                {kindOf(a.kind).emoji}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium">{a.label}</span>
+                <span className="block truncate text-xs text-fg-muted">
+                  {a.line} · {a.commune}
+                </span>
+              </span>
+            </label>
+          ))}
+          {tried && zoneError ? <p className="text-xs text-danger sm:col-span-2">{zoneError}</p> : null}
+          {tried && !hasAddress && where === "home" ? (
+            <p className="text-xs text-danger sm:col-span-2">Ajoute ton adresse ou choisis « Là où je suis ».</p>
+          ) : null}
+        </fieldset>
 
         {/* Téléphone du livreur */}
         {editingPhone ? (
@@ -323,14 +416,20 @@ export function FoodCheckout({
           </p>
         )}
 
-        <input
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-          maxLength={200}
-          aria-label="Un mot pour le restaurant (facultatif)"
-          placeholder="Un mot pour le restaurant ? (sans oignon, sauce à part…)"
-          className={INPUT_CLASS.replace("mt-1.5 ", "")}
-        />
+        {/* Une seule note, envoyée avec la commande : le restaurant la lit et la passe au livreur. */}
+        <div>
+          <label htmlFor={`${id}-note`} className="block text-xs font-medium">
+            Un mot pour le restaurant ou le livreur <span className="font-normal text-fg-muted">(facultatif)</span>
+          </label>
+          <input
+            id={`${id}-note`}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            maxLength={200}
+            placeholder="Sans oignon, portail bleu, appelle en arrivant…"
+            className={INPUT_CLASS}
+          />
+        </div>
 
         <div className="flex items-center justify-between rounded-xl bg-bg-subtle px-3 py-2 text-xs">
           <span className="text-fg-muted">{data.demo ? "Portefeuille (démo)" : "Portefeuille"}</span>

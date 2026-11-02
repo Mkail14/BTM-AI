@@ -8,6 +8,6 @@ import type { PersonalityId } from "./personalities";
 export const PERSONALITY_LOOKS: Record<PersonalityId, { color: string; traits: string[] }> = {
   mechante: { color: "#d4383d", traits: ["Sarcastique", "Franche", "Taquine"] },
   // Rose BTM (--accent du site) : c'est la personnalité par défaut.
-  professionnelle: { color: "#c8295f", traits: ["Polie", "Précise", "Efficace"] },
+  professionnelle: { color: "#c8295f", traits: ["Simple", "Gentille", "Claire"] },
   cool: { color: "#0378a6", traits: ["Détendue", "Drôle", "Naturelle"] },
 };

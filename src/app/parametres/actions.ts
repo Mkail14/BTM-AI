@@ -2,7 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { isPersonalityId } from "@/lib/ai/personalities";
+import { addressSchema, MAX_SAVED_ADDRESSES, savedAddressSchema } from "@/lib/address";
 import { getAuthContext } from "@/lib/auth/session";
+import { normalizePhone } from "@/lib/code-exam/candidate";
+import { saveProfileAddress, saveProfilePhone } from "@/lib/profile-contact";
+import { deleteSavedAddress, saveSavedAddress } from "@/lib/saved-addresses";
 import { profileSchema } from "@/lib/chat/validation";
 import { updatePersonality, updateProfile } from "@/lib/conversations/repository";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -80,4 +84,88 @@ export async function deleteAccountAction(confirmation: unknown): Promise<Profil
   await supabase.auth.signOut({ scope: "local" }).catch(() => {});
   revalidatePath("/", "layout");
   return { status: "saved", message: "Votre compte a été supprimé." };
+}
+
+/** Adresse du compte : livraisons et « près de chez moi » (bureau du code le plus proche…). */
+export async function saveAddressAction(input: unknown): Promise<ProfileFormState> {
+  const { supabase, user } = await getAuthContext();
+  if (!supabase || !user) return { status: "error", message: "Votre session a expiré. Reconnectez-vous." };
+  const parsed = addressSchema.safeParse(input);
+  if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Adresse invalide." };
+  try {
+    await saveProfileAddress(supabase, user.id, parsed.data);
+  } catch (error) {
+    console.error("[parametres] Adresse non enregistrée", error);
+    return { status: "error", message: "L'enregistrement a échoué. Réessayez." };
+  }
+  revalidatePath("/parametres");
+  return { status: "saved", message: "Adresse enregistrée." };
+}
+
+/** Téléphone du compte (livreur, rappel pour le code) : jamais renvoyé en entier au navigateur. */
+export async function savePhoneAction(input: unknown): Promise<ProfileFormState> {
+  const { supabase, user } = await getAuthContext();
+  if (!supabase || !user) return { status: "error", message: "Votre session a expiré. Reconnectez-vous." };
+  const phone = typeof input === "string" ? normalizePhone(input) : null;
+  if (!phone) return { status: "error", message: "Numéro invalide : 10 chiffres, par exemple 0639 12 34 56." };
+  try {
+    await saveProfilePhone(supabase, user.id, phone);
+  } catch (error) {
+    console.error("[parametres] Téléphone non enregistré", error);
+    return { status: "error", message: "L'enregistrement a échoué. Réessayez." };
+  }
+  revalidatePath("/parametres");
+  return { status: "saved", message: "Numéro enregistré." };
+}
+
+/** Fait oublier à Awa un souvenir (kind), ou tous si kind est absent. */
+export async function forgetMemoryAction(kind?: unknown): Promise<ProfileFormState> {
+  const { supabase, user } = await getAuthContext();
+  if (!supabase || !user) return { status: "error", message: "Votre session a expiré. Reconnectez-vous." };
+  let query = supabase.from("awa_memories").delete().eq("user_id", user.id);
+  if (kind !== undefined) {
+    if (typeof kind !== "string" || kind.length > 60) return { status: "error", message: "Souvenir inconnu." };
+    query = query.eq("kind", kind);
+  }
+  const { error } = await query;
+  if (error) {
+    console.error("[parametres] Souvenir non effacé", error);
+    return { status: "error", message: "L'effacement a échoué. Réessayez." };
+  }
+  revalidatePath("/parametres");
+  return { status: "saved", message: kind === undefined ? "Awa a tout oublié." : "Souvenir effacé." };
+}
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Ajoute (id absent) ou modifie une adresse du carnet : travail, ami, famille… */
+export async function saveSavedAddressAction(input: unknown, id?: unknown): Promise<ProfileFormState> {
+  const { supabase, user } = await getAuthContext();
+  if (!supabase || !user) return { status: "error", message: "Votre session a expiré. Reconnectez-vous." };
+  if (id !== undefined && (typeof id !== "string" || !UUID.test(id))) return { status: "error", message: "Adresse inconnue." };
+  const parsed = savedAddressSchema.safeParse(input);
+  if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Adresse invalide." };
+  try {
+    await saveSavedAddress(supabase, parsed.data, id);
+  } catch (error) {
+    const full = error instanceof Error && /Carnet plein/.test(error.message);
+    if (!full) console.error("[parametres] Adresse du carnet non enregistrée", error);
+    return { status: "error", message: full ? `Carnet plein : ${MAX_SAVED_ADDRESSES} adresses au maximum.` : "L'enregistrement a échoué. Réessayez." };
+  }
+  revalidatePath("/parametres");
+  return { status: "saved", message: id ? "Adresse modifiée." : "Adresse ajoutée." };
+}
+
+export async function deleteSavedAddressAction(id: unknown): Promise<ProfileFormState> {
+  const { supabase, user } = await getAuthContext();
+  if (!supabase || !user) return { status: "error", message: "Votre session a expiré. Reconnectez-vous." };
+  if (typeof id !== "string" || !UUID.test(id)) return { status: "error", message: "Adresse inconnue." };
+  try {
+    await deleteSavedAddress(supabase, id);
+  } catch (error) {
+    console.error("[parametres] Adresse du carnet non supprimée", error);
+    return { status: "error", message: "La suppression a échoué. Réessayez." };
+  }
+  revalidatePath("/parametres");
+  return { status: "saved", message: "Adresse supprimée." };
 }

@@ -3,15 +3,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { FoodResponse } from "@/app/api/food/route";
 import type { FoodCartLine, FoodItem, FoodRestaurant } from "@/lib/food/catalog";
-import { DISH_KINDS, dishKindOf, illustrationOf, matchFoodQuery } from "@/lib/food/match";
+import type { GeoPoint } from "@/lib/address";
+import { MAYOTTE_COMMUNES } from "@/lib/code-exam/candidate";
+import { DISH_KINDS, dishKindOf, illustrationOf, matchFoodQuery, normalizeFood } from "@/lib/food/match";
+import { COMMUNE_CENTERS, distanceKm, locateMe, PETITE_TERRE } from "@/lib/geo/communes";
 import { formatEuros } from "@/lib/wallet/limits";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { FoodCheckout } from "./FoodCheckout";
-import { OrderTracker, type PlacedOrder } from "./OrderTracker";
+import { ORDER_EVENT, ORDER_KEY, OrderTracker, type PlacedOrder } from "./OrderTracker";
 
 const PERSONA = "var(--persona,var(--accent))";
 /** Commande payée depuis ce bloc, gardée sur l'appareil : le suivi reste affiché après un rechargement. */
-const ORDER_KEY = "btm-food-order:";
 /** Au-delà, le suivi d'une commande livrée laisse revenir le menu. */
 const ORDER_KEPT_MS = 30 * 60_000;
 
@@ -129,6 +131,73 @@ function Quantity({ dish, quantity, change }: { dish: Dish; quantity: number; ch
   );
 }
 
+type Spot = { commune: string; geo: GeoPoint | null };
+
+/**
+ * « Où es-tu ? » : avant une recherche « près de moi » quand le compte n'a
+ * pas d'adresse. Position GPS en un geste, ou commune choisie à la main.
+ */
+function WhereAreYou({ what, onSpot, onSkip }: { what: string; onSpot: (spot: Spot) => void; onSkip: () => void }) {
+  const [locating, setLocating] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  return (
+    <div className="booking-step space-y-3 p-4">
+      <div className="flex items-start gap-3">
+        <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center rounded-2xl bg-bg-subtle text-2xl">
+          📍
+        </span>
+        <div>
+          <p className="text-base font-semibold">Où es-tu ?</p>
+          <p className="text-xs text-fg-muted">Pour te montrer {what} près de toi. Ton adresse n&apos;est pas encore enregistrée.</p>
+        </div>
+      </div>
+      <button
+        type="button"
+        disabled={locating}
+        onClick={async () => {
+          setLocating(true);
+          setProblem(null);
+          const found = await locateMe();
+          setLocating(false);
+          if (found.ok) onSpot({ commune: found.commune, geo: found.geo });
+          else setProblem(found.error);
+        }}
+        className="flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
+        style={{ background: PERSONA }}
+      >
+        {locating ? "Recherche de ta position…" : "📍 Utiliser ma position"}
+      </button>
+      {problem ? <p className="text-center text-xs text-danger">{problem}</p> : null}
+      <label className="flex items-center gap-2 text-xs text-fg-muted">
+        <span className="shrink-0">ou ta commune :</span>
+        <select
+          defaultValue=""
+          onChange={(e) => e.target.value && onSpot({ commune: e.target.value, geo: null })}
+          className="min-w-0 flex-1 rounded-xl border border-border bg-bg px-3 py-2 text-sm text-fg outline-none focus:border-[var(--persona,var(--accent))]"
+        >
+          <option value="">Choisir…</option>
+          {MAYOTTE_COMMUNES.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </label>
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+        <a href="/parametres?rubrique=adresse" className="font-medium hover:underline" style={{ color: PERSONA }}>
+          Enregistrer mon adresse
+        </a>
+        <button type="button" onClick={onSkip} className="text-fg-muted hover:underline">
+          Montrer sans trier
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/** Awa a écrit « tout » (ou rien de précis) : la personne veut parcourir toute l'application. */
+const BROWSE = /\b(?:tout|toute|catalogue|application|appli|menu complet|parcourir|restaurants)\b/;
+
 /**
  * Commande de repas affichée par Awa dans la conversation. Elle s'ouvre sur ce
  * que la personne a demandé (query, écrit par Awa dans le bloc) : « tacos »
@@ -145,6 +214,12 @@ export function FoodOrder({ query = "" }: { query?: string }) {
   const [cart, setCart] = useState<{ restaurantId: string | null; items: Record<string, number> }>({ restaurantId: null, items: {} });
   const [checkout, setCheckout] = useState(false);
   const [placed, setPlaced] = useState<PlacedOrder | null>(null);
+  // Recherche précise (« tacos ») : seulement les résultats. Parcourir : toute l'application.
+  const [browse, setBrowse] = useState(false);
+  // Position donnée dans cette carte (compte sans adresse, ou « changer de lieu »).
+  const [spot, setSpot] = useState<Spot | null>(null);
+  const [askWhere, setAskWhere] = useState(false);
+  const [unsorted, setUnsorted] = useState(false);
   const rail = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -158,6 +233,7 @@ export function FoodOrder({ query = "" }: { query?: string }) {
         setPlaced(savedOrder(query));
         setKind(wanted.kind);
         setRestaurantId(wanted.restaurantId);
+        setBrowse(!(wanted.kind || wanted.restaurantId) || BROWSE.test(normalizeFood(query)));
         setData(body);
         setError(null);
       }
@@ -238,9 +314,17 @@ export function FoodOrder({ query = "" }: { query?: string }) {
   // Types présents dans le catalogue, pour les filtres.
   const kinds = DISH_KINDS.filter((k) => dishes.some((d) => d.kind === k.id));
   const kindInfo = DISH_KINDS.find((k) => k.id === kind) ?? null;
-  // Près de chez toi : restaurants de la commune du compte d'abord, puis les plus rapides.
-  const home = data.address?.commune ?? null;
-  const nearness = (r: FoodRestaurant) => (r.commune === home ? 0 : 1000) + r.etaMinutes[0];
+  // Près de chez toi : depuis la position donnée ici, sinon l'adresse du compte (GPS ou centre de la commune).
+  const origin: Spot | null = spot ?? (data.address ? { commune: data.address.commune, geo: data.address.geo } : null);
+  const from = origin ? (origin.geo ?? COMMUNE_CENTERS[origin.commune] ?? null) : null;
+  const home = origin?.commune ?? null;
+  /** km jusqu'au restaurant (barge comptée 15 km), null sans position connue. */
+  const kmTo = (r: FoodRestaurant) => {
+    const to = COMMUNE_CENTERS[r.commune];
+    if (!from || !to || !origin) return null;
+    return distanceKm(from, to) + (PETITE_TERRE.has(r.commune) !== PETITE_TERRE.has(origin.commune) ? 15 : 0);
+  };
+  const nearness = (r: FoodRestaurant) => (kmTo(r) ?? 0) * 3 + r.etaMinutes[0];
   const shown = dishes
     .filter((d) => (kind ? d.kind === kind : !["boisson", "accompagnement"].includes(d.kind ?? "")))
     .sort((a, b) => nearness(a.restaurant) - nearness(b.restaurant));
@@ -296,7 +380,74 @@ export function FoodOrder({ query = "" }: { query?: string }) {
   );
 
   let body: ReactNode;
-  if (restaurant) {
+  const precise = !browse && Boolean(kind) && !restaurant;
+  if (precise && (askWhere || (!origin && !unsorted))) {
+    body = (
+      <WhereAreYou
+        what={kindInfo ? `les ${kindInfo.label.toLowerCase()}` : "les plats"}
+        onSpot={(next) => {
+          setSpot(next);
+          setAskWhere(false);
+        }}
+        onSkip={() => {
+          setUnsorted(true);
+          setAskWhere(false);
+        }}
+      />
+    );
+  } else if (precise) {
+    // Recherche précise : la liste des résultats, du plus proche au plus loin, et rien d'autre.
+    body = (
+      <>
+        <div className="flex items-center gap-2 px-4 pt-4 pb-2">
+          <div className="min-w-0 flex-1">
+            <p className="text-base font-semibold">
+              {kindInfo?.emoji} {kindInfo?.label} {home ? `près de toi · ${home}` : "à Mayotte"}
+            </p>
+            <p className="truncate text-xs text-fg-muted">
+              {shown.length} résultat{shown.length > 1 ? "s" : ""}
+              {home ? " · du plus proche au plus loin" : ""}
+            </p>
+          </div>
+          <button type="button" onClick={() => setAskWhere(true)} className="shrink-0 text-xs font-medium hover:underline" style={{ color: PERSONA }}>
+            {home ? "Changer de lieu" : "Où suis-je ?"}
+          </button>
+          {data.demo ? (
+            <span className="shrink-0 rounded-full bg-warning-soft px-2 py-0.5 text-[10px] font-semibold text-warning">Démo</span>
+          ) : null}
+        </div>
+        {shown.length ? (
+          <ul className="max-h-[28rem] space-y-2 overflow-y-auto overscroll-contain px-3 pb-3">
+            {shown.map((dish) => {
+              const km = kmTo(dish.restaurant);
+              return (
+                <li key={dish.item.id} className="group flex items-center gap-3 rounded-2xl border border-border p-2">
+                  <DishPicture dish={dish} className="size-16 shrink-0 rounded-xl [&_span]:text-3xl" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{dish.item.name}</p>
+                    <p className="truncate text-xs text-fg-muted">
+                      {[
+                        dish.restaurant.name,
+                        dish.restaurant.commune,
+                        km !== null ? `~${Math.max(1, Math.round(km))} km` : null,
+                        `${dish.restaurant.etaMinutes[0]}–${dish.restaurant.etaMinutes[1]} min`,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                    <p className="mt-0.5 text-sm font-semibold tabular-nums">{formatEuros(dish.item.priceCents)}</p>
+                  </div>
+                  <Quantity dish={dish} quantity={quantityOf(dish)} change={change} />
+                </li>
+              );
+            })}
+          </ul>
+        ) : (
+          <p className="px-4 pb-4 text-fg-muted">Aucun restaurant ne propose ce plat pour le moment.</p>
+        )}
+      </>
+    );
+  } else if (restaurant) {
     // Un restaurant : ses plats du type demandé d'abord, le reste du menu sur demande.
     const own = dishes.filter((d) => d.restaurant.id === restaurant.id);
     const focus = kind && !fullMenu ? own.filter((d) => d.kind === kind) : own;
@@ -309,6 +460,7 @@ export function FoodOrder({ query = "" }: { query?: string }) {
           () => {
             setRestaurantId(null);
             setFullMenu(false);
+            setBrowse(true);
           },
         )}
         <ul className="grid max-h-[26rem] gap-2 overflow-y-auto overscroll-contain px-3 pb-2 sm:grid-cols-2">
@@ -438,8 +590,10 @@ export function FoodOrder({ query = "" }: { query?: string }) {
         itemsCents={itemsCents}
         onBack={() => setCheckout(false)}
         onChangeQuantity={changeLine}
+        here={spot}
         onPlaced={(order) => {
           localStorage.setItem(ORDER_KEY + query, JSON.stringify(order));
+          window.dispatchEvent(new Event(ORDER_EVENT));
           setPlaced(order);
           setCheckout(false);
           setCart({ restaurantId: null, items: {} });

@@ -6,10 +6,8 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { alertDialog } from "@/components/ui/ConfirmDialog";
 import { useChatShell } from "@/components/layout/ChatShell";
-import { useCurrentPersonality } from "@/components/personality/PersonalityContext";
 import { PersonalitySwitcher } from "@/components/personality/PersonalitySwitcher";
-import { PERSONALITIES } from "@/lib/ai/personalities";
-import { IconMenu, IconMic, IconNewChat, IconOffline, IconSave } from "@/components/ui/icons";
+import { IconArrowDown, IconMenu, IconMic, IconNewChat, IconOffline, IconSave } from "@/components/ui/icons";
 import {
   clearAnonymousDraft,
   loadAnonymousDraft,
@@ -47,6 +45,32 @@ type ChatViewProps = {
 
 const ANONYMOUS_MAX_EXCHANGES = CHAT_LIMITS.anonymousMaxMessages / 2;
 
+/** Idées de questions sur l'écran d'accueil : un clic les envoie à Awa. */
+/** Cartes de l'accueil : titre, précision, et le message envoyé au clic. */
+const SUGGESTIONS = [
+  { emoji: "🚗", title: "Passer le code", hint: "Le bureau le plus proche et ses créneaux", text: "Où passer le code près de chez moi ?" },
+  { emoji: "🗣️", title: "Parler shimaoré", hint: "Bonjour, merci, compter…", text: "Apprends-moi à dire bonjour en shimaoré" },
+  { emoji: "💼", title: "Trouver un emploi", hint: "Les offres du moment à Mayotte", text: "Quelles offres d'emploi à Mayotte ?" },
+  { emoji: "📰", title: "L'actu de Mayotte", hint: "Ce qui se passe aujourd'hui", text: "Quoi de neuf à Mayotte aujourd'hui ?" },
+];
+/** Commande de repas : proposée aux comptes qui y ont accès (démonstration). */
+const FOOD_SUGGESTION = { emoji: "🌮", title: "Commander à manger", hint: "Tacos, pizza, plats mahorais…", text: "Je veux un tacos près de chez moi" };
+
+/** Exemples qui défilent dans le champ de message vide. */
+const EXAMPLES = [
+  "Comment dit-on « merci » en shimaoré ?",
+  "Où passer le code de la route à Mamoudzou ?",
+  "Aide-moi à écrire mon CV",
+  "Quelles offres d'emploi en ce moment ?",
+];
+const FOOD_EXAMPLE = "Commande-moi un tacos 🌮";
+
+/** « Bonjour » ou « Bonsoir », à l'heure de Mayotte. */
+function greeting() {
+  const hour = Number(new Intl.DateTimeFormat("fr-FR", { hour: "numeric", hour12: false, timeZone: "Indian/Mayotte" }).format(new Date()));
+  return hour >= 18 || hour < 4 ? "Bonsoir" : "Bonjour";
+}
+
 function newId() {
   return crypto.randomUUID();
 }
@@ -75,7 +99,6 @@ async function readErrorMessage(res: Response): Promise<{ code: string; message:
 export function ChatView({ conversationId: initialConversationId, initialMessages, authPrompt }: ChatViewProps) {
   const router = useRouter();
   const { user, openAuthDialog } = useAuth();
-  const { current: persona } = useCurrentPersonality();
   const { refreshConversations, newChatSignal, openSidebar, startNewChat } = useChatShell();
   const online = useOnlineStatus();
 
@@ -91,6 +114,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   const composerRef = useRef<ComposerHandle>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
+  // Bouton « revenir en bas » quand on a remonté la conversation.
+  const [showJump, setShowJump] = useState(false);
   const isHome = initialConversationId === null;
   const userId = user?.id ?? null;
 
@@ -393,6 +418,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
         const el = e.currentTarget;
         distanceFromBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight;
         stickToBottom.current = distanceFromBottom.current < 80;
+        const far = distanceFromBottom.current > 400;
+        if (far !== showJump) setShowJump(far);
       }}
       // overscroll-contain : l'effet élastique en bout de liste ne fait pas bouger toute la page.
       className="relative flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain"
@@ -442,20 +469,57 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
 
       <div className="flex flex-1 flex-col">
         {messages.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center px-6 pb-16 text-center">
-            <BrandLogo size="xl" />
-            <h1 className="mt-8 text-2xl font-semibold tracking-tight sm:text-3xl">Que puis-je faire pour vous ?</h1>
-            <p className="mt-3 max-w-md text-sm text-fg-muted">
-              Posez votre question en français ou en shimaoré. Awa peut se tromper : vérifiez les informations
-              importantes.
-            </p>
-            <p className="mt-5 inline-flex items-center gap-2 rounded-full border border-[var(--persona-border,var(--border))] bg-[var(--persona-soft,var(--bg-muted))] px-3 py-1 text-xs font-medium text-[var(--persona-text,var(--fg))]">
-              <span aria-hidden="true">{PERSONALITIES[persona].emoji}</span>
-              Awa · {PERSONALITIES[persona].label}
-            </p>
+          // Accueil : Awa (globe animé) au centre, suggestions juste au-dessus de la zone de saisie, collée en bas.
+          <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 sm:px-6">
+            <div className="flex flex-1 flex-col items-center justify-center py-8 text-center">
+              <button
+                type="button"
+                onClick={voiceEnabled && !blocked && online ? voice.start : () => composerRef.current?.focus()}
+                aria-label={voiceEnabled ? "Parler à Awa" : "Écrire à Awa"}
+                title={voiceEnabled ? "Parler à Awa" : undefined}
+                className="awa-hello"
+              >
+                <span className="voice-orb__halo" aria-hidden="true" />
+                <span className="voice-orb__ring" aria-hidden="true" />
+                <span className="voice-orb__core" aria-hidden="true">
+                  <span className="voice-orb__swirl" />
+                </span>
+              </button>
+              <h1 suppressHydrationWarning className="awa-hello-rise mt-8 text-3xl font-semibold tracking-tight sm:text-4xl">
+                {greeting()}
+                {user?.displayName ? `, ${user.displayName}` : ""}
+              </h1>
+              <p className="awa-hello-rise mt-2 text-fg-muted [animation-delay:120ms]">
+                Je suis Awa. Pose-moi ta question, en français ou en shimaoré.
+              </p>
+            </div>
+
+            <ul className="grid grid-cols-2 gap-2 pb-3 sm:gap-3" aria-label="Idées pour commencer">
+              {(user?.isAdmin ? [FOOD_SUGGESTION, ...SUGGESTIONS.slice(0, 3)] : SUGGESTIONS).map((s, i) => (
+                <li key={s.title} className="awa-hello-rise" style={{ animationDelay: `${200 + i * 70}ms` }}>
+                  <button
+                    type="button"
+                    disabled={blocked || !online}
+                    onClick={() => void send(s.text)}
+                    className="group flex h-full w-full items-center gap-3 rounded-2xl border border-border bg-bg/60 p-3 text-left backdrop-blur transition hover:-translate-y-0.5 hover:border-[var(--persona-border,var(--border))] hover:bg-[var(--persona-surface,var(--bg-subtle))] hover:shadow-[0_10px_30px_-14px_var(--persona,var(--accent))] disabled:opacity-50 sm:p-4"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="grid size-10 shrink-0 place-items-center rounded-xl bg-[var(--persona-soft,var(--bg-muted))] text-xl transition group-hover:scale-110"
+                    >
+                      {s.emoji}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-medium">{s.title}</span>
+                      <span className="block truncate text-xs text-fg-muted">{s.hint}</span>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
           </div>
         ) : (
-          <section aria-label="Conversation" className="mx-auto w-full max-w-3xl space-y-6 px-4 py-6 sm:px-6">
+          <section aria-label="Conversation" className="mx-auto w-full max-w-3xl space-y-8 px-4 pt-6 pb-10 sm:px-6">
             <TeachWordContext value={user?.isAdmin ? teachWord : null}>
               <CorrectContext value={user?.isAdmin ? correctPassage : null}>
                 {messages.map((message, index) => (
@@ -473,7 +537,22 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       </div>
 
       {/* Fondu vers la teinte de la conversation : les messages passent dessous en douceur. */}
-      <div className="composer-dock sticky bottom-0 z-10 shrink-0 bg-[linear-gradient(to_top,var(--persona-surface,var(--bg))_80%,transparent)] px-3 pt-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6">
+      <div
+        className={`composer-dock sticky bottom-0 z-10 shrink-0 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-6 ${
+          messages.length === 0 ? "pt-1" : "bg-[linear-gradient(to_top,var(--persona-surface,var(--bg))_80%,transparent)] pt-4"
+        }`}
+      >
+        {/* Revenir en bas après avoir remonté la conversation. */}
+        {showJump && messages.length > 0 ? (
+          <button
+            type="button"
+            onClick={() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })}
+            aria-label="Revenir en bas de la conversation"
+            className="absolute -top-10 left-1/2 grid size-9 -translate-x-1/2 place-items-center rounded-full border border-border bg-bg text-fg-muted shadow-lg transition hover:text-fg"
+          >
+            <IconArrowDown width={18} height={18} />
+          </button>
+        ) : null}
         <div className="mx-auto w-full max-w-3xl space-y-2">
           {!online ? (
             <p role="status" className="flex items-center gap-2 rounded-lg bg-warning-soft px-3 py-2 text-sm">
@@ -544,6 +623,9 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             disabledReason={!online ? "Hors ligne" : importCandidate ? "Choisissez d'abord ci-dessus" : "Conversation terminée"}
             onSend={(text) => void send(text)}
             onStop={() => abortRef.current?.abort()}
+            placeholder="Demande-moi ce que tu veux…"
+            // Conversation vide : des exemples défilent pour montrer ce qu'Awa sait faire ; ensuite, le texte reste fixe.
+            examples={messages.length === 0 ? [...(user?.isAdmin ? [FOOD_EXAMPLE] : []), ...EXAMPLES] : undefined}
             leading={<PersonalitySwitcher />}
             trailing={
               voiceEnabled ? (
@@ -560,6 +642,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
               ) : null
             }
           />
+          <p className="text-center text-[11px] text-fg-muted">Awa peut se tromper. Vérifie les informations importantes.</p>
         </div>
       </div>
 

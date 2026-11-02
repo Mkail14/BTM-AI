@@ -4,6 +4,7 @@ import { AIProviderError, buildSystemPrompt, getAIProvider } from "@/lib/ai";
 import { getAuthContext } from "@/lib/auth/session";
 import { nearestOfficesLine } from "@/lib/code-exam/offices";
 import { canOrderFood } from "@/lib/food/access";
+import { describeOrder, readLastOrder } from "@/lib/food/last-order";
 import { chatErrorBody } from "@/lib/chat/errors";
 import { buildModelHistory, deriveTitle } from "@/lib/chat/history";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
@@ -337,6 +338,7 @@ export async function POST(request: NextRequest) {
     reportUnknownWords: true,
     home,
     foodOrdering: await canOrderFood(user),
+    foodOrder: user ? await readLastOrder(user.id).then((order) => (order ? describeOrder(order) : null)) : null,
   });
   flow.step("prompt", true);
   // Mesures de vitesse, écrites dans les journaux du serveur en fin de réponse.

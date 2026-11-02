@@ -11,8 +11,8 @@ export type SiteFlags = { maintenance: boolean; maintenanceMessage: string; demo
 
 const OFF: SiteFlags = { maintenance: false, maintenanceMessage: "", demoMode: false };
 
-/** Gardés quelques secondes en mémoire : un changement s'applique partout en moins de 10 s. */
-const FLAGS_TTL_MS = 10_000;
+/** Gardés en mémoire : un changement s'applique partout en moins de 30 s (tout de suite sur ce serveur). */
+const FLAGS_TTL_MS = 30_000;
 let cached: { flags: SiteFlags; at: number } | null = null;
 let client: SupabaseClient | null = null;
 

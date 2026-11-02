@@ -1,16 +1,12 @@
 import type { GeoPoint } from "@/lib/address";
+import { COMMUNE_CENTERS, distanceKm as km, PETITE_TERRE, type Point } from "@/lib/geo/communes";
 
 /**
  * Bureaux La Poste de Mayotte où l'on passe le code, et centre de chaque
  * commune : pour qu'Awa dise lequel est le plus proche de chez la personne,
  * sans afficher le tableau des horaires. Positions approximatives (centre du
- * village), suffisantes pour classer les bureaux.
+ * village, voir src/lib/geo/communes.ts), suffisantes pour classer les bureaux.
  */
-
-type Point = { lat: number; lng: number };
-
-/** Petite-Terre : séparée de Grande-Terre par la barge. */
-const PETITE_TERRE = new Set(["Dzaoudzi", "Pamandzi"]);
 
 export const CODE_EXAM_OFFICES: readonly { name: string; commune: string; at: Point }[] = [
   { name: "Kaweni", commune: "Mamoudzou", at: { lat: -12.7586, lng: 45.2233 } },
@@ -21,34 +17,6 @@ export const CODE_EXAM_OFFICES: readonly { name: string; commune: string; at: Po
   { name: "Dzaoudzi Labattoir", commune: "Dzaoudzi", at: { lat: -12.7836, lng: 45.2806 } },
   { name: "Pamandzi", commune: "Pamandzi", at: { lat: -12.7967, lng: 45.2797 } },
 ];
-
-const COMMUNE_CENTERS: Record<string, Point> = {
-  Acoua: { lat: -12.7231, lng: 45.0611 },
-  Bandraboua: { lat: -12.7008, lng: 45.1239 },
-  Bandrélé: { lat: -12.9067, lng: 45.1917 },
-  Bouéni: { lat: -12.9031, lng: 45.0786 },
-  Chiconi: { lat: -12.8325, lng: 45.1144 },
-  Chirongui: { lat: -12.9317, lng: 45.1497 },
-  Dembéni: { lat: -12.8394, lng: 45.1897 },
-  Dzaoudzi: { lat: -12.7878, lng: 45.2811 },
-  "Kani-Kéli": { lat: -12.955, lng: 45.1003 },
-  Koungou: { lat: -12.7336, lng: 45.2042 },
-  Mamoudzou: { lat: -12.7806, lng: 45.2279 },
-  Mtsamboro: { lat: -12.6997, lng: 45.0697 },
-  "M'Tsangamouji": { lat: -12.7514, lng: 45.0858 },
-  Ouangani: { lat: -12.8475, lng: 45.1375 },
-  Pamandzi: { lat: -12.7967, lng: 45.2797 },
-  Sada: { lat: -12.8486, lng: 45.1047 },
-  Tsingoni: { lat: -12.7897, lng: 45.1075 },
-};
-
-/** Distance à vol d'oiseau, en km. */
-function km(a: Point, b: Point) {
-  const rad = Math.PI / 180;
-  const x = (b.lng - a.lng) * rad * Math.cos(((a.lat + b.lat) / 2) * rad);
-  const y = (b.lat - a.lat) * rad;
-  return Math.sqrt(x * x + y * y) * 6371;
-}
 
 /**
  * Bureaux du plus proche au plus loin de l'adresse (position GPS si elle est

@@ -39,6 +39,7 @@ const OPEN_DURING_MAINTENANCE = ["/maintenance", "/auth/", "/api/auth/", "/api/c
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
+    // Fichiers fixes (images, sons, polices, manifeste) : servis tout de suite, sans passer par le proxy.
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|brand/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|mp3|wav|ogg|woff2?|txt|xml)$).*)",
   ],
 };

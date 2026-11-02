@@ -1,9 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { addressSchema, type Address } from "@/lib/address";
+import { addressSchema, type Address, type SavedAddress } from "@/lib/address";
+import { listSavedAddresses } from "@/lib/saved-addresses";
 import { getAuthContext } from "@/lib/auth/session";
 import { maskPhone, normalizePhone } from "@/lib/code-exam/candidate";
 import { canOrderFood } from "@/lib/food/access";
+import { rememberOrder } from "@/lib/food/last-order";
+import { demoCourier, type Courier } from "@/lib/food/courier";
 import { orderCode } from "@/lib/food/order-code";
 import { FOOD_CATALOG, FOOD_DELIVERY_FEE_CENTS, FOOD_DEMO, FOOD_ZONES, priceOrder, type FoodRestaurant } from "@/lib/food/catalog";
 import { getProfileContact, saveProfileAddress, saveProfilePhone } from "@/lib/profile-contact";
@@ -24,6 +27,8 @@ export type FoodResponse = {
   balanceCents: number;
   /** Adresse du compte, à reconfirmer à chaque livraison (null : jamais donnée). */
   address: Address | null;
+  /** Carnet d'adresses (travail, amis, famille…), proposé en plus de la maison. */
+  savedAddresses: SavedAddress[];
   /** Téléphone enregistré, masqué (« 06 •• •• •• 56 ») : le numéro entier ne revient jamais au navigateur. */
   savedPhone: string | null;
 };
@@ -33,10 +38,11 @@ export async function GET() {
   const { supabase, user } = await getAuthContext();
   if (!supabase || !user) return fail(401, "Connecte-toi pour commander.");
   if (!(await canOrderFood(user))) return fail(403, "La commande de repas n'est pas encore disponible.");
-  const [wallet, contact] = await Promise.all([
+  const [wallet, contact, saved] = await Promise.all([
     // Démonstration : solde fictif (src/lib/wallet/demo.ts), le vrai portefeuille n'est pas touché.
     FOOD_DEMO ? readDemoWallet(user.id) : loadWallet(supabase, user.id, 1),
     getProfileContact(supabase, user.id),
+    listSavedAddresses(supabase),
   ]);
   const body: FoodResponse = {
     demo: FOOD_DEMO,
@@ -45,6 +51,7 @@ export async function GET() {
     deliveryCents: FOOD_DELIVERY_FEE_CENTS,
     balanceCents: wallet.balanceCents,
     address: contact.address,
+    savedAddresses: saved ?? [],
     savedPhone: contact.phone ? maskPhone(contact.phone) : null,
   };
   return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
@@ -129,7 +136,23 @@ export async function POST(request: NextRequest) {
     placedAt: new Date(now).toISOString(),
     readyAt: new Date(now + totalMs * 0.4).toISOString(),
     arrivesAt: new Date(now + totalMs).toISOString(),
+    // Démonstration : un livreur fictif (numéro réservé à la fiction). Avec un partenaire, son vrai livreur.
+    courier: FOOD_DEMO ? demoCourier() : null,
   };
+  // Awa la retrouve pour répondre aux questions sur la livraison.
+  await rememberOrder({
+    userId: user.id,
+    code: body.code,
+    restaurant: order.restaurant.name,
+    commune: address.commune,
+    lines: order.lines.map((l) => `${l.quantity}× ${l.item.name}`),
+    totalCents: order.totalCents,
+    note: parsed.data.note || null,
+    demo: FOOD_DEMO,
+    placedAt: body.placedAt,
+    readyAt: body.readyAt,
+    arrivesAt: body.arrivesAt,
+  });
   return NextResponse.json(body);
 }
 
@@ -145,4 +168,6 @@ export type FoodOrderPlaced = {
   /** Fin de la préparation : le livreur part. */
   readyAt: string;
   arrivesAt: string;
+  /** Livreur à appeler ou à qui écrire ; null tant qu'aucun n'est attribué. */
+  courier: Courier | null;
 };

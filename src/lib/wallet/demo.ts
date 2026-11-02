@@ -65,6 +65,15 @@ async function writeDemoWallet(state: DemoState) {
   });
 }
 
+/**
+ * Efface le portefeuille fictif de ce navigateur : la prochaine démonstration
+ * repart de 150 €. Seulement dans une action serveur ou une route (cookies modifiables).
+ */
+export async function forgetDemoWallet() {
+  const jar = await cookies();
+  if (jar.has(COOKIE)) jar.delete(COOKIE);
+}
+
 /** Ajoute (recharge) ou retire (paiement) une somme fictive. null si le solde ne suffit pas. */
 export async function recordDemoOperation(
   userId: string,

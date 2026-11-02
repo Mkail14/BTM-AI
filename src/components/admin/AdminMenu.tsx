@@ -88,14 +88,14 @@ const isActive = (pathname: string, href: string) => (href === "/admin" ? pathna
 
 /**
  * Onglets de la barre du haut, sur grand écran : les mêmes rubriques que le
- * menu ☰, groupes séparés par un trait, la rubrique ouverte soulignée.
+ * menu ☰, groupes séparés par un trait, la rubrique ouverte soulignée. Le
+ * Profil de l'entreprise n'y figure pas : il s'ouvre depuis le menu du compte.
  */
-export function AdminTabs({ principal = false }: { principal?: boolean }) {
+export function AdminTabs() {
   const pathname = usePathname();
-  const sections = principal ? [...SECTIONS, PRINCIPAL_SECTION] : SECTIONS;
   return (
     <nav aria-label="Rubriques" className="scrollbar-none -mb-px flex items-center gap-1 overflow-x-auto">
-      {sections.map((section, i) => (
+      {SECTIONS.map((section, i) => (
         <div key={section.title ?? i} className="flex items-center gap-1">
           {i > 0 ? <span aria-hidden="true" className="mx-1.5 h-4 w-px bg-border" /> : null}
           {section.items.map(({ label, tab, href }) => {
