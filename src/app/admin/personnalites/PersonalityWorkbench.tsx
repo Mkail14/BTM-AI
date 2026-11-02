@@ -11,6 +11,7 @@ import {
   type PersonalityBehavior,
   type PersonalityId,
 } from "@/lib/ai/personalities";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { savePersonalityAction, testPersonalityAction, type ActionResult } from "./actions";
 
 const TEST_SUGGESTIONS = [
@@ -402,7 +403,12 @@ export function PersonalityWorkbench({
           <button
             type="button"
             onClick={() => {
-              if (window.confirm("Revenir aux réglages d'origine pour cette personnalité ? Ses leçons seront effacées.")) save(null);
+              void confirmDialog({
+                title: "Revenir aux réglages d'origine ?",
+                message: "Les leçons de cette personnalité seront effacées.",
+                confirmLabel: "Réinitialiser",
+                tone: "danger",
+              }).then((ok) => ok && save(null));
             }}
             disabled={saving}
             className="text-fg-muted underline-offset-4 hover:text-fg hover:underline disabled:opacity-60"

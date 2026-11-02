@@ -5,8 +5,13 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
  * Clé dérivée de AI_KEYS_SECRET, ou à défaut de SUPABASE_SECRET_KEY :
  * changer l'une ou l'autre rend les clés enregistrées illisibles (à ressaisir).
  */
+/** Secret partagé par le poste local et le site en ligne (il signe aussi le relais, src/lib/ai/relay.ts). */
+export function keysSecret(env: Record<string, string | undefined> = process.env): string | null {
+  return env.AI_KEYS_SECRET?.trim() || env.SUPABASE_SECRET_KEY?.trim() || null;
+}
+
 function secretKey(env: Record<string, string | undefined> = process.env): Buffer | null {
-  const material = env.AI_KEYS_SECRET?.trim() || env.SUPABASE_SECRET_KEY?.trim();
+  const material = keysSecret(env);
   return material ? createHash("sha256").update(`btm-ai-keys:${material}`).digest() : null;
 }
 

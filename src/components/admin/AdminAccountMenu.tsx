@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { IconChevronUpDown, IconLogout, IconSettings, IconShield } from "@/components/ui/icons";
+import { IconLogout, IconSettings, IconShield } from "@/components/ui/icons";
 
 /**
  * Bouton du compte, à droite de la barre d'administration : avatar (initiale
@@ -53,13 +53,11 @@ export function AdminAccountMenu({ email, principal }: { email: string | null; p
         aria-haspopup="menu"
         aria-expanded={open}
         aria-label={`Compte : ${email ?? role}`}
-        className="flex items-center gap-2 rounded-full py-1 pr-1 pl-1 hover:bg-bg-muted md:pr-2"
+        className={`rounded-full p-0.5 ring-2 transition ${open ? "ring-accent/50" : "ring-transparent hover:ring-border"}`}
       >
         <span className="grid size-8 place-items-center rounded-full bg-gradient-to-br from-accent to-accent-hover text-sm font-semibold text-accent-fg">
           {initial}
         </span>
-        <span className="hidden max-w-36 truncate text-sm font-medium lg:block">{email}</span>
-        <IconChevronUpDown width={14} height={14} className="hidden text-fg-muted md:block" />
       </button>
 
       {place

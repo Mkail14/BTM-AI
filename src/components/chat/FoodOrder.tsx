@@ -5,9 +5,24 @@ import type { FoodResponse } from "@/app/api/food/route";
 import type { FoodCartLine, FoodItem, FoodRestaurant } from "@/lib/food/catalog";
 import { DISH_KINDS, dishKindOf, illustrationOf, matchFoodQuery } from "@/lib/food/match";
 import { formatEuros } from "@/lib/wallet/limits";
-import { FoodCheckoutDialog } from "./FoodCheckoutDialog";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
+import { FoodCheckout } from "./FoodCheckout";
+import { OrderTracker, type PlacedOrder } from "./OrderTracker";
 
 const PERSONA = "var(--persona,var(--accent))";
+/** Commande payée depuis ce bloc, gardée sur l'appareil : le suivi reste affiché après un rechargement. */
+const ORDER_KEY = "btm-food-order:";
+/** Au-delà, le suivi d'une commande livrée laisse revenir le menu. */
+const ORDER_KEPT_MS = 30 * 60_000;
+
+function savedOrder(query: string): PlacedOrder | null {
+  try {
+    const order = JSON.parse(localStorage.getItem(ORDER_KEY + query) ?? "null") as PlacedOrder | null;
+    return order && Date.parse(order.arrivesAt) + ORDER_KEPT_MS > Date.now() ? order : null;
+  } catch {
+    return null;
+  }
+}
 
 /** Couleurs des vignettes illustrées, par type de plat (tant que le restaurant n'a pas fourni de photo). */
 const TINTS: Record<string, [string, string]> = {
@@ -129,6 +144,7 @@ export function FoodOrder({ query = "" }: { query?: string }) {
   const [fullMenu, setFullMenu] = useState(false);
   const [cart, setCart] = useState<{ restaurantId: string | null; items: Record<string, number> }>({ restaurantId: null, items: {} });
   const [checkout, setCheckout] = useState(false);
+  const [placed, setPlaced] = useState<PlacedOrder | null>(null);
   const rail = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
@@ -139,6 +155,7 @@ export function FoodOrder({ query = "" }: { query?: string }) {
       else {
         // Ouverture sur ce que la personne a demandé.
         const wanted = matchFoodQuery(query, body.restaurants);
+        setPlaced(savedOrder(query));
         setKind(wanted.kind);
         setRestaurantId(wanted.restaurantId);
         setData(body);
@@ -185,11 +202,29 @@ export function FoodOrder({ query = "" }: { query?: string }) {
   const lines: FoodCartLine[] = Object.entries(cart.items).map(([itemId, quantity]) => ({ itemId, quantity }));
   const quantityOf = (dish: Dish) => (dish.restaurant.id === cart.restaurantId ? (cart.items[dish.item.id] ?? 0) : 0);
 
+  // Quantité changée depuis le récapitulatif ; le panier vide ramène aux plats.
+  const changeLine = (itemId: string, delta: number) =>
+    setCart((c) => {
+      const next = Math.max(0, Math.min(20, (c.items[itemId] ?? 0) + delta));
+      const rest = { ...c.items };
+      delete rest[itemId];
+      const items = next ? { ...rest, [itemId]: next } : rest;
+      if (!Object.keys(items).length) setCheckout(false);
+      return { restaurantId: c.restaurantId, items };
+    });
+
   const change = (dish: Dish, delta: number) => {
     // Un panier = un restaurant (un seul livreur).
     if (cart.restaurantId && cart.restaurantId !== dish.restaurant.id && count > 0) {
-      if (!window.confirm(`Ton panier contient des plats de ${cartRestaurant?.name}. Le vider pour commander chez ${dish.restaurant.name} ?`)) return;
-      setCart({ restaurantId: dish.restaurant.id, items: delta > 0 ? { [dish.item.id]: 1 } : {} });
+      void confirmDialog({
+        title: "Changer de restaurant ?",
+        message: `Ton panier contient des plats de ${cartRestaurant?.name}. Il sera vidé pour commander chez ${dish.restaurant.name}.`,
+        confirmLabel: "Vider le panier",
+        cancelLabel: "Garder mon panier",
+        tone: "danger",
+      }).then((ok) => {
+        if (ok) setCart({ restaurantId: dish.restaurant.id, items: delta > 0 ? { [dish.item.id]: 1 } : {} });
+      });
       return;
     }
     setCart((c) => {
@@ -203,8 +238,15 @@ export function FoodOrder({ query = "" }: { query?: string }) {
   // Types présents dans le catalogue, pour les filtres.
   const kinds = DISH_KINDS.filter((k) => dishes.some((d) => d.kind === k.id));
   const kindInfo = DISH_KINDS.find((k) => k.id === kind) ?? null;
-  const shown = dishes.filter((d) => (kind ? d.kind === kind : d.kind !== "boisson"));
-  const places = data.restaurants.filter((r) => !kind || dishes.some((d) => d.restaurant.id === r.id && d.kind === kind));
+  // Près de chez toi : restaurants de la commune du compte d'abord, puis les plus rapides.
+  const home = data.address?.commune ?? null;
+  const nearness = (r: FoodRestaurant) => (r.commune === home ? 0 : 1000) + r.etaMinutes[0];
+  const shown = dishes
+    .filter((d) => (kind ? d.kind === kind : !["boisson", "accompagnement"].includes(d.kind ?? "")))
+    .sort((a, b) => nearness(a.restaurant) - nearness(b.restaurant));
+  const places = data.restaurants
+    .filter((r) => !kind || dishes.some((d) => d.restaurant.id === r.id && d.kind === kind))
+    .sort((a, b) => nearness(a) - nearness(b));
 
   const header = (title: string, subtitle: string, back?: () => void) => (
     <div className="flex items-center gap-2 px-4 pt-4 pb-2">
@@ -298,7 +340,7 @@ export function FoodOrder({ query = "" }: { query?: string }) {
     body = (
       <>
         {header(
-          kindInfo ? `${kindInfo.emoji} ${kindInfo.label} près de chez toi` : "Qu'est-ce qui te ferait plaisir ?",
+          kindInfo ? `${kindInfo.emoji} ${kindInfo.label} près de chez toi${home ? ` · ${home}` : ""}` : "Qu'est-ce qui te ferait plaisir ?",
           `${shown.length} plat${shown.length > 1 ? "s" : ""} · payé avec ton portefeuille (solde ${formatEuros(data.balanceCents)})`,
         )}
         {chips}
@@ -384,6 +426,32 @@ export function FoodOrder({ query = "" }: { query?: string }) {
     );
   }
 
+  // Commande payée : le suivi en direct remplace le menu.
+  if (placed) return shell(<OrderTracker order={placed} />);
+
+  if (checkout && cartRestaurant && count > 0) {
+    return shell(
+      <FoodCheckout
+        data={data}
+        restaurant={cartRestaurant}
+        lines={lines}
+        itemsCents={itemsCents}
+        onBack={() => setCheckout(false)}
+        onChangeQuantity={changeLine}
+        onPlaced={(order) => {
+          localStorage.setItem(ORDER_KEY + query, JSON.stringify(order));
+          setPlaced(order);
+          setCheckout(false);
+          setCart({ restaurantId: null, items: {} });
+          // Le solde affiché baisse comme après un vrai paiement (fictif pendant la démonstration).
+          setData((d) => (d ? { ...d, balanceCents: Math.max(0, d.balanceCents - order.totalCents) } : d));
+          // La barre latérale relit le solde.
+          window.dispatchEvent(new Event("focus"));
+        }}
+      />,
+    );
+  }
+
   return shell(
     <>
       {body}
@@ -403,21 +471,6 @@ export function FoodOrder({ query = "" }: { query?: string }) {
             <span className="shrink-0 tabular-nums">{formatEuros(itemsCents)}</span>
           </button>
         </div>
-      ) : null}
-
-      {checkout && cartRestaurant ? (
-        <FoodCheckoutDialog
-          data={data}
-          restaurant={cartRestaurant}
-          lines={lines}
-          itemsCents={itemsCents}
-          onClose={() => setCheckout(false)}
-          onPaid={() => {
-            setCart({ restaurantId: null, items: {} });
-            // Le solde affiché baisse comme après un vrai paiement (fictif pendant la démonstration).
-            setData((d) => (d ? { ...d, balanceCents: Math.max(0, d.balanceCents - itemsCents - d.deliveryCents) } : d));
-          }}
-        />
       ) : null}
     </>,
   );

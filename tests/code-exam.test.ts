@@ -5,7 +5,7 @@ import { CodeExamSourceError, centerName, extractAccess, parseCenters, parseSess
 import { enforceShimaore } from "@/lib/language/unknown-words";
 import { fieldError, normalizePhone, requestSchema } from "@/lib/code-exam/candidate";
 import { FOOD_CATALOG, FOOD_DELIVERY_FEE_CENTS, priceOrder } from "@/lib/food/catalog";
-import { matchFoodQuery } from "@/lib/food/match";
+import { dishKindOf, matchFoodQuery } from "@/lib/food/match";
 
 // Extraits des réponses réelles de lecode.laposte.fr (novembre 2026).
 const PAGE = `<script>window.__NUXT__.config={public:{siteRoot:"https://www.lecode.laposte.fr",idPartenaire:"partenaire-1",baseApiVente:"https:\\u002F\\u002Fapi.laposte.fr",apiVente:"/silex-vente/v1",apiKey:"cle-1"}}</script>`;
@@ -146,9 +146,38 @@ describe("commande de repas (prototype)", () => {
     assert.equal(matchFoodQuery("tacos", FOOD_CATALOG).kind, "tacos");
   });
 
+  it("« tacos » ne montre que des tacos, et reconnaît les plats asiatiques", () => {
+    const tacos = FOOD_CATALOG.flatMap((r) =>
+      r.menu.flatMap((s) => s.items.filter((i) => dishKindOf(i, s.title, r.kind) === "tacos").map((i) => i.name)),
+    );
+    assert.ok(tacos.length >= 10);
+    assert.deepEqual(
+      tacos.filter((name) => /caf|th[ée]|frite|potatoes|sandwich|assiette|milk/i.test(name)),
+      [],
+    );
+    assert.equal(dishKindOf({ name: "Nouilles au boeuf" }, "Nouilles", "Spécialités chinoises"), "asiatique");
+    assert.equal(dishKindOf({ name: "Sarcives" }, "ENTREE", "Restaurant asiatique"), "asiatique");
+  });
+
   it("n'apprend la commande de repas à Awa que pour les comptes autorisés", () => {
     assert.doesNotMatch(buildSystemPrompt(undefined, {}), /commande-repas/);
     assert.match(buildSystemPrompt(undefined, { foodOrdering: true }), /commande-repas/);
     assert.doesNotMatch(buildSystemPrompt(undefined, { foodOrdering: true, voice: true }), /commande-repas/);
+  });
+});
+
+describe("bureau du code le plus proche", () => {
+  it("classe les bureaux depuis la commune, barge comprise", async () => {
+    const { officesByDistance } = await import("@/lib/code-exam/offices");
+    assert.equal(officesByDistance("Bandraboua")?.[0].name, "Dzoumogne");
+    assert.match(officesByDistance("Pamandzi")?.[0].name ?? "", /Pamandzi|Dzaoudzi/);
+    assert.equal(officesByDistance("Mamoudzou")?.at(-1)?.barge, true);
+    assert.equal(officesByDistance("Paris"), null);
+  });
+
+  it("donne à Awa l'adresse et la consigne de répondre sans le tableau", () => {
+    const prompt = buildSystemPrompt(undefined, { home: { commune: "Sada", nearestOffices: "Combani (~9 km)" } });
+    assert.match(prompt, /elle habite à Sada/);
+    assert.match(prompt, /SANS le bloc/);
   });
 });

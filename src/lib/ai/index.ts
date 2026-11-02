@@ -6,6 +6,8 @@ import { createGeminiProvider, isGeminiUrl } from "./providers/gemini";
 import { createOpenAICompatibleProvider } from "./providers/openai-compatible";
 import { ALL_APIS_CUT, loadFlowCuts } from "./flow-cuts";
 import { loadAIChain } from "./registry";
+import { createRelayProvider, relayConfig, relayUrl } from "./relay";
+import { keysSecret } from "./secret-box";
 import type { AIProvider } from "./types";
 
 export { buildSystemPrompt } from "./system-prompt";
@@ -35,6 +37,11 @@ export async function getAIProvider(
   /** Liens coupés déjà lus pour ce message (évite une seconde lecture). */
   knownCuts?: Set<string>,
 ): Promise<{ ok: true; provider: AIProvider; config: AIConfig } | { ok: false; reason: string }> {
+  // Développement local : Gemini refuse Mayotte, le site en ligne répond à la place.
+  const relay = relayUrl();
+  const relaySecret = keysSecret();
+  if (relay && relaySecret) return { ok: true, provider: createRelayProvider(relay, relaySecret), config: relayConfig(relay) };
+
   const [fullChain, cuts] = await Promise.all([loadAIChain(), knownCuts ?? loadFlowCuts()]);
   // API débranchées sur le schéma de /admin/circuit : hors de la chaîne de secours.
   const chain = fullChain.filter((s) => !cuts.has(s.id));

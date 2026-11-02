@@ -7,6 +7,7 @@ import { IconClose, IconLanguage, IconPlus, IconTrash } from "@/components/ui/ic
 import type { ActionResult } from "@/lib/admin/action-auth";
 import { deleteLexiconAction, saveLexiconAction } from "./actions";
 import { PERSONALITIES, type PersonalityId } from "@/lib/ai/personalities";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { LEXICON_LIMITS, type LexiconRow } from "./limits";
 
 type Draft = Omit<LexiconRow, "id" | "validatedAt"> & { id: string | null };
@@ -64,8 +65,15 @@ function EntryDialog({ initial, onClose }: { initial: Draft; onClose: () => void
     });
   }
 
-  function remove() {
-    if (!draft.id || !window.confirm(`Supprimer « ${initial.french} » ?`)) return;
+  async function remove() {
+    if (!draft.id) return;
+    const ok = await confirmDialog({
+      title: "Supprimer cette entrée ?",
+      message: `« ${initial.french} » sera retiré du lexique.`,
+      confirmLabel: "Supprimer",
+      tone: "danger",
+    });
+    if (!ok) return;
     startTransition(async () => {
       const result = await deleteLexiconAction(draft.id);
       setStatus(result);

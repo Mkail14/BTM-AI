@@ -4,80 +4,75 @@ import { IconMessage, IconMic } from "@/components/ui/icons";
 import { getAuthContext } from "@/lib/auth/session";
 import { getSiteFlags } from "@/lib/site/settings";
 import { AdminAccountMenu } from "./AdminAccountMenu";
-import { AdminMenu } from "./AdminMenu";
+import { AdminMenu, AdminTabs } from "./AdminMenu";
 
 /**
- * Barre du haut de toutes les pages d'administration. À gauche : menu ☰, marque
- * et rubrique. À droite : état du site (maintenance, mode démo), accès à Awa
- * (écrire ou parler) et le compte (Profil de l'entreprise, déconnexion).
- * Sur téléphone, les libellés disparaissent pour tenir sur 375 px.
+ * Barre du haut de toutes les pages d'administration, sur deux étages.
+ * En haut : marque, état du site (maintenance, mode démo), accès à Awa et
+ * compte. En dessous, sur grand écran : les rubriques en onglets. Sur petit
+ * écran, les onglets laissent place au menu ☰ et au nom de la rubrique.
  */
 export async function AdminHeader({ section }: { section?: string; email?: string | null }) {
   const [{ user }, flags] = await Promise.all([getAuthContext(), getSiteFlags()]);
   const principal = Boolean(user?.isPrincipalAdmin);
   const status = [
-    flags.maintenance ? { label: "Maintenance", dot: "bg-warning", box: "bg-warning-soft text-warning" } : null,
-    flags.demoMode ? { label: "Mode démo", dot: "bg-accent", box: "bg-accent-soft text-accent" } : null,
+    flags.maintenance ? { label: "Maintenance", dot: "bg-warning" } : null,
+    flags.demoMode ? { label: "Mode démo", dot: "bg-accent" } : null,
   ].filter((s) => s !== null);
+  const ghost = "inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium text-fg-muted hover:bg-bg-muted hover:text-fg";
 
   return (
     <header className="sticky top-0 z-30 shrink-0 border-b border-border bg-bg/90 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-2 px-3 md:px-4">
-        <AdminMenu principal={principal} />
-        <Link href="/admin" className={`${section ? "hidden sm:flex" : "flex"} shrink-0 items-center gap-2`}>
-          <BrandLogo size="md" />
-          <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent">Admin</span>
-        </Link>
-        {section ? (
-          <>
-            <span aria-hidden="true" className="hidden text-border sm:inline">
-              /
-            </span>
-            <span className="min-w-0 truncate text-sm font-medium">{section}</span>
-          </>
-        ) : null}
-
-        <div className="ml-auto flex shrink-0 items-center gap-2 text-sm">
-          {/* État du site : un clic mène au Profil pour l'éteindre. */}
-          {status.map((s) => {
-            const chip = (
-              <>
-                <span aria-hidden="true" className={`size-1.5 animate-pulse rounded-full ${s.dot}`} />
-                {s.label}
-              </>
-            );
-            const className = `hidden items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold sm:inline-flex ${s.box}`;
-            return principal ? (
-              <Link key={s.label} href="/admin/profil" className={`${className} hover:brightness-95`}>
-                {chip}
-              </Link>
-            ) : (
-              <span key={s.label} className={className}>
-                {chip}
+      <div className="mx-auto max-w-[1600px] px-3 md:px-6">
+        <div className="flex h-14 items-center gap-3">
+          <AdminMenu principal={principal} />
+          <Link href="/admin" className="flex shrink-0 items-center gap-2.5" aria-label="Tableau de bord">
+            <BrandLogo size="sm" />
+            <span className="text-sm font-medium text-fg-muted">Admin</span>
+          </Link>
+          {section ? (
+            <span className="min-w-0 truncate text-sm font-medium lg:hidden">
+              <span aria-hidden="true" className="mr-3 text-border">
+                /
               </span>
-            );
-          })}
+              {section}
+            </span>
+          ) : null}
 
-          {/* Awa : écrire ou parler, en un seul bloc. */}
-          <div className="flex items-center rounded-full border border-border p-0.5">
-            <Link
-              href="/"
-              aria-label="Écrire à Awa"
-              className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1.5 font-medium text-fg-muted hover:bg-bg-muted hover:text-fg"
-            >
-              <IconMessage width={16} height={16} /> <span className="hidden md:inline">Écrire</span>
+          <div className="ml-auto flex shrink-0 items-center gap-1">
+            {/* État du site : un clic mène au Profil pour l'éteindre. */}
+            {status.map((s) => {
+              const chip = (
+                <>
+                  <span aria-hidden="true" className={`size-1.5 animate-pulse rounded-full ${s.dot}`} />
+                  {s.label}
+                </>
+              );
+              const className = "mr-1 hidden items-center gap-2 rounded-full border border-border px-3 py-1 text-xs font-medium sm:inline-flex";
+              return principal ? (
+                <Link key={s.label} href="/admin/profil" className={`${className} hover:bg-bg-muted`}>
+                  {chip}
+                </Link>
+              ) : (
+                <span key={s.label} className={className}>
+                  {chip}
+                </span>
+              );
+            })}
+
+            <Link href="/" className={ghost} aria-label="Écrire à Awa">
+              <IconMessage width={16} height={16} /> <span className="hidden md:inline">Ouvrir Awa</span>
             </Link>
-            <Link
-              href="/voix"
-              aria-label="Parler à Awa"
-              className="inline-flex items-center gap-1.5 rounded-full bg-accent px-2.5 py-1.5 font-medium text-accent-fg hover:bg-accent-hover"
-            >
-              <IconMic width={16} height={16} /> <span className="hidden md:inline">Parler à Awa</span>
+            <Link href="/voix" className={ghost} aria-label="Parler à Awa" title="Parler à Awa">
+              <IconMic width={16} height={16} />
             </Link>
+            <span aria-hidden="true" className="mx-1.5 h-5 w-px bg-border" />
+            <AdminAccountMenu email={user?.email ?? null} principal={principal} />
           </div>
+        </div>
 
-          <span aria-hidden="true" className="h-6 w-px bg-border" />
-          <AdminAccountMenu email={user?.email ?? null} principal={principal} />
+        <div className="hidden lg:block">
+          <AdminTabs principal={principal} />
         </div>
       </div>
     </header>

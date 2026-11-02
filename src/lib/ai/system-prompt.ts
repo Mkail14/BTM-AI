@@ -1,5 +1,6 @@
 import { buildLanguageGuidance } from "@/lib/language/shimaore";
 import { AWA_BIRTH_LABEL, AWA_NAME, awaAge } from "./awa-identity";
+import { CODE_EXAM_OFFICES } from "@/lib/code-exam/offices";
 import { FOOD_CATALOG } from "@/lib/food/catalog";
 import type { ValidatedExample } from "@/lib/language/types";
 import type { KnowledgeEntry } from "./knowledge";
@@ -60,6 +61,8 @@ export type PromptContext = {
   voice?: boolean;
   /** Awa signale les mots shimaoré qu'elle ne connaît pas (balise retirée par le serveur). */
   reportUnknownWords?: boolean;
+  /** Adresse du compte : sa commune et les bureaux du code du plus proche au plus loin (nearestOfficesLine). */
+  home?: { commune: string; nearestOffices: string | null } | null;
   /** Commande de repas ouverte à ce compte (prototype : administrateurs, voir src/lib/food/access.ts). */
   foodOrdering?: boolean;
   /** Awa sur un autre site de GROUPE BTM (route /api/awa) : rôle sur place et données du site. */
@@ -89,10 +92,14 @@ const UNKNOWN_WORDS =
 // Le bloc est remplacé dans la conversation par le tableau des créneaux (CodeExamSlots).
 const CODE_EXAM = [
   "Examen du code de la route : l'application affiche les vrais horaires et places libres des bureaux La Poste de Mayotte (30 prochains jours), lus sur le site de La Poste. La personne choisit sa ville, son jour et son heure, puis réserve ici : une fenêtre lui demande ses informations (identité, contact, type de code, NEPH, SNU) et GROUPE BTM la recontacte pour confirmer sa place. Ne demande pas ces informations toi-même dans la conversation.",
+  `- Bureaux où passer le code : ${CODE_EXAM_OFFICES.map((o) => `${o.name} (${o.commune})`).join(", ")}. Dzaoudzi et Pamandzi sont en Petite-Terre (barge depuis Grande-Terre).`,
+  "- Réponds exactement à ce qui est demandé, rien de plus. « Lequel est le plus proche ? », « où passer le code ? » : réponds par le nom du bureau (et la distance si tu la connais), en une ou deux phrases, SANS le bloc. Tu peux proposer en une phrase de montrer ses horaires.",
+  "- Pour le plus proche, sers-toi de l'adresse de la personne si elle est donnée plus bas. Sinon, demande-lui simplement dans quelle commune elle habite.",
   "- UNIQUEMENT quand la personne demande les dates, horaires, créneaux ou une réservation pour passer le code (à La Poste), écris une phrase courte puis ce bloc, seul sur ses lignes :",
-  "```creneaux-code\n```",
+  "```creneaux-code\nbureau visé\n```",
+  "- Dans le bloc, écris le nom exact du bureau si la personne en vise un (celui qu'elle cite, ou le plus proche dont vous venez de parler) : le tableau s'ouvre directement sur ses horaires. Aucun bureau précis : laisse le bloc vide.",
   "- Le tableau s'affiche à la place du bloc : n'écris toi-même aucune date ni heure, et n'invente pas de créneau.",
-  "- Ne mets jamais ce bloc si on ne te le demande pas (simple question sur le code, conseils de révision…).",
+  "- Ne mets jamais ce bloc si on ne te le demande pas (simple question sur le code, bureau le plus proche, conseils de révision…).",
 ].join("\n");
 
 const CODE_EXAM_MASTER =
@@ -106,7 +113,8 @@ const FOOD = [
   "- Dans le bloc, recopie seulement le plat et/ou le restaurant demandés, en français et en peu de mots, avec le nom exact du restaurant tel qu'il est écrit dans la liste ci-dessous (ex. « tacos », « Délices d'Ashi », « pizza Jéjé pizza Mamoudzou »). Rien de précis : laisse le bloc vide.",
   "- La personne cite un restaurant (même mal écrit, ou demande ce qu'il propose, ce qu'il prépare) : reconnais-le dans la liste et ouvre le bloc avec son nom exact : son menu s'affiche. S'il n'est pas dans la liste, dis simplement que tu ne le connais pas encore et propose ceux qui servent le même genre de plat.",
   `- Restaurants disponibles : ${FOOD_CATALOG.map((r) => `${r.name} (${r.kind.toLowerCase()})`).join(" ; ")}.`,
-  "- Restaurant, plats, adresse et paiement se choisissent dans ce qui s'affiche : n'écris toi-même ni menu ni prix, et ne demande pas l'adresse dans la conversation.",
+  "- Un plat précis (« je veux un tacos ») : le bloc n'affiche que ce plat, chez les restaurants qui le font, du plus proche au plus loin de chez la personne. Ta phrase le dit simplement (ex. « Voilà les tacos près de chez toi 🌮 »).",
+  "- Restaurant, plats, adresse, paiement puis suivi de la livraison (préparation, livraison, code) se font dans ce qui s'affiche : n'écris toi-même ni menu ni prix, et ne demande pas l'adresse dans la conversation.",
   "- Avec ton maître aussi, c'est une exception au « UNIQUEMENT en shimaoré » : une phrase très courte en shimaoré, puis le bloc.",
 ].join("\n");
 
@@ -192,6 +200,11 @@ export function buildSystemPrompt(
   // Le tableau ne s'affiche que dans la conversation écrite de BTM AI. Après
   // le mode maître, qui interdit le français : le bloc reste permis avec lui.
   if (!context.site && !context.voice) sections.push(context.teacher ? `${CODE_EXAM}\n${CODE_EXAM_MASTER}` : CODE_EXAM);
+  // Adresse du compte (une donnée, pas une consigne) : pour répondre « le plus proche de chez moi ».
+  if (context.home && !context.site) {
+    const offices = context.home.nearestOffices ? ` Bureaux du code, du plus proche au plus loin : ${context.home.nearestOffices}.` : "";
+    sections.push(`Adresse de la personne : elle habite à ${oneLine(context.home.commune, 40)}.${offices}`);
+  }
   if (context.foodOrdering && !context.site && !context.voice) sections.push(FOOD);
   if (context.voice) sections.push(VOICE);
   sections.push(SECURITY);

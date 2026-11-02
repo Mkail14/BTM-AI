@@ -6,6 +6,7 @@ import { inputClass, primaryButton, secondaryButton } from "@/components/admin/f
 import { IconBook, IconClose, IconPlus, IconTrash } from "@/components/ui/icons";
 import type { ActionResult } from "@/lib/admin/action-auth";
 import { parseWordList } from "@/lib/language/teaching";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { deleteWordAction, importWordsAction, saveWordAction } from "./actions";
 import { WORD_LIMITS, type WordRow } from "./limits";
 
@@ -66,8 +67,15 @@ function WordDialog({
     });
   }
 
-  function remove() {
-    if (!draft.id || !window.confirm(`Supprimer « ${initial.french} → ${initial.shimaore} » ?`)) return;
+  async function remove() {
+    if (!draft.id) return;
+    const ok = await confirmDialog({
+      title: "Supprimer ce mot ?",
+      message: `« ${initial.french} → ${initial.shimaore} » sera retiré du lexique.`,
+      confirmLabel: "Supprimer",
+      tone: "danger",
+    });
+    if (!ok) return;
     startTransition(async () => {
       const result = await deleteWordAction(draft.id);
       setStatus(result);

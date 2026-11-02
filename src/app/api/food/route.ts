@@ -115,14 +115,34 @@ export async function POST(request: NextRequest) {
     parsed.data.phone && parsed.data.phone !== contact.phone ? saveProfilePhone(supabase, user.id, parsed.data.phone) : null,
   ]).catch((error: unknown) => console.error("[food] Adresse ou téléphone non enregistrés", error));
 
+  // Suivi affiché dans la conversation : préparation, livraison, puis le code. Démonstration :
+  // en accéléré (2 minutes) pour le montrer en direct ; sinon, milieu de la fourchette annoncée.
   const [min, max] = order.restaurant.etaMinutes;
-  return NextResponse.json({
+  const totalMs = FOOD_DEMO ? DEMO_TRACKING_MS : ((min + max) / 2) * 60_000;
+  const now = Date.now();
+  const body: FoodOrderPlaced = {
     ok: true,
     demo: FOOD_DEMO,
     // Code à montrer (QR) ou dicter au livreur. Avec un vrai partenaire, il sera envoyé au restaurant avec la commande.
     code: orderCode(),
     totalCents: order.totalCents,
-    // Heure d'arrivée estimée : milieu de la fourchette annoncée.
-    arrivesAt: new Date(Date.now() + ((min + max) / 2) * 60_000).toISOString(),
-  });
+    placedAt: new Date(now).toISOString(),
+    readyAt: new Date(now + totalMs * 0.4).toISOString(),
+    arrivesAt: new Date(now + totalMs).toISOString(),
+  };
+  return NextResponse.json(body);
 }
+
+const DEMO_TRACKING_MS = 2 * 60_000;
+
+/** Ce que renvoie POST : de quoi suivre la commande dans la conversation. */
+export type FoodOrderPlaced = {
+  ok: true;
+  demo: boolean;
+  code: string;
+  totalCents: number;
+  placedAt: string;
+  /** Fin de la préparation : le livreur part. */
+  readyAt: string;
+  arrivesAt: string;
+};

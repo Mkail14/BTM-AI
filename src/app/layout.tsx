@@ -4,6 +4,7 @@ import { AuthProvider, type AuthUser } from "@/components/auth/AuthProvider";
 import { BRAND } from "@/components/brand/brand";
 import { SplashReady } from "@/components/brand/SplashReady";
 import { SplashScreen } from "@/components/brand/SplashScreen";
+import { DialogHost } from "@/components/ui/ConfirmDialog";
 import { getAuthContext } from "@/lib/auth/session";
 import { getProfile } from "@/lib/conversations/repository";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -68,6 +69,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <AuthProvider initialUser={initialUser} authAvailable={isSupabaseConfigured}>
           {children}
         </AuthProvider>
+        <DialogHost />
       </body>
     </html>
   );

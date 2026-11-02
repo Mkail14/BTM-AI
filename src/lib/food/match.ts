@@ -12,11 +12,19 @@ export const DISH_KINDS: readonly DishKind[] = [
   { id: "pizza", label: "Pizzas", emoji: "🍕", pattern: /\bpizz?as?\b/ },
   { id: "burger", label: "Burgers", emoji: "🍔", pattern: /\b(?:burgers?|hamburgers?|cheese ?burgers?)\b/ },
   { id: "kebab", label: "Kebabs", emoji: "🥙", pattern: /\b(?:kebabs?|grecs?|galettes?|durum)\b/ },
+  { id: "sandwich", label: "Sandwichs", emoji: "🥪", pattern: /\b(?:sandwich\w*|paninis?|baguettes?|bokits?)\b/ },
   { id: "mahorais", label: "Plats mahorais", emoji: "🍢", pattern: /\b(?:mahorais|mataba|madaba|manioc|brochettes?|mabawa|pilao|bananes? frites?|voule)\b/ },
-  { id: "asiatique", label: "Asiatique", emoji: "🥢", pattern: /(?:asiatiques?|chinois(?:es?)?|nems?|nouilles|mines|cantonnais|[cs]hop ?suey|bol renverse|wane? ?tane?|gyozas?|dim sum|fuyung|sushis?)/ },
+  { id: "asiatique", label: "Asiatique", emoji: "🥢", pattern: /\b(?:asiatiques?|chinois(?:es?)?|nems?|nouilles|mines|cantonnais|[cs]hop ?suey|bol renverse|wane? ?tane?|gyozas?|dim sum|fuyung|sushis?)\b/ },
   { id: "poulet", label: "Poulet", emoji: "🍗", pattern: /\b(?:poulets?|ailes?|wings|nuggets?|tenders?)\b/ },
-  { id: "dessert", label: "Desserts", emoji: "🍰", pattern: /\b(?:desserts?|gateaux?|glaces?|tiramisu|crepes?)\b/ },
-  { id: "boisson", label: "Boissons", emoji: "🥤", pattern: /\b(?:boissons?|jus|sodas?|eau|coca)\b/ },
+  { id: "accompagnement", label: "Frites et à-côtés", emoji: "🍟", pattern: /\b(?:frites?|fries|potatoes|barquettes?|salades?)\b/ },
+  { id: "dessert", label: "Desserts", emoji: "🍰", pattern: /\b(?:desserts?|gateaux?|glaces?|tiramisu|crepes?|milk ?shakes?)\b/ },
+  {
+    id: "boisson",
+    label: "Boissons",
+    emoji: "🥤",
+    pattern:
+      /\b(?:boissons?|jus|sodas?|eau|coca|sprite|fanta|oasis|orangina|perrier|schweppes|seven|7 ?up|monster|red ?bull|ice ?tea|lipton|cafe|cafe au lait|the|cappuccino|chocolat chaud)\b/,
+  },
 ];
 
 export const normalizeFood = (text: string) =>
@@ -41,13 +49,17 @@ const GENERIC = new Set([
 /** Mot sans s final, pour que « délice » trouve « Délices ». */
 const stem = (word: string) => word.replace(/s$/, "");
 
-/** Type d'un plat, d'après son nom, sa description et sa rubrique (sinon, le type du restaurant). */
+/**
+ * Type d'un plat, d'après son nom, puis sa description, puis sa rubrique. Le
+ * type du restaurant ne sert que s'il n'en désigne qu'un : chez « Snack,
+ * petit-déjeuner, tacos », un café au lait n'est pas un tacos.
+ */
 export function dishKindOf(item: { name: string; description?: string }, section: string, restaurantKind: string): string | null {
-  const own = ` ${normalizeFood(`${item.name} ${item.description ?? ""}`)} `;
-  const byName = DISH_KINDS.find((k) => k.pattern.test(` ${normalizeFood(item.name)} `)) ?? DISH_KINDS.find((k) => k.pattern.test(own));
-  if (byName) return byName.id;
-  const context = ` ${normalizeFood(`${section} ${restaurantKind}`)} `;
-  return DISH_KINDS.find((k) => k.pattern.test(context))?.id ?? null;
+  const find = (text: string) => DISH_KINDS.find((k) => k.pattern.test(` ${normalizeFood(text)} `))?.id ?? null;
+  const own = find(item.name) ?? find(item.description ?? "") ?? find(section);
+  if (own) return own;
+  const kinds = DISH_KINDS.filter((k) => k.pattern.test(` ${normalizeFood(restaurantKind)} `));
+  return kinds.length === 1 && !/snack|fast ?food|petit dejeuner/.test(normalizeFood(restaurantKind)) ? kinds[0].id : null;
 }
 
 export type FoodQuery ={ kind: string | null; restaurantId: string | null };

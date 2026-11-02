@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { alertDialog } from "@/components/ui/ConfirmDialog";
 import { useChatShell } from "@/components/layout/ChatShell";
 import { useCurrentPersonality } from "@/components/personality/PersonalityContext";
 import { PersonalitySwitcher } from "@/components/personality/PersonalitySwitcher";
@@ -346,7 +347,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
         body: JSON.stringify({ messages: importCandidate.slice(-CHAT_LIMITS.anonymousMaxMessages) }),
       });
       if (!res.ok) {
-        window.alert((await readErrorMessage(res)).message);
+        void alertDialog({ title: "Enregistrement impossible", message: (await readErrorMessage(res)).message });
         return;
       }
       const data = (await res.json()) as { conversation: { id: string } };
@@ -355,7 +356,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       refreshConversations();
       router.push(`/c/${data.conversation.id}`);
     } catch {
-      window.alert("L'enregistrement a échoué : vérifiez votre connexion.");
+      void alertDialog({ title: "L'enregistrement a échoué", message: "Vérifiez votre connexion." });
     } finally {
       setImporting(false);
     }

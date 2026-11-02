@@ -35,6 +35,7 @@ import { GuardDialog } from "./GuardDialog";
 import { ApiPanel } from "./ApiPanel";
 import { STATUS_STYLES, formatSeconds, speedColor, type FlowEdge, type FlowIcon, type FlowNode } from "./flow";
 import { HOP_MS, useLiveTrace, type LiveStatus } from "./useLiveTrace";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
 
 const ICONS: Record<FlowIcon, ComponentType<SVGProps<SVGSVGElement>>> = {
   message: IconMessage,
@@ -274,12 +275,19 @@ export function AIFlow({
     }
   }
 
-  function removeApi(node: FlowNode) {
+  async function removeApi(node: FlowNode) {
     if (!node.apiId) return;
-    const question = node.fromServer
-      ? `Retirer l'API « ${node.title} » ?\n\nElle est déclarée dans les variables du serveur : elle ne sera plus utilisée, et vous pourrez la remettre.`
-      : `Supprimer l'API « ${node.title} » ?\n\nSa clé sera effacée.`;
-    if (!window.confirm(question)) return;
+    const ok = await confirmDialog(
+      node.fromServer
+        ? {
+            title: `Retirer l'API « ${node.title} » ?`,
+            message: "Elle est déclarée dans les variables du serveur : elle ne sera plus utilisée, et vous pourrez la remettre.",
+            confirmLabel: "Retirer",
+            tone: "danger",
+          }
+        : { title: `Supprimer l'API « ${node.title} » ?`, message: "Sa clé sera effacée.", confirmLabel: "Supprimer", tone: "danger" },
+    );
+    if (!ok) return;
     const apiId = node.apiId;
     startTransition(async () => {
       const result = await deleteApiAction(apiId);

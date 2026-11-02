@@ -6,6 +6,7 @@ import { createPortal } from "react-dom";
 import { ActionStatus, Counter, inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
 import { IconPlus } from "@/components/ui/icons";
 import type { ActionResult } from "@/lib/admin/action-auth";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { deleteKnowledgeAction, saveKnowledgeAction } from "./actions";
 import { KNOWLEDGE_LIMITS, type KnowledgeRow } from "./limits";
 
@@ -61,8 +62,15 @@ function EntryDialog({ initial, onClose }: { initial: Draft; onClose: () => void
     });
   }
 
-  function remove() {
-    if (!draft.id || !window.confirm(`Supprimer la fiche « ${initial.title} » ?`)) return;
+  async function remove() {
+    if (!draft.id) return;
+    const ok = await confirmDialog({
+      title: "Supprimer cette fiche ?",
+      message: `« ${initial.title} » sera effacée définitivement.`,
+      confirmLabel: "Supprimer",
+      tone: "danger",
+    });
+    if (!ok) return;
     startTransition(async () => {
       const result = await deleteKnowledgeAction(draft.id);
       setStatus(result);

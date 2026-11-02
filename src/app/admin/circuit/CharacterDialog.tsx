@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from "react";
 import { IconClose, IconSettings } from "@/components/ui/icons";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { CharacterForm } from "../caractere/CharacterForm";
 import type { CharacterDraft } from "../caractere/limits";
 
@@ -22,7 +23,14 @@ export function CharacterDialog({
   }, []);
 
   const close = useCallback(() => {
-    if (!dirtyRef.current || window.confirm("Fermer sans enregistrer les modifications ?")) onClose();
+    if (!dirtyRef.current) return onClose();
+    void confirmDialog({
+      title: "Fermer sans enregistrer ?",
+      message: "Tes modifications seront perdues.",
+      confirmLabel: "Fermer",
+      cancelLabel: "Continuer",
+      tone: "danger",
+    }).then((ok) => ok && onClose());
   }, [onClose]);
 
   useEffect(() => {

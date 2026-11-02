@@ -24,6 +24,8 @@ type MenuItem = {
   label: string;
   icon: ComponentType<SVGProps<SVGSVGElement>>;
   href: string;
+  /** Libellé court de l'onglet, dans la barre du haut (sinon le libellé). */
+  tab?: string;
 };
 
 /*
@@ -45,6 +47,7 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
       },
       {
         label: "Caractère et règles",
+        tab: "Caractère",
         icon: IconSettings,
         href: "/admin/caractere",
       },
@@ -54,7 +57,7 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
     title: "Savoir",
     items: [
       { label: "Connaissances", icon: IconBook, href: "/admin/connaissances" },
-      { label: "Lexique shimaoré", icon: IconLanguage, href: "/admin/lexique" },
+      { label: "Lexique shimaoré", tab: "Lexique", icon: IconLanguage, href: "/admin/lexique" },
       { label: "Mémoire", icon: IconDatabase, href: "/admin/memoire" },
     ],
   },
@@ -62,7 +65,7 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
     title: "Plateforme",
     items: [
       { label: "Utilisateurs", icon: IconUsers, href: "/admin/utilisateurs" },
-      { label: "Circuit d'Awa", icon: IconChip, href: "/admin/circuit" },
+      { label: "Circuit d'Awa", tab: "Circuit", icon: IconChip, href: "/admin/circuit" },
       { label: "E-mails", icon: IconMail, href: "/admin/emails" },
     ],
   },
@@ -74,13 +77,51 @@ const PRINCIPAL_SECTION = {
   items: [
     {
       label: "Profil de l'entreprise",
+      tab: "Profil",
       icon: IconShield,
       href: "/admin/profil",
     },
   ],
 };
 
-/** Bouton ☰ qui ouvre le menu latéral de l'administration. */
+const isActive = (pathname: string, href: string) => (href === "/admin" ? pathname === href : pathname.startsWith(href));
+
+/**
+ * Onglets de la barre du haut, sur grand écran : les mêmes rubriques que le
+ * menu ☰, groupes séparés par un trait, la rubrique ouverte soulignée.
+ */
+export function AdminTabs({ principal = false }: { principal?: boolean }) {
+  const pathname = usePathname();
+  const sections = principal ? [...SECTIONS, PRINCIPAL_SECTION] : SECTIONS;
+  return (
+    <nav aria-label="Rubriques" className="scrollbar-none -mb-px flex items-center gap-1 overflow-x-auto">
+      {sections.map((section, i) => (
+        <div key={section.title ?? i} className="flex items-center gap-1">
+          {i > 0 ? <span aria-hidden="true" className="mx-1.5 h-4 w-px bg-border" /> : null}
+          {section.items.map(({ label, tab, href }) => {
+            const active = isActive(pathname, href);
+            return (
+              <Link
+                key={href}
+                href={href}
+                aria-current={active ? "page" : undefined}
+                className={`relative px-2.5 py-3 text-sm whitespace-nowrap transition-colors ${
+                  active
+                    ? "font-medium text-fg after:absolute after:inset-x-2.5 after:bottom-0 after:h-0.5 after:rounded-full after:bg-accent"
+                    : "text-fg-muted hover:text-fg"
+                }`}
+              >
+                {tab ?? label}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
+    </nav>
+  );
+}
+
+/** Bouton ☰ qui ouvre le menu latéral de l'administration (petits écrans). */
 export function AdminMenu({ principal = false }: { principal?: boolean }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -112,7 +153,7 @@ export function AdminMenu({ principal = false }: { principal?: boolean }) {
         onClick={() => setOpen(true)}
         aria-label="Ouvrir le menu d'administration"
         aria-expanded={open}
-        className="-ml-1 rounded-lg p-2 text-fg-muted hover:bg-bg-muted hover:text-fg"
+        className="-ml-1 rounded-lg p-2 text-fg-muted hover:bg-bg-muted hover:text-fg lg:hidden"
       >
         <IconMenu />
       </button>
@@ -152,7 +193,7 @@ export function AdminMenu({ principal = false }: { principal?: boolean }) {
                       ) : null}
                       <ul className="space-y-0.5">
                         {section.items.map(({ label, icon: Icon, href }) => {
-                          const active = pathname === href;
+                          const active = isActive(pathname, href);
                           return (
                             <li key={label}>
                               <Link

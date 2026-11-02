@@ -15,6 +15,14 @@ const dayLong = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeri
 const dayShort = new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "numeric", month: "short", timeZone: TZ });
 const clock = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: TZ });
 
+/** « Mtsapéré-Mamoudzou » → « mtsapere mamoudzou » : pour retrouver le bureau nommé par Awa. */
+const simplify = (text: string) =>
+  text
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 const formatTime = (iso: string) => clock.format(new Date(iso)).replace(":", " h ");
 const plural = (n: number, word: string) => `${n} ${word}${n > 1 ? "s" : ""}`;
@@ -29,7 +37,7 @@ const PERSONA = "var(--persona,var(--accent))";
  * la ville, puis le jour, puis l'heure ; les informations du candidat se donnent dans la fenêtre
  * de réservation (BookingDialog). Seules les sessions avec des places sont proposées.
  */
-export function CodeExamSlots() {
+export function CodeExamSlots({ office = "" }: { office?: string }) {
   const [response, setResponse] = useState<CodeExamResponse | null>(null);
   const [loadError, setLoadError] = useState(false);
   const [centerId, setCenterId] = useState<string | null>(null);
@@ -42,12 +50,17 @@ export function CodeExamSlots() {
     try {
       const res = await fetch("/api/code-exam", { cache: "no-store" });
       if (!res.ok) throw new Error(String(res.status));
-      setResponse((await res.json()) as CodeExamResponse);
+      const body = (await res.json()) as CodeExamResponse;
+      setResponse(body);
+      // Bureau nommé par Awa : ouvert directement (sinon, choix de la ville).
+      const wanted = simplify(office);
+      const found = wanted && body.ok ? body.centers.find((c) => simplify(c.name).includes(wanted) || wanted.includes(simplify(c.name))) : null;
+      if (found) setCenterId(found.id);
       setLoadError(false);
     } catch {
       setLoadError(true);
     }
-  }, []);
+  }, [office]);
 
   useEffect(() => {
     // Chargement des horaires à l'affichage.

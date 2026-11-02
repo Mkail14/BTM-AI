@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { ActionStatus } from "@/components/admin/form";
 import { IconTrash } from "@/components/ui/icons";
 import type { ActionResult } from "@/lib/admin/action-auth";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { deleteMemoryAction } from "./actions";
 
 export type MemoryAccount = {
@@ -20,8 +21,8 @@ export function MemoryList({ accounts, total }: { accounts: MemoryAccount[]; tot
   const [status, setStatus] = useState<ActionResult | null>(null);
   const [pending, startTransition] = useTransition();
 
-  function remove(input: { memoryId: string } | { userId: string }, question: string) {
-    if (!window.confirm(question)) return;
+  async function remove(input: { memoryId: string } | { userId: string }, question: string) {
+    if (!(await confirmDialog({ title: question, confirmLabel: "Effacer", tone: "danger" }))) return;
     startTransition(async () => {
       const result = await deleteMemoryAction(input);
       setStatus(result);

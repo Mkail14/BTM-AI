@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { alertDialog, confirmDialog } from "@/components/ui/ConfirmDialog";
 import { IconClose, IconDashboard, IconLock, IconPlus, IconSettings, IconSidebar } from "@/components/ui/icons";
 import { AccountMenu } from "./AccountMenu";
 import { ConversationItem } from "./ConversationItem";
@@ -23,7 +24,8 @@ function subscribeCollapsed(onChange: () => void) {
   };
 }
 
-const readCollapsed = () => localStorage.getItem(COLLAPSED_KEY) === "1";
+// Repliée par défaut : la page paraît plus ouverte. Dépliée seulement si on l'a choisi.
+const readCollapsed = () => localStorage.getItem(COLLAPSED_KEY) !== "0";
 
 function setStoredCollapsed(value: boolean) {
   localStorage.setItem(COLLAPSED_KEY, value ? "1" : "0");
@@ -39,7 +41,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   const [deletingId, setDeletingId] = useState<string | null>(null);
   // Ordinateur : barre repliée en colonne d'icônes, choix gardé d'une visite à l'autre.
   // Le tiroir du téléphone, lui, est toujours déplié (classes md: seulement).
-  const collapsed = useSyncExternalStore(subscribeCollapsed, readCollapsed, () => false);
+  const collapsed = useSyncExternalStore(subscribeCollapsed, readCollapsed, () => true);
   const toggleCollapsed = () => setStoredCollapsed(!collapsed);
   /** Masqué quand la barre est repliée (ordinateur). */
   const wide = collapsed ? "md:hidden" : "";
@@ -60,7 +62,13 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   }, [open, onClose]);
 
   async function handleDelete(id: string, title: string) {
-    if (!window.confirm(`Supprimer définitivement la conversation « ${title} » ?`)) return;
+    const ok = await confirmDialog({
+      title: "Supprimer cette conversation ?",
+      message: `« ${title} » sera effacée définitivement.`,
+      confirmLabel: "Supprimer",
+      tone: "danger",
+    });
+    if (!ok) return;
     setDeletingId(id);
     try {
       const res = await fetch(`/api/conversations/${id}`, { method: "DELETE" });
@@ -68,10 +76,10 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         refreshConversations();
         if (pathname === `/c/${id}`) router.push("/");
       } else {
-        window.alert("La suppression a échoué. Réessayez.");
+        void alertDialog({ title: "La suppression a échoué", message: "Réessayez dans un instant." });
       }
     } catch {
-      window.alert("La suppression a échoué : vérifiez votre connexion.");
+      void alertDialog({ title: "La suppression a échoué", message: "Vérifiez votre connexion." });
     } finally {
       setDeletingId(null);
     }

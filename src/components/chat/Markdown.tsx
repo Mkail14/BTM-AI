@@ -23,7 +23,8 @@ export const FOOD_BLOCK = "commande-repas";
 const components: Components = {
   pre: ({ children }) => {
     const code = isValidElement<{ className?: string }>(children) ? children.props.className : undefined;
-    if (code === `language-${CODE_EXAM_BLOCK}`) return <CodeExamSlots />;
+    // Le contenu du bloc nomme le bureau visé (« Kaweni ») : le tableau s'ouvre sur ses horaires.
+    if (code === `language-${CODE_EXAM_BLOCK}`) return <CodeExamSlots office={textOf(children).trim()} />;
     // Le contenu du bloc dit ce que la personne veut manger (« tacos », « pizza Pizza Mangrove »).
     if (code === `language-${FOOD_BLOCK}`) return <FoodOrder query={textOf(children).trim()} />;
     return <pre>{children}</pre>;

@@ -35,7 +35,7 @@ export async function proxy(request: NextRequest) {
  * Toujours ouverts : la page d'attente, la connexion (un administrateur doit
  * pouvoir se connecter), les tâches planifiées et le retour des paiements Stripe.
  */
-const OPEN_DURING_MAINTENANCE = ["/maintenance", "/auth/", "/api/auth/", "/api/cron/", "/api/wallet/webhook", "/manifest.webmanifest", "/brand/"];
+const OPEN_DURING_MAINTENANCE = ["/maintenance", "/auth/", "/api/auth/", "/api/cron/", "/api/ai/relay", "/api/wallet/webhook", "/manifest.webmanifest", "/brand/"];
 
 export const config = {
   matcher: [

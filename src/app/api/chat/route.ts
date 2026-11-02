@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { after, NextResponse, type NextRequest } from "next/server";
 import { AIProviderError, buildSystemPrompt, getAIProvider } from "@/lib/ai";
 import { getAuthContext } from "@/lib/auth/session";
+import { nearestOfficesLine } from "@/lib/code-exam/offices";
 import { canOrderFood } from "@/lib/food/access";
 import { chatErrorBody } from "@/lib/chat/errors";
 import { buildModelHistory, deriveTitle } from "@/lib/chat/history";
@@ -33,6 +34,7 @@ import { DEFAULT_PERSONALITY, type PersonalityId } from "@/lib/ai/personalities"
 import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
 import { consumeRateLimits, type RateLimitSubject } from "@/lib/rate-limit";
 import { loadRateLimitPolicies } from "@/lib/rate-limit/settings";
+import { getProfileContact } from "@/lib/profile-contact";
 import { getClientIp, hashIdentifier, isSameOrigin } from "@/lib/security/request";
 
 export const maxDuration = 120;
@@ -197,6 +199,15 @@ export async function POST(request: NextRequest) {
   let userMessageSaved: Promise<unknown> = Promise.resolve();
   // Offres d'emploi et actu de Mayotte, seulement si le message en parle (pas en mode maître : shimaoré seul).
   const liveTask = user?.isAdmin ? Promise.resolve(null) : liveContextFor(body.message);
+  // Adresse du compte : Awa sait ce qui est « près de chez moi » (bureau du code le plus proche…).
+  const homeTask =
+    user && supabase
+      ? getProfileContact(supabase, user.id)
+          .then(({ address }) =>
+            address ? { commune: address.commune, nearestOffices: nearestOfficesLine(address.commune, address.geo) } : null,
+          )
+          .catch(() => null)
+      : Promise.resolve(null);
 
   if (user && supabase) {
     // Personnalité d'Awa : relue en base, jamais fournie par le client.
@@ -292,10 +303,11 @@ export async function POST(request: NextRequest) {
   }
 
   // Comportement de la personnalité réécrit depuis /admin (sinon texte du code), en cache.
-  const [brain, personalityInstructions, live] = await Promise.all([
+  const [brain, personalityInstructions, live, home] = await Promise.all([
     brainTask,
     loadPersonalityInstructions(personality ?? DEFAULT_PERSONALITY),
     liveTask,
+    homeTask,
   ]);
 
   // Mode maître (administrateur) : Awa ne parle que shimaoré. Ses anciennes
@@ -323,6 +335,7 @@ export async function POST(request: NextRequest) {
     teacher: master,
     voice: body.voice,
     reportUnknownWords: true,
+    home,
     foodOrdering: await canOrderFood(user),
   });
   flow.step("prompt", true);
