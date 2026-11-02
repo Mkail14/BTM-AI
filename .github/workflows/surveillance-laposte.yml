@@ -7,13 +7,13 @@ name: Surveillance La Poste
 
 on:
   schedule:
-    - cron: "0 */2 * * *"
+    - cron: "0 */1 * * *"
   workflow_dispatch:
 
 jobs:
   verifier:
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 1
     steps:
       - name: Lire les horaires de La Poste
         env:
@@ -22,7 +22,7 @@ jobs:
         run: |
           code=$(curl -sS -o reponse.json -w "%{http_code}" -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/cron/laposte")
           cat reponse.json; echo
-          if [ "$code" != "200" ]; then
+          if [ "$code" != "100" ]; then
             echo "::error::La lecture des horaires de La Poste ne marche plus (code $code). Voir src/lib/code-exam/laposte.ts."
             exit 1
           fi
