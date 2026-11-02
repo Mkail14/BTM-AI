@@ -4,6 +4,7 @@ import { getAuthContext } from "@/lib/auth/session";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { readDemoWallet, recordDemoOperation, usesDemoWallet } from "@/lib/wallet/demo";
 import { formatEuros, topupError } from "@/lib/wallet/limits";
 import { createTopupCheckout, stripeConfigured } from "@/lib/wallet/stripe";
 
@@ -16,6 +17,18 @@ export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return fail(403, "Requête refusée.");
   const { supabase, user } = await getAuthContext();
   if (!supabase || !user) return fail(401, "Connecte-toi pour recharger ton portefeuille.");
+
+  // Mode démo : recharge fictive, sans carte ni Stripe.
+  if (await usesDemoWallet(user)) {
+    const parsedDemo = bodySchema.safeParse(await request.json().catch(() => null));
+    if (!parsedDemo.success) return fail(400, "Montant invalide.");
+    const { amountCents } = parsedDemo.data;
+    const problem = topupError(amountCents, (await readDemoWallet(user.id)).balanceCents);
+    if (problem) return fail(400, problem);
+    const demo = await recordDemoOperation(user.id, "topup", amountCents, `Recharge de ${formatEuros(amountCents)}`);
+    return NextResponse.json({ demo: true, balanceCents: demo?.balanceCents ?? 0 });
+  }
+
   const admin = getSupabaseAdminClient();
   if (!stripeConfigured() || !admin) return fail(503, "Le paiement n'est pas encore ouvert.");
 

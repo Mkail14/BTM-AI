@@ -129,11 +129,14 @@ export function WalletView({
   balanceCents,
   transactions,
   paymentsOpen,
+  demo = false,
   notice,
 }: {
   balanceCents: number;
   transactions: WalletTransaction[];
   paymentsOpen: boolean;
+  /** Mode démo : solde fictif, « Ajouter » crédite tout de suite, sans carte. */
+  demo?: boolean;
   notice: Notice;
 }) {
   const router = useRouter();
@@ -174,7 +177,16 @@ export function WalletView({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ amountCents: chosen }),
       });
-      const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+      const data = (await res.json().catch(() => null)) as { url?: string; demo?: boolean; error?: string } | null;
+      if (res.ok && data?.demo) {
+        // Démonstration : solde crédité tout de suite, la page relit le solde et les opérations.
+        setSheet(null);
+        setShownNotice("paid");
+        setCustom("");
+        setPending(false);
+        router.refresh();
+        return;
+      }
       if (!res.ok || !data?.url) throw new Error(data?.error ?? "Le paiement n'a pas pu démarrer.");
       window.location.assign(data.url);
     } catch (e) {
@@ -194,7 +206,7 @@ export function WalletView({
         >
           <div aria-hidden="true" className="absolute -top-24 left-1/2 size-72 -translate-x-1/2 rounded-full bg-white/10 blur-2xl" />
           <div className="relative">
-            <p className="text-sm font-medium opacity-85">Portefeuille · Euro</p>
+            <p className="text-sm font-medium opacity-85">Portefeuille · Euro{demo ? " · démo" : ""}</p>
             <p className="mt-2">
               <BigAmount cents={balanceCents} />
             </p>
@@ -376,8 +388,18 @@ export function WalletView({
             disabled={!paymentsOpen || pending || Boolean(problem)}
             className="mt-6 flex w-full items-center justify-center gap-2 rounded-full bg-accent px-4 py-3.5 text-base font-semibold text-accent-fg transition hover:bg-accent-hover active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <IconLock width={16} height={16} />
-            {pending ? "Ouverture du paiement…" : chosen && !problem ? `Payer ${formatEuros(chosen)}` : "Payer"}
+            {demo ? <IconPlus width={16} height={16} /> : <IconLock width={16} height={16} />}
+            {demo
+              ? pending
+                ? "Ajout…"
+                : chosen && !problem
+                  ? `Ajouter ${formatEuros(chosen)}`
+                  : "Ajouter"
+              : pending
+                ? "Ouverture du paiement…"
+                : chosen && !problem
+                  ? `Payer ${formatEuros(chosen)}`
+                  : "Payer"}
           </button>
           {error || (custom && problem) ? (
             <p role="alert" className="booking-shake mt-2 text-center text-sm text-danger">
@@ -385,7 +407,9 @@ export function WalletView({
             </p>
           ) : null}
           {!paymentsOpen ? <p className="mt-2 text-center text-sm text-fg-muted">Le paiement en ligne ouvre bientôt.</p> : null}
-          <p className="mt-4 text-center text-[11px] text-fg-muted">{METHODS.join(" · ")} · sécurisé par Stripe</p>
+          <p className="mt-4 text-center text-[11px] text-fg-muted">
+            {demo ? "Démonstration : argent fictif, aucune carte demandée." : `${METHODS.join(" · ")} · sécurisé par Stripe`}
+          </p>
         </Sheet>
       ) : null}
 

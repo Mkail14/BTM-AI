@@ -511,6 +511,19 @@ input::-ms-clear {
   }
 }
 
+/* Profil de l'entreprise : fenêtre du mot de passe et passage d'un bloc en modification, en fondu (sans rebond qui déborderait). */
+.unlock-dialog[open] {
+  animation: auth-pop-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.unlock-dialog[open]::backdrop {
+  animation: auth-backdrop-in 200ms ease-out;
+}
+
+.profile-swap {
+  animation: auth-pop-in 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
 @keyframes auth-sheet-up {
   from {
     transform: translateY(100%);
@@ -532,7 +545,10 @@ input::-ms-clear {
 
 @media (prefers-reduced-motion: reduce) {
   .auth-sheet[open],
-  .auth-sheet[open]::backdrop {
+  .auth-sheet[open]::backdrop,
+  .unlock-dialog[open],
+  .unlock-dialog[open]::backdrop,
+  .profile-swap {
     animation: none;
   }
 }

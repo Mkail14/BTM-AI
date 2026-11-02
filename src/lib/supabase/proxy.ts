@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { hasAdminRole } from "@/lib/auth/roles";
 import {
   isSupabaseConfigured,
   supabasePublishableKey,
@@ -9,11 +10,11 @@ import {
 /**
  * Rafraîchit la session Supabase avant le rendu et renvoie la réponse à
  * utiliser (elle porte les cookies mis à jour) ainsi que l'identifiant de
- * l'utilisateur, s'il est connecté.
+ * l'utilisateur, s'il est connecté (et s'il est administrateur, pour la maintenance).
  */
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
-  if (!isSupabaseConfigured) return { response, userId: null };
+  if (!isSupabaseConfigured) return { response, userId: null, isAdmin: false };
 
   const supabase = createServerClient(supabaseUrl, supabasePublishableKey, {
     cookies: {
@@ -40,7 +41,7 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const userId = typeof data?.claims?.sub === "string" ? data.claims.sub : null;
 
-  return { response, userId };
+  return { response, userId, isAdmin: hasAdminRole(data?.claims) };
 }
 
 /** Redirection qui conserve les cookies de session rafraîchis. */

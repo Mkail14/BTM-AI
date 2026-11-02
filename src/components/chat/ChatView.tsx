@@ -8,7 +8,7 @@ import { useChatShell } from "@/components/layout/ChatShell";
 import { useCurrentPersonality } from "@/components/personality/PersonalityContext";
 import { PersonalitySwitcher } from "@/components/personality/PersonalitySwitcher";
 import { PERSONALITIES } from "@/lib/ai/personalities";
-import { IconMenu, IconMic, IconOffline, IconPlus, IconSave } from "@/components/ui/icons";
+import { IconMenu, IconMic, IconNewChat, IconOffline, IconSave } from "@/components/ui/icons";
 import {
   clearAnonymousDraft,
   loadAnonymousDraft,
@@ -427,8 +427,13 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
           ) : null}
           {/* Téléphone : nouvelle conversation sans ouvrir le menu (sur ordinateur, le « + » est dans la barre latérale). */}
           {messages.length > 0 ? (
-            <button type="button" onClick={startNewChat} aria-label="Nouvelle conversation" className="bouton-verre md:hidden">
-              <IconPlus width={18} height={18} strokeWidth={2.2} />
+            <button
+              type="button"
+              onClick={startNewChat}
+              aria-label="Nouvelle conversation"
+              className="rounded-lg p-2 text-fg-muted hover:bg-bg-muted hover:text-fg md:hidden"
+            >
+              <IconNewChat width={22} height={22} />
             </button>
           ) : null}
         </div>

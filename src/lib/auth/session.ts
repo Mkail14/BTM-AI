@@ -4,12 +4,14 @@ import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { authRequiredPath } from "./redirect";
-import { hasAdminRole } from "./roles";
+import { hasAdminRole, hasPrincipalAdminRole } from "./roles";
 
 export type SessionUser = {
   id: string;
   email: string | null;
   isAdmin: boolean;
+  /** Administrateur principal (pas délégué) : seul à ouvrir le Profil de l'entreprise. */
+  isPrincipalAdmin: boolean;
 };
 
 /**
@@ -30,6 +32,7 @@ export async function getSessionUser(
     id: data.claims.sub,
     email: typeof email === "string" ? email : null,
     isAdmin: hasAdminRole(data.claims),
+    isPrincipalAdmin: hasPrincipalAdminRole(data.claims),
   };
 }
 
@@ -54,5 +57,12 @@ export async function requireUser(currentPath: string) {
 export async function requireAdmin(currentPath: string) {
   const context = await requireUser(currentPath);
   if (!context.user.isAdmin) notFound();
+  return context;
+}
+
+/** Profil de l'entreprise : 404 pour tous sauf l'administrateur principal. */
+export async function requirePrincipalAdmin(currentPath: string) {
+  const context = await requireUser(currentPath);
+  if (!context.user.isPrincipalAdmin) notFound();
   return context;
 }

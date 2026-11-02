@@ -323,7 +323,7 @@ export async function POST(request: NextRequest) {
     teacher: master,
     voice: body.voice,
     reportUnknownWords: true,
-    foodOrdering: canOrderFood(user),
+    foodOrdering: await canOrderFood(user),
   });
   flow.step("prompt", true);
   // Mesures de vitesse, écrites dans les journaux du serveur en fin de réponse.

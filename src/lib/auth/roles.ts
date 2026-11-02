@@ -8,3 +8,13 @@ export function hasAdminRole(claims: Record<string, unknown> | null | undefined)
   if (!appMetadata || typeof appMetadata !== "object") return false;
   return (appMetadata as Record<string, unknown>).role === "admin";
 }
+
+/**
+ * Administrateur principal : un administrateur sans `admin_level: "secondary"`.
+ * L'administrateur secondaire (délégué) a tous les droits sauf le Profil de
+ * l'entreprise : RIB, délégation, maintenance et mode démo.
+ */
+export function hasPrincipalAdminRole(claims: Record<string, unknown> | null | undefined): boolean {
+  if (!hasAdminRole(claims)) return false;
+  return (claims?.app_metadata as Record<string, unknown>).admin_level !== "secondary";
+}

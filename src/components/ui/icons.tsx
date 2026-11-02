@@ -41,6 +41,14 @@ export const IconPlus = (p: IconProps) => (
   </Icon>
 );
 
+/** Nouvelle conversation (carré + crayon, comme ChatGPT). */
+export const IconNewChat = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-6" />
+    <path d="M18.4 2.6a2 2 0 0 1 2.9 2.9L12 14.8l-3.6.9.9-3.6 9.1-9.5Z" />
+  </Icon>
+);
+
 export const IconMenu = (p: IconProps) => (
   <Icon {...p}>
     <path d="M4 7h16M4 12h16M4 17h16" />

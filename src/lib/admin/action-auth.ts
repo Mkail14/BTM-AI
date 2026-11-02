@@ -11,3 +11,12 @@ export async function requireAdminAction() {
   if (!supabase || !user?.isAdmin) return null;
   return { supabase, user };
 }
+
+export const NOT_PRINCIPAL: ActionResult = { ok: false, message: "Réservé à l'administrateur principal." };
+
+/** Profil de l'entreprise (RIB, délégation, maintenance, mode démo) : administrateur principal seulement. */
+export async function requirePrincipalAdminAction() {
+  const { supabase, user } = await getAuthContext();
+  if (!supabase || !user?.isPrincipalAdmin) return null;
+  return { supabase, user };
+}

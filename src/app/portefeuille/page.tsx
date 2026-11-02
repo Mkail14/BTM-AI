@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { MigrationWarning } from "@/components/admin/form";
 import { requireUser } from "@/lib/auth/session";
 import { loadWallet, settleTopup } from "@/lib/wallet";
+import { readDemoWallet, usesDemoWallet } from "@/lib/wallet/demo";
 import { stripeConfigured } from "@/lib/wallet/stripe";
 import { SettingsFrame } from "../parametres/SettingsFrame";
 import { WalletView } from "./WalletView";
@@ -12,6 +13,16 @@ export default async function WalletPage({ searchParams }: PageProps<"/portefeui
   const { supabase, user } = await requireUser("/portefeuille");
   const params = await searchParams;
   const sessionId = typeof params.recharge === "string" ? params.recharge : null;
+
+  // Mode démo : solde fictif (150 € au départ), recharges sans carte.
+  if (await usesDemoWallet(user)) {
+    const demo = await readDemoWallet(user.id);
+    return (
+      <SettingsFrame isAdmin={user.isAdmin} section="Portefeuille">
+        <WalletView balanceCents={demo.balanceCents} transactions={demo.transactions} paymentsOpen demo notice={null} />
+      </SettingsFrame>
+    );
+  }
 
   // Retour de la page de paiement : on crédite tout de suite, sans attendre le webhook.
   let notice: "paid" | "pending" | "failed" | "cancelled" | null = params.annule ? "cancelled" : null;

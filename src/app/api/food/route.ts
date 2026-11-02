@@ -5,11 +5,12 @@ import { getAuthContext } from "@/lib/auth/session";
 import { maskPhone, normalizePhone } from "@/lib/code-exam/candidate";
 import { canOrderFood } from "@/lib/food/access";
 import { orderCode } from "@/lib/food/order-code";
-import { FOOD_CATALOG, FOOD_DELIVERY_FEE_CENTS, FOOD_DEMO, FOOD_DEMO_BALANCE_CENTS, FOOD_ZONES, priceOrder, type FoodRestaurant } from "@/lib/food/catalog";
+import { FOOD_CATALOG, FOOD_DELIVERY_FEE_CENTS, FOOD_DEMO, FOOD_ZONES, priceOrder, type FoodRestaurant } from "@/lib/food/catalog";
 import { getProfileContact, saveProfileAddress, saveProfilePhone } from "@/lib/profile-contact";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
 import { loadWallet, spendFromWallet } from "@/lib/wallet";
+import { readDemoWallet, recordDemoOperation } from "@/lib/wallet/demo";
 import { formatEuros } from "@/lib/wallet/limits";
 
 const fail = (status: number, message: string) => NextResponse.json({ error: message }, { status });
@@ -31,15 +32,18 @@ export type FoodResponse = {
 export async function GET() {
   const { supabase, user } = await getAuthContext();
   if (!supabase || !user) return fail(401, "Connecte-toi pour commander.");
-  if (!canOrderFood(user)) return fail(403, "La commande de repas n'est pas encore disponible.");
-  const [wallet, contact] = await Promise.all([loadWallet(supabase, user.id, 1), getProfileContact(supabase, user.id)]);
+  if (!(await canOrderFood(user))) return fail(403, "La commande de repas n'est pas encore disponible.");
+  const [wallet, contact] = await Promise.all([
+    // Démonstration : solde fictif (src/lib/wallet/demo.ts), le vrai portefeuille n'est pas touché.
+    FOOD_DEMO ? readDemoWallet(user.id) : loadWallet(supabase, user.id, 1),
+    getProfileContact(supabase, user.id),
+  ]);
   const body: FoodResponse = {
     demo: FOOD_DEMO,
     restaurants: [...FOOD_CATALOG],
     zones: FOOD_ZONES,
     deliveryCents: FOOD_DELIVERY_FEE_CENTS,
-    // Démonstration : solde fictif, le vrai portefeuille n'est pas touché.
-    balanceCents: FOOD_DEMO ? FOOD_DEMO_BALANCE_CENTS : wallet.balanceCents,
+    balanceCents: wallet.balanceCents,
     address: contact.address,
     savedPhone: contact.phone ? maskPhone(contact.phone) : null,
   };
@@ -65,13 +69,13 @@ const orderSchema = z.object({
 /**
  * Paie une commande avec le portefeuille. Prix recalculés ici (jamais ceux du
  * navigateur). Démonstration : aucun restaurant ne reçoit la commande, le
- * solde fictif est vérifié et le vrai portefeuille n'est pas débité.
+ * solde fictif est débité et le vrai portefeuille n'est pas touché.
  */
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return fail(403, "Requête refusée.");
   const { supabase, user } = await getAuthContext();
   if (!supabase || !user) return fail(401, "Connecte-toi pour commander.");
-  if (!canOrderFood(user)) return fail(403, "La commande de repas n'est pas encore disponible.");
+  if (!(await canOrderFood(user))) return fail(403, "La commande de repas n'est pas encore disponible.");
 
   const limit = await consumeRateLimits([{ key: `food:${user.id}`, rules: RATE_LIMIT_POLICIES.foodOrder }]);
   if (!limit.allowed) return fail(429, "Trop de commandes d'un coup : réessaie dans une heure.");
@@ -89,13 +93,16 @@ export async function POST(request: NextRequest) {
   const phone = parsed.data.phone ?? contact.phone;
   if (!phone) return fail(400, "Indique ton numéro : le livreur doit pouvoir t'appeler.");
 
-  const balanceCents = FOOD_DEMO ? FOOD_DEMO_BALANCE_CENTS : (await loadWallet(supabase, user.id, 1)).balanceCents;
+  const balanceCents = (FOOD_DEMO ? await readDemoWallet(user.id) : await loadWallet(supabase, user.id, 1)).balanceCents;
   if (balanceCents < order.totalCents) {
     return fail(402, `Solde insuffisant : il te manque ${formatEuros(order.totalCents - balanceCents)}.`);
   }
 
   const label = `Repas ${order.restaurant.name}`.slice(0, 120);
-  if (!FOOD_DEMO) {
+  if (FOOD_DEMO) {
+    // Démonstration : débit du solde fictif, visible dans le portefeuille.
+    if (!(await recordDemoOperation(user.id, "payment", order.totalCents, label))) return fail(402, "Solde insuffisant.");
+  } else {
     // Avec un vrai partenaire : débit, puis envoi au restaurant de l'adresse, du lien GPS
     // (mapLink), du téléphone et de la note (remboursement s'il refuse).
     const paid = await spendFromWallet(user.id, order.totalCents, label);
