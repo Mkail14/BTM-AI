@@ -59,6 +59,17 @@ export async function saveSiteStatus(
     p_by_email: by.email,
   });
   if (error) {
+    // Fonction absente (migration du journal pas encore appliquée) : l'état est quand même
+    // changé, sans journal ; la page des réglages signale que l'historique est indisponible.
+    if (error.code === "PGRST202") {
+      console.error("[site] set_site_status absente : état changé sans journal (migration 20261120010000 à appliquer)");
+      const row: Record<string, unknown> = { maintenance, updated_at: new Date().toISOString(), updated_by: by.id };
+      if (message !== undefined) row.maintenance_message = message;
+      const { data, error: updateError } = await admin.from("site_settings").update(row).eq("id", 1).select("id");
+      if (updateError || !data?.length) return false;
+      forgetSiteFlags();
+      return true;
+    }
     console.error("[site] État de la plateforme non enregistré", error.message);
     return false;
   }
