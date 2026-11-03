@@ -192,7 +192,7 @@ function EntryDialog({ initial, onClose }: { initial: Draft; onClose: () => void
             <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-border px-3.5 py-2.5">
               <span>
                 <span className="block text-sm font-medium">Active</span>
-                <span className="block text-xs text-fg-muted">Awa s&apos;en sert comme exemple quand elle parle shimaoré.</span>
+                <span className="block text-xs text-fg-muted">Tamilya s&apos;en sert comme exemple quand elle parle shimaoré.</span>
               </span>
               <input
                 type="checkbox"

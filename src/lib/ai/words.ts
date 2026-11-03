@@ -42,7 +42,7 @@ export function selectWords(
     maxMatched = 80,
     maxTopic = 400,
     topic = false,
-  }: { maxMatched?: number; maxTopic?: number; /** Toujours compléter (Awa parle shimaoré). */ topic?: boolean } = {},
+  }: { maxMatched?: number; maxTopic?: number; /** Toujours compléter (Tamilya parle shimaoré). */ topic?: boolean } = {},
 ): WordEntry[] {
   const words = tokens(message);
   const matched: WordEntry[] = [];
@@ -59,14 +59,14 @@ export function selectWords(
 export type Gloss = {
   /** Mots shimaoré du message reconnus : tels qu'écrits, et leur entrée du vocabulaire. */
   known: { written: string; french: string; shimaore: string }[];
-  /** Mots qui semblent shimaoré mais qu'Awa ne connaît pas. */
+  /** Mots qui semblent shimaoré mais que Tamilya ne connaît pas. */
   unknown: string[];
 };
 
 /**
  * Lecture du message, mot à mot, avec le vocabulaire validé : ce que veut
  * dire chaque mot shimaoré reconnu (même mal orthographié), et les mots
- * qu'Awa ne connaît pas. Donné au modèle pour qu'il comprenne sans deviner.
+ * que Tamilya ne connaît pas. Donné au modèle pour qu'il comprenne sans deviner.
  */
 export function glossMessage(entries: readonly WordEntry[], message: string): Gloss {
   const raw = message.match(/[\p{L}\p{N}’'-]+/gu) ?? [];
@@ -94,7 +94,7 @@ export function glossMessage(entries: readonly WordEntry[], message: string): Gl
       ? []
       : [
           ...new Set(
-            raw.filter((w, i) => !covered.has(i) && w.length >= 3 && !/\d/.test(w) && !isFrenchWord(w) && !/^(?:awa|btm|mayotte|ok|okay)$/i.test(w)),
+            raw.filter((w, i) => !covered.has(i) && w.length >= 3 && !/\d/.test(w) && !isFrenchWord(w) && !/^(?:awa|tamilya|btm|mayotte|ok|okay)$/i.test(w)),
           ),
         ].slice(0, 8);
 

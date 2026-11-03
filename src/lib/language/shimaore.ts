@@ -15,7 +15,7 @@ export function buildLanguageGuidance(
   examples: readonly ValidatedExample[] = VALIDATED_SHIMAORE_EXAMPLES,
   { master = false }: { master?: boolean } = {},
 ): string {
-  // Avec son maître, Awa parle shimaoré (consigne TEACHER) : pas de « français par défaut ».
+  // Avec son maître, Tamilya parle shimaoré (consigne TEACHER) : pas de « français par défaut ».
   const lines = master
     ? ["N'ajoute jamais de traduction ni de note entre parenthèses."]
     : [

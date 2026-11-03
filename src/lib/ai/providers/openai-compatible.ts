@@ -52,7 +52,7 @@ export function createOpenAICompatibleProvider(config: AIConfig): AIProvider {
   // L'API OpenAI officielle attend max_completion_tokens ; la plupart des
   // autres services compatibles attendent encore max_tokens.
   const maxTokensField = endpoint.includes("api.openai.com") ? "max_completion_tokens" : "max_tokens";
-  // Modèles autres que la référence (Gemini), réponses d'Awa seulement : rappel des consignes et température plus basse.
+  // Modèles autres que la référence (Gemini), réponses de Tamilya seulement : rappel des consignes et température plus basse.
   const harmony = harmonyFor(config.model);
 
   return {

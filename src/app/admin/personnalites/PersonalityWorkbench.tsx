@@ -507,7 +507,7 @@ export function PersonalityWorkbench({
                 {testing ? (
                   <>
                     <p className="ml-auto w-fit max-w-[85%] break-words rounded-2xl rounded-br-md bg-bg-muted px-3 py-2">{asked}</p>
-                    <p className="text-fg-muted">{card.emoji} Awa réfléchit…</p>
+                    <p className="text-fg-muted">{card.emoji} Tamilya réfléchit…</p>
                   </>
                 ) : turn ? (
                   <>
@@ -606,7 +606,7 @@ export function PersonalityWorkbench({
                 className="sticky bottom-0 mt-4 flex gap-2 bg-bg pt-3"
               >
                 <label htmlFor="test-message" className="sr-only">
-                  Message à envoyer à Awa
+                  Message à envoyer à Tamilya
                 </label>
                 <input
                   id="test-message"

@@ -3,7 +3,7 @@ import { COMMUNE_CENTERS, distanceKm as km, PETITE_TERRE, type Point } from "@/l
 
 /**
  * Bureaux La Poste de Mayotte où l'on passe le code, et centre de chaque
- * commune : pour qu'Awa dise lequel est le plus proche de chez la personne,
+ * commune : pour que Tamilya dise lequel est le plus proche de chez la personne,
  * sans afficher le tableau des horaires. Positions approximatives (centre du
  * village, voir src/lib/geo/communes.ts), suffisantes pour classer les bureaux.
  */
@@ -33,7 +33,7 @@ export function officesByDistance(commune: string, geo: GeoPoint | null = null) 
   }).sort((a, b) => a.score - b.score);
 }
 
-/** Ligne donnée à Awa : « Kaweni (~3 km), Koungou (~5 km), … ». */
+/** Ligne donnée à Tamilya : « Kaweni (~3 km), Koungou (~5 km), … ». */
 export function nearestOfficesLine(commune: string, geo: GeoPoint | null = null): string | null {
   const list = officesByDistance(commune, geo);
   if (!list) return null;

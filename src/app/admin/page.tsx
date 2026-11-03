@@ -250,7 +250,7 @@ function ActivityChart({ daily }: { daily: AdminOverview["daily"] }) {
 }
 
 /* -------------------------------------------------------------------------- */
-/* Progression d'Awa, crédit Google, comptes                                  */
+/* Progression de Tamilya, crédit Google, comptes                                  */
 /* -------------------------------------------------------------------------- */
 
 /** Objectif de vocabulaire : les mots essentiels d'une conversation courante. */
@@ -258,7 +258,7 @@ const AWA_GOAL = 1000;
 
 type AwaProgress = { known: number; week: number; toTranslate: number };
 
-/** Mots et expressions qu'Awa connaît, appris cette semaine, et mots en attente de traduction. */
+/** Mots et expressions que Tamilya connaît, appris cette semaine, et mots en attente de traduction. */
 async function getAwaProgress(admin: NonNullable<ReturnType<typeof getSupabaseAdminClient>>): Promise<AwaProgress | null> {
   const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
   const active = (table: "awa_words" | "awa_lexicon", since?: string) => {
@@ -325,14 +325,14 @@ const euros = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR
 function AwaProgressCard({ progress }: { progress: AwaProgress | null }) {
   if (!progress) {
     return (
-      <ProgressCard title="Awa apprend le shimaoré" value="—" ratio={0}>
+      <ProgressCard title="Tamilya apprend le shimaoré" value="—" ratio={0}>
         Vocabulaire illisible pour le moment.
       </ProgressCard>
     );
   }
   return (
     <ProgressCard
-      title="Awa apprend le shimaoré"
+      title="Tamilya apprend le shimaoré"
       value={
         <>
           {fmt(progress.known)} <span className="text-base font-normal text-fg-muted">/ {fmt(AWA_GOAL)} mots</span>
@@ -516,7 +516,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
         <div
           className={`flex min-h-0 flex-1 flex-col gap-3 md:col-start-1 md:row-start-1 md:gap-4 ${alerts.length > 0 ? "md:row-span-2" : ""}`}
         >
-          {/* Les deux progressions à suivre : le vocabulaire d'Awa et le crédit payé. */}
+          {/* Les deux progressions à suivre : le vocabulaire de Tamilya et le crédit payé. */}
           <div className="grid shrink-0 grid-cols-2 gap-3 md:gap-4">
             <AwaProgressCard progress={progress} />
             <GoogleCreditCard spend={spend} />

@@ -52,8 +52,8 @@ describe("buildModelHistory", () => {
 
 describe("titres de l'historique", () => {
   it("retire les salutations et garde le sujet, en court", () => {
-    assert.equal(quickTitle("coucou awa jai trop faim je veux manger"), "Jai trop faim je veux manger");
-    assert.equal(quickTitle("Salut AWA, j'ai faim"), "J'ai faim");
+    assert.equal(quickTitle("coucou tamilya jai trop faim je veux manger"), "Jai trop faim je veux manger");
+    assert.equal(quickTitle("Salut TAMILYA, j'ai faim"), "J'ai faim");
     assert.equal(quickTitle("  coucou  "), "Coucou");
     assert.equal(quickTitle("   "), "Nouvelle conversation");
     const long = quickTitle("je veux passer mon code a mamoudzou le plus vite possible avec la poste");

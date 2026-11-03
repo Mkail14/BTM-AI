@@ -24,7 +24,7 @@ export default async function ConversationPage({ params }: PageProps<"/c/[id]">)
     user.isAdmin ? loadAwaBrain() : null,
   ]);
   if (!conversation) notFound();
-  // Maître d'Awa : les [[mots]] qu'il a traduits depuis s'affichent en shimaoré.
+  // Maître de Tamilya : les [[mots]] qu'il a traduits depuis s'affichent en shimaoré.
   const known = brain ? knownTranslations(brain) : null;
   const messages: UiMessage[] = stored.map((m) => ({
     id: m.id,

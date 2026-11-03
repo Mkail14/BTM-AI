@@ -1,7 +1,7 @@
 const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 /**
- * Remplace, dans une réponse d'Awa (Markdown), un passage tel que l'utilisateur
+ * Remplace, dans une réponse de Tamilya (Markdown), un passage tel que l'utilisateur
  * l'a sélectionné à l'écran : la sélection ne contient ni les retours à la
  * ligne, ni le gras (**), ni les crochets des [[mots]] du texte d'origine.
  * Majuscules ignorées. Renvoie le texte inchangé si le passage n'y est pas.

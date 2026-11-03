@@ -39,10 +39,10 @@ const clamp = (v: number, min: number, max: number) => Math.min(max, Math.max(mi
 const rand = (min: number, max: number) => min + Math.random() * (max - min);
 
 /**
- * Awa vivante : une goutte qui ne fait jamais deux fois le même mouvement.
+ * Tamilya vivante : une goutte qui ne fait jamais deux fois le même mouvement.
  * Sa forme, sa dérive, sa rotation, ses gouttelettes et son cœur (battements
  * irréguliers, parfois doubles) suivent un bruit aléatoire calculé à chaque
- * image, avec de temps en temps un sursaut. Quand Awa parle, la goutte suit
+ * image, avec de temps en temps un sursaut. Quand Tamilya parle, la goutte suit
  * sa voix syllabe par syllabe (voice-level.ts) : elle gonfle et s'étire comme
  * une bouche, les gouttelettes s'écartent. Quand la personne parle, elle
  * frémit (elle écoute) ; `busy` : elle réfléchit, plus vive et resserrée.

@@ -23,7 +23,7 @@ describe("demande de repas reconnue par le serveur", () => {
   });
 
   it("ouvre toute l'offre quand on a faim sans précision", () => {
-    assert.equal(detect("coucou awa j'ai trop faim"), "tout");
+    assert.equal(detect("coucou tamilya j'ai trop faim"), "tout");
     assert.equal(detect("je veux commander à manger"), "tout");
   });
 

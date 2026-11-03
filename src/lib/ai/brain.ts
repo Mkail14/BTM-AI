@@ -7,8 +7,8 @@ import { glossMessage, selectWords, type Gloss, type WordEntry } from "./words";
 import { translationTable } from "@/lib/language/unknown-words";
 
 /**
- * « Cerveau » d'Awa stocké dans Supabase (réglages, connaissances, lexique).
- * Indépendant du modèle d'IA : changer de fournisseur ne change pas Awa.
+ * « Cerveau » de Tamilya stocké dans Supabase (réglages, connaissances, lexique).
+ * Indépendant du modèle d'IA : changer de fournisseur ne change pas Tamilya.
  * Sans clé secrète ou en cas d'erreur, les textes par défaut du code s'appliquent.
  */
 export type AwaBrain = {
@@ -23,7 +23,7 @@ export type AwaBrain = {
 
 export const EMPTY_BRAIN: AwaBrain = { name: null, identity: null, rules: null, knowledge: [], lexicon: [], words: [] };
 
-/** Lu à part : une table absente ne prive pas Awa du reste de son cerveau. */
+/** Lu à part : une table absente ne prive pas Tamilya du reste de son cerveau. */
 async function loadWords(admin: NonNullable<ReturnType<typeof getSupabaseAdminClient>>): Promise<WordEntry[]> {
   const { data, error } = await admin
     .from("awa_words")
@@ -118,7 +118,7 @@ export function lexiconFor(brain: AwaBrain, personality: PersonalityId): Validat
   return brain.lexicon.map(({ variants, ...example }) => ({ ...example, shimaore: variants?.[personality] || example.shimaore }));
 }
 
-/** Mots du dictionnaire utiles pour ce message ; avec son maître, Awa parle shimaoré et reçoit tout son vocabulaire. */
+/** Mots du dictionnaire utiles pour ce message ; avec son maître, Tamilya parle shimaoré et reçoit tout son vocabulaire. */
 export function wordsFor(brain: AwaBrain, message: string, speaksShimaore = false): WordEntry[] {
   return selectWords(brain.words, message, { topic: speaksShimaore });
 }
@@ -128,7 +128,7 @@ export function glossFor(brain: AwaBrain, message: string): Gloss {
   return glossMessage([...brain.lexicon, ...brain.words], message);
 }
 
-/** Tout ce que le maître a appris à Awa (mots et expressions), pour remplacer les [[mots]] déjà traduits. */
+/** Tout ce que le maître a appris à Tamilya (mots et expressions), pour remplacer les [[mots]] déjà traduits. */
 export function knownTranslations(brain: AwaBrain): Map<string, string> {
   return translationTable([...brain.lexicon, ...brain.words]);
 }

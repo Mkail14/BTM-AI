@@ -1,5 +1,5 @@
 /**
- * Micro-vibrations du téléphone pendant une réponse d'Awa.
+ * Micro-vibrations du téléphone pendant une réponse de Tamilya.
  *
  * Android : API Vibration. iPhone : Safari ne la propose pas, mais depuis
  * iOS 18 basculer un interrupteur natif (<input type="checkbox" switch>)
@@ -29,12 +29,12 @@ function pulse(android: number | number[]) {
   return true;
 }
 
-/** Awa commence à écrire : une seule petite impulsion. */
+/** Tamilya commence à écrire : une seule petite impulsion. */
 export function hapticWriting() {
   pulse(10);
 }
 
-/** Pendant qu'Awa écrit : vibration très légère, comme une frappe (cadencée par useTypewriter). */
+/** Pendant que Tamilya écrit : vibration très légère, comme une frappe (cadencée par useTypewriter). */
 export function hapticTick() {
   pulse(4);
 }

@@ -11,7 +11,7 @@ const CATCH_UP_MS = 600;
 const TICK_MS = 140;
 
 /**
- * Dévoile la réponse d'Awa caractère par caractère, comme si elle l'écrivait
+ * Dévoile la réponse de Tamilya caractère par caractère, comme si elle l'écrivait
  * (le modèle envoie le texte par gros morceaux irréguliers). Le rythme est
  * régulier et n'accélère que si le texte reçu prend de l'avance. Téléphone :
  * une impulsion au début, de légères vibrations pendant l'écriture, deux à la fin.

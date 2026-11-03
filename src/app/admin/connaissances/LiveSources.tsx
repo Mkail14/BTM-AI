@@ -127,7 +127,7 @@ function NewsSource({ news }: { news: NewsItem[] }) {
   );
 }
 
-/** Sources lues en direct : Awa s'en sert quand on lui parle d'emploi ou d'actualité. */
+/** Sources lues en direct : Tamilya s'en sert quand on lui parle d'emploi ou d'actualité. */
 export function LiveSources({ jobs, news }: { jobs: JobsResult; news: NewsItem[] }) {
   return (
     <section aria-labelledby="direct" className="flex min-h-0 flex-col gap-3">
@@ -135,7 +135,7 @@ export function LiveSources({ jobs, news }: { jobs: JobsResult; news: NewsItem[]
         <h2 id="direct" className="font-semibold">
           En direct
         </h2>
-        <p className="text-xs text-fg-muted">Awa les lit quand on lui parle d&apos;emploi ou d&apos;actualité.</p>
+        <p className="text-xs text-fg-muted">Tamilya les lit quand on lui parle d&apos;emploi ou d&apos;actualité.</p>
       </div>
       <NewsSource news={news} />
       <JobsSource jobs={jobs} />

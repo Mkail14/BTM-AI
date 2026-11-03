@@ -1,5 +1,5 @@
 /**
- * Mots shimaoré inconnus signalés par Awa à la fin de sa réponse :
+ * Mots shimaoré inconnus signalés par Tamilya à la fin de sa réponse :
  * « <<inconnu: mot1 | mot2>> ». La balise est retirée du flux avant
  * d'arriver chez l'utilisateur ; les mots partent dans la liste « À traduire »
  * de /admin/lexique.

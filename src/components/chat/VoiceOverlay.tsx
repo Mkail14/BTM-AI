@@ -15,7 +15,7 @@ const LABELS = {
 } as const;
 
 /**
- * Mode vocal plein écran : le globe d'Awa écoute, réfléchit et parle.
+ * Mode vocal plein écran : le globe de Tamilya écoute, réfléchit et parle.
  * Il pulse à chaque mot entendu ou prononcé.
  * `standalone` (page /voix) : toujours affiché, le globe au repos attend qu'on le touche.
  */
@@ -78,7 +78,7 @@ export function VoiceOverlay({
   }, [close]);
 
   if (state === "off" && !standalone) return null;
-  // Réponse d'Awa : les [[mots français]] (ceux qu'elle ne connaît pas encore en shimaoré) en couleur.
+  // Réponse de Tamilya : les [[mots français]] (ceux qu'elle ne connaît pas encore en shimaoré) en couleur.
   const text =
     state === "speaking"
       ? splitUnknownWords(reply).map((segment, index) =>
@@ -99,16 +99,16 @@ export function VoiceOverlay({
       ref={overlay}
       role="dialog"
       aria-modal="true"
-      aria-label="Conversation vocale avec Awa"
+      aria-label="Conversation vocale avec Tamilya"
       className="voice-overlay fixed inset-0 z-[60] flex flex-col items-center px-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] text-white"
     >
-      <p className="voice-morph-in text-sm font-medium tracking-[0.3em] text-white/50 uppercase">Awa</p>
+      <p className="voice-morph-in text-sm font-medium tracking-[0.3em] text-white/50 uppercase">Tamilya</p>
 
       <div className="flex w-full flex-1 flex-col items-center justify-center gap-10">
-        {/* La même Awa que sur l'accueil, en grand : elle suit sa voix quand elle parle, frémit quand on lui parle. */}
+        {/* La même Tamilya que sur l'accueil, en grand : elle suit sa voix quand elle parle, frémit quand on lui parle. */}
         <div ref={orb}>
           <AwaBlob
-            label={state === "speaking" ? "Couper Awa et parler" : "Parler"}
+            label={state === "speaking" ? "Couper Tamilya et parler" : "Parler"}
             onActivate={talk}
             immediate
             busy={state === "waiting"}

@@ -54,7 +54,7 @@ describe("lecture du message mot à mot", () => {
   });
 });
 
-describe("vocabulaire donné à Awa", () => {
+describe("vocabulaire donné à Tamilya", () => {
   it("trouve les mots du message, en français ou en shimaoré mal écrit", () => {
     const picked = selectWords(VOCAB, "les maisons et le marahabaa").map((w) => w.french);
     assert.deepEqual(picked.sort(), ["maison", "merci"]);

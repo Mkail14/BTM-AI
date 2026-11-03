@@ -55,14 +55,14 @@ export default async function UsagePage() {
               Messages aujourd&apos;hui
             </h2>
             <span className="rounded-full bg-accent-soft px-2.5 py-0.5 text-xs font-medium text-accent">
-              {user.isAdmin ? "Maître d'Awa" : "Gratuit"}
+              {user.isAdmin ? "Maître de Tamilya" : "Gratuit"}
             </span>
           </div>
 
           {user.isAdmin ? (
             <div className="mt-6 text-center">
               <p className="text-5xl font-semibold tracking-tight">∞</p>
-              <p className="mt-2 text-sm text-fg-muted">Sans limite : tu enseignes à Awa.</p>
+              <p className="mt-2 text-sm text-fg-muted">Sans limite : tu enseignes à Tamilya.</p>
             </div>
           ) : (
             <>
@@ -116,7 +116,7 @@ export default async function UsagePage() {
               ))}
             </dl>
             <p className="mt-3 text-xs text-fg-muted">
-              Ces limites gardent Awa gratuite et rapide pour tout le monde. Quand tu atteins la limite, attends la remise à
+              Ces limites gardent Tamilya gratuite et rapide pour tout le monde. Quand tu atteins la limite, attends la remise à
               zéro ou ouvre une nouvelle conversation si celle-ci est pleine.
             </p>
           </section>
@@ -137,7 +137,7 @@ export default async function UsagePage() {
               </div>
             </div>
             <p className="mt-3 text-xs text-fg-muted">
-              Awa répond avec le modèle Gemini de Google.{" "}
+              Tamilya répond avec le modèle Gemini de Google.{" "}
               <Link href="/aide" className="font-medium text-accent hover:underline">
                 Besoin d&apos;aide ?
               </Link>

@@ -12,10 +12,10 @@ const link = "font-medium text-accent hover:underline";
 
 const TOPICS: { title: string; questions: Question[] }[] = [
   {
-    title: "Parler avec Awa",
+    title: "Parler avec Tamilya",
     questions: [
       {
-        q: "Qui est Awa ?",
+        q: "Qui est Tamilya ?",
         a: "L'assistante de BTM AI, créée à Mayotte par GROUPE BTM. Elle répond en français et apprend le shimaoré. Elle peut se tromper : vérifie les informations importantes.",
       },
       {
@@ -28,7 +28,7 @@ const TOPICS: { title: string; questions: Question[] }[] = [
       },
       {
         q: "C'est quoi « Normale » à côté du message ?",
-        a: "Le caractère d'Awa. Clique dessus pour en choisir un autre : elle change sa façon de te parler, pas ce qu'elle sait.",
+        a: "Le caractère de Tamilya. Clique dessus pour en choisir un autre : elle change sa façon de te parler, pas ce qu'elle sait.",
       },
       {
         q: "Comment commencer une nouvelle conversation ?",
@@ -40,7 +40,7 @@ const TOPICS: { title: string; questions: Question[] }[] = [
     title: "Quotas",
     questions: [
       {
-        q: "Pourquoi Awa ne répond plus ?",
+        q: "Pourquoi Tamilya ne répond plus ?",
         a: (
           <>
             Tu as peut-être atteint ta limite de messages du jour ou de la minute. Regarde ce qu&apos;il te reste dans{" "}
@@ -62,7 +62,7 @@ const TOPICS: { title: string; questions: Question[] }[] = [
     questions: [
       {
         q: "Comment réserver mon examen du code ?",
-        a: "Demande-le à Awa (« je veux passer mon code »). Elle te montre les places libres dans les bureaux La Poste de Mayotte ; choisis ta ville, ton jour et ton heure, puis remplis tes informations. GROUPE BTM te recontacte pour confirmer.",
+        a: "Demande-le à Tamilya (« je veux passer mon code »). Elle te montre les places libres dans les bureaux La Poste de Mayotte ; choisis ta ville, ton jour et ton heure, puis remplis tes informations. GROUPE BTM te recontacte pour confirmer.",
       },
       {
         q: "C'est quoi le NEPH ?",
@@ -111,12 +111,12 @@ const TOPICS: { title: string; questions: Question[] }[] = [
         ),
       },
       {
-        q: "Comment faire oublier quelque chose à Awa ?",
+        q: "Comment faire oublier quelque chose à Tamilya ?",
         a: "Dis-le-lui simplement, par exemple « oublie où j'habite ».",
       },
       {
         q: "Comment supprimer mon compte ?",
-        a: "Paramètres → Supprimer le compte. Tes conversations, la mémoire d'Awa et tes informations sont effacées.",
+        a: "Paramètres → Supprimer le compte. Tes conversations, la mémoire de Tamilya et tes informations sont effacées.",
       },
       {
         q: "Que fait BTM de mes données ?",

@@ -20,7 +20,7 @@ async function errorMessage(res: Response): Promise<string> {
 /**
  * Page /voix : seulement le globe. Les échanges partent dans une conversation
  * enregistrée comme les autres (historique, mémoire, shimaoré appris), mais
- * rien ne s'affiche à part Awa qui écoute et qui parle.
+ * rien ne s'affiche à part Tamilya qui écoute et qui parle.
  */
 export function VoiceRoom() {
   const router = useRouter();

@@ -67,7 +67,7 @@ export default async function AdminLexiconPage() {
     isActive: r.is_active,
   }));
 
-  // Mots actifs du dictionnaire et expressions actives : ce qu'Awa sait déjà dire.
+  // Mots actifs du dictionnaire et expressions actives : ce que Tamilya sait déjà dire.
   // Les mots appris sans place (conversation, traduction, liste…) sont rangés par Gemini avant l'affichage.
   const activeWords = wordRows.filter((w) => w.isActive);
   const sorted = await sortNewWords(supabase, activeWords, branches ?? []).catch((error: unknown) => {

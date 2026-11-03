@@ -1,5 +1,5 @@
 /**
- * « Niveau de voix » d'Awa, de 0 à 1, pour animer son globe comme une bouche.
+ * « Niveau de voix » de Tamilya, de 0 à 1, pour animer son globe comme une bouche.
  *
  * La synthèse vocale du navigateur ne donne pas accès au son : on ne connaît
  * que les mots, au moment où ils sont prononcés (onboundary). Chaque mot est
@@ -62,7 +62,7 @@ function scheduleWord(word: string, start: number): number {
   return t - start;
 }
 
-/** Awa commence à lire `spoken`. */
+/** Tamilya commence à lire `spoken`. */
 export function voiceSpeakStart(spoken: string) {
   text = spoken;
   cursor = 0;
@@ -81,7 +81,7 @@ export function voiceWord(part: string, charIndex: number) {
   if (found >= 0) cursor = found + word.length;
 }
 
-/** Awa a fini (ou a été coupée). */
+/** Tamilya a fini (ou a été coupée). */
 export function voiceSpeakEnd() {
   pulses = [];
   setMood("idle");
@@ -95,7 +95,7 @@ export function voiceHeard(addedChars: number) {
   for (let i = 0; i < count; i++) pulses.push({ at: t + i * 150, strength: 0.35 + Math.random() * 0.3 });
 }
 
-/** Fin de l'écoute (sans qu'Awa parle). */
+/** Fin de l'écoute (sans que Tamilya parle). */
 export function voiceListenEnd() {
   if (mood === "listening") setMood("idle");
 }

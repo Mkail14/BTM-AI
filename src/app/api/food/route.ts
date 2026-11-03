@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
     to: delivery.point,
     addressFound: delivery.found,
   };
-  // Awa la retrouve pour répondre aux questions sur la livraison.
+  // Tamilya la retrouve pour répondre aux questions sur la livraison.
   await rememberOrder({
     userId: user.id,
     code: body.code,

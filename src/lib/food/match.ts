@@ -1,6 +1,6 @@
 /**
  * Ce que la personne veut manger, lu dans le bloc ```commande-repas``` écrit
- * par Awa (« tacos », « pizza Pizza Mangrove »…) : un type de plat, un
+ * par Tamilya (« tacos », « pizza Pizza Mangrove »…) : un type de plat, un
  * restaurant, ou les deux. Sans rien de reconnu, la commande montre tout.
  */
 

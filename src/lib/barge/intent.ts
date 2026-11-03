@@ -14,7 +14,7 @@ const normalize = (text: string) =>
 const BARGE = /\b(?:barge|barges|amphidrome|traversee|petite terre|ptite terre|dzaoudzi|pamandzi)\b/;
 const TICKET = /\b(?:ticket|tickets|tiket|billet|billets|acheter|achete|achat|payer|paye|reserver|reservation)\b/;
 
-/** Questions sur un ticket déjà acheté : Awa répond, sans rouvrir l'achat. */
+/** Questions sur un ticket déjà acheté : Tamilya répond, sans rouvrir l'achat. */
 const ALREADY = /\b(?:mon ticket|mon billet|mes tickets|mes billets|deja achete|j ai achete|rembours\w*|annuler)\b/;
 
 /** Départ de Petite-Terre : c'est gratuit, rien à acheter. */
@@ -52,7 +52,7 @@ const VEHICLES: [RegExp, string][] = [
 ];
 
 /**
- * Tickets demandés, d'après le message (ou le bloc écrit par Awa) : par défaut
+ * Tickets demandés, d'après le message (ou le bloc écrit par Tamilya) : par défaut
  * un seul ticket piéton, « pour moi ». Un véhicule n'apparaît que s'il est
  * cité ; les personnes en plus seulement si elles sont dites (« pour 3 »,
  * « moi et ma femme », « avec 2 passagers »).

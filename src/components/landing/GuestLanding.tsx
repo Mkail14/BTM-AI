@@ -1,40 +1,49 @@
 "use client";
 
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
+import Link from "next/link";
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { AwaBlob } from "@/components/chat/AwaBlob";
 import { IconSend } from "@/components/ui/icons";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
-import type { AwaProgress } from "@/lib/landing/progress";
+import type { PublicReview } from "@/lib/reviews/rules";
+import { ReviewsWall } from "./ReviewsWall";
 
 const PERSONA = "var(--persona,var(--accent))";
+const SIGNUP_REASON = "Crée ton compte gratuit pour parler à Tamilya sans limite.";
+const REVIEW_REASON = "Crée ton compte gratuit pour donner ton avis sur Tamilya.";
 
-/** Exemples qui défilent dans le champ « Parle à Awa ». */
+/*
+ * Pour l'instant, Tamilya ne fait qu'une chose en public : parler shimaoré.
+ * Les autres fonctionnalités (code de la route, emploi, actualité…) ne sont
+ * pas encore ouvertes : ne pas les annoncer ici tant qu'elles ne le sont pas.
+ */
+
+/** Exemples qui défilent dans le champ « Parle à Tamilya ». */
 const EXAMPLES = [
-  "Où passer le code de la route près de chez moi ?",
   "Comment dit-on « merci » en shimaoré ?",
-  "Quelles offres d'emploi à Mayotte en ce moment ?",
-  "Quoi de neuf à Mayotte aujourd'hui ?",
-  "Aide-moi à écrire une lettre de motivation",
+  "Apprends-moi à saluer quelqu'un",
+  "Comment on compte jusqu'à dix ?",
+  "Dis-moi bonne nuit en shimaoré",
 ];
 
-const USES = [
-  { emoji: "🚗", title: "Le code de la route", text: "Le bureau La Poste le plus proche de chez toi et les places libres, jour par jour." },
-  { emoji: "🗣️", title: "Le shimaoré", text: "Awa apprend la langue de Mayotte chaque jour avec des locuteurs de GROUPE BTM, et te répond dans ta langue." },
-  { emoji: "💼", title: "L'emploi", text: "Les offres du moment à Mayotte, trouvées et résumées pour toi." },
-  { emoji: "📰", title: "L'actualité", text: "Ce qui se passe sur l'île aujourd'hui, en quelques phrases." },
-  { emoji: "📄", title: "Les démarches", text: "Administration, santé, transports : des réponses claires, vérifiées par l'équipe." },
-  { emoji: "🌙", title: "Tout le temps", text: "Le soir, le week-end, depuis ton téléphone : Awa est toujours là pour toi." },
+const POINTS = [
+  {
+    title: "Elle te répond en shimaoré",
+    text: "Écris-lui en français ou en shimaoré, comme tu parles. Sa réponse vient toujours en shimaoré.",
+  },
+  {
+    title: "Elle n'invente pas",
+    text: "Elle n'utilise que des mots vérifiés. Quand elle ne connaît pas un mot, elle le dit au lieu de deviner.",
+  },
+  {
+    title: "Elle apprend chaque jour",
+    text: "Des locuteurs de Mayotte lui apprennent de nouveaux mots, relus par l'équipe de GROUPE BTM.",
+  },
 ];
 
-const STEPS = [
-  { n: 1, title: "Pose ta question", text: "En français, en shimaoré, comme tu parles : Awa comprend." },
-  { n: 2, title: "Awa te répond", text: "Clairement, avec ce qui est utile à Mayotte. Si elle ne sait pas, elle le dit." },
-  { n: 3, title: "Garde tes conversations", text: "Crée ton compte gratuit pour continuer et retrouver tout ce qu'elle t'a dit." },
-];
-
-const numberFormat = new Intl.NumberFormat("fr-FR");
+const ratingFormat = new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /** Apparition au défilement : la section monte en fondu quand elle entre à l'écran. */
 function Reveal({ children, className = "", delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
@@ -62,38 +71,6 @@ function Reveal({ children, className = "", delay = 0 }: { children: ReactNode; 
   );
 }
 
-/** Chiffre qui compte jusqu'à sa valeur quand il apparaît. */
-function CountUp({ value }: { value: number }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const [shown, setShown] = useState(0);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    let frame = 0;
-    const observer = new IntersectionObserver(([entry]) => {
-      if (!entry.isIntersecting) return;
-      observer.disconnect();
-      const start = performance.now();
-      const tick = (now: number) => {
-        const k = Math.min(1, (now - start) / 1400);
-        setShown(Math.round(value * (1 - (1 - k) ** 3)));
-        if (k < 1) frame = requestAnimationFrame(tick);
-      };
-      frame = requestAnimationFrame(tick);
-    });
-    observer.observe(el);
-    return () => {
-      observer.disconnect();
-      cancelAnimationFrame(frame);
-    };
-  }, [value]);
-  return (
-    <span ref={ref} className="tabular-nums">
-      {numberFormat.format(shown)}
-    </span>
-  );
-}
-
 /** Invitation du champ vide : des exemples qui montent et s'effacent. */
 function RotatingExample() {
   const [index, setIndex] = useState(0);
@@ -111,298 +88,274 @@ function RotatingExample() {
 }
 
 /**
- * Page d'accueil des visiteurs sans compte : qui est Awa, ce qu'elle fait
- * pour Mayotte, où elle en est, et un champ pour lui parler tout de suite.
+ * Page d'accueil des visiteurs sans compte : qui est Tamilya, ce qu'en disent ses
+ * utilisateurs, et un champ pour lui parler tout de suite.
  * `onStart` lance la conversation (avec son animation, voir GuestHome).
  */
 export function GuestLanding({
-  progress,
+  reviews,
   leaving,
   hasDraft,
   onStart,
   onResume,
 }: {
-  progress: AwaProgress;
+  /** Avis publiés par les comptes (Paramètres → Mon avis), les plus récents d'abord. */
+  reviews: PublicReview[];
   leaving: boolean;
   /** Une conversation d'essai existe déjà sur cet appareil. */
   hasDraft: boolean;
-  onStart: (text: string, origin: { x: number; y: number }) => void;
-  onResume: (origin: { x: number; y: number }) => void;
+  onStart: (text: string) => void;
+  onResume: () => void;
 }) {
   const { openAuthDialog } = useAuth();
   const [text, setText] = useState("");
   // Champ : au repos (court), ouvert (étiré), ou qui se referme.
   const [stretch, setStretch] = useState<"rest" | "open" | "closed">("rest");
+  // La barre du haut prend sa bordure une fois la page défilée.
+  const [scrolled, setScrolled] = useState(false);
+  const scroller = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
-  const form = useRef<HTMLFormElement>(null);
-  const percent = progress.curriculum.total ? Math.round((progress.curriculum.learned / progress.curriculum.total) * 100) : 0;
+  const average = reviews.length ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length : 0;
 
-  const originOf = (el: Element | null) => {
-    const r = el?.getBoundingClientRect();
-    return r ? { x: r.left + r.width / 2, y: r.top + r.height / 2 } : { x: window.innerWidth / 2, y: window.innerHeight / 2 };
-  };
-  const start = (message: string, from: Element | null) => {
-    const clean = message.trim();
-    if (!clean || leaving) return;
-    onStart(clean.slice(0, CHAT_LIMITS.maxUserMessageChars), originOf(from));
-  };
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    start(text, form.current);
+    const clean = text.trim();
+    if (!clean || leaving) return;
+    onStart(clean.slice(0, CHAT_LIMITS.maxUserMessageChars));
   };
+  // La page d'accueil défile dans son propre calque (fixed), pas dans la fenêtre.
   const talkAgain = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    scroller.current?.scrollTo({ top: 0, behavior: "smooth" });
     input.current?.focus({ preventScroll: true });
   };
+  const signUp = () => openAuthDialog({ mode: "signup", reason: SIGNUP_REASON });
+  // Après l'inscription, la personne arrive directement sur son formulaire d'avis.
+  const giveReview = () => openAuthDialog({ mode: "signup", reason: REVIEW_REASON, next: "/parametres?rubrique=avis" });
 
   return (
     <div
+      ref={scroller}
       role="region"
       aria-label="Bienvenue sur BTM AI"
       data-leaving={leaving || undefined}
+      onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 8)}
       className="landing fixed inset-0 z-[55] overflow-x-hidden overflow-y-auto overscroll-contain bg-bg text-fg"
     >
-      <div aria-hidden="true" className="landing-aurora" />
-
-      {/* Navigation : deux pilules flottantes côte à côte, fixées en bas (liens à gauche, compte à droite). */}
-      <div className="landing-dock fixed inset-x-0 bottom-[max(1rem,env(safe-area-inset-bottom))] z-20 flex justify-center gap-2 px-3">
-        <nav aria-label="Navigation" className="flex items-center gap-0.5 rounded-full border border-border bg-bg/75 py-1.5 pr-1.5 pl-4 whitespace-nowrap shadow-[0_18px_50px_-15px_rgb(0_0_0/0.55)] backdrop-blur-xl">
-          <BrandLogo size="sm" />
-          <span className="ml-2 hidden items-center gap-0.5 text-sm text-fg-muted md:flex">
-            {[
-              ["#utile", "Ce qu'elle fait"],
-              ["#progres", "Ses progrès"],
-              ["#comment", "Comment ça marche"],
-            ].map(([href, label]) => (
-              <a key={href} href={href} className="rounded-full px-3 py-1.5 transition hover:bg-bg-muted hover:text-fg">
-                {label}
-              </a>
-            ))}
-          </span>
-        </nav>
-        <div className="flex items-center gap-1 rounded-full border border-border bg-bg/75 p-1.5 whitespace-nowrap shadow-[0_18px_50px_-15px_rgb(0_0_0/0.55)] backdrop-blur-xl">
-          <button
-            type="button"
-            onClick={() => openAuthDialog({ mode: "signin" })}
-            className="rounded-full px-3 py-1.5 text-sm font-medium text-fg-muted transition hover:bg-bg-muted hover:text-fg"
-          >
-            Se connecter
+      <div aria-hidden="true" className="fond-lagon fond-lagon--page" />
+      {/* Barre du haut, collée en haut, floute ce qui passe dessous. */}
+      <header
+        data-scrolled={scrolled || undefined}
+        className="landing-nav sticky top-0 z-20 border-b border-transparent bg-bg/60 pt-[env(safe-area-inset-top)] backdrop-blur-xl backdrop-saturate-150 transition-colors data-[scrolled]:border-border data-[scrolled]:bg-bg/75"
+      >
+        <div className="mx-auto flex h-16 max-w-5xl items-center gap-6 px-5">
+          <button type="button" onClick={talkAgain} aria-label="BTM AI — haut de la page" className="rounded">
+            <BrandLogo size="sm" />
           </button>
-          <button
-            type="button"
-            onClick={() => openAuthDialog({ mode: "signup", reason: "Crée ton compte gratuit pour parler à Awa sans limite." })}
-            className="rounded-full px-4 py-1.5 text-sm font-semibold text-white transition hover:brightness-110"
-            style={{ background: PERSONA }}
-          >
-            Créer un compte
-          </button>
+          <nav aria-label="Navigation" className="hidden items-center gap-1 text-sm text-fg-muted md:flex">
+            <a href="#shimaore" className="rounded-md px-2.5 py-1.5 transition hover:text-fg">
+              Tamilya
+            </a>
+            <a href="#avis" className="rounded-md px-2.5 py-1.5 transition hover:text-fg">
+              Avis
+            </a>
+            <Link href="/aide" className="rounded-md px-2.5 py-1.5 transition hover:text-fg">
+              Aide
+            </Link>
+          </nav>
+          <div className="ml-auto flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => openAuthDialog({ mode: "signin" })}
+              className="rounded-full px-3 py-1.5 text-sm font-medium text-fg-muted transition hover:text-fg"
+            >
+              Se connecter
+            </button>
+            <button
+              type="button"
+              onClick={signUp}
+              className="rounded-full px-4 py-1.5 text-sm font-semibold text-white transition hover:brightness-110"
+              style={{ background: PERSONA }}
+            >
+              Créer un compte
+            </button>
+          </div>
         </div>
-      </div>
+      </header>
 
-      <main className="landing-content relative z-10 pb-24">
-        {/* Accueil : Awa et le champ pour lui parler */}
-        <section className="mx-auto flex min-h-[100dvh] max-w-3xl flex-col items-center justify-center px-5 pt-[max(2rem,env(safe-area-inset-top))] pb-28 text-center">
+      <main className="landing-content relative z-10">
+        {/* Accueil : Tamilya et le champ pour lui parler */}
+        <section className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-3xl flex-col items-center justify-center px-5 pt-6 pb-20 text-center">
           <div className="landing-rise">
-            <AwaBlob label="Parler à Awa" onActivate={() => input.current?.focus()} size="min(38vw, 9.5rem)" goo={8} />
+            <AwaBlob label="Parler à Tamilya" onActivate={() => input.current?.focus()} size="min(32vw, 8rem)" goo={8} />
           </div>
 
-          <h1 className="landing-rise mt-8 text-4xl leading-[1.05] font-bold tracking-tight [animation-delay:120ms] sm:text-6xl">
-            Awa, l&apos;IA qui parle <span style={{ color: PERSONA }}>Mahorais</span>
+          <p className="landing-rise mt-8 text-sm font-medium text-fg-muted [animation-delay:80ms]">Version d&apos;essai · elle apprend encore</p>
+          <h1 className="landing-rise mt-3 text-4xl leading-[1.08] font-bold tracking-tight [animation-delay:120ms] sm:text-6xl">
+            Parle <span style={{ color: PERSONA }}>shimaoré</span> avec Tamilya
           </h1>
-          <p className="landing-rise mt-4 text-base text-fg-muted [animation-delay:200ms] sm:text-lg">En français ou en shimaoré, pose-lui ta question.</p>
+          <p className="landing-rise mx-auto mt-4 max-w-xl text-base text-fg-muted [animation-delay:200ms] sm:text-lg">
+            Écris-lui en français ou en shimaoré : elle te répond dans la langue de Mayotte.
+          </p>
 
           {/* Le champ s'étire comme un élastique au clic (data-stretch), et reprend sa taille en rebondissant. */}
           <div className="landing-rise mt-8 flex justify-center [animation-delay:280ms]">
-          <form
-            ref={form}
-            onSubmit={submit}
-            data-stretch={stretch}
-            onFocus={() => setStretch("open")}
-            onBlur={(e) => {
-              if (!e.currentTarget.contains(e.relatedTarget as Node | null) && !text) setStretch("closed");
-            }}
-            className="landing-input relative"
-          >
-            <label htmlFor="landing-message" className="sr-only">
-              Ton message à Awa
-            </label>
-            <input
-              ref={input}
-              id="landing-message"
-              value={text}
-              onChange={(e) => setText(e.target.value)}
-              maxLength={CHAT_LIMITS.maxUserMessageChars}
-              autoComplete="off"
-              enterKeyHint="send"
-              className="w-full rounded-full border border-border bg-bg/80 py-2.5 pr-12 pl-4 text-[15px] backdrop-blur outline-none transition focus:border-[var(--persona,var(--accent))]"
-            />
-            {text ? null : <RotatingExample />}
-            <button
-              type="submit"
-              disabled={!text.trim() || leaving}
-              aria-label="Parler à Awa"
-              className="absolute top-1/2 right-1.5 grid size-8 -translate-y-1/2 place-items-center rounded-full text-white transition hover:brightness-110 active:scale-95 disabled:opacity-40"
-              style={{ background: PERSONA }}
+            <form
+              onSubmit={submit}
+              data-stretch={stretch}
+              onFocus={() => setStretch("open")}
+              onBlur={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node | null) && !text) setStretch("closed");
+              }}
+              className="landing-input relative"
             >
-              <IconSend width={16} height={16} />
-            </button>
-            <span aria-hidden="true" className="landing-input-glow" />
-          </form>
-          </div>
-
-
-
-          <p className="landing-rise mt-5 text-xs text-fg-muted [animation-delay:480ms]">
-            {CHAT_LIMITS.guestTrialMessages} messages offerts, sans compte ·{" "}
-            {hasDraft ? (
-              <button type="button" onClick={(e) => onResume(originOf(e.currentTarget))} className="font-semibold text-fg underline-offset-4 hover:underline">
-                Reprendre ma conversation →
-              </button>
-            ) : (
-              "gratuit"
-            )}
-          </p>
-
-
-        </section>
-
-        {/* Ce qu'Awa fait pour Mayotte */}
-        <section id="utile" className="mx-auto max-w-6xl scroll-mt-6 px-5 py-20">
-          <Reveal className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Ce qu&apos;Awa fait pour Mayotte</h2>
-            <p className="mt-3 text-fg-muted">Une assistante pensée pour l&apos;île, ses habitants et ses entreprises.</p>
-          </Reveal>
-          <div className="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {USES.map((use, i) => (
-              <Reveal key={use.title} delay={i * 70}>
-                <div className="landing-card group h-full rounded-3xl border border-border bg-bg/70 p-6 backdrop-blur">
-                  <span aria-hidden="true" className="grid size-12 place-items-center rounded-2xl bg-[var(--persona-soft,var(--bg-muted))] text-2xl transition group-hover:scale-110 group-hover:rotate-6">
-                    {use.emoji}
-                  </span>
-                  <h3 className="mt-4 text-lg font-semibold">{use.title}</h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-fg-muted">{use.text}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </section>
-
-        {/* Où en est Awa */}
-        <section id="progres" className="mx-auto max-w-6xl scroll-mt-6 px-5 py-20">
-          <Reveal>
-            <div className="landing-progress overflow-hidden rounded-[2rem] border border-border p-6 sm:p-10">
-              <div className="grid gap-10 lg:grid-cols-2 lg:items-center">
-                <div>
-                  <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Elle apprend le shimaoré, mot après mot</h2>
-                  <p className="mt-3 text-fg-muted">
-                    Chaque mot est appris auprès de locuteurs de Mayotte et vérifié par l&apos;équipe de GROUPE BTM. Awa n&apos;invente pas : quand elle
-                    ne connaît pas un mot, elle le dit et demande qu&apos;on le lui apprenne.
-                  </p>
-                  <dl className="mt-8 grid grid-cols-3 gap-3">
-                    {[
-                      { label: "mots de shimaoré", value: progress.words },
-                      { label: "expressions validées", value: progress.expressions },
-                      { label: "fiches sur Mayotte", value: progress.knowledge },
-                    ].map((stat) => (
-                      <div key={stat.label} className="rounded-2xl bg-bg/70 p-4 backdrop-blur">
-                        <dd className="text-2xl font-bold tracking-tight sm:text-4xl">
-                          <CountUp value={stat.value} />
-                        </dd>
-                        <dt className="mt-1 text-xs text-fg-muted">{stat.label}</dt>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-
-                <div className="rounded-3xl bg-bg/70 p-6 backdrop-blur">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <p className="font-semibold">Programme des mots essentiels</p>
-                    <p className="text-2xl font-bold tabular-nums" style={{ color: PERSONA }}>
-                      {percent} %
-                    </p>
-                  </div>
-                  <div className="mt-3 h-3 overflow-hidden rounded-full bg-bg-muted">
-                    <div className="landing-bar h-full rounded-full" style={{ width: `${percent}%`, background: PERSONA }} />
-                  </div>
-                  <p className="mt-2 text-xs text-fg-muted">
-                    {numberFormat.format(progress.curriculum.learned)} mots sur {numberFormat.format(progress.curriculum.total)} : salutations, famille,
-                    nourriture, nombres…
-                  </p>
-                  {progress.themes.length ? (
-                    <ul className="mt-6 space-y-3">
-                      {progress.themes.map((theme) => {
-                        const p = Math.round((theme.learned / theme.total) * 100);
-                        return (
-                          <li key={theme.label}>
-                            <div className="flex justify-between text-sm">
-                              <span>{theme.label}</span>
-                              <span className="tabular-nums text-fg-muted">{p} %</span>
-                            </div>
-                            <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-bg-muted">
-                              <div className="landing-bar h-full rounded-full" style={{ width: `${p}%`, background: `oklch(0.68 0.16 ${theme.hue})` }} />
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  ) : null}
-                </div>
-              </div>
-            </div>
-          </Reveal>
-        </section>
-
-        {/* Comment ça marche */}
-        <section id="comment" className="mx-auto max-w-5xl scroll-mt-6 px-5 py-20">
-          <Reveal className="text-center">
-            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">Simple comme bonjour</h2>
-            <p className="mt-2 text-fg-muted">« Jéjé », comme on dit ici.</p>
-          </Reveal>
-          <ol className="mt-12 grid gap-4 sm:grid-cols-3">
-            {STEPS.map((step, i) => (
-              <Reveal key={step.n} delay={i * 90}>
-                <li className="h-full rounded-3xl border border-border bg-bg/70 p-6 backdrop-blur">
-                  <span className="grid size-10 place-items-center rounded-full text-sm font-bold text-white" style={{ background: PERSONA }}>
-                    {step.n}
-                  </span>
-                  <h3 className="mt-4 font-semibold">{step.title}</h3>
-                  <p className="mt-1 text-sm text-fg-muted">{step.text}</p>
-                </li>
-              </Reveal>
-            ))}
-          </ol>
-        </section>
-
-        {/* Dernier appel */}
-        <section className="mx-auto max-w-3xl px-5 pt-10 pb-24 text-center">
-          <Reveal>
-            <h2 className="text-3xl font-bold tracking-tight sm:text-5xl">
-              Prêt à parler à <span style={{ color: PERSONA }}>Awa</span> ?
-            </h2>
-            <p className="mt-3 text-fg-muted">{CHAT_LIMITS.guestTrialMessages} messages offerts, sans compte. Ensuite, c&apos;est gratuit avec ton compte.</p>
-            <div className="mt-8 flex flex-wrap justify-center gap-3">
+              <label htmlFor="landing-message" className="sr-only">
+                Ton message à Tamilya
+              </label>
+              <input
+                ref={input}
+                id="landing-message"
+                value={text}
+                onChange={(e) => setText(e.target.value)}
+                maxLength={CHAT_LIMITS.maxUserMessageChars}
+                autoComplete="off"
+                enterKeyHint="send"
+                className="w-full rounded-full border border-border bg-bg/80 py-2.5 pr-12 pl-4 text-[15px] backdrop-blur outline-none transition focus:border-[var(--persona,var(--accent))]"
+              />
+              {text ? null : <RotatingExample />}
               <button
-                type="button"
-                onClick={talkAgain}
-                className="rounded-full px-6 py-3 font-semibold text-white shadow-lg transition hover:brightness-110 active:scale-[0.98]"
+                type="submit"
+                disabled={!text.trim() || leaving}
+                aria-label="Parler à Tamilya"
+                className="absolute top-1/2 right-1.5 grid size-8 -translate-y-1/2 place-items-center rounded-full text-white transition hover:brightness-110 active:scale-95 disabled:opacity-40"
                 style={{ background: PERSONA }}
               >
-                Parler à Awa
+                <IconSend width={16} height={16} />
               </button>
+              <span aria-hidden="true" className="landing-input-glow" />
+            </form>
+          </div>
+
+          {hasDraft ? (
+            <p className="landing-rise mt-5 text-xs text-fg-muted [animation-delay:480ms]">
+              <button type="button" onClick={onResume} className="font-semibold text-fg underline-offset-4 hover:underline">
+                Reprendre ma conversation →
+              </button>
+            </p>
+          ) : null}
+        </section>
+
+        {/* Ce qu'il faut savoir sur Tamilya */}
+        <section id="shimaore" className="scroll-mt-20 border-t border-border">
+          <div className="mx-auto grid max-w-5xl gap-10 px-5 py-20 md:grid-cols-[1fr_1.4fr]">
+            <Reveal>
+              <h2 className="text-3xl font-bold tracking-tight">Une IA qui apprend le shimaoré, pour de vrai</h2>
+              <p className="mt-3 text-fg-muted">
+                Tamilya est créée à Mayotte par GROUPE BTM. Pour l&apos;instant, elle se consacre à une seule chose : la langue de l&apos;île.
+              </p>
+            </Reveal>
+            <ul className="divide-y divide-border border-y border-border">
+              {POINTS.map((point, i) => (
+                <li key={point.title}>
+                  <Reveal delay={i * 70} className="grid gap-1 py-5 sm:grid-cols-[2.5rem_1fr]">
+                    <span aria-hidden="true" className="text-sm font-semibold tabular-nums text-fg-muted">
+                      0{i + 1}
+                    </span>
+                    <div>
+                      <h3 className="font-semibold">{point.title}</h3>
+                      <p className="mt-1 text-sm leading-relaxed text-fg-muted">{point.text}</p>
+                    </div>
+                  </Reveal>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </section>
+
+        {/* Avis des utilisateurs */}
+        <section id="avis" className="relative scroll-mt-20 overflow-hidden border-t border-border bg-bg-subtle">
+          {/* Taches de couleur derrière le mur : c'est ce que le flou des cartes laisse deviner. */}
+          <div aria-hidden="true" className="reviews-glow pointer-events-none absolute inset-0" />
+          <div className="relative mx-auto grid max-w-5xl gap-10 px-5 py-20 md:grid-cols-[minmax(0,17rem)_1fr] md:items-center md:gap-14">
+            <Reveal>
+              <h2 className="text-3xl font-bold tracking-tight">Ce qu&apos;ils en disent</h2>
+              <p className="mt-3 text-fg-muted">Les avis des personnes qui parlent avec Tamilya.</p>
+              {reviews.length ? (
+                <div className="mt-6 flex items-center gap-4">
+                  <span className="text-5xl font-bold tracking-tight tabular-nums">{ratingFormat.format(average)}</span>
+                  <span>
+                    <span
+                      role="img"
+                      aria-label={`Note moyenne ${ratingFormat.format(average)} sur 5`}
+                      className="review-stars block text-lg leading-none"
+                      style={{ "--fill": `${(average / 5) * 100}%` } as CSSProperties}
+                    />
+                    <span className="mt-1 block text-sm text-fg-muted">{reviews.length} avis</span>
+                  </span>
+                </div>
+              ) : null}
               <button
                 type="button"
-                onClick={() => openAuthDialog({ mode: "signup", reason: "Crée ton compte gratuit pour parler à Awa sans limite." })}
-                className="rounded-full border border-border bg-bg/70 px-6 py-3 font-semibold transition hover:bg-bg-muted"
+                onClick={giveReview}
+                className="mt-6 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.98]"
+                style={{ background: PERSONA }}
               >
-                Créer mon compte
+                Donner mon avis
               </button>
-            </div>
-          </Reveal>
+            </Reveal>
+
+            <Reveal delay={80}>
+              <ReviewsWall reviews={reviews} onReview={giveReview} />
+            </Reveal>
+          </div>
         </section>
       </main>
 
-      <footer className="landing-content relative z-10 border-t border-border px-5 py-8 text-center text-xs text-fg-muted">
-        © {new Date().getFullYear()} GROUPE BTM · Bâtir la Technologie de Mayotte
+      <footer className="landing-content relative z-10 border-t border-border bg-bg-subtle">
+        <div className="mx-auto grid max-w-5xl gap-10 px-5 pt-12 pb-8 sm:grid-cols-[1.6fr_1fr_1fr]">
+          <div>
+            <BrandLogo size="sm" />
+            <p className="mt-3 max-w-xs text-sm text-fg-muted">Tamilya, l&apos;assistante qui apprend le shimaoré. Faite à Mayotte par GROUPE BTM.</p>
+          </div>
+          <div>
+            <p className="text-sm font-semibold">Tamilya</p>
+            <ul className="mt-3 space-y-2 text-sm text-fg-muted">
+              <li>
+                <button type="button" onClick={talkAgain} className="transition hover:text-fg">
+                  Lui parler
+                </button>
+              </li>
+              <li>
+                <button type="button" onClick={signUp} className="transition hover:text-fg">
+                  Créer un compte
+                </button>
+              </li>
+              <li>
+                <button type="button" onClick={() => openAuthDialog({ mode: "signin" })} className="transition hover:text-fg">
+                  Se connecter
+                </button>
+              </li>
+            </ul>
+          </div>
+          <div>
+            <p className="text-sm font-semibold">Infos</p>
+            <ul className="mt-3 space-y-2 text-sm text-fg-muted">
+              <li>
+                <Link href="/aide" className="transition hover:text-fg">
+                  Aide
+                </Link>
+              </li>
+              <li>
+                <Link href="/confidentialite" className="transition hover:text-fg">
+                  Données et confidentialité
+                </Link>
+              </li>
+            </ul>
+          </div>
+        </div>
+        <div className="mx-auto flex max-w-5xl flex-col gap-1 border-t border-border px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-xs text-fg-muted sm:flex-row sm:justify-between">
+          <p>© {new Date().getFullYear()} GROUPE BTM · Bâtir la Technologie de Mayotte</p>
+          <p>Tamilya peut se tromper. Vérifie les informations importantes.</p>
+        </div>
       </footer>
     </div>
   );

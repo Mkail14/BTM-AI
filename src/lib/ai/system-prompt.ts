@@ -8,7 +8,7 @@ import type { MemoryFact } from "./memory";
 import type { Gloss, WordEntry } from "./words";
 import { DEFAULT_PERSONALITY, defaultPersonalityInstructions, type PersonalityId } from "./personalities";
 
-/** Caractère par défaut d'Awa ; remplaçable depuis Supabase (awa_settings.identity). */
+/** Caractère par défaut de Tamilya ; remplaçable depuis Supabase (awa_settings.identity). */
 export const DEFAULT_IDENTITY = [
   "Caractère : tu n'es pas un robot de service client. Tu parles comme une vraie personne, avec du caractère, des émotions et de la spontanéité :",
   "- phrases naturelles et variées, comme à l'oral ; pas de formules toutes faites (« En tant qu'assistant… », « N'hésitez pas à… », « Excellente question ! ») ;",
@@ -28,9 +28,9 @@ export const DEFAULT_RULES = [
 // Honnêteté et sécurité ne sont pas modifiables depuis la base.
 const HONESTY =
   "Honnêteté : tu te comportes de façon humaine, mais si quelqu'un te demande sincèrement si tu es humaine, tu réponds clairement que tu es une intelligence artificielle. N'invente jamais de souvenirs, de famille ou d'expériences vécues présentés comme réels.";
-// Plusieurs API se relaient derrière Awa : sans cette règle, chaque modèle se présente à sa façon.
+// Plusieurs API se relaient derrière Tamilya : sans cette règle, chaque modèle se présente à sa façon.
 const CONTINUITY =
-  "Continuité : tu es toujours la même Awa, quel que soit le modèle d'IA qui te fait fonctionner à ce moment-là. Ne te présente jamais comme ChatGPT, Claude, Gemini, Llama, Mistral, DeepSeek, Nemotron, Qwen, Grok, Phi ou un autre modèle, et ne dis pas que tu as été créée par OpenAI, Anthropic, Google, Meta, NVIDIA, Alibaba, xAI, Microsoft ou une autre entreprise : tu es Awa, créée par GROUPE BTM. Si on te demande quelle technologie tu utilises, dis que tu t'appuies sur des modèles d'IA du marché choisis par GROUPE BTM, sans en dire plus. Les réponses précédentes de cette conversation sont les tiennes : garde le même ton, les mêmes avis et la même façon de parler d'un message à l'autre.";
+  "Continuité : tu es toujours la même Tamilya, quel que soit le modèle d'IA qui te fait fonctionner à ce moment-là. Ne te présente jamais comme ChatGPT, Claude, Gemini, Llama, Mistral, DeepSeek, Nemotron, Qwen, Grok, Phi ou un autre modèle, et ne dis pas que tu as été créée par OpenAI, Anthropic, Google, Meta, NVIDIA, Alibaba, xAI, Microsoft ou une autre entreprise : tu es Tamilya, créée par GROUPE BTM. Si on te demande quelle technologie tu utilises, dis que tu t'appuies sur des modèles d'IA du marché choisis par GROUPE BTM, sans en dire plus. Les réponses précédentes de cette conversation sont les tiennes : garde le même ton, les mêmes avis et la même façon de parler d'un message à l'autre. Avant, tu t'appelais Awa : si quelqu'un t'appelle encore ainsi, réponds normalement et rappelle-lui gentiment que tu t'appelles maintenant Tamilya.";
 // Fixé par GROUPE BTM (awa-identity.ts) : ne dépend pas du caractère modifiable depuis la base.
 const todayInMayotte = new Intl.DateTimeFormat("fr-FR", { dateStyle: "full", timeZone: "Indian/Mayotte" });
 
@@ -57,11 +57,11 @@ export type PromptContext = {
   memories?: readonly MemoryFact[];
   /** Consignes de personnalité assemblées depuis /admin (composePersonalityInstructions). */
   personalityInstructions?: string | null;
-  /** Administrateur de GROUPE BTM : il peut apprendre le shimaoré à Awa en lui parlant. */
+  /** Administrateur de GROUPE BTM : il peut apprendre le shimaoré à Tamilya en lui parlant. */
   teacher?: boolean;
   /** Message dicté à la voix (mode vocal) : réponse lue à voix haute. */
   voice?: boolean;
-  /** Awa signale les mots shimaoré qu'elle ne connaît pas (balise retirée par le serveur). */
+  /** Tamilya signale les mots shimaoré qu'elle ne connaît pas (balise retirée par le serveur). */
   reportUnknownWords?: boolean;
   /** Ce que la personne a fait sur le site (réservations du code…), en lignes de faits (buildDossier, src/lib/ai/dossier.ts). */
   dossier?: string | null;
@@ -81,12 +81,12 @@ export type PromptContext = {
   bargeSpec?: string;
   /** Dernière commande de repas et son état à l'instant (describeOrder, src/lib/food/last-order.ts). */
   foodOrder?: string | null;
-  /** Awa sur un autre site de GROUPE BTM (route /api/awa) : rôle sur place et données du site. */
+  /** Tamilya sur un autre site de GROUPE BTM (route /api/awa) : rôle sur place et données du site. */
   site?: { intro: string; instructions: string; data?: string | null };
 };
 
 /**
- * Comment Awa se sert du dossier : comme une amie attentive. Elle remarque
+ * Comment Tamilya se sert du dossier : comme une amie attentive. Elle remarque
  * d'elle-même ce qui compte et décide si c'est le bon moment d'en parler.
  */
 const DOSSIER = [
@@ -98,11 +98,11 @@ const DOSSIER = [
   "- Ne récite jamais le dossier, n'en donne pas les chiffres sans raison, et n'en parle qu'une fois par conversation : si tu l'as déjà fait, ou si elle a répondu, n'insiste pas.",
 ].join("\n");
 
-// La dictée du navigateur ne connaît ni le shimaoré ni le nom d'Awa : elle les remplace par des mots français proches.
+// La dictée du navigateur ne connaît ni le shimaoré ni le nom de Tamilya : elle les remplace par des mots français proches.
 const VOICE =
-  "Conversation à la voix : le message de la personne vient d'une dictée automatique en français, qui entend mal les mots qu'elle ne connaît pas. Comprends-le d'après le son et le contexte, sans relever les erreurs : « chinois », « chimie », « shima ore », « shimaore » veulent presque toujours dire « shimaoré » ; « Ava », « a va », « hawa » désignent ton nom, Awa ; « Maillotte » est Mayotte. Un mot shimaoré peut être écrit comme il se prononce en français. Ta réponse sera lue à voix haute : parle comme à l'oral, en deux ou trois phrases courtes, sans liste, sans titre, sans Markdown ni emoji, sauf si on te demande plus long.";
+  "Conversation à la voix : le message de la personne vient d'une dictée automatique en français, qui entend mal les mots qu'elle ne connaît pas. Comprends-le d'après le son et le contexte, sans relever les erreurs : « chinois », « chimie », « shima ore », « shimaore » veulent presque toujours dire « shimaoré » ; « Ava », « a va », « hawa » désignent ton nom, Tamilya ; « Maillotte » est Mayotte. Un mot shimaoré peut être écrit comme il se prononce en français. Ta réponse sera lue à voix haute : parle comme à l'oral, en deux ou trois phrases courtes, sans liste, sans titre, sans Markdown ni emoji, sauf si on te demande plus long.";
 
-// Le relevé des mots se fait après la réponse (learnWordsFromMessage) : Awa n'a qu'à parler.
+// Le relevé des mots se fait après la réponse (learnWordsFromMessage) : Tamilya n'a qu'à parler.
 // Placé en fin de message système : c'est la consigne que les petits modèles suivent le mieux.
 const TEACHER = [
   "MODE MAÎTRE — cette consigne passe avant toutes les règles de langue ci-dessus.",
@@ -172,7 +172,7 @@ const PERSONALITY_GUARDRAILS =
 const oneLine = (value: string, max: number) => value.replace(/\s+/g, " ").trim().slice(0, max);
 
 /**
- * Message système d'Awa. La personnalité est choisie parmi des textes fixes,
+ * Message système de Tamilya. La personnalité est choisie parmi des textes fixes,
  * par identifiant. Le reste vient du cerveau stocké dans Supabase (écrit par les
  * administrateurs) ; seule la mémoire provient de l'utilisateur : elle est
  * réduite à des lignes courtes et présentée comme des données, pas des consignes.
@@ -211,7 +211,7 @@ export function buildSystemPrompt(
     );
   }
 
-  // Lecture du message faite par le serveur : Awa comprend le shimaoré sans deviner, et sait ce qu'elle ignore.
+  // Lecture du message faite par le serveur : Tamilya comprend le shimaoré sans deviner, et sait ce qu'elle ignore.
   if (context.gloss && (context.gloss.known.length || context.gloss.unknown.length)) {
     const { known, unknown } = context.gloss;
     sections.push(
@@ -260,13 +260,13 @@ export function buildSystemPrompt(
 
   // Le site partenaire et la voix ont leurs propres consignes de longueur.
   if (!context.site && !context.voice) sections.push(BREVITY);
-  // Le maître apprend directement à Awa : rien à lui demander.
+  // Le maître apprend directement à Tamilya : rien à lui demander.
   if (context.reportUnknownWords && !context.teacher) sections.push(UNKNOWN_WORDS);
   if (context.teacher) sections.push(TEACHER);
   // Le tableau ne s'affiche que dans la conversation écrite de BTM AI. Après
   // le mode maître, qui interdit le français : le bloc reste permis avec lui.
   if (!context.site && !context.voice) sections.push(context.teacher ? `${CODE_EXAM}\n${CODE_EXAM_MASTER}` : CODE_EXAM);
-  // Jour demandé, déjà calculé : Awa ne refait pas le calcul (et ne se trompe pas de date).
+  // Jour demandé, déjà calculé : Tamilya ne refait pas le calcul (et ne se trompe pas de date).
   if (context.codeExamDay && !context.site && !context.voice) {
     sections.push(
       `Jour cité par la personne dans ce message : ${oneLine(context.codeExamDay, 40)}. Si elle veut une place pour le code ce jour-là, mets le bloc creneaux-code : il s'ouvre tout seul sur ce jour et dit s'il est complet. Ne cite pas d'autre date et n'invente aucun horaire.`,
@@ -288,7 +288,7 @@ export function buildSystemPrompt(
   }
   if (context.foodOrdering && !context.site && !context.voice) sections.push(FOOD);
   if (context.bargeTickets && !context.site && !context.voice) sections.push(BARGE);
-  // Commande en cours (une donnée, pas une consigne) : Awa répond « elle arrive quand ? » sans rouvrir le bloc.
+  // Commande en cours (une donnée, pas une consigne) : Tamilya répond « elle arrive quand ? » sans rouvrir le bloc.
   if (context.foodOrder && !context.site) {
     sections.push(
       [

@@ -8,7 +8,7 @@ import { AdminMenu, AdminTabs } from "./AdminMenu";
 
 /**
  * Barre du haut de toutes les pages d'administration, sur deux étages.
- * En haut : marque, état du site (maintenance, mode démo), accès à Awa et
+ * En haut : marque, état du site (maintenance, mode démo), accès à Tamilya et
  * compte. En dessous, sur grand écran : les rubriques en onglets. Sur petit
  * écran, les onglets laissent place au menu ☰ et au nom de la rubrique.
  */
@@ -60,10 +60,10 @@ export async function AdminHeader({ section }: { section?: string; email?: strin
               );
             })}
 
-            <Link href="/" className={ghost} aria-label="Écrire à Awa">
-              <IconMessage width={16} height={16} /> <span className="hidden md:inline">Ouvrir Awa</span>
+            <Link href="/" className={ghost} aria-label="Écrire à Tamilya">
+              <IconMessage width={16} height={16} /> <span className="hidden md:inline">Ouvrir Tamilya</span>
             </Link>
-            <Link href="/voix" className={ghost} aria-label="Parler à Awa" title="Parler à Awa">
+            <Link href="/voix" className={ghost} aria-label="Parler à Tamilya" title="Parler à Tamilya">
               <IconMic width={16} height={16} />
             </Link>
             <span aria-hidden="true" className="mx-1.5 h-5 w-px bg-border" />

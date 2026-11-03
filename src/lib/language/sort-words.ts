@@ -36,7 +36,7 @@ export function parseSorting(output: string, count: number): Map<number, string>
 
 /**
  * Range dans la carte les mots appris sans catégorie connue, quelle que soit
- * la façon dont Awa les a appris (conversation, traduction, liste collée…).
+ * la façon dont Tamilya les a appris (conversation, traduction, liste collée…).
  * Gemini choisit « Thème › Groupe », enregistré dans awa_words.category.
  * Ne bloque jamais plus de quelques secondes ; ce qui reste sera rangé
  * au prochain passage. Renvoie la nouvelle catégorie de chaque mot rangé (par id).
@@ -46,7 +46,7 @@ export async function sortNewWords(
   entries: readonly KnownEntry[],
   branches: readonly BranchDef[] = [],
 ): Promise<Map<string, string>> {
-  // Les mots du programme (et des branches d'Awa) ont déjà leur place : seuls ceux « À ranger » sont envoyés.
+  // Les mots du programme (et des branches de Tamilya) ont déjà leur place : seuls ceux « À ranger » sont envoyés.
   const tree = buildLexiconTree(entries, branches);
   const words = entries.filter((e) => e.category !== UNSORTED && isWaiting(tree, e)).slice(0, MAX_WORDS);
   const done = new Map<string, string>();

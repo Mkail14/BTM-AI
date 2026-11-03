@@ -53,7 +53,7 @@ export function welcomeEmail(confirmUrl: string, ctx: EmailContext) {
   return render(
     "Bienvenue sur BTM AI, plus qu'un clic",
     {
-      preheader: "Confirmez votre adresse et Awa est à vous.",
+      preheader: "Confirmez votre adresse et Tamilya est à vous.",
       eyebrow: "Bienvenue",
       title: "Ravis de vous compter parmi nous",
       paragraphs: [
@@ -62,7 +62,7 @@ export function welcomeEmail(confirmUrl: string, ctx: EmailContext) {
       ],
       button: { label: "Confirmer mon adresse", url: confirmUrl },
       after: [
-        "Ensuite, Awa vous attend. Démarches, vie quotidienne à Mayotte, une lettre à écrire ou une idée à creuser : posez-lui vos questions, en français ou en shimaoré. Vos conversations restent enregistrées et vous les retrouvez sur tous vos appareils.",
+        "Ensuite, Tamilya vous attend. Démarches, vie quotidienne à Mayotte, une lettre à écrire ou une idée à creuser : posez-lui vos questions, en français ou en shimaoré. Vos conversations restent enregistrées et vous les retrouvez sur tous vos appareils.",
         "Pour votre sécurité, ce lien ne sert qu'une fois et expire au bout de quelque temps. Vous n'avez pas créé de compte ? Ignorez ce message, rien ne sera activé.",
       ],
       reason: "Vous recevez cet e-mail parce qu'un compte BTM AI vient d'être créé avec cette adresse.",
@@ -107,7 +107,7 @@ export function passwordCreatedEmail(email: string, ctx: EmailContext) {
         `Le nouveau mot de passe du compte **${email}** est bien enregistré. Il remplace l'ancien sur tous vos appareils, dès maintenant.`,
       ],
       details: contextDetails(ctx),
-      button: { label: "Retrouver Awa", url: ctx.origin },
+      button: { label: "Retrouver Tamilya", url: ctx.origin },
       alert: {
         title: "Ce n'était pas vous ?",
         text: "Quelqu'un a peut-être accès à votre boîte mail. Changez son mot de passe, puis écrivez-nous à **contact@btm.yt** : nous sécuriserons votre compte avec vous.",

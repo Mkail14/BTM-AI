@@ -8,7 +8,10 @@ import { normalizePhone } from "@/lib/code-exam/candidate";
 import { saveProfileAddress, saveProfilePhone } from "@/lib/profile-contact";
 import { deleteSavedAddress, saveSavedAddress } from "@/lib/saved-addresses";
 import { profileSchema } from "@/lib/chat/validation";
-import { updatePersonality, updateProfile } from "@/lib/conversations/repository";
+import { getProfile, updatePersonality, updateProfile } from "@/lib/conversations/repository";
+import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
+import { deleteMyReview, saveMyReview } from "@/lib/reviews";
+import { publicName, reviewSchema } from "@/lib/reviews/rules";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { DELETE_CONFIRMATION } from "./confirmation";
 
@@ -38,7 +41,7 @@ export async function updateProfileAction(
   return { status: "saved", message: "Paramètres enregistrés." };
 }
 
-/** Choix de la personnalité d'Awa (après l'inscription ou depuis les Paramètres). */
+/** Choix de la personnalité de Tamilya (après l'inscription ou depuis les Paramètres). */
 export async function choosePersonalityAction(personality: unknown): Promise<ProfileFormState> {
   const { supabase, user } = await getAuthContext();
   if (!supabase || !user) return { status: "error", message: "Votre session a expiré. Reconnectez-vous." };
@@ -52,7 +55,7 @@ export async function choosePersonalityAction(personality: unknown): Promise<Pro
   }
 
   revalidatePath("/", "layout");
-  return { status: "saved", message: "C'est noté, Awa change de caractère !" };
+  return { status: "saved", message: "C'est noté, Tamilya change de caractère !" };
 }
 
 /**
@@ -118,7 +121,7 @@ export async function savePhoneAction(input: unknown): Promise<ProfileFormState>
   return { status: "saved", message: "Numéro enregistré." };
 }
 
-/** Fait oublier à Awa un souvenir (kind), ou tous si kind est absent. */
+/** Fait oublier à Tamilya un souvenir (kind), ou tous si kind est absent. */
 export async function forgetMemoryAction(kind?: unknown): Promise<ProfileFormState> {
   const { supabase, user } = await getAuthContext();
   if (!supabase || !user) return { status: "error", message: "Votre session a expiré. Reconnectez-vous." };
@@ -133,7 +136,7 @@ export async function forgetMemoryAction(kind?: unknown): Promise<ProfileFormSta
     return { status: "error", message: "L'effacement a échoué. Réessayez." };
   }
   revalidatePath("/parametres");
-  return { status: "saved", message: kind === undefined ? "Awa a tout oublié." : "Souvenir effacé." };
+  return { status: "saved", message: kind === undefined ? "Tamilya a tout oublié." : "Souvenir effacé." };
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -168,4 +171,37 @@ export async function deleteSavedAddressAction(id: unknown): Promise<ProfileForm
   }
   revalidatePath("/parametres");
   return { status: "saved", message: "Adresse supprimée." };
+}
+
+/** Publie ou modifie l'avis du compte sur BTM IA (affiché sur la page d'accueil). */
+export async function saveReviewAction(input: unknown): Promise<ProfileFormState> {
+  const { supabase, user } = await getAuthContext();
+  if (!supabase || !user) return { status: "error", message: "Votre session a expiré. Reconnectez-vous." };
+  const parsed = reviewSchema.safeParse(input);
+  if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Avis invalide." };
+  const limit = await consumeRateLimits([{ key: `review:${user.id}`, rules: RATE_LIMIT_POLICIES.review }]).catch(() => null);
+  if (!limit?.allowed) return { status: "error", message: "Trop de modifications d'un coup : réessaie dans une heure." };
+  try {
+    // Nom public tiré du profil par le serveur (« Fatima M. »), jamais envoyé par le navigateur.
+    const profile = await getProfile(supabase, user.id);
+    await saveMyReview(user.id, publicName(profile.displayName), parsed.data);
+  } catch (error) {
+    console.error("[parametres] Avis non enregistré", error);
+    return { status: "error", message: "L'enregistrement a échoué. Réessayez." };
+  }
+  revalidatePath("/parametres");
+  return { status: "saved", message: "Merci ! Ton avis est publié." };
+}
+
+export async function deleteReviewAction(): Promise<ProfileFormState> {
+  const { supabase, user } = await getAuthContext();
+  if (!supabase || !user) return { status: "error", message: "Votre session a expiré. Reconnectez-vous." };
+  try {
+    await deleteMyReview(user.id);
+  } catch (error) {
+    console.error("[parametres] Avis non supprimé", error);
+    return { status: "error", message: "La suppression a échoué. Réessayez." };
+  }
+  revalidatePath("/parametres");
+  return { status: "saved", message: "Ton avis est supprimé." };
 }

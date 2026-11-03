@@ -208,12 +208,12 @@ function WhereAreYou({ what, onSpot, onSkip }: { what: string; onSpot: (spot: Sp
   );
 }
 
-/** Awa a écrit « tout » (ou rien de précis) : la personne veut parcourir toute l'application. */
+/** Tamilya a écrit « tout » (ou rien de précis) : la personne veut parcourir toute l'application. */
 const BROWSE = /\b(?:tout|toute|catalogue|application|appli|menu complet|parcourir|restaurants)\b/;
 
 /**
- * Commande de repas affichée par Awa dans la conversation. Elle s'ouvre sur ce
- * que la personne a demandé (query, écrit par Awa dans le bloc) : « tacos »
+ * Commande de repas affichée par Tamilya dans la conversation. Elle s'ouvre sur ce
+ * que la personne a demandé (query, écrit par Tamilya dans le bloc) : « tacos »
  * montre les tacos de tous les restaurants dans un carrousel, « pizza Pizza
  * Mangrove » ouvre directement les pizzas de ce restaurant. Un clic sur + remplit
  * le panier (un restaurant à la fois), puis le paiement par le portefeuille.

@@ -6,7 +6,7 @@ import { getPersonalityRecordsForAdmin, type PersonalityRecords } from "@/lib/ai
 import { requireAdmin } from "@/lib/auth/session";
 import { PersonalityWorkbench } from "./PersonalityWorkbench";
 
-export const metadata: Metadata = { title: "Personnalités d'Awa", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Personnalités de Tamilya", robots: { index: false, follow: false } };
 
 const dateFormat = new Intl.DateTimeFormat("fr-FR", {
   day: "numeric",
@@ -32,7 +32,7 @@ export default async function AdminPersonalitiesPage({ searchParams }: PageProps
   return (
     // Page fixe : elle tient dans l'écran, sans barre de défilement.
     <div className="flex h-dvh flex-col overflow-hidden bg-bg-subtle">
-      <AdminHeader section="Personnalités d'Awa" email={user.email} />
+      <AdminHeader section="Personnalités de Tamilya" email={user.email} />
 
       {/* Tout est centré, en largeur comme en hauteur ; sur petit écran, seule cette zone défile (la page reste fixe). */}
       <main id="contenu" className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
@@ -45,7 +45,7 @@ export default async function AdminPersonalitiesPage({ searchParams }: PageProps
               >
                 {current.emoji}
               </span>
-              <h1 className="mt-4 text-3xl font-semibold tracking-tight">Personnalités d&apos;Awa</h1>
+              <h1 className="mt-4 text-3xl font-semibold tracking-tight">Personnalités d&apos;Tamilya</h1>
               <p className="mt-2 text-sm text-fg-muted">
                 {record?.behavior
                   ? `${current.label} · personnalisée${record.updatedAt ? ` le ${dateFormat.format(new Date(record.updatedAt))}` : ""}`

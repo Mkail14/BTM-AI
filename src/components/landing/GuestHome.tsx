@@ -1,36 +1,37 @@
 "use client";
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { ChatView } from "@/components/chat/ChatView";
 import { loadAnonymousDraft } from "@/lib/chat/anonymous-draft";
-import type { AwaProgress } from "@/lib/landing/progress";
+import type { PublicReview } from "@/lib/reviews/rules";
 import { GuestLanding } from "./GuestLanding";
 
-/** Durées de la transition : la vague couvre l'écran, puis se retire sur la conversation. */
-const COVER_MS = 650;
-const REVEAL_MS = 700;
+/** Durée du fondu de la page d'accueil vers la conversation (voir .landing[data-leaving]). */
+const LEAVE_MS = 560;
+/** Temps laissé à la conversation pour afficher le message avant la morphose. */
+const MORPH_SETTLE_MS = 90;
 
-type Phase = "landing" | "cover" | "reveal" | "chat";
+type Phase = "landing" | "leaving" | "chat";
 
 /**
- * Accueil des visiteurs sans compte : la page de présentation d'Awa par-dessus
- * la conversation. Quand on lui parle, une vague aux couleurs d'Awa part du
- * champ, couvre l'écran puis se retire sur la conversation, où le message part
- * tout seul.
+ * Accueil des visiteurs sans compte : la page de présentation de Tamilya par-dessus
+ * la conversation. Quand on lui parle, le message part tout de suite et la
+ * page d'accueil s'efface en douceur sur la conversation.
  */
-export function GuestHome({ progress }: { progress: AwaProgress }) {
+export function GuestHome({ reviews }: { reviews: PublicReview[] }) {
   const [phase, setPhase] = useState<Phase>("landing");
   const [prompt, setPrompt] = useState<string | null>(null);
-  const [origin, setOrigin] = useState({ x: 0, y: 0 });
   const [hasDraft, setHasDraft] = useState(false);
-  const timers = useRef<number[]>([]);
+  const timer = useRef<number | null>(null);
 
   useEffect(() => {
     // Conversation d'essai déjà commencée sur cet appareil (localStorage) : proposée en reprise.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setHasDraft((loadAnonymousDraft()?.length ?? 0) > 0);
-    const pending = timers.current;
-    return () => pending.forEach((t) => window.clearTimeout(t));
+    return () => {
+      if (timer.current) window.clearTimeout(timer.current);
+    };
   }, []);
 
   // Pendant la page d'accueil, la page du dessous ne défile pas.
@@ -43,40 +44,47 @@ export function GuestHome({ progress }: { progress: AwaProgress }) {
     };
   }, [phase]);
 
-  const go = (message: string | null, from: { x: number; y: number }) => {
+  const go = (message: string | null) => {
     if (phase !== "landing") return;
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduced) {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setPrompt(message);
       setPhase("chat");
       return;
     }
-    setOrigin(from);
-    setPhase("cover");
-    timers.current.push(
-      window.setTimeout(() => {
-        setPrompt(message);
-        setPhase("reveal");
-      }, COVER_MS),
-      window.setTimeout(() => setPhase("chat"), COVER_MS + REVEAL_MS),
-    );
+    // Morphose (voir html[data-morph] dans globals.css) : le champ de l'accueil
+    // devient la zone de saisie de la conversation pendant que la page se dissout.
+    if (typeof document.startViewTransition === "function") {
+      const html = document.documentElement;
+      html.dataset.morph = "depart";
+      const transition = document.startViewTransition(async () => {
+        html.dataset.morph = "arrivee";
+        flushSync(() => {
+          setPrompt(message);
+          setPhase("chat");
+        });
+        // Le message part tout de suite : on laisse la conversation se placer (saisie en bas).
+        await new Promise((resolve) => window.setTimeout(resolve, MORPH_SETTLE_MS));
+      });
+      void transition.finished.finally(() => delete html.dataset.morph);
+      return;
+    }
+    setPrompt(message);
+    setPhase("leaving");
+    timer.current = window.setTimeout(() => setPhase("chat"), LEAVE_MS);
   };
-
-  const waveStyle = { "--wave-x": `${origin.x}px`, "--wave-y": `${origin.y}px` } as CSSProperties;
 
   return (
     <>
       <ChatView key="accueil" conversationId={null} initialMessages={[]} startWith={prompt} />
-      {phase === "landing" || phase === "cover" ? (
+      {phase !== "chat" ? (
         <GuestLanding
-          progress={progress}
-          leaving={phase === "cover"}
+          reviews={reviews}
+          leaving={phase === "leaving"}
           hasDraft={hasDraft}
-          onStart={(text, from) => go(text, from)}
-          onResume={(from) => go(null, from)}
+          onStart={(text) => go(text)}
+          onResume={() => go(null)}
         />
       ) : null}
-      {phase === "cover" || phase === "reveal" ? <div aria-hidden="true" data-phase={phase} className="landing-wave" style={waveStyle} /> : null}
     </>
   );
 }

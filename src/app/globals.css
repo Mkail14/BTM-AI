@@ -75,7 +75,7 @@ html {
 }
 
 /*
- * Ambiance de la conversation selon la personnalité d'Awa (--persona, posée sur
+ * Ambiance de la conversation selon la personnalité de Tamilya (--persona, posée sur
  * la zone de conversation). Teinte très légère : la marque reste lisible et le
  * passage d'une personnalité à l'autre est animé (propriété enregistrée).
  */
@@ -127,7 +127,65 @@ html {
 }
 
 /*
- * Mode vocal (VoiceOverlay) : globe d'Awa façon « Jarvis », aux couleurs de la
+ * Fond « lagon » : courbes de niveau très fines, comme une carte des
+ * profondeurs du lagon de Mayotte (public/fond/lagon.svg, généré par
+ * scripts/fond-lagon.ts). Le motif sert de masque : les lignes prennent la
+ * couleur de la personnalité de Tamilya et virent au turquoise du lagon vers le
+ * bas. Elles vivent sur les bords et s'effacent au centre, là où on lit, et
+ * sous l'en-tête. Une seule image en cache, ni script ni animation.
+ * Conversation : premier enfant de la zone (les blocs positionnés suivants
+ * passent devant). Page d'accueil : variante --page, fixe derrière le contenu.
+ */
+.fond-lagon {
+  --lagon: #14a89e;
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    var(--persona, var(--accent)) 15%,
+    color-mix(in oklab, var(--persona, var(--accent)) 40%, var(--lagon))
+  );
+  opacity: 0.2;
+  mask:
+    url("/fond/lagon.svg") 50% 0 / 640px repeat,
+    radial-gradient(ellipse 50% 60% at 50% 46%, transparent 45%, #000 100%) no-repeat,
+    linear-gradient(to bottom, transparent 3.5rem, #000 10rem) no-repeat;
+  mask-composite: intersect;
+}
+
+.fond-lagon--page {
+  position: fixed;
+  z-index: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+  .fond-lagon {
+    --lagon: #2ad1c4;
+    opacity: 0.2;
+  }
+}
+
+/* Téléphone : le texte occupe toute la largeur, les lignes se font plus rares et plus douces. */
+@media (max-width: 767px) {
+  .fond-lagon {
+    opacity: 0.15;
+    mask:
+      url("/fond/lagon.svg") 50% 0 / 460px repeat,
+      radial-gradient(ellipse 80% 42% at 50% 45%, transparent 20%, #000 90%) no-repeat,
+      linear-gradient(to bottom, transparent 3.5rem, #000 9rem) no-repeat;
+    mask-composite: intersect;
+  }
+}
+
+@media (prefers-contrast: more), (forced-colors: active), print {
+  .fond-lagon {
+    display: none;
+  }
+}
+
+/*
+ * Mode vocal (VoiceOverlay) : globe de Tamilya façon « Jarvis », aux couleurs de la
  * personnalité. Fond toujours sombre, quel que soit le thème. --orb-pulse est
  * posé par le composant à chaque mot entendu ou prononcé.
  */
@@ -447,7 +505,7 @@ input::-ms-clear {
 }
 
 /*
- * Circuit d'Awa (/admin/circuit) : fond pointillé, point qui suit
+ * Circuit de Tamilya (/admin/circuit) : fond pointillé, point qui suit
  * chaque message le long des liens, et point rouge pulsant là où il bloque.
  */
 .flow-canvas {
@@ -675,7 +733,7 @@ input::-ms-clear {
 }
 
 /*
- * Accueil de la conversation (ChatView) : Awa en petit globe vivant, le même
+ * Accueil de la conversation (ChatView) : Tamilya en petit globe vivant, le même
  * que le mode vocal, aux couleurs de la personnalité. Il flotte doucement ;
  * au survol il grossit un peu, comme pour inviter à lui parler.
  */
@@ -830,7 +888,7 @@ input::-ms-clear {
 }
 
 /*
- * Livreur : petite pastille blanche, scooter aux couleurs d'Awa qui regarde
+ * Livreur : petite pastille blanche, scooter aux couleurs de Tamilya qui regarde
  * dans le sens de la marche ; quand il roule, un anneau fin respire autour
  * (pas de grosse tache), et le scooter tressaute légèrement.
  */
@@ -1141,7 +1199,7 @@ html.chargement body {
   opacity: 0.4;
 }
 
-/* Bouton « Corriger » qui apparaît sous une sélection dans une réponse d'Awa. */
+/* Bouton « Corriger » qui apparaît sous une sélection dans une réponse de Tamilya. */
 @keyframes correct-in {
   from {
     opacity: 0;
@@ -1385,7 +1443,7 @@ html:has(.ecran-fixe) body {
   background: var(--bg-muted);
 }
 
-/* Réponse d'Awa en cours d'écriture : point qui clignote au bout du dernier paragraphe. */
+/* Réponse de Tamilya en cours d'écriture : point qui clignote au bout du dernier paragraphe. */
 .typing-cursor .markdown > :last-child::after {
   content: "";
   display: inline-block;
@@ -1925,7 +1983,7 @@ html:has(.ecran-fixe) body {
   }
 }
 
-/* Mode maître : pastilles « ✓ Retenu » sous la réponse d'Awa (MessageItem), qui arrivent avec un petit rebond. */
+/* Mode maître : pastilles « ✓ Retenu » sous la réponse de Tamilya (MessageItem), qui arrivent avec un petit rebond. */
 .learned-chips > li {
   animation: confirm-icon-pop 480ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
 }
@@ -1945,7 +2003,7 @@ html:has(.ecran-fixe) body {
 }
 
 /*
- * Awa vivante (écran d'accueil, AwaBlob) : goutte liquide aux couleurs de sa
+ * Tamilya vivante (écran d'accueil, AwaBlob) : goutte liquide aux couleurs de sa
  * personnalité. Le corps change de forme en continu, trois gouttelettes
  * tournent et fusionnent avec lui, le tout bat comme un cœur (« lub-dub »).
  * Au clic : écrasement, rebond et deux ondes, puis l'action s'ouvre.
@@ -2291,8 +2349,8 @@ html:has(.ecran-fixe) body {
 }
 
 /*
- * Branches proposées par Awa (carte du lexique, bouton « + »).
- * Le « + » respire au bout d'une fibre en pointillés qui défile. Awa
+ * Branches proposées par Tamilya (carte du lexique, bouton « + »).
+ * Le « + » respire au bout d'une fibre en pointillés qui défile. Tamilya
  * réfléchit : un cœur lumineux et des ondes. Sa proposition arrive : l'emoji
  * rebondit, sa phrase s'écrit mot à mot, les mots tombent en place un par un.
  * Créée, la branche pousse : la fibre se dessine depuis le centre, puis la
@@ -2480,55 +2538,12 @@ html:has(.ecran-fixe) body {
 }
 
 /*
- * Page d'accueil des visiteurs (GuestLanding) : fond aux couleurs d'Awa qui
- * bouge lentement, textes qui montent à l'arrivée, sections qui apparaissent
- * au défilement. Au départ vers la conversation (data-leaving), le contenu
- * s'envole en flou pendant que la vague (landing-wave) couvre l'écran depuis
- * le champ, puis se retire en laissant la conversation.
+ * Page d'accueil des visiteurs (GuestLanding) : textes qui montent à
+ * l'arrivée, sections qui apparaissent au défilement, fondu au départ vers
+ * la conversation (data-leaving).
  */
 .landing {
-  --landing-glow: var(--persona, var(--accent));
   isolation: isolate;
-}
-
-.landing-aurora {
-  position: fixed;
-  inset: -20%;
-  z-index: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(40% 35% at 20% 15%, color-mix(in srgb, var(--landing-glow) 28%, transparent), transparent 70%),
-    radial-gradient(35% 40% at 85% 25%, color-mix(in srgb, #5ee7ff 14%, transparent), transparent 70%),
-    radial-gradient(45% 40% at 60% 85%, color-mix(in srgb, var(--landing-glow) 18%, transparent), transparent 70%);
-  filter: blur(30px);
-  animation: landing-aurora 22s ease-in-out infinite alternate;
-}
-
-@keyframes landing-aurora {
-  0% {
-    transform: translate(0, 0) rotate(0deg) scale(1);
-  }
-  50% {
-    transform: translate(3%, -2%) rotate(6deg) scale(1.08);
-  }
-  100% {
-    transform: translate(-3%, 3%) rotate(-4deg) scale(1.02);
-  }
-}
-
-.landing-gradient-text {
-  background: linear-gradient(100deg, var(--landing-glow), color-mix(in srgb, var(--landing-glow) 40%, #ffb36b) 50%, var(--landing-glow));
-  background-size: 200% 100%;
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-  animation: landing-shine 6s linear infinite;
-}
-
-@keyframes landing-shine {
-  to {
-    background-position: -200% 0;
-  }
 }
 
 .landing-rise {
@@ -2537,37 +2552,15 @@ html:has(.ecran-fixe) body {
 
 .landing-reveal {
   opacity: 0;
-  transform: translateY(28px);
-  filter: blur(6px);
+  transform: translateY(16px);
   transition:
-    opacity 700ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    transform 700ms cubic-bezier(0.2, 0.8, 0.2, 1),
-    filter 700ms ease;
+    opacity 600ms cubic-bezier(0.2, 0.8, 0.2, 1),
+    transform 600ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .landing-reveal[data-shown] {
   opacity: 1;
   transform: none;
-  filter: none;
-}
-
-.landing-card {
-  transition:
-    transform 300ms cubic-bezier(0.34, 1.56, 0.64, 1),
-    border-color 300ms,
-    box-shadow 300ms;
-}
-
-.landing-card:hover {
-  transform: translateY(-4px);
-  border-color: var(--persona-border, var(--border));
-  box-shadow: 0 24px 50px -28px var(--landing-glow);
-}
-
-.landing-progress {
-  background:
-    radial-gradient(60% 80% at 100% 0%, color-mix(in srgb, var(--landing-glow) 16%, transparent), transparent 70%),
-    var(--bg-subtle);
 }
 
 .landing-reveal[data-shown] .landing-bar {
@@ -2581,77 +2574,105 @@ html:has(.ecran-fixe) body {
   }
 }
 
-.landing-scroll-cue {
-  display: grid;
-  place-items: center;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 999px;
-  border: 1px solid var(--border);
-  animation: landing-cue 2.2s ease-in-out infinite;
+/*
+ * Départ vers la conversation (GuestHome, LEAVE_MS) : le contenu monte un peu
+ * et s'efface, puis le fond de la page s'éclaircit sur la conversation, où le
+ * message est déjà parti.
+ */
+.landing[data-leaving] {
+  pointer-events: none;
+  animation: landing-fade 560ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
 }
 
-@keyframes landing-cue {
+.landing[data-leaving] .landing-content,
+.landing[data-leaving] .landing-nav {
+  animation: landing-lift 380ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes landing-fade {
   0%,
-  100% {
-    transform: translateY(0);
-    opacity: 0.6;
-  }
-  50% {
-    transform: translateY(8px);
+  30% {
     opacity: 1;
   }
+  100% {
+    opacity: 0;
+  }
 }
 
-
-/* Départ vers la conversation : le contenu s'envole en flou. */
-.landing[data-leaving] .landing-content {
-  animation: landing-leave 600ms cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
-
-@keyframes landing-leave {
+@keyframes landing-lift {
   to {
     opacity: 0;
-    transform: scale(1.06) translateY(-20px);
-    filter: blur(12px);
+    transform: translateY(-14px);
   }
 }
 
-/* La vague : un disque aux couleurs d'Awa qui part du champ et couvre l'écran, puis se retire. */
-.landing-wave {
-  position: fixed;
-  inset: 0;
-  z-index: 56;
-  pointer-events: none;
-  background:
-    radial-gradient(circle at var(--wave-x) var(--wave-y), color-mix(in srgb, var(--persona, var(--accent)) 70%, #fff) 0%, var(--persona, var(--accent)) 35%, color-mix(in srgb, var(--persona, var(--accent)) 60%, #12060b) 100%);
+/*
+ * Morphose accueil → conversation (GuestHome, transition de vue du
+ * navigateur) : le champ de l'accueil glisse, s'élargit et devient la zone de
+ * saisie, pendant que la page d'accueil se dissout et que la conversation
+ * apparaît derrière. Un seul élément nommé à la fois (depart, puis arrivee).
+ * Navigateur sans transition de vue : fondu .landing[data-leaving] ci-dessus.
+ */
+html[data-morph="depart"] .landing-input,
+html[data-morph="arrivee"] .composer {
+  view-transition-name: awa-saisie;
 }
 
-.landing-wave[data-phase="cover"] {
-  animation: landing-wave-in 650ms cubic-bezier(0.65, 0, 0.35, 1) both;
+html[data-morph]::view-transition-group(awa-saisie) {
+  animation-duration: 820ms;
+  /* Ressort léger : file vite, dépasse à peine, se pose. */
+  animation-timing-function: linear(0, 0.18 7%, 0.6 18%, 0.9 30%, 1.02 42%, 1.035 50%, 1.01 65%, 1);
+  z-index: 2;
 }
 
-.landing-wave[data-phase="reveal"] {
-  animation: landing-wave-out 700ms cubic-bezier(0.65, 0, 0.35, 1) both;
+html[data-morph]::view-transition-old(awa-saisie) {
+  animation: morph-out 300ms ease-out both;
 }
 
-@keyframes landing-wave-in {
-  from {
-    clip-path: circle(0 at var(--wave-x) var(--wave-y));
-  }
+html[data-morph]::view-transition-new(awa-saisie) {
+  animation: morph-in 420ms ease-in 160ms both;
+}
+
+html[data-morph]::view-transition-old(root) {
+  animation: morph-page-out 460ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+html[data-morph]::view-transition-new(root) {
+  animation: morph-page-in 520ms cubic-bezier(0.2, 0.8, 0.2, 1) 180ms both;
+}
+
+@keyframes morph-out {
   to {
-    clip-path: circle(150vmax at var(--wave-x) var(--wave-y));
+    opacity: 0;
   }
 }
 
-@keyframes landing-wave-out {
+@keyframes morph-in {
   from {
-    clip-path: circle(150vmax at 50% 100%);
-    opacity: 1;
+    opacity: 0;
   }
+}
+
+@keyframes morph-page-out {
   to {
-    clip-path: circle(0 at 50% 100%);
-    opacity: 0.6;
+    opacity: 0;
+    transform: scale(1.04);
+    filter: blur(8px);
+  }
+}
+
+@keyframes morph-page-in {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-morph]::view-transition-group(*),
+  html[data-morph]::view-transition-old(*),
+  html[data-morph]::view-transition-new(*) {
+    animation: none !important;
   }
 }
 
@@ -2661,56 +2682,23 @@ html:has(.ecran-fixe) body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .landing-aurora,
-  .landing-gradient-text,
   .landing-rise,
-  .landing-scroll-cue,
   .landing-bar,
+  .landing[data-leaving],
   .landing[data-leaving] .landing-content,
-  .landing-wave,
+  .landing[data-leaving] .landing-nav,
   .trial-over {
     animation: none !important;
   }
   .landing-reveal {
     opacity: 1;
     transform: none;
-    filter: none;
     transition: none;
   }
 }
 
-/* Barre de navigation flottante en bas de la page d'accueil : monte à l'arrivée, s'efface au départ. */
-.landing-dock {
-  animation: landing-dock-in 700ms cubic-bezier(0.34, 1.3, 0.64, 1) 500ms both;
-}
-
-.landing[data-leaving] .landing-dock {
-  animation: landing-dock-out 300ms ease-in forwards;
-}
-
-@keyframes landing-dock-in {
-  from {
-    opacity: 0;
-    transform: translateY(140%);
-  }
-}
-
-@keyframes landing-dock-out {
-  to {
-    opacity: 0;
-    transform: translateY(140%);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .landing-dock,
-  .landing[data-leaving] .landing-dock {
-    animation: none;
-  }
-}
-
 /*
- * Champ « Parle à Awa » (GuestLanding) : court au repos. Au clic, il s'étire
+ * Champ « Parle à Tamilya » (GuestLanding) : court au repos. Au clic, il s'étire
  * comme un élastique (dépasse, revient, rebondit), s'écrase en hauteur
  * pendant qu'il s'allonge, et une lumière fait le tour de son contour. Quand
  * on clique ailleurs (champ vide), il reprend sa taille en rebondissant.
@@ -2915,5 +2903,87 @@ html:has(.ecran-fixe) body {
   .voice-overlay[data-morph]::before,
   .voice-morph-in {
     animation: none;
+  }
+}
+
+/*
+ * Avis des utilisateurs sur la page d'accueil (ReviewsWall). Les cartes sont
+ * translucides et floutent ce qui passe derrière : les taches de couleur de
+ * .reviews-glow. Deux colonnes défilent en sens inverse ; pause au survol.
+ */
+.reviews-glow {
+  background:
+    radial-gradient(closest-side at 72% 28%, color-mix(in oklab, var(--persona, var(--accent)) 30%, transparent), transparent),
+    radial-gradient(closest-side at 92% 78%, color-mix(in oklab, #f59e0b 22%, transparent), transparent),
+    radial-gradient(closest-side at 50% 95%, color-mix(in oklab, var(--persona, var(--accent)) 18%, transparent), transparent);
+  background-size: 70% 80%, 50% 60%, 60% 50%;
+  background-position: 100% 0, 100% 100%, 40% 100%;
+  background-repeat: no-repeat;
+}
+
+.review-card {
+  background: color-mix(in oklab, var(--bg) 55%, transparent);
+  border: 1px solid color-mix(in oklab, var(--fg) 9%, transparent);
+  box-shadow: 0 8px 24px -16px rgb(0 0 0 / 0.25);
+  backdrop-filter: blur(18px) saturate(1.5);
+  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+}
+
+/* Étoiles de la note moyenne, remplies en proportion (--fill). */
+.review-stars {
+  position: relative;
+  width: max-content;
+  letter-spacing: 2px;
+}
+.review-stars::before {
+  content: "★★★★★";
+  color: color-mix(in oklab, var(--fg) 15%, transparent);
+}
+.review-stars::after {
+  content: "★★★★★";
+  position: absolute;
+  inset: 0;
+  width: var(--fill, 100%);
+  overflow: hidden;
+  white-space: nowrap;
+  color: #f59e0b;
+}
+
+.reviews-wall {
+  mask-image: linear-gradient(transparent, #000 12%, #000 88%, transparent);
+  -webkit-mask-image: linear-gradient(transparent, #000 12%, #000 88%, transparent);
+}
+
+.reviews-track {
+  animation: reviews-scroll var(--reviews-duration, 40s) linear infinite;
+}
+
+.reviews-column[data-reverse] .reviews-track {
+  animation-direction: reverse;
+}
+
+.reviews-wall:hover .reviews-track,
+.reviews-wall:focus-within .reviews-track {
+  animation-play-state: paused;
+}
+
+/* La piste contient deux fois la colonne : -50 % (moins un demi-écart) ramène pile au début. */
+@keyframes reviews-scroll {
+  to {
+    transform: translateY(calc(-50% - 0.375rem));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reviews-track {
+    animation: none;
+  }
+  .reviews-wall {
+    overflow-y: auto;
+    mask-image: none;
+    -webkit-mask-image: none;
+  }
+  .reviews-track [aria-hidden="true"] {
+    display: none;
   }
 }

@@ -5,7 +5,7 @@ import { getAuthContext } from "@/lib/auth/session";
 import { getSiteFlags } from "@/lib/site/settings";
 
 export default async function ChatLayout({ children }: LayoutProps<"/">) {
-  // Les administrateurs ont aussi le chat : c'est là qu'ils apprennent le shimaoré à Awa.
+  // Les administrateurs ont aussi le chat : c'est là qu'ils apprennent le shimaoré à Tamilya.
   const { user } = await getAuthContext();
 
   // Textes du choix de personnalité (modifiables depuis l'admin), seulement s'il est proposé.

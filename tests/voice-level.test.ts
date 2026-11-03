@@ -4,7 +4,7 @@ import { getVoiceMood, voiceHeard, voiceLevel, voiceListenEnd, voiceSpeakEnd, vo
 
 const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-describe("niveau de voix du globe d'Awa", () => {
+describe("niveau de voix du globe de Tamilya", () => {
   it("monte sur les syllabes prononcées puis retombe", async () => {
     voiceSpeakStart("Jéjé, marahaba mana !");
     assert.equal(getVoiceMood(), "speaking");

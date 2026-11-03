@@ -9,6 +9,8 @@ import { requireUser } from "@/lib/auth/session";
 import { maskPhone } from "@/lib/code-exam/candidate";
 import { getProfile } from "@/lib/conversations/repository";
 import { getProfileContact } from "@/lib/profile-contact";
+import { getMyReview } from "@/lib/reviews";
+import { publicName } from "@/lib/reviews/rules";
 import { listSavedAddresses } from "@/lib/saved-addresses";
 import { loadWallet } from "@/lib/wallet";
 import { readDemoWallet, usesDemoWallet } from "@/lib/wallet/demo";
@@ -20,29 +22,31 @@ import { DeleteAccount } from "./DeleteAccount";
 import { maskEmail } from "./mask-email";
 import { MaskedEmail } from "./MaskedEmail";
 import { ProfileForm } from "./ProfileForm";
+import { ReviewForm } from "./ReviewForm";
 import { SettingsFrame } from "./SettingsFrame";
 import { GoToTab, SettingsView, type SettingsTab } from "./SettingsView";
 import { SignOutButton } from "./SignOutButton";
 
 export const metadata: Metadata = { title: "Paramètres" };
 
-const TABS: SettingsTab[] = ["apercu", "profil", "adresse", "awa", "securite", "suppression"];
+const TABS: SettingsTab[] = ["apercu", "profil", "adresse", "awa", "avis", "securite", "suppression"];
 
 export default async function SettingsPage({ searchParams }: PageProps<"/parametres">) {
   const { supabase, user } = await requireUser("/parametres");
   const params = await searchParams;
-  const [profile, contact, saved, cards, memories, demo] = await Promise.all([
+  const [profile, contact, saved, cards, memories, demo, review] = await Promise.all([
     getProfile(supabase, user.id),
     getProfileContact(supabase, user.id),
     listSavedAddresses(supabase),
     loadPersonalityCards(),
     getMemories(supabase).catch(() => []),
     usesDemoWallet(user),
+    getMyReview(user.id),
   ]);
   const balanceCents = demo ? (await readDemoWallet(user.id)).balanceCents : (await loadWallet(supabase, user.id, 1)).balanceCents;
   const name = profile.displayName || user.email?.split("@")[0] || "Vous";
   const personality = profile.personality ? PERSONALITIES[profile.personality] : null;
-  // ?rubrique=adresse : ouvre directement une rubrique (lien depuis la commande, Awa…).
+  // ?rubrique=adresse : ouvre directement une rubrique (lien depuis la commande, Tamilya…).
   const initial = TABS.find((t) => t === params.rubrique);
 
   const done = {
@@ -55,7 +59,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/paramet
     { key: "name", label: "Ton prénom", tab: "profil" },
     { key: "phone", label: "Ton téléphone", tab: "profil" },
     { key: "home", label: "L'adresse de ta maison", tab: "adresse" },
-    { key: "awa", label: "Le caractère d'Awa", tab: "awa" },
+    { key: "awa", label: "Le caractère de Tamilya", tab: "awa" },
   ];
   const completed = checklist.filter((c) => done[c.key]).length;
   const addressCount = (contact.address ? 1 : 0) + (saved?.length ?? 0);
@@ -106,8 +110,8 @@ export default async function SettingsPage({ searchParams }: PageProps<"/paramet
                     <p className="font-medium">{completed === checklist.length ? "Ton compte est complet 🎉" : "Complète ton compte"}</p>
                     <p className="text-sm text-fg-muted">
                       {completed === checklist.length
-                        ? "Awa a tout ce qu'il faut pour t'aider au mieux."
-                        : "Plus Awa en sait, mieux elle t'aide : livraisons, services près de chez toi…"}
+                        ? "Tamilya a tout ce qu'il faut pour t'aider au mieux."
+                        : "Plus Tamilya en sait, mieux elle t'aide : livraisons, services près de chez toi…"}
                     </p>
                   </div>
                   <span className="shrink-0 text-2xl font-semibold tabular-nums">
@@ -173,7 +177,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/paramet
                     {personality?.emoji ?? "✨"}
                   </span>
                   <span>
-                    <span className="block font-medium">Awa</span>
+                    <span className="block font-medium">Tamilya</span>
                     <span className="block text-sm text-fg-muted">
                       {personality ? `Caractère ${personality.label.toLowerCase()}` : "Choisis son caractère"} · {memories.length} souvenir
                       {memories.length > 1 ? "s" : ""}
@@ -207,7 +211,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/paramet
               <AddressBook home={contact.address} saved={saved} />
               <ul className="grid gap-2 text-sm text-fg-muted sm:grid-cols-2">
                 <li className="rounded-2xl bg-bg-subtle px-4 py-3">🛵 Choisis l&apos;une de ces adresses à chaque commande.</li>
-                <li className="rounded-2xl bg-bg-subtle px-4 py-3">🧭 Awa sait ce qui est près de chez toi : bureau du code, restaurants…</li>
+                <li className="rounded-2xl bg-bg-subtle px-4 py-3">🧭 Tamilya sait ce qui est près de chez toi : bureau du code, restaurants…</li>
               </ul>
             </div>
           ),
@@ -217,7 +221,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/paramet
                 <section className="space-y-3">
                   <div>
                     <h3 className="font-medium">Son caractère</h3>
-                    <p className="text-sm text-fg-muted">La façon dont Awa te parle. Tu peux en changer quand tu veux.</p>
+                    <p className="text-sm text-fg-muted">La façon dont Tamilya te parle. Tu peux en changer quand tu veux.</p>
                   </div>
                   <PersonalityPicker cards={cards} current={profile.personality} />
                 </section>
@@ -225,12 +229,13 @@ export default async function SettingsPage({ searchParams }: PageProps<"/paramet
               <section className="space-y-3">
                 <div>
                   <h3 className="font-medium">Ce qu&apos;elle retient de toi</h3>
-                  <p className="text-sm text-fg-muted">Awa s&apos;en sert seulement pour mieux te répondre. Tu peux tout effacer.</p>
+                  <p className="text-sm text-fg-muted">Tamilya s&apos;en sert seulement pour mieux te répondre. Tu peux tout effacer.</p>
                 </div>
                 <AwaMemory facts={memories} />
               </section>
             </div>
           ),
+          avis: <ReviewForm review={review} publicName={publicName(profile.displayName)} defaultCommune={contact.address?.commune ?? null} />,
           securite: (
             <Group>
               <Row icon="✉️" title="Adresse e-mail" detail={<MaskedEmail email={user.email} />} />

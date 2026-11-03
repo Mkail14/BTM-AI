@@ -14,7 +14,7 @@ export default async function MaintenancePage() {
   return (
     <SimplePage title="Site en maintenance">
       <p className="text-sm text-fg-muted">
-        BTM AI fait une petite pause pour s&apos;améliorer. Revenez un peu plus tard : Awa vous attend !
+        BTM AI fait une petite pause pour s&apos;améliorer. Revenez un peu plus tard : Tamilya vous attend !
       </p>
       {maintenanceMessage ? <p className="mt-3 rounded-lg bg-bg-subtle px-3 py-2 text-sm">{maintenanceMessage}</p> : null}
       <AdminSignIn />

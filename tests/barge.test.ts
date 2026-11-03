@@ -6,12 +6,12 @@ import { detectBargeTicket } from "@/lib/barge/intent";
 describe("Tickets de barge", () => {
   it("ouvre l'achat seulement quand on demande un ticket", () => {
     assert.equal(detectBargeTicket("je veux un ticket de barge"), "buy");
-    assert.equal(detectBargeTicket("Awa achète-moi 2 billets pour la barge stp"), "buy");
+    assert.equal(detectBargeTicket("Tamilya achète-moi 2 billets pour la barge stp"), "buy");
     assert.equal(detectBargeTicket("un ticket pour aller à Petite-Terre avec ma voiture"), "buy");
     // Simple question : pas d'achat.
     assert.equal(detectBargeTicket("la barge part à quelle heure ?"), null);
     assert.equal(detectBargeTicket("je veux un ticket de cinéma"), null);
-    // Ticket déjà acheté : Awa répond, sans rouvrir l'achat.
+    // Ticket déjà acheté : Tamilya répond, sans rouvrir l'achat.
     assert.equal(detectBargeTicket("où est mon ticket de barge ?"), null);
   });
 

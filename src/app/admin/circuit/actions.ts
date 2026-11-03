@@ -244,7 +244,7 @@ export async function setFlowCutAction(blockId: unknown, cut: unknown): Promise<
   }
 
   revalidatePath("/admin/circuit");
-  return { ok: true, message: cut ? "Lien coupé : Awa ne répond plus par ce chemin." : "Lien rebranché." };
+  return { ok: true, message: cut ? "Lien coupé : Tamilya ne répond plus par ce chemin." : "Lien rebranché." };
 }
 
 /** Enregistre les quotas de messages (bloc « Quotas et sécurité »). */

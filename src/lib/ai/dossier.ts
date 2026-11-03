@@ -3,9 +3,9 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { EXAM_TYPES, type ExamType } from "@/lib/code-exam/candidate";
 
 /**
- * Dossier de la personne pour Awa : ce qu'elle a fait sur le site, en dehors
+ * Dossier de la personne pour Tamilya : ce qu'elle a fait sur le site, en dehors
  * de la conversation (réservations du code…). Des faits seulement, jamais de
- * conclusion : c'est Awa qui remarque un schéma (« plusieurs passages du code
+ * conclusion : c'est Tamilya qui remarque un schéma (« plusieurs passages du code
  * en peu de temps ») et décide d'en parler, avec tact (voir DOSSIER dans
  * system-prompt.ts). Aucune donnée personnelle sensible (NEPH, date de
  * naissance, téléphone) n'y figure.

@@ -17,7 +17,7 @@ export type LexiconRow = {
   isActive: boolean;
 };
 
-/** Mot shimaoré qu'Awa n'a pas compris, en attente de traduction. */
+/** Mot shimaoré que Tamilya n'a pas compris, en attente de traduction. */
 export type WordRequestRow = { id: string; shimaore: string; example: string; occurrences: number; lastSeenAt: string };
 
 export type WordRow ={ id: string; french: string; shimaore: string; category: string; isActive: boolean };

@@ -3,13 +3,13 @@
 import { createContext, use, useEffect, useRef, useState, type ReactNode } from "react";
 import type { ActionResult } from "@/lib/admin/action-auth";
 
-/** Fourni par le chat au maître d'Awa : enregistre la traduction d'un [[mot]]. */
+/** Fourni par le chat au maître de Tamilya : enregistre la traduction d'un [[mot]]. */
 export const TeachWordContext = createContext<((french: string, shimaore: string) => Promise<ActionResult>) | null>(null);
 
 const markClass = "rounded bg-amber-400/20 px-1 font-medium text-amber-700 dark:text-amber-300";
 
 /**
- * Mot qu'Awa ne connaît pas encore en shimaoré. Pour son maître, un clic ouvre
+ * Mot que Tamilya ne connaît pas encore en shimaoré. Pour son maître, un clic ouvre
  * une petite case sur place : il écrit la traduction, Entrée, c'est retenu.
  */
 export function UnknownWord({ french, children }: { french: string; children: ReactNode }) {

@@ -69,7 +69,7 @@ function CopyAction({ text }: { text: string }) {
 
 const noSubscribe = () => () => {};
 
-/** Lecture à voix haute par le navigateur (shimaoré et français, voir speak) ; le globe d'Awa suit la voix. */
+/** Lecture à voix haute par le navigateur (shimaoré et français, voir speak) ; le globe de Tamilya suit la voix. */
 function SpeakAction({ text }: { text: string }) {
   const [speaking, setSpeaking] = useState(false);
   const stopRef = useRef<(() => void) | null>(null);
@@ -93,7 +93,7 @@ function SpeakAction({ text }: { text: string }) {
   );
 }
 
-/** Avatar d'Awa : pastille à la couleur et à l'emoji de sa personnalité. */
+/** Avatar de Tamilya : pastille à la couleur et à l'emoji de sa personnalité. */
 function AwaAvatar({ busy }: { busy: boolean }) {
   const { current } = useCurrentPersonality();
   return (
@@ -112,7 +112,7 @@ export const MessageItem = memo(function MessageItem({
   onRetry,
 }: {
   message: UiMessage;
-  /** Réponse d'Awa : le message de l'utilisateur auquel elle répond. */
+  /** Réponse de Tamilya : le message de l'utilisateur auquel elle répond. */
   question?: string;
   onRetry?: () => void;
 }) {
@@ -153,30 +153,30 @@ function AssistantMessage({ message, question }: { message: UiMessage; question?
 
   return (
     <article className="group flex min-w-0 gap-2.5 sm:gap-3" aria-busy={writing}>
-      <h3 className="sr-only">Awa a répondu :</h3>
+      <h3 className="sr-only">Tamilya a répondu :</h3>
       <AwaAvatar busy={waiting} />
       <div className="relative min-w-0 flex-1 pt-1">
         {waiting ? (
-          <p className="flex h-6 items-center gap-1 text-[var(--persona,var(--fg-muted))]" aria-label="Awa rédige une réponse">
+          <p className="flex h-6 items-center gap-1 text-[var(--persona,var(--fg-muted))]" aria-label="Tamilya rédige une réponse">
             <span className="size-1.5 animate-bounce rounded-full bg-current" />
             <span className="size-1.5 animate-bounce rounded-full bg-current [animation-delay:120ms]" />
             <span className="size-1.5 animate-bounce rounded-full bg-current [animation-delay:240ms]" />
           </p>
         ) : text ? (
           writing ? (
-            // Point qui clignote au bout du texte pendant qu'Awa écrit.
+            // Point qui clignote au bout du texte pendant que Tamilya écrit.
             <div className="typing-cursor">
               <Markdown text={text} />
             </div>
           ) : (
-            // Maître d'Awa : sélection d'un passage pour le corriger (sans effet pour les autres).
+            // Maître de Tamilya : sélection d'un passage pour le corriger (sans effet pour les autres).
             <Correctable messageId={message.id} reply={message.content} question={question}>
               <Markdown text={message.content} />
             </Correctable>
           )
         ) : null}
 
-        {/* Mode maître : le shimaoré qu'Awa vient de retenir, pour voir qu'elle a bien appris. */}
+        {/* Mode maître : le shimaoré que Tamilya vient de retenir, pour voir qu'elle a bien appris. */}
         {message.learned?.length && !typing ? (
           <ul aria-label="Shimaoré retenu" className="learned-chips mt-2 flex flex-wrap gap-1.5">
             {message.learned.map((w) => (

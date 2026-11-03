@@ -4,13 +4,13 @@ import { formatEuros } from "@/lib/wallet/limits";
 
 /**
  * Dernière commande de repas du compte, gardée dans un cookie du navigateur
- * (aucune table de commandes pour l'instant) : Awa la reçoit à chaque message
+ * (aucune table de commandes pour l'instant) : Tamilya la reçoit à chaque message
  * pour répondre à « ma livraison arrive quand ? ». Mêmes étapes que le suivi
  * affiché (OrderTracker) : préparation jusqu'à readyAt, livraison jusqu'à arrivesAt.
  */
 
 const COOKIE = "btm_food_order";
-/** Après l'arrivée, Awa s'en souvient encore un moment (« elle est arrivée ? »). */
+/** Après l'arrivée, Tamilya s'en souvient encore un moment (« elle est arrivée ? »). */
 const REMEMBER_AFTER_ARRIVAL_MS = 2 * 60 * 60 * 1000;
 
 export type LastOrder = {
@@ -57,7 +57,7 @@ const minutes = (ms: number) => {
   return `${m} minute${m > 1 ? "s" : ""}`;
 };
 
-/** État de la commande en une ligne de faits, pour le message système d'Awa. */
+/** État de la commande en une ligne de faits, pour le message système de Tamilya. */
 export function describeOrder(order: LastOrder, now = Date.now()): string {
   const ready = Date.parse(order.readyAt);
   const arrives = Date.parse(order.arrivesAt);

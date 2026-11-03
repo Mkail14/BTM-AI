@@ -9,7 +9,7 @@ import { PERSONALITY_LOOKS } from "@/lib/ai/personality-looks";
 import { useCurrentPersonality } from "./PersonalityContext";
 
 /**
- * Pastille de couleur dans la barre de saisie : affiche la personnalité d'Awa
+ * Pastille de couleur dans la barre de saisie : affiche la personnalité de Tamilya
  * et permet d'en changer. Le changement s'applique au message suivant (le
  * serveur relit le choix en base). Visiteur sans compte : propose l'inscription.
  */
@@ -57,7 +57,7 @@ export function PersonalitySwitcher() {
 
   function toggle() {
     if (!user) {
-      openAuthDialog({ mode: "signup", reason: "Créez un compte pour choisir la personnalité d'Awa." });
+      openAuthDialog({ mode: "signup", reason: "Créez un compte pour choisir la personnalité de Tamilya." });
       return;
     }
     setOpen((v) => !v);
@@ -95,11 +95,11 @@ export function PersonalitySwitcher() {
           <div
             id={menuId}
             role="menu"
-            aria-label="Personnalité d'Awa"
+            aria-label="Personnalité de Tamilya"
             className="absolute bottom-full left-0 z-40 mb-3 w-72 overflow-hidden rounded-3xl border border-white/10 bg-[color-mix(in_srgb,var(--bg)_75%,transparent)] p-1.5 shadow-2xl backdrop-blur-2xl"
           >
             <p className="px-3 pt-2.5 pb-2 text-[11px] font-semibold tracking-wider text-fg-muted uppercase">
-              Le ton d&apos;Awa
+              Le ton d&apos;Tamilya
             </p>
             {PERSONALITY_IDS.map((id) => {
               const item = PERSONALITIES[id];
@@ -164,8 +164,8 @@ export function PersonalitySwitcher() {
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
-        aria-label={`Personnalité d'Awa : ${p.label}. Changer`}
-        title="Changer la personnalité d'Awa"
+        aria-label={`Personnalité de Tamilya : ${p.label}. Changer`}
+        title="Changer la personnalité de Tamilya"
         style={{ "--c": PERSONALITY_LOOKS[current].color } as CSSProperties}
         className={`relative flex h-9 items-center justify-center gap-1.5 rounded-full bg-[var(--c)] px-0 text-sm font-semibold text-white max-sm:w-9 sm:pr-3 sm:pl-2 transition hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--c)] ${
           open ? "z-40" : ""

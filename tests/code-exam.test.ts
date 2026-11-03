@@ -58,7 +58,7 @@ describe("horaires du code (La Poste)", () => {
     ]);
   });
 
-  it("apprend le tableau à Awa dans la conversation écrite, mode maître compris", () => {
+  it("apprend le tableau à Tamilya dans la conversation écrite, mode maître compris", () => {
     assert.match(buildSystemPrompt(undefined, {}), /creneaux-code/);
     assert.match(buildSystemPrompt(undefined, { teacher: true }), /creneaux-code[\s\S]*exception/);
     assert.doesNotMatch(buildSystemPrompt(undefined, { voice: true }), /creneaux-code/);
@@ -159,7 +159,7 @@ describe("commande de repas (prototype)", () => {
     assert.equal(dishKindOf({ name: "Sarcives" }, "ENTREE", "Restaurant asiatique"), "asiatique");
   });
 
-  it("n'apprend la commande de repas à Awa que pour les comptes autorisés", () => {
+  it("n'apprend la commande de repas à Tamilya que pour les comptes autorisés", () => {
     assert.doesNotMatch(buildSystemPrompt(undefined, {}), /commande-repas/);
     assert.match(buildSystemPrompt(undefined, { foodOrdering: true }), /commande-repas/);
     assert.doesNotMatch(buildSystemPrompt(undefined, { foodOrdering: true, voice: true }), /commande-repas/);
@@ -175,7 +175,7 @@ describe("bureau du code le plus proche", () => {
     assert.equal(officesByDistance("Paris"), null);
   });
 
-  it("donne à Awa l'adresse et la consigne de répondre sans le tableau", () => {
+  it("donne à Tamilya l'adresse et la consigne de répondre sans le tableau", () => {
     const prompt = buildSystemPrompt(undefined, { home: { commune: "Sada", nearestOffices: "Combani (~9 km)" } });
     assert.match(prompt, /elle habite à Sada/);
     assert.match(prompt, /SANS le bloc/);

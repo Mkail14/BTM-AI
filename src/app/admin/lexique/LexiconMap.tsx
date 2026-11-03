@@ -6,12 +6,12 @@ import { nodeRatio, type BranchDef, type KnownEntry, type MapNode } from "@/lib/
 import { deleteBranchAction, saveWordAction } from "./actions";
 import { BranchCreator } from "./BranchCreator";
 
-/** Bulle « + » de la carte : demande à Awa une nouvelle branche. */
+/** Bulle « + » de la carte : demande à Tamilya une nouvelle branche. */
 const PLUS_ID = "__nouvelle-branche";
 const PLUS_NODE: MapNode = { id: PLUS_ID, label: "Nouvelle branche", hue: 0, learned: 0, total: 0 };
 
 /*
- * Carte du shimaoré : la bulle du centre (Awa, un thème, un groupe…) et ses
+ * Carte du shimaoré : la bulle du centre (Tamilya, un thème, un groupe…) et ses
  * sous-bulles autour, reliées par des fibres qui s'allument à mesure que c'est
  * appris. Un clic sur une bulle zoome dedans et montre ses propres sous-bulles,
  * jusqu'aux mots ; un clic sur le centre (ou Échap) remonte d'un niveau.
@@ -239,7 +239,7 @@ function WordSheet({ node, trail, onClose }: { node: MapNode; trail: string; onC
         </button>
       ) : (
         <div className="mt-5">
-          <p className="mb-2.5 text-[13px] text-white/50">Awa ne connaît pas encore ce mot. Comment on le dit ?</p>
+          <p className="mb-2.5 text-[13px] text-white/50">Tamilya ne connaît pas encore ce mot. Comment on le dit ?</p>
           <AddWord key={node.id} french={word.french} category={word.category} />
         </div>
       )}
@@ -482,7 +482,7 @@ export function LexiconMap({ tree, branches = [] }: { tree: MapNode; branches?: 
         </p>
         {branchHere ? (
           <div className="carte-apparait mt-2 max-w-md px-1">
-            {branchHere.reason ? <p className="text-[13px] leading-relaxed text-white/55">« {branchHere.reason} » — Awa</p> : null}
+            {branchHere.reason ? <p className="text-[13px] leading-relaxed text-white/55">« {branchHere.reason} » — Tamilya</p> : null}
             <button
               type="button"
               onClick={async () => {
@@ -633,7 +633,7 @@ export function LexiconMap({ tree, branches = [] }: { tree: MapNode; branches?: 
                     <button
                       type="button"
                       onClick={() => enter(p)}
-                      aria-label="Nouvelle branche : demander à Awa les mots qu'elle aimerait apprendre"
+                      aria-label="Nouvelle branche : demander à Tamilya les mots qu'elle aimerait apprendre"
                       aria-pressed={creating}
                       className={`branche-plus carte-bulle relative grid aspect-square w-full place-items-center rounded-full transition duration-500 hover:scale-105 active:scale-95 ${creating ? "is-open" : ""}`}
                       style={{ animationDelay: `${120 + p.order * 45}ms` }}

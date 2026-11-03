@@ -5,7 +5,7 @@ import { AIProviderError, type AIErrorCode, type AIProvider, type AIStreamChunk 
 
 /**
  * Relais pour le développement local. Google refuse l'API Gemini depuis
- * Mayotte : sur l'ordinateur de l'équipe, Awa envoie donc sa demande au site
+ * Mayotte : sur l'ordinateur de l'équipe, Tamilya envoie donc sa demande au site
  * en ligne (serveurs en Irlande), qui interroge Gemini avec sa propre chaîne
  * d'API et renvoie la réponse au fil de l'eau.
  *
@@ -50,7 +50,7 @@ export function relayConfig(url: string): AIConfig {
   };
 }
 
-/** Fournisseur local qui fait répondre Awa par le site en ligne. */
+/** Fournisseur local qui fait répondre Tamilya par le site en ligne. */
 export function createRelayProvider(url: string, secret: string): AIProvider {
   return {
     id: "relay",

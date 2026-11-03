@@ -5,14 +5,14 @@ import type { BranchSuggestion } from "@/lib/language/branches";
 import { createBranchAction, suggestBranchAction } from "./actions";
 
 const THOUGHTS = [
-  "Awa repense à ses conversations…",
+  "Tamilya repense à ses conversations…",
   "Elle cherche les mots qui lui ont manqué…",
   "Elle regarde ce qu'elle sait déjà dire…",
   "Elle prépare sa liste…",
 ];
 
 /**
- * Création d'une branche avec Awa, en trois temps : elle réfléchit (orbe qui
+ * Création d'une branche avec Tamilya, en trois temps : elle réfléchit (orbe qui
  * respire, pensées qui défilent), elle propose (nom, sa raison, les mots qui
  * apparaissent un à un), puis la branche pousse sur la carte. On peut changer
  * le nom, retirer ou ajouter des mots, ou lui demander une autre idée.
@@ -125,7 +125,7 @@ export function BranchCreator({ onClose, onCreated }: { onClose: () => void; onC
                   {w}&nbsp;
                 </span>
               ))}
-              <footer className="mt-2 text-[12px] font-medium text-white/40">Awa</footer>
+              <footer className="mt-2 text-[12px] font-medium text-white/40">Tamilya</footer>
             </blockquote>
           ) : null}
 

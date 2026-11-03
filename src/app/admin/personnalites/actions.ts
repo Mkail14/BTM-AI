@@ -41,12 +41,12 @@ export async function savePersonalityAction(id: unknown, behavior: unknown): Pro
   revalidatePath("/admin/personnalites");
   return {
     ok: true,
-    message: parsed ? "Enregistré. Awa l'applique dans la minute." : "Réglages d'origine rétablis.",
+    message: parsed ? "Enregistré. Tamilya l'applique dans la minute." : "Réglages d'origine rétablis.",
   };
 }
 
 /**
- * Essai du brouillon (même non enregistré) : une réponse d'Awa à un message,
+ * Essai du brouillon (même non enregistré) : une réponse de Tamilya à un message,
  * avec le même message système que le chat (cerveau compris, sans mémoire).
  */
 export async function testPersonalityAction(id: unknown, behavior: unknown, message: unknown): Promise<ActionResult> {
@@ -84,7 +84,7 @@ export async function testPersonalityAction(id: unknown, behavior: unknown, mess
     }
   } catch (error) {
     console.error("[admin] Essai de personnalité impossible", error);
-    return { ok: false, message: "Awa n'a pas pu répondre (fournisseur d'IA indisponible ou trop lent)." };
+    return { ok: false, message: "Tamilya n'a pas pu répondre (fournisseur d'IA indisponible ou trop lent)." };
   }
 
   return reply.trim() ? { ok: true, message: reply.trim() } : { ok: false, message: "Réponse vide." };

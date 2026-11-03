@@ -4,7 +4,7 @@ import { voiceSpeakEnd, voiceSpeakStart, voiceWord } from "./voice-level";
 
 /**
  * Voix du chat, entièrement dans le navigateur (Web Speech API) : dictée en
- * français et lecture des réponses d'Awa. Chrome, Edge et Safari ; Firefox
+ * français et lecture des réponses de Tamilya. Chrome, Edge et Safari ; Firefox
  * n'a pas la dictée.
  */
 
@@ -124,7 +124,7 @@ export function speak(text: string, { onWord, onDone }: { onWord?: () => void; o
     done();
     return () => {};
   }
-  // Le globe d'Awa suit la lecture, syllabe par syllabe (voice-level.ts).
+  // Le globe de Tamilya suit la lecture, syllabe par syllabe (voice-level.ts).
   voiceSpeakStart(parts.map((part) => part.text).join(" "));
 
   const french = pickVoice("fr");

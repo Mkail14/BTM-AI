@@ -23,11 +23,11 @@ const SUMMARY = [
 ];
 
 const SECTIONS = [
-  { id: "awa", label: "Awa et GROUPE BTM" },
+  { id: "awa", label: "Tamilya et GROUPE BTM" },
   { id: "messages", label: "Vos messages" },
   { id: "sans-compte", label: "Sans compte" },
   { id: "compte", label: "Avec un compte" },
-  { id: "memoire", label: "La mémoire d'Awa" },
+  { id: "memoire", label: "La mémoire de Tamilya" },
   { id: "shimaore", label: "Le shimaoré" },
   { id: "voix", label: "La voix" },
   { id: "services", label: "Réservations et portefeuille" },
@@ -62,7 +62,7 @@ export default function PrivacyPage() {
     <SimplePage title="Données et confidentialité">
       <div className="space-y-6">
         <p className="text-fg-muted">
-          Awa est une intelligence artificielle faite à Mayotte, pour Mayotte. Une IA à qui l&apos;on parle mérite qu&apos;on
+          Tamilya est une intelligence artificielle faite à Mayotte, pour Mayotte. Une IA à qui l&apos;on parle mérite qu&apos;on
           sache exactement ce qu&apos;elle garde. Cette page le dit simplement, sans jargon, et décrit le fonctionnement réel
           de BTM AI aujourd&apos;hui.
         </p>
@@ -92,9 +92,9 @@ export default function PrivacyPage() {
           </ul>
         </nav>
 
-        <Section id="awa" title="Awa et GROUPE BTM">
+        <Section id="awa" title="Tamilya et GROUPE BTM">
           <p>
-            <span className={strong}>Awa</span> est l&apos;assistante de BTM AI. Elle est née le {AWA_BIRTH_LABEL} et
+            <span className={strong}>Tamilya</span> est l&apos;assistante de BTM AI. Elle est née le {AWA_BIRTH_LABEL} et
             apprend chaque jour à parler shimaoré : notre ambition est qu&apos;elle soit la première IA à vraiment le parler.
           </p>
           <p>
@@ -102,7 +102,7 @@ export default function PrivacyPage() {
             Mayotte), à Mayotte. GROUPE BTM est responsable des données décrites sur cette page.
           </p>
           <p>
-            Awa est une IA : elle peut se tromper. Elle ne remplace ni un médecin, ni un avocat, ni une administration.
+            Tamilya est une IA : elle peut se tromper. Elle ne remplace ni un médecin, ni un avocat, ni une administration.
             Vérifiez toujours les informations importantes.
           </p>
         </Section>
@@ -114,7 +114,7 @@ export default function PrivacyPage() {
             Google les traite selon ses propres conditions, qui peuvent prévoir une conservation temporaire.
           </p>
           <p>
-            Quand vous parlez d&apos;emploi ou d&apos;actualité, Awa lit aussi des sources publiques (offres France
+            Quand vous parlez d&apos;emploi ou d&apos;actualité, Tamilya lit aussi des sources publiques (offres France
             Travail de Mayotte, journaux locaux). Ces recherches ne contiennent aucune information sur vous.
           </p>
           <p className="rounded-xl bg-warning-soft px-3 py-2 text-warning">
@@ -147,7 +147,7 @@ export default function PrivacyPage() {
             items={[
               <>Votre adresse e-mail et le nom que vous choisissez.</>,
               <>
-                Vos conversations (vos messages et les réponses d&apos;Awa), pour les retrouver sur tous vos appareils.
+                Vos conversations (vos messages et les réponses d&apos;Tamilya), pour les retrouver sur tous vos appareils.
                 Elles ne sont lisibles que par votre compte.
               </>,
               <>
@@ -162,9 +162,9 @@ export default function PrivacyPage() {
           />
         </Section>
 
-        <Section id="memoire" title="La mémoire d'Awa">
+        <Section id="memoire" title="La mémoire de Tamilya">
           <p>
-            Avec un compte, Awa retient quelques informations que vous lui donnez sur vous, pour mieux vous répondre la
+            Avec un compte, Tamilya retient quelques informations que vous lui donnez sur vous, pour mieux vous répondre la
             fois suivante : votre prénom, votre commune, votre travail ou votre âge.
           </p>
           <p>
@@ -180,7 +180,7 @@ export default function PrivacyPage() {
 
         <Section id="shimaore" title="Le shimaoré">
           <p>
-            La maîtrise du shimaoré d&apos;Awa est encore en construction : ses réponses dans cette langue peuvent
+            La maîtrise du shimaoré d&apos;Tamilya est encore en construction : ses réponses dans cette langue peuvent
             contenir des erreurs.
           </p>
           <p>
@@ -252,7 +252,7 @@ export default function PrivacyPage() {
               Paramètres
             </Link>{" "}
             pour modifier votre nom ou supprimer votre compte ; la suppression efface vos conversations, la mémoire
-            d&apos;Awa et vos informations.
+            d&apos;Tamilya et vos informations.
           </p>
           <p>
             Pour toute autre demande, contactez GROUPE BTM. Si vous estimez que vos droits ne sont pas respectés, vous

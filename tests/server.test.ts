@@ -121,7 +121,7 @@ describe("message système", () => {
   });
 
   it("applique la personnalité choisie (normale par défaut)", () => {
-    assert.match(buildSystemPrompt(), /Tu es Awa/);
+    assert.match(buildSystemPrompt(), /Tu es Tamilya/);
     assert.match(buildSystemPrompt(), /NORMALE/);
     assert.match(buildSystemPrompt(), /Ton naturel et poli/);
     assert.match(buildSystemPrompt("mechante"), /MÉCHANTE/);

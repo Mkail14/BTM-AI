@@ -71,8 +71,8 @@ function RequestItem({ row, onResult }: { row: WordRequestRow; onResult: (result
 }
 
 /**
- * Mots shimaoré employés par des utilisateurs et qu'Awa n'a pas compris.
- * Une traduction ajoutée ici entre dans le dictionnaire : Awa le sait au message suivant.
+ * Mots shimaoré employés par des utilisateurs et que Tamilya n'a pas compris.
+ * Une traduction ajoutée ici entre dans le dictionnaire : Tamilya le sait au message suivant.
  */
 export function WordRequests({ rows, unavailable }: { rows: WordRequestRow[]; unavailable: boolean }) {
   const [status, setStatus] = useState<ActionResult | null>(null);
@@ -82,7 +82,7 @@ export function WordRequests({ rows, unavailable }: { rows: WordRequestRow[]; un
         <h2 id="requests-title" className="font-semibold">
           À traduire {rows.length > 0 ? <span className="text-accent">({rows.length})</span> : null}
         </h2>
-        <span className="text-xs text-fg-muted">Mots qu&apos;Awa n&apos;a pas compris</span>
+        <span className="text-xs text-fg-muted">Mots qu&apos;Tamilya n&apos;a pas compris</span>
       </div>
       {unavailable ? (
         <p className="mt-3 text-sm text-fg-muted">

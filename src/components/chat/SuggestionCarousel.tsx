@@ -12,7 +12,7 @@ const LEAVE_MS = 450;
 /**
  * Téléphone : les idées de l'accueil, une carte à la fois. Elles changent seules
  * (pause au toucher) ou d'un glissement du doigt ; chaque carte arrive en
- * gélatine (elle s'écrase, s'étire puis se pose). Un appui envoie l'idée à Awa.
+ * gélatine (elle s'écrase, s'étire puis se pose). Un appui envoie l'idée à Tamilya.
  */
 export function SuggestionCarousel({
   items,

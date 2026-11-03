@@ -3,7 +3,7 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
  * Liens coupés depuis le schéma de /admin/circuit (comme dans n8n). Un fil
- * coupé arrête les messages : Awa ne répond plus tant qu'il n'est pas
+ * coupé arrête les messages : Tamilya ne répond plus tant qu'il n'est pas
  * rebranché. Seules les API, qui se relaient, peuvent être coupées une à une :
  * le message passe tant qu'il en reste une branchée.
  */

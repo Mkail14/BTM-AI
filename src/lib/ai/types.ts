@@ -13,7 +13,7 @@ export type AIStreamInput = {
   signal: AbortSignal;
   /** Chaîne de secours : chaque API essayée, avec le code d'erreur si elle a échoué. */
   onAttempt?: (slotId: string, error?: AIErrorCode) => void;
-  /** Réponse d'Awa à une personne (pas une tâche de fond) : rappel d'harmonisation pour les modèles hors référence. */
+  /** Réponse de Tamilya à une personne (pas une tâche de fond) : rappel d'harmonisation pour les modèles hors référence. */
   persona?: boolean;
 };
 

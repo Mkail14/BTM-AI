@@ -14,10 +14,10 @@ import type { ChatTurn } from "@/lib/chat/types";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
- * Awa pour les autres sites de GROUPE BTM (appel de serveur à serveur, par
+ * Tamilya pour les autres sites de GROUPE BTM (appel de serveur à serveur, par
  * exemple la fonction Supabase « assistant » de btm.yt). Même cerveau, même
  * personnalité et mêmes API que le chat de BTM AI ; le site garde ses
- * conversations, Awa ne fait que répondre. Rien n'est enregistré ici.
+ * conversations, Tamilya ne fait que répondre. Rien n'est enregistré ici.
  */
 export const maxDuration = 60;
 
@@ -33,7 +33,7 @@ const requestSchema = z.strictObject({
   data: z.string().max(30_000).optional(),
   page: z.string().max(200).optional(),
   clientName: z.string().max(80).optional(),
-  /** Un conseiller humain a déjà été prévenu : Awa peut seulement annuler la demande. */
+  /** Un conseiller humain a déjà été prévenu : Tamilya peut seulement annuler la demande. */
   waitingForAdvisor: z.boolean().optional(),
 });
 

@@ -17,7 +17,7 @@ const dayShort = new Intl.DateTimeFormat("fr-FR", { weekday: "short", day: "nume
 const clock = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: TZ });
 const hourOf = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", hourCycle: "h23", timeZone: TZ });
 
-/** « Mtsapéré-Mamoudzou » → « mtsapere mamoudzou » : pour retrouver le bureau nommé par Awa. */
+/** « Mtsapéré-Mamoudzou » → « mtsapere mamoudzou » : pour retrouver le bureau nommé par Tamilya. */
 const simplify = (text: string) =>
   text
     .toLowerCase()
@@ -47,7 +47,7 @@ const PERSONA = "var(--persona,var(--accent))";
 
 /**
  * Horaires de l'examen du code (bureaux La Poste de Mayotte), affichés par
- * Awa dans la conversation quand on les lui demande. Une question à la fois :
+ * Tamilya dans la conversation quand on les lui demande. Une question à la fois :
  * la ville, puis le jour, puis l'heure ; les informations du candidat se donnent dans la fenêtre
  * de réservation (BookingDialog). Seules les sessions avec des places sont proposées.
  *
@@ -75,7 +75,7 @@ export function CodeExamSlots({ office: block = "" }: { office?: string }) {
       if (!res.ok) throw new Error(String(res.status));
       const body = (await res.json()) as CodeExamResponse;
       setResponse(body);
-      // Bureau nommé par Awa : ouvert directement (sinon, choix de la ville).
+      // Bureau nommé par Tamilya : ouvert directement (sinon, choix de la ville).
       const wanted = simplify(office);
       const found = wanted && body.ok ? body.centers.find((c) => simplify(c.name).includes(wanted) || wanted.includes(simplify(c.name))) : null;
       if (found) setCenterId(found.id);

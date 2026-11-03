@@ -16,7 +16,7 @@ function textOf(node: ReactNode): string {
   return "";
 }
 
-/** Bloc ```creneaux-code``` écrit par Awa : remplacé par le tableau des créneaux du code. */
+/** Bloc ```creneaux-code``` écrit par Tamilya : remplacé par le tableau des créneaux du code. */
 export const CODE_EXAM_BLOCK = "creneaux-code";
 /** Bloc ```commande-repas``` : remplacé par la commande de repas (FoodOrder). */
 export const FOOD_BLOCK = "commande-repas";
@@ -38,7 +38,7 @@ const components: Components = {
     return <pre>{children}</pre>;
   },
   a: ({ href, title, children }) =>
-    // [[mot]] : mot qu'Awa ne connaît pas encore en shimaoré (voir markUnknownWords).
+    // [[mot]] : mot que Tamilya ne connaît pas encore en shimaoré (voir markUnknownWords).
     href === "#fr" ? (
       <UnknownWord french={textOf(children)}>{children}</UnknownWord>
     ) : (

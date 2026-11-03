@@ -5,7 +5,7 @@ import { requireAdmin } from "@/lib/auth/session";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { MemoryList, type MemoryAccount } from "./MemoryList";
 
-export const metadata: Metadata = { title: "Mémoire d'Awa", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Mémoire de Tamilya", robots: { index: false, follow: false } };
 
 /** Comptes affichés : ceux dont un souvenir a changé le plus récemment. */
 const MAX_ROWS = 300;
@@ -43,12 +43,12 @@ export default async function AdminMemoryPage() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-bg-subtle">
-      <AdminHeader section="Mémoire d'Awa" email={user.email} />
+      <AdminHeader section="Mémoire de Tamilya" email={user.email} />
       <main id="contenu" className="mx-auto w-full max-w-[1600px] flex-1 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <PageIntro title="Mémoire d'Awa">
+        <PageIntro title="Mémoire de Tamilya">
           Ce que les comptes connectés ont dit d&apos;eux-mêmes (prénom, lieu, travail, âge), repéré automatiquement dans
           leurs messages. Tout est vérifié automatiquement : santé, religion, mots de passe, numéros ou consignes ne sont
-          jamais gardés, et Awa oublie seule ce qu&apos;on lui demande d&apos;oublier. Rien à faire ici, sauf effacer un
+          jamais gardés, et Tamilya oublie seule ce qu&apos;on lui demande d&apos;oublier. Rien à faire ici, sauf effacer un
           compte à sa demande.
         </PageIntro>
         {!admin ? (

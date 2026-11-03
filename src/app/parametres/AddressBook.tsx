@@ -27,7 +27,7 @@ export function AddressBook({ home, saved }: { home: AddressDraft | null; saved:
       {editing?.what === "home" ? (
         <AddressForm
           title="🏠 Maison"
-          hint={home ? null : "Ajoute ton adresse : tes livraisons arriveront au bon endroit et Awa saura ce qui est près de chez toi."}
+          hint={home ? null : "Ajoute ton adresse : tes livraisons arriveront au bon endroit et Tamilya saura ce qui est près de chez toi."}
           initial={home ?? EMPTY_ADDRESS}
           onCancel={home ? close : undefined}
           onSave={(address, done) => run(() => saveAddressAction(address), () => (close(), done()))}

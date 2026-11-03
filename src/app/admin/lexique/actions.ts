@@ -117,7 +117,7 @@ const requestSchema = z.object({
   french: z.string().trim().min(1, "Écrivez la traduction en français.").max(WORD_LIMITS.word),
 });
 
-/** Mot shimaoré signalé par Awa : la traduction entre dans le dictionnaire, Awa le saura au message suivant. */
+/** Mot shimaoré signalé par Tamilya : la traduction entre dans le dictionnaire, Tamilya le saura au message suivant. */
 export async function translateRequestAction(input: unknown): Promise<ActionResult> {
   const auth = await requireAdminAction();
   if (!auth) return NOT_ADMIN;
@@ -139,7 +139,7 @@ export async function translateRequestAction(input: unknown): Promise<ActionResu
   }
   const { error } = await auth.supabase.from("awa_word_requests").update({ status: "done" }).eq("id", parsed.data.id);
   if (error) console.error("[admin] Demande non marquée comme traitée", error);
-  return done(`« ${request.shimaore} » = « ${parsed.data.french} » : Awa le sait maintenant.`);
+  return done(`« ${request.shimaore} » = « ${parsed.data.french} » : Tamilya le sait maintenant.`);
 }
 
 /** Mot signalé à tort (faute de frappe, mot français…) : retiré de la liste sans rien apprendre. */
@@ -182,13 +182,13 @@ export async function importWordsAction(input: unknown): Promise<ActionResult> {
   return done(`${words.length} mot${words.length > 1 ? "s" : ""} appris.${skipped}`);
 }
 
-/** Awa propose la branche qui lui manque le plus (bouton « + » de la carte). `avoid` : idées déjà écartées. */
+/** Tamilya propose la branche qui lui manque le plus (bouton « + » de la carte). `avoid` : idées déjà écartées. */
 export async function suggestBranchAction(avoid: unknown): Promise<{ ok: true; suggestion: BranchSuggestion } | { ok: false; message: string }> {
   const auth = await requireAdminAction();
   if (!auth) return { ok: false, message: NOT_ADMIN.message };
   const skip = Array.isArray(avoid) ? avoid.filter((a): a is string => typeof a === "string").slice(0, 10).map((a) => a.slice(0, 30)) : [];
   const suggestion = await suggestBranch(auth.supabase, skip);
-  return suggestion ? { ok: true, suggestion } : { ok: false, message: "Awa n'a pas trouvé d'idée cette fois. Réessaie dans un instant." };
+  return suggestion ? { ok: true, suggestion } : { ok: false, message: "Tamilya n'a pas trouvé d'idée cette fois. Réessaie dans un instant." };
 }
 
 const branchSchema = z.object({

@@ -7,7 +7,7 @@ import { PersonalityPicker } from "./PersonalityPicker";
 
 /**
  * Première connexion d'un compte validé : choix obligatoire de la personnalité
- * d'Awa. S'affiche tant que le serveur indique qu'aucun choix n'a été fait
+ * de Tamilya. S'affiche tant que le serveur indique qu'aucun choix n'a été fait
  * (`personality === null` ; `undefined` = pas encore connu, on n'affiche rien).
  */
 export function PersonalityDialog({ cards }: { cards: PersonalityCard[] }) {
@@ -39,7 +39,7 @@ export function PersonalityDialog({ cards }: { cards: PersonalityCard[] }) {
               Ton compte est prêt ! 🎉
             </h2>
             <p className="mt-2 text-sm text-fg-muted sm:text-base">
-              Je suis Awa. Avant qu&apos;on commence : tu me préfères comment ? Tu pourras changer d&apos;avis à tout
+              Je suis Tamilya. Avant qu&apos;on commence : tu me préfères comment ? Tu pourras changer d&apos;avis à tout
               moment dans les Paramètres.
             </p>
           </div>

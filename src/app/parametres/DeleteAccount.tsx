@@ -7,7 +7,7 @@ import { deleteAccountAction } from "./actions";
 import { DELETE_CONFIRMATION } from "./confirmation";
 
 const LOST = [
-  "Toutes vos conversations avec Awa et leurs messages",
+  "Toutes vos conversations avec Tamilya et leurs messages",
   "Votre profil, votre nom affiché et la personnalité choisie",
   "Votre accès : il faudra créer un nouveau compte pour revenir",
 ];

@@ -1,6 +1,6 @@
 /**
  * Titres de l'historique : le sujet de la conversation en quelques mots,
- * pas le premier message recopié (« coucou awa j'ai trop faim je ve… »).
+ * pas le premier message recopié (« coucou tamilya j'ai trop faim je ve… »).
  */
 
 /** Longueur maximale d'un titre court, en caractères. */
@@ -8,7 +8,7 @@ export const SHORT_TITLE_CHARS = 40;
 
 // Salutations et mots qui n'apportent rien au sujet, retirés en début de message.
 const OPENING =
-  /^(?:(?:coucou|salut|bonjour|bonsoir|hello|hey|yo|wesh|kwezi|jeje|cc|slt|bjr|re)\b|awa\b|chef\b|ma belle\b|toi\b|stp\b|s'il te pla[iî]t\b|svp\b|dis(?:-moi)?\b|alors\b|euh+\b|bon\b|ok\b|[,.!?;:\s-])+/i;
+  /^(?:(?:coucou|salut|bonjour|bonsoir|hello|hey|yo|wesh|kwezi|jeje|cc|slt|bjr|re)\b|awa\b|tamilya\b|chef\b|ma belle\b|toi\b|stp\b|s'il te pla[iî]t\b|svp\b|dis(?:-moi)?\b|alors\b|euh+\b|bon\b|ok\b|[,.!?;:\s-])+/i;
 
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 

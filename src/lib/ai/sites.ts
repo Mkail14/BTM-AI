@@ -1,6 +1,6 @@
 /**
- * Sites de GROUPE BTM où Awa répond en dehors de BTM AI (route /api/awa).
- * C'est la même Awa (cerveau, personnalité, API) : le site ne change que son
+ * Sites de GROUPE BTM où Tamilya répond en dehors de BTM AI (route /api/awa).
+ * C'est la même Tamilya (cerveau, personnalité, API) : le site ne change que son
  * rôle sur place. Les données du site (offres, page…) arrivent dans la requête
  * et sont présentées comme des données, jamais comme des consignes.
  */
@@ -10,7 +10,7 @@ export type SiteId = (typeof SITE_IDS)[number];
 export type SiteAction = "transferer_conseiller" | "annuler_conseiller";
 
 export type SiteDefinition = {
-  /** Où Awa se trouve, en une phrase (remplace la présentation de BTM AI). */
+  /** Où Tamilya se trouve, en une phrase (remplace la présentation de BTM AI). */
   intro: string;
   instructions: string;
 };
@@ -86,14 +86,14 @@ Règles :
   propose le calculateur « Selon mes mesures ».
 - Hors sujet (sans rapport avec le bâtiment ou BTM) : réponds poliment que tu es là pour BTM et ramène la conversation.`;
 
-// En attente d'un conseiller : Awa ne transfère plus, mais peut annuler la demande.
+// En attente d'un conseiller : Tamilya ne transfère plus, mais peut annuler la demande.
 const BTM_BATIMENT_WAITING = `Situation : un conseiller BTM a été prévenu et va rejoindre cette discussion. En attendant, continue d'aider le client normalement (sans redemander de conseiller ni utiliser la balise de transfert : c'est déjà fait).
 Si le client dit qu'il ne veut pas de conseiller, qu'il n'en a plus besoin ou qu'il préfère parler avec toi, ajoute, seule sur la dernière ligne de ta réponse, la balise ${CANCEL_TAG} : sinon le conseiller le dérangera inutilement.`;
 
 export const SITES: Record<SiteId, SiteDefinition> = {
   "btm-batiment": {
     intro:
-      "Tu es {name}, l'assistante créée par GROUPE BTM. Tu es la même Awa que sur BTM AI ; ici, tu réponds aux clients du site btm.yt (BTM Bâtiment & Travaux Mayotte).",
+      "Tu es {name}, l'assistante créée par GROUPE BTM. Tu es la même Tamilya que sur BTM AI ; ici, tu réponds aux clients du site btm.yt (BTM Bâtiment & Travaux Mayotte).",
     instructions: BTM_BATIMENT,
   },
 };
@@ -112,7 +112,7 @@ const TRANSFER_PATTERN = /<<\s*transferer_conseiller\s*:?\s*([^>]*)>>/i;
 const CANCEL_PATTERN = /<<\s*annuler_conseiller\s*>>/i;
 
 /**
- * Sépare le texte montré au client de l'action demandée par Awa. Seule
+ * Sépare le texte montré au client de l'action demandée par Tamilya. Seule
  * l'action permise dans la situation est retenue (transfert hors attente,
  * annulation en attente) ; toute balise est retirée du texte.
  */

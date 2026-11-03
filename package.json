@@ -9,7 +9,10 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "test": "node --conditions=react-server --import tsx --test \"tests/**/*.test.ts\"",
-    "check": "npm run lint && npm run typecheck && npm test"
+    "check": "npm run lint && npm run typecheck && npm test",
+    "db:local": "node --import tsx scripts/db/local.ts",
+    "db:tests-securite": "node --import tsx scripts/db/tests-securite.ts",
+    "db:sauvegarde": "node --import tsx scripts/db/sauvegarde.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^1.3.0",

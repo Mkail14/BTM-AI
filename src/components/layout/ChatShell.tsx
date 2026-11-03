@@ -126,7 +126,7 @@ export function ChatShell({
 }
 
 /**
- * Zone de conversation teintée par la personnalité d'Awa (fond, halo, filet en
+ * Zone de conversation teintée par la personnalité de Tamilya (fond, halo, filet en
  * haut). La barre latérale reste neutre : seule la conversation change d'ambiance.
  */
 function PersonaMain({ children }: { children: ReactNode }) {
@@ -138,6 +138,7 @@ function PersonaMain({ children }: { children: ReactNode }) {
       style={personaStyle(current)}
       className="persona-surface relative flex min-w-0 flex-1 flex-col"
     >
+      <div aria-hidden="true" className="fond-lagon" />
       <div aria-hidden="true" className="persona-line pointer-events-none absolute inset-x-0 top-0 z-20 h-0.5" />
       {children}
       {/* Commande en cours : toujours à portée, sans remonter la conversation. */}

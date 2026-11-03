@@ -13,7 +13,7 @@ type AlertInput = {
   hasSecretKey: boolean;
   hasRateLimitSalt: boolean;
   overview: AdminOverview | null;
-  /** Mots shimaoré qu'Awa n'a pas compris, en attente de traduction (0 si la table manque). */
+  /** Mots shimaoré que Tamilya n'a pas compris, en attente de traduction (0 si la table manque). */
   wordsToTranslate?: number;
   /** Lecture des horaires du code sur le site de La Poste en échec (null : elle fonctionne). */
   codeExamProblem?: string | null;
@@ -109,7 +109,7 @@ export function buildAdminAlerts({
     alerts.push({
       level: "warning",
       title: "Horaires du code de la route illisibles",
-      detail: `${codeExamProblem} Awa renvoie vers le site de La Poste en attendant : le site a sans doute changé, la lecture est à mettre à jour (src/lib/code-exam/laposte.ts).`,
+      detail: `${codeExamProblem} Tamilya renvoie vers le site de La Poste en attendant : le site a sans doute changé, la lecture est à mettre à jour (src/lib/code-exam/laposte.ts).`,
       action: { label: "Voir le site de La Poste", href: "https://www.lecode.laposte.fr/recherche-salle" },
     });
   }
@@ -127,7 +127,7 @@ export function buildAdminAlerts({
     alerts.push({
       level: "info",
       title: `${wordsToTranslate} mot${wordsToTranslate > 1 ? "s" : ""} shimaoré à traduire`,
-      detail: "Des utilisateurs ont employé des mots qu'Awa ne connaît pas. Donnez la traduction : elle les saura au message suivant.",
+      detail: "Des utilisateurs ont employé des mots que Tamilya ne connaît pas. Donnez la traduction : elle les saura au message suivant.",
       action: { label: "Traduire dans le lexique", href: "/admin/lexique" },
     });
   }

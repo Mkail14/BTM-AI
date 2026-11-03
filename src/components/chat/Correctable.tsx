@@ -8,7 +8,7 @@ import type { ActionResult } from "@/lib/admin/action-auth";
 
 export type Correction = { wrote: string; shimaore: string; french: string; context: string };
 
-/** Fourni par le chat au maître d'Awa : enregistre la correction d'un passage d'une réponse. */
+/** Fourni par le chat au maître de Tamilya : enregistre la correction d'un passage d'une réponse. */
 export const CorrectContext = createContext<((messageId: string, correction: Correction) => Promise<ActionResult>) | null>(null);
 
 const MAX = 200;
@@ -35,7 +35,7 @@ function anchorFor(rect: DOMRect): Anchor {
 }
 
 /**
- * Réponse d'Awa que son maître peut corriger : il sélectionne un mot ou un
+ * Réponse de Tamilya que son maître peut corriger : il sélectionne un mot ou un
  * passage (même connu), un bouton « Corriger » apparaît, il donne la bonne
  * façon de le dire, son sens et, si besoin, le contexte où elle s'emploie.
  */
@@ -46,7 +46,7 @@ export function Correctable({
   children,
 }: {
   messageId: string;
-  /** Réponse complète d'Awa et message auquel elle répond : pour retrouver ce qu'elle voulait dire. */
+  /** Réponse complète de Tamilya et message auquel elle répond : pour retrouver ce qu'elle voulait dire. */
   reply: string;
   question?: string;
   children: ReactNode;
@@ -58,7 +58,7 @@ export function Correctable({
   const [form, setForm] = useState<Correction | null>(null);
   const [status, setStatus] = useState<ActionResult | null>(null);
   const [saving, setSaving] = useState(false);
-  // Ce qu'Awa voulait dire en français : montré avant de corriger.
+  // Ce que Tamilya voulait dire en français : montré avant de corriger.
   const [meaning, setMeaning] = useState<
     { state: "loading" } | { state: "done"; french: string; fromLexicon: boolean } | { state: "error"; message: string } | null
   >(null);
@@ -114,7 +114,7 @@ export function Correctable({
     if (text) void explain(text);
   }
 
-  /** Traduit en français ce qu'Awa a écrit ; remplit le champ « Ça veut dire » s'il est vide. */
+  /** Traduit en français ce que Tamilya a écrit ; remplit le champ « Ça veut dire » s'il est vide. */
   async function explain(text: string) {
     const request = ++meaningRequest.current;
     setMeaning({ state: "loading" });
@@ -196,7 +196,7 @@ export function Correctable({
                   </span>
                   <div className="min-w-0 flex-1">
                     <h2 id="correct-title" className="text-lg leading-tight font-semibold">
-                      Corriger Awa
+                      Corriger Tamilya
                     </h2>
                     <p className="mt-0.5 text-sm text-fg-muted">Apprenez-lui la bonne façon de le dire.</p>
                   </div>
@@ -212,14 +212,14 @@ export function Correctable({
 
                 {meaning ? (
                   <div role="status" className="mt-5 rounded-2xl border border-accent/25 bg-accent-soft/60 px-4 py-3">
-                    <p className={`${labelClass} text-accent`}>Awa voulait dire</p>
+                    <p className={`${labelClass} text-accent`}>Tamilya voulait dire</p>
                     {meaning.state === "loading" ? (
                       <p className="mt-1.5 animate-pulse text-sm text-fg-muted">Traduction en cours…</p>
                     ) : meaning.state === "done" ? (
                       <>
                         <p className="mt-1 text-lg leading-snug font-semibold">« {meaning.french} »</p>
                         <p className="mt-1 text-xs text-fg-muted">
-                          {meaning.fromLexicon ? "D'après le lexique d'Awa." : "Deviné d'après la conversation, à vérifier."}
+                          {meaning.fromLexicon ? "D'après le lexique de Tamilya." : "Deviné d'après la conversation, à vérifier."}
                         </p>
                       </>
                     ) : (
@@ -232,7 +232,7 @@ export function Correctable({
                   <div>
                     <div className="flex items-center justify-between gap-2">
                       <label htmlFor="correct-wrote" className={labelClass}>
-                        Ce qu&apos;Awa a écrit
+                        Ce qu&apos;Tamilya a écrit
                       </label>
                       {form.wrote.trim() && meaning?.state !== "loading" ? (
                         <button

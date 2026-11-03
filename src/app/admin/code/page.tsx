@@ -80,7 +80,7 @@ export default async function AdminCodeExamPage({ searchParams }: PageProps<"/ad
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">Code de la route</h1>
-            <p className="mt-1 text-sm text-fg-muted">Demandes de réservation de l&apos;examen faites avec Awa.</p>
+            <p className="mt-1 text-sm text-fg-muted">Demandes de réservation de l&apos;examen faites avec Tamilya.</p>
           </div>
           <a href={LAPOSTE_SEARCH_URL} target="_blank" rel="noopener noreferrer" className="rounded-xl border border-border bg-bg px-3.5 py-2 text-sm font-medium hover:bg-bg-muted">
             Site de La Poste ↗

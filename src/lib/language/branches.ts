@@ -5,8 +5,8 @@ import { completeText } from "@/lib/ai/complete";
 import { normalizeFrench, THEMES, type BranchDef } from "./curriculum";
 
 /**
- * Branches de la carte proposées par Awa (bouton « + » de /admin/lexique).
- * Awa regarde ce qu'elle sait déjà dire, les mots shimaoré qu'on lui a dits
+ * Branches de la carte proposées par Tamilya (bouton « + » de /admin/lexique).
+ * Tamilya regarde ce qu'elle sait déjà dire, les mots shimaoré qu'on lui a dits
  * sans qu'elle les comprenne, et propose le thème qui lui manque le plus.
  */
 
@@ -31,7 +31,7 @@ export function freeHue(branches: readonly BranchDef[]): number {
   return best;
 }
 
-const PROMPT = `Tu es Awa, l'assistante de BTM AI à Mayotte. Tu apprends le shimaoré avec l'équipe de GROUPE BTM.
+const PROMPT = `Tu es Tamilya, l'assistante de BTM AI à Mayotte. Tu apprends le shimaoré avec l'équipe de GROUPE BTM.
 On te montre les thèmes et les mots que tu sais déjà dire, et des mots shimaoré qu'on t'a dits sans que tu les comprennes.
 Propose UNE nouvelle branche de vocabulaire : le sujet de la vie quotidienne à Mayotte qui te manque le plus pour aider les gens (marché, santé, démarches, pêche, école, transport…), absent des thèmes existants.
 
@@ -61,7 +61,7 @@ export function parseSuggestion(output: string, known: ReadonlySet<string>): Bra
   }
 }
 
-/** Demande à Awa la branche qui lui manque le plus. `avoid` : idées déjà refusées à l'instant. */
+/** Demande à Tamilya la branche qui lui manque le plus. `avoid` : idées déjà refusées à l'instant. */
 export async function suggestBranch(supabase: SupabaseClient, avoid: readonly string[] = []): Promise<BranchSuggestion | null> {
   const [words, requests, branches] = await Promise.all([
     supabase.from("awa_words").select("french").eq("is_active", true).limit(3000),

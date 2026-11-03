@@ -52,7 +52,7 @@ export function thinkingSettings(model: string): ThinkingConfig[] {
   return [];
 }
 
-/** Profil d'Awa : flash ou flash-lite stables (ni « preview », ni « pro », ni image ou voix). */
+/** Profil de Tamilya : flash ou flash-lite stables (ni « preview », ni « pro », ni image ou voix). */
 const FALLBACK_MODEL = /^gemini-[\d.]+-flash(-lite)?$/;
 const MAX_MODEL_TRIES = 4;
 const MODELS_CACHE_MS = 60 * 60_000;

@@ -301,3 +301,9 @@ export const IconSpeaker = (p: IconProps) => (
     <path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11" />
   </Icon>
 );
+
+export const IconStar = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="m12 3.5 2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9L12 3.5Z" />
+  </Icon>
+);

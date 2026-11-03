@@ -57,7 +57,7 @@ export function PersonalityPicker({
   return (
     <div className={row ? "space-y-5 sm:space-y-7" : "space-y-5"}>
       <fieldset className={row ? "grid gap-3 sm:gap-4 lg:grid-cols-3 lg:gap-5" : "space-y-3"}>
-        <legend className="sr-only">Personnalité d&apos;Awa</legend>
+        <legend className="sr-only">Personnalité d&apos;Tamilya</legend>
         {cards.map((p) => {
           const look = LOOKS[p.id] ?? FALLBACK_LOOK;
           const checked = selected === p.id;

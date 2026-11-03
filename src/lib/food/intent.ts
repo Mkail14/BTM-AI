@@ -2,7 +2,7 @@ import { DISH_KINDS, matchFoodQuery, normalizeFood } from "./match";
 
 /**
  * La personne veut-elle commander à manger ? Lu par le serveur sur son
- * message, sans attendre le modèle : les petits modèles (et Awa en mode
+ * message, sans attendre le modèle : les petits modèles (et Tamilya en mode
  * maître, qui ne parle que shimaoré) oublient souvent d'ouvrir la commande.
  * Quand c'est oui, le serveur demande le bloc ```commande-repas``` et
  * l'ajoute lui-même si la réponse ne l'a pas.

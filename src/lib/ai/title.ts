@@ -20,7 +20,7 @@ export async function nameConversation(
 ) {
   const raw = await completeText(provider, {
     system: SYSTEM,
-    content: `Message de la personne :\n${message.slice(0, 1500)}\n\nRéponse d'Awa :\n${reply.slice(0, 800)}`,
+    content: `Message de la personne :\n${message.slice(0, 1500)}\n\nRéponse de Tamilya :\n${reply.slice(0, 800)}`,
     maxOutputTokens: 200,
     timeoutMs: 15_000,
   });

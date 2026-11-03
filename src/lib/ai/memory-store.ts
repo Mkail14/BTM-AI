@@ -52,7 +52,7 @@ async function applyMemoryUpdates(supabase: SupabaseClient, userId: string, upda
 
 /**
  * Le modèle du moment lit le message et dit ce qu'il faut retenir ; la mémoire,
- * elle, reste dans Supabase. Changer d'API ne fait donc rien oublier à Awa.
+ * elle, reste dans Supabase. Changer d'API ne fait donc rien oublier à Tamilya.
  * À lancer après la réponse (after) : n'en retarde jamais l'affichage.
  */
 export async function learnFromMessage(

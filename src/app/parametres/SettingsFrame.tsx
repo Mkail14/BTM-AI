@@ -41,7 +41,7 @@ export function SettingsFrame({
               href="/"
               className="rounded-full bg-accent px-3 py-1.5 font-medium text-accent-fg hover:bg-accent-hover"
             >
-              Retour à Awa
+              Retour à Tamilya
             </Link>
           </div>
         </div>

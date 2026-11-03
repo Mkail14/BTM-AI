@@ -133,12 +133,13 @@ export function BookingDialog({ slot, onClose }: { slot: BookingSlot; onClose: (
         // La fenêtre se ferme et une notification animée annonce la bonne nouvelle.
         celebrate({
           emoji: "🚗",
-          title: paid ? "Ta place est bien réservée !" : "Ta réservation est enregistrée !",
-          subtitle: `La Poste de ${slot.centerName} · ${slot.when}${paid ? ` · ${formatEuros(paid)} payés` : ""}`,
+          title: paid ? "Place réservée !" : "Réservation enregistrée !",
+          amount: paid ? `${formatEuros(paid)} payés` : undefined,
+          subtitle: `La Poste de ${slot.centerName} · ${slot.when}`,
           note: paid
             ? payment?.mode === "demo"
-              ? "Démonstration : aucune place prise chez La Poste, aucun e-mail envoyé."
-              : "Ta convocation de La Poste arrive par e-mail."
+              ? "Démo : aucune vraie place prise, aucun e-mail envoyé."
+              : "Ta convocation arrive par e-mail."
             : "GROUPE BTM te recontacte pour confirmer ta place.",
         });
         ref.current?.close();

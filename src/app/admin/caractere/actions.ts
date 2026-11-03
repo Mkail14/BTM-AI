@@ -26,7 +26,7 @@ export async function saveCharacterAction(input: unknown): Promise<ActionResult>
   const { data, error } = await auth.supabase
     .from("awa_settings")
     .update({
-      // Nom fixe : remet « Awa » si une ancienne version l'avait changé.
+      // Nom fixe : remet « Tamilya » si une ancienne version l'avait changé.
       name: AWA_NAME,
       identity: orNull(identity, DEFAULT_IDENTITY),
       rules: orNull(rules, DEFAULT_RULES),
@@ -42,5 +42,5 @@ export async function saveCharacterAction(input: unknown): Promise<ActionResult>
   invalidateAwaBrain();
   revalidatePath("/admin/caractere");
   revalidatePath("/admin/circuit");
-  return { ok: true, message: "Enregistré. Awa l'applique dans la minute." };
+  return { ok: true, message: "Enregistré. Tamilya l'applique dans la minute." };
 }

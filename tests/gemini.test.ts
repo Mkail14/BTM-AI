@@ -30,7 +30,7 @@ describe("Gemini (API native)", () => {
     );
     const chunks = [];
     for await (const chunk of createProvider(config).stream({
-      system: "Tu es Awa.",
+      system: "Tu es Tamilya.",
       messages: [{ role: "user", content: "Salut" }],
       maxOutputTokens: 256,
       signal: new AbortController().signal,
@@ -47,7 +47,7 @@ describe("Gemini (API native)", () => {
     const headers = init.headers as Record<string, string>;
     assert.equal(headers["x-goog-api-key"], "AQ.cle-de-test");
     assert.equal(headers.Authorization, undefined);
-    assert.deepEqual(JSON.parse(init.body as string).systemInstruction, { parts: [{ text: "Tu es Awa." }] });
+    assert.deepEqual(JSON.parse(init.body as string).systemInstruction, { parts: [{ text: "Tu es Tamilya." }] });
   });
 
   it("réduit la réflexion, et retire le réglage si le modèle le refuse", async () => {

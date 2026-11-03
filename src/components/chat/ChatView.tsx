@@ -31,7 +31,7 @@ import { CorrectContext, type Correction } from "./Correctable";
 import { replacePassage } from "@/lib/language/replace-passage";
 import { fillKnownWords, translationTable } from "@/lib/language/unknown-words";
 
-/** Message de l'utilisateur auquel répond la réponse d'Awa n° `index` (aide à comprendre ce qu'elle voulait dire). */
+/** Message de l'utilisateur auquel répond la réponse de Tamilya n° `index` (aide à comprendre ce qu'elle voulait dire). */
 function questionBefore(messages: readonly UiMessage[], index: number): string | undefined {
   for (let i = index - 1; i >= 0; i--) {
     if (messages[i].role === "user") return messages[i].content;
@@ -52,7 +52,7 @@ type ChatViewProps = {
 const GUEST_SENT_KEY = "btm-guest-sent";
 const readGuestSent = () => Number(localStorage.getItem(GUEST_SENT_KEY)) || 0;
 
-/** Idées de questions sur l'écran d'accueil : un clic les envoie à Awa. */
+/** Idées de questions sur l'écran d'accueil : un clic les envoie à Tamilya. */
 /** Cartes de l'accueil : titre, précision, et le message envoyé au clic. */
 const SUGGESTIONS = [
   { emoji: "🚗", title: "Passer le code", hint: "Le bureau le plus proche et ses créneaux", text: "Où passer le code près de chez moi ?" },
@@ -129,7 +129,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   const isHome = initialConversationId === null;
   const userId = user?.id ?? null;
 
-  // Mode vocal du maître d'Awa (administrateur) : il lui parle, elle répond à voix haute.
+  // Mode vocal du maître de Tamilya (administrateur) : il lui parle, elle répond à voix haute.
   const sendRef = useRef<(text: string) => void>(() => {});
   const voice = useVoiceConversation((text) => sendRef.current(text));
   const voiceEnabled = Boolean(user?.isAdmin) && voice.supported;
@@ -274,14 +274,14 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       const assistantId = newId();
       setMessages([...base, userMessage, { id: assistantId, role: "assistant", content: "", status: "streaming" }]);
       setIsStreaming(true);
-      setLiveStatus("Awa rédige une réponse.");
+      setLiveStatus("Tamilya rédige une réponse.");
       stickToBottom.current = true;
 
       const controller = new AbortController();
       abortRef.current = controller;
       let createdConversationId: string | null = null;
       let settled = false;
-      // Ce qu'Awa lira à voix haute en mode vocal : sa réponse, ou le message d'erreur.
+      // Ce que Tamilya lira à voix haute en mode vocal : sa réponse, ou le message d'erreur.
       let reply = "";
 
       const handleEvent = (event: ChatStreamEvent) => {
@@ -353,7 +353,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
           if (error.code === "conversation_too_long") setLimitReached(true);
           if (error.code === "signup_required") {
             setTrialOver(true);
-            openAuthDialog({ mode: "signup", reason: "Tes 5 messages d'essai sont utilisés : crée ton compte gratuit pour continuer avec Awa." });
+            openAuthDialog({ mode: "signup", reason: "Tes 5 messages d'essai sont utilisés : crée ton compte gratuit pour continuer avec Tamilya." });
           }
           updateMessage(assistantId, (m) => ({ ...m, status: "error", notice: error.message }));
           return;
@@ -388,7 +388,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
           }));
         }
         setIsStreaming(false);
-        setLiveStatus("Réponse d’Awa terminée.");
+        setLiveStatus("Réponse de Tamilya terminée.");
         abortRef.current = null;
         if (controller.signal.aborted) stopVoice();
         else voiceReplied(reply);
@@ -539,13 +539,13 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
 
       <div ref={contentRef} className={`flex flex-1 flex-col ${messages.length === 0 ? "min-h-0" : "shrink-0"}`}>
         {messages.length === 0 ? (
-          // Accueil : Awa (globe animé) au centre, suggestions juste au-dessus de la zone de saisie, collée en bas.
+          // Accueil : Tamilya (globe animé) au centre, suggestions juste au-dessus de la zone de saisie, collée en bas.
           <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col px-4 sm:px-6">
             {/* Le haut se resserre sur les petits écrans (le globe disparaît s'il manque de hauteur) au lieu de déborder. */}
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden py-3 text-center sm:py-8">
-              {/* Awa vivante : un clic l'anime puis ouvre la voix (admin) ou la zone de saisie. */}
+              {/* Tamilya vivante : un clic l'anime puis ouvre la voix (admin) ou la zone de saisie. */}
               <AwaBlob
-                label={voiceEnabled ? "Parler à Awa" : "Écrire à Awa"}
+                label={voiceEnabled ? "Parler à Tamilya" : "Écrire à Tamilya"}
                 onActivate={voiceEnabled && !blocked && online ? voice.start : () => composerRef.current?.focus()}
                 // Pendant le mode vocal, ce même globe est au centre de l'écran (morphose) : ici, il s'efface.
                 className={`awa-blob-home shrink-0 [@media(max-height:560px)]:hidden ${voice.state !== "off" ? "is-away" : ""}`}
@@ -555,7 +555,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
                 {user?.displayName ? `, ${user.displayName}` : ""}
               </h1>
               <p className="awa-hello-rise mt-2 max-w-xs text-sm text-fg-muted [animation-delay:120ms] sm:max-w-none sm:text-base">
-                Je suis Awa. Pose-moi ta question, en français ou en shimaoré.
+                Je suis Tamilya. Pose-moi ta question, en français ou en shimaoré.
               </p>
             </div>
 
@@ -666,7 +666,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
               </span>
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">Tu as utilisé tes {CHAT_LIMITS.guestTrialMessages} messages d&apos;essai</p>
-                <p className="mt-0.5 text-sm text-fg-muted">Crée ton compte gratuit pour continuer avec Awa et retrouver tes conversations.</p>
+                <p className="mt-0.5 text-sm text-fg-muted">Crée ton compte gratuit pour continuer avec Tamilya et retrouver tes conversations.</p>
               </div>
               <div className="flex shrink-0 gap-2">
                 <button
@@ -678,7 +678,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
                 </button>
                 <button
                   type="button"
-                  onClick={() => openAuthDialog({ mode: "signup", reason: "Crée ton compte gratuit pour continuer avec Awa." })}
+                  onClick={() => openAuthDialog({ mode: "signup", reason: "Crée ton compte gratuit pour continuer avec Tamilya." })}
                   className="rounded-full bg-[var(--persona,var(--accent))] px-4 py-2 text-sm font-semibold text-white hover:brightness-110"
                 >
                   Créer mon compte
@@ -705,7 +705,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             onSend={(text) => void send(text)}
             onStop={() => abortRef.current?.abort()}
             placeholder="Demande-moi ce que tu veux…"
-            // Conversation vide : des exemples défilent pour montrer ce qu'Awa sait faire ; ensuite, le texte reste fixe.
+            // Conversation vide : des exemples défilent pour montrer ce que Tamilya sait faire ; ensuite, le texte reste fixe.
             examples={messages.length === 0 ? [...(user?.isAdmin ? [FOOD_EXAMPLE] : []), ...EXAMPLES] : undefined}
             leading={<PersonalitySwitcher />}
             trailing={
@@ -714,8 +714,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
                   type="button"
                   onClick={voice.start}
                   disabled={blocked || !online || isStreaming}
-                  aria-label="Parler à Awa"
-                  title="Parler à Awa"
+                  aria-label="Parler à Tamilya"
+                  title="Parler à Tamilya"
                   className="grid size-9 shrink-0 place-items-center rounded-full text-fg-muted transition sm:pointer-coarse:size-10 hover:bg-bg-muted hover:text-fg disabled:opacity-45"
                 >
                   <IconMic />
@@ -728,14 +728,14 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
               Encore {guestLeft} message{guestLeft > 1 ? "s" : ""} sans compte ·{" "}
               <button
                 type="button"
-                onClick={() => openAuthDialog({ mode: "signup", reason: "Crée ton compte gratuit pour parler à Awa sans limite." })}
+                onClick={() => openAuthDialog({ mode: "signup", reason: "Crée ton compte gratuit pour parler à Tamilya sans limite." })}
                 className="font-semibold text-[var(--persona,var(--accent))] hover:underline"
               >
                 Créer mon compte gratuit
               </button>
             </p>
           ) : (
-            <p className="text-center text-[11px] text-fg-muted">Awa peut se tromper. Vérifie les informations importantes.</p>
+            <p className="text-center text-[11px] text-fg-muted">Tamilya peut se tromper. Vérifie les informations importantes.</p>
           )}
         </div>
       </div>

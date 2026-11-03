@@ -17,7 +17,7 @@ const schema = z.object({
 
 /**
  * Clic sur un [[mot]] orange dans le chat : le maître donne la traduction,
- * Awa la garde pour toujours. Mot ou phrase courte → dictionnaire (la nouvelle
+ * Tamilya la garde pour toujours. Mot ou phrase courte → dictionnaire (la nouvelle
  * traduction remplace l'ancienne) ; phrase plus longue → expressions.
  */
 export async function teachUnknownWordAction(input: unknown): Promise<ActionResult> {
@@ -34,7 +34,7 @@ export async function teachUnknownWordAction(input: unknown): Promise<ActionResu
       const { error } = await auth.supabase.from("awa_lexicon").insert({
         french,
         shimaore,
-        validated_by: auth.user.email ?? "Maître d'Awa",
+        validated_by: auth.user.email ?? "Maître de Tamilya",
       });
       if (error) throw error;
     }
@@ -55,10 +55,10 @@ const correctionSchema = z.object({
 });
 
 /**
- * Sélection d'un passage dans une réponse d'Awa : le maître le corrige, même
- * si Awa croit le connaître. Avec un contexte (« à un aîné », « au marché »…),
+ * Sélection d'un passage dans une réponse de Tamilya : le maître le corrige, même
+ * si Tamilya croit le connaître. Avec un contexte (« à un aîné », « au marché »…),
  * la correction s'ajoute aux expressions sans remplacer la traduction
- * générale : Awa choisit selon la situation. Sans contexte, elle remplace
+ * générale : Tamilya choisit selon la situation. Sans contexte, elle remplace
  * la traduction du mot partout.
  */
 export async function correctInContextAction(input: unknown): Promise<ActionResult> {
@@ -76,7 +76,7 @@ export async function correctInContextAction(input: unknown): Promise<ActionResu
         french,
         shimaore,
         context: context || null,
-        validated_by: auth.user.email ?? "Maître d'Awa",
+        validated_by: auth.user.email ?? "Maître de Tamilya",
       });
       if (error) throw error;
     }
@@ -96,12 +96,12 @@ const guessSchema = z.object({
 });
 
 /*
- * Awa apprend encore le shimaoré : le passage peut être faux ou inventé. On
+ * Tamilya apprend encore le shimaoré : le passage peut être faux ou inventé. On
  * demande donc ce qu'elle VOULAIT dire (d'après la question et le reste de sa
  * réponse), pas une traduction mot à mot.
  */
-const GUESS_PROMPT = `Awa est une assistante qui apprend le shimaoré (langue de Mayotte). Dans sa réponse, elle a essayé de dire quelque chose en shimaoré, parfois avec des erreurs ou des mots approximatifs.
-Ta tâche : dire en français ce qu'Awa voulait exprimer avec le passage indiqué. Appuie-toi sur la question de l'utilisateur, le reste de sa réponse et le vocabulaire connu ; ne traduis pas mot à mot si le sens du contexte est plus clair.
+const GUESS_PROMPT = `Tamilya est une assistante qui apprend le shimaoré (langue de Mayotte). Dans sa réponse, elle a essayé de dire quelque chose en shimaoré, parfois avec des erreurs ou des mots approximatifs.
+Ta tâche : dire en français ce que Tamilya voulait exprimer avec le passage indiqué. Appuie-toi sur la question de l'utilisateur, le reste de sa réponse et le vocabulaire connu ; ne traduis pas mot à mot si le sens du contexte est plus clair.
 Réponds uniquement par cette phrase en français, courte et naturelle, sans guillemets ni explication.
 Si c'est vraiment impossible à deviner, réponds seulement « ? ».`;
 
@@ -109,7 +109,7 @@ const normalize = (text: string) => text.toLowerCase().replace(/[«»"“”.,!?
 
 /**
  * Le maître ne connaît pas toujours le sens en français de ce qu'il corrige :
- * Awa le propose, d'après son lexique si le passage y est, sinon par l'IA
+ * Tamilya le propose, d'après son lexique si le passage y est, sinon par l'IA
  * à partir de la phrase où il apparaît. Le maître peut toujours le modifier.
  */
 export async function guessFrenchAction(
@@ -129,7 +129,7 @@ export async function guessFrenchAction(
   }
 
   const ai = await getAIProvider();
-  if (!ai.ok) return { ok: false, message: "Awa ne peut pas deviner pour l'instant : écris le sens toi-même." };
+  if (!ai.ok) return { ok: false, message: "Tamilya ne peut pas deviner pour l'instant : écris le sens toi-même." };
   // Vocabulaire déjà validé : l'IA s'appuie dessus plutôt que de deviner au hasard.
   const vocabulary = wordsFor(brain, `${question} ${shimaore} ${message}`, true)
     .slice(0, 80)
@@ -139,7 +139,7 @@ export async function guessFrenchAction(
     system: vocabulary ? `${GUESS_PROMPT}\n\nVocabulaire connu (shimaoré = français) :\n${vocabulary}` : GUESS_PROMPT,
     content: [
       question ? `Message de l'utilisateur : ${question}` : "",
-      message ? `Réponse complète d'Awa : ${message}` : "",
+      message ? `Réponse complète de Tamilya : ${message}` : "",
       `Passage dont il faut donner le sens en français : ${shimaore}`,
     ]
       .filter(Boolean)
@@ -153,6 +153,6 @@ export async function guessFrenchAction(
   const french = (output.split("\n").find((line) => line.trim()) ?? "")
     .replace(/^[\s«"“]+|[\s»"”]+$/g, "")
     .slice(0, PHRASE_MAX);
-  if (!french || french === "?") return { ok: false, message: "Awa n'a pas trouvé : écris le sens toi-même." };
+  if (!french || french === "?") return { ok: false, message: "Tamilya n'a pas trouvé : écris le sens toi-même." };
   return { ok: true, french, fromLexicon: false };
 }

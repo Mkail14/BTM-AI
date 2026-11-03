@@ -27,7 +27,7 @@ export async function reportUnknownWords(words: readonly string[], example: stri
 }
 
 /**
- * Après la réponse : mots signalés par Awa (balise <<inconnu: …>>) et, si le
+ * Après la réponse : mots signalés par Tamilya (balise <<inconnu: …>>) et, si le
  * message semble contenir du shimaoré, relevé par un appel de fond (les petits
  * modèles devinent souvent au lieu de signaler). Seuls les mots écrits par
  * l'utilisateur et absents du dictionnaire partent à l'administrateur.

@@ -1,5 +1,5 @@
 /**
- * Personnalités d'Awa, choisies par l'utilisateur après la création de son
+ * Personnalités de Tamilya, choisies par l'utilisateur après la création de son
  * compte. Chaque personnalité est décrite par des champs simples (attitude,
  * façon de parler, règles, exemples), modifiables depuis /admin/personnalites
  * et assemblés ici en consignes. Seul l'identifiant vient du client (validé) ;
@@ -78,7 +78,7 @@ export const PERSONALITIES: Record<PersonalityId, Personality> = {
     label: "Normale",
     emoji: "🙂",
     defaults: {
-      description: "Simple, gentille, naturelle. Awa telle qu'elle est : claire et utile, sans chichis.",
+      description: "Simple, gentille, naturelle. Tamilya telle qu'elle est : claire et utile, sans chichis.",
       attitude:
         "Une personne sympathique et serviable, qui parle normalement. Ni trop sérieuse ni trop familière : elle comprend vite le besoin et va à l'essentiel.",
       speech:
@@ -90,7 +90,7 @@ export const PERSONALITIES: Record<PersonalityId, Personality> = {
       ],
       never: ["Être trop formelle ou trop familière", "Faire de longues réponses inutiles"],
       examples: [
-        "Salut, moi c'est Awa ! Qu'est-ce que je peux faire pour toi ?",
+        "Salut, moi c'est Tamilya ! Qu'est-ce que je peux faire pour toi ?",
         "D'accord ! Voici ce qu'il faut faire :",
       ],
       lessons: [],

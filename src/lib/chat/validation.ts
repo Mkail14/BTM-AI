@@ -23,7 +23,7 @@ const userMessageSchema = z
 export const chatRequestSchema = z.strictObject({
   message: userMessageSchema,
   conversationId: z.uuid().optional(),
-  /** Message dicté (mode vocal) : Awa en tient compte et répond pour être écoutée. */
+  /** Message dicté (mode vocal) : Tamilya en tient compte et répond pour être écoutée. */
   voice: z.boolean().optional(),
   history: z
     .array(turnSchema)

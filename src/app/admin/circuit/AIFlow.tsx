@@ -460,7 +460,7 @@ export function AIFlow({
   }
 
   return (
-    <section aria-label="Circuit d'Awa" className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-border">
+    <section aria-label="Circuit de Tamilya" className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-border">
       {/* Suivi en direct, en haut à gauche du canevas */}
       <div
         role="status"

@@ -1,5 +1,5 @@
 /**
- * Programme de shimaoré d'Awa : les mots français essentiels, rangés en thèmes
+ * Programme de shimaoré de Tamilya : les mots français essentiels, rangés en thèmes
  * puis en groupes. Seul le français est écrit ici ; la traduction vient
  * toujours d'un locuteur (dictionnaire awa_words ou expressions awa_lexicon).
  * Une cible peut avoir des synonymes séparés par « | » : le premier s'affiche.
@@ -262,7 +262,7 @@ export type MapNode = {
   learned: number;
   total: number;
   children?: MapNode[];
-  /** Branche proposée par Awa (bouton « + ») : son emoji. */
+  /** Branche proposée par Tamilya (bouton « + ») : son emoji. */
   emoji?: string;
   /** Seulement pour un mot : sa traduction (null = à apprendre) et la catégorie où l'enregistrer. */
   word?: { french: string; shimaore: string | null; category: string; bonus?: boolean; source?: KnownEntry };
@@ -289,7 +289,7 @@ export function nodeRatio(node: MapNode): number {
 /** Catégorie enregistrée dans le dictionnaire pour un groupe : « Thème › Groupe » (40 caractères au plus). */
 export const groupCategory = (theme: Theme, group: Group) => `${theme.label} › ${group.label}`;
 
-/** Toutes les catégories où Awa peut ranger un mot. */
+/** Toutes les catégories où Tamilya peut ranger un mot. */
 export const ALL_GROUP_CATEGORIES = THEMES.flatMap((theme) => theme.groups.map((group) => groupCategory(theme, group)));
 
 const THEME_BY_LABEL = new Map(THEMES.map((theme) => [normalizeFrench(theme.label), theme]));
@@ -335,7 +335,7 @@ const bonusNode = (id: string, hue: number, entry: KnownEntry, category: string)
 });
 
 /**
- * Arbre de la carte : Awa → thèmes → groupes → mots. Une cible est apprise si
+ * Arbre de la carte : Tamilya → thèmes → groupes → mots. Une cible est apprise si
  * un mot du dictionnaire (ou une expression) a ce sens en français, synonymes
  * compris : « Bonjour ! » compte pour « bonjour ». Tout autre mot appris est
  * rangé selon sa catégorie (dans son groupe, ou « En plus » de son thème) ;
@@ -366,7 +366,7 @@ export function buildLexiconTree(entries: readonly KnownEntry[], branches: reado
     ),
   );
 
-  // Mots des branches d'Awa, reconnus de la même façon.
+  // Mots des branches de Tamilya, reconnus de la même façon.
   const branchTargets = branches.map((b) =>
     b.words.map((french) => {
       const key = normalizeFrench(french);
@@ -441,5 +441,5 @@ export function buildLexiconTree(entries: readonly KnownEntry[], branches: reado
     const nodes = toSort.map((entry, i) => bonusNode(`ranger-${i}`, 260, entry, ""));
     themes.push(branch("ranger", "À ranger", 260, paginate("ranger", 260, nodes)));
   }
-  return branch("awa", "Awa", 320, themes);
+  return branch("awa", "Tamilya", 320, themes);
 }

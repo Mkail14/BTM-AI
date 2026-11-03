@@ -46,7 +46,7 @@ export function AddApiDialog({ onClose }: { onClose: () => void }) {
       setList({ state: "ready", models: result.models, freeOnly: result.freeOnly });
       // Premier modèle recommandé disponible (gratuit si le compte n'a pas de crédit), sinon on laisse choisir.
       const usable = (id: string) => result.models.includes(id) && (!result.freeOnly || id.endsWith(":free"));
-      // Sans recommandation dans la liste : le plus récent qui correspond au profil d'Awa (liste triée, donc le dernier).
+      // Sans recommandation dans la liste : le plus récent qui correspond au profil de Tamilya (liste triée, donc le dernier).
       const preferred = preset.preferred ? result.models.filter((id) => preset.preferred!.test(id) && usable(id)).at(-1) : undefined;
       setModel((current) => (usable(current) ? current : (preset.suggested?.find(usable) ?? preferred ?? "")));
     }, 500);
@@ -202,7 +202,7 @@ export function AddApiDialog({ onClose }: { onClose: () => void }) {
                   Choisissez un modèle…
                 </option>
                 {suggested.length > 0 ? (
-                  <optgroup label="Recommandés pour Awa">
+                  <optgroup label="Recommandés pour Tamilya">
                     {suggested.map((id) => (
                       <option key={id} value={id}>
                         {id}
@@ -242,7 +242,7 @@ export function AddApiDialog({ onClose }: { onClose: () => void }) {
                       ? "Compte OpenRouter sans crédit : seuls les modèles « :free » marchent (50 messages par jour)."
                       : preset.id === "openrouter"
                         ? "« anthropic/… » = Claude, « openai/… » = GPT, « google/… » = Gemini : passés par OpenRouter, avec la même clé."
-                        : `✓ ${list.models.length} modèle${list.models.length > 1 ? "s" : ""} trouvé${list.models.length > 1 ? "s" : ""} pour cette clé${preset.preferred ? " ; le plus adapté à Awa est déjà choisi, vous pouvez en changer" : " : choisissez-en un dans la liste"}.`
+                        : `✓ ${list.models.length} modèle${list.models.length > 1 ? "s" : ""} trouvé${list.models.length > 1 ? "s" : ""} pour cette clé${preset.preferred ? " ; le plus adapté à Tamilya est déjà choisi, vous pouvez en changer" : " : choisissez-en un dans la liste"}.`
                     : "Collez d'abord la clé : la liste de ses modèles s'affichera ici."}
             </p>
           </Field>

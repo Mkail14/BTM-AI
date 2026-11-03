@@ -226,7 +226,7 @@ export function WalletView({
                 href="/"
                 className="flex items-center justify-center gap-2 rounded-xl border border-border px-4 py-3 text-sm font-semibold transition hover:bg-bg-muted"
               >
-                <IconMessage width={16} height={16} /> Payer avec Awa
+                <IconMessage width={16} height={16} /> Payer avec Tamilya
               </Link>
             </div>
             {room < WALLET_MIN_TOPUP ? <p className="mt-2 text-center text-xs text-fg-muted">Ton solde est au plafond.</p> : null}
@@ -242,7 +242,7 @@ export function WalletView({
               </span>
             </summary>
             <ul className="mt-2 space-y-1.5 border-l border-border pl-3 leading-relaxed">
-              <li>Il sert à payer tes réservations et commandes faites avec Awa, en un geste.</li>
+              <li>Il sert à payer tes réservations et commandes faites avec Tamilya, en un geste.</li>
               <li>Plafond de {formatEuros(WALLET_MAX_BALANCE)} : en cas de vol de ton compte, la perte reste limitée.</li>
               <li>{demo ? "Démonstration : l'argent est fictif, aucune carte n'est demandée." : "Paiement par Stripe : ta carte n'est jamais enregistrée chez BTM."}</li>
             </ul>

@@ -126,14 +126,14 @@ function EntryDialog({ initial, onClose }: { initial: Draft; onClose: () => void
 
             <div>
               <label htmlFor="fiche-contenu" className={label}>
-                Ce qu&apos;Awa doit savoir
+                Ce qu&apos;Tamilya doit savoir
               </label>
               <textarea
                 id="fiche-contenu"
                 rows={9}
                 value={draft.content}
                 maxLength={KNOWLEDGE_LIMITS.content}
-                placeholder="Les informations vérifiées, telles qu'Awa doit les donner."
+                placeholder="Les informations vérifiées, telles que Tamilya doit les donner."
                 onChange={(e) => set("content", e.target.value)}
                 className={`${inputClass} mt-2 resize-none rounded-2xl bg-bg-subtle`}
               />
@@ -160,14 +160,14 @@ function EntryDialog({ initial, onClose }: { initial: Draft; onClose: () => void
                   ))}
                 </div>
               ) : (
-                <p className="mt-1.5 text-xs text-fg-muted">Si l&apos;un d&apos;eux est dans une question, Awa reçoit la fiche.</p>
+                <p className="mt-1.5 text-xs text-fg-muted">Si l&apos;un d&apos;eux est dans une question, Tamilya reçoit la fiche.</p>
               )}
             </div>
 
             <label className="flex cursor-pointer items-center justify-between gap-4 rounded-2xl bg-bg-subtle px-4 py-3">
               <span>
                 <span className="block text-sm font-medium">Active</span>
-                <span className="block text-xs text-fg-muted">Awa utilise cette fiche</span>
+                <span className="block text-xs text-fg-muted">Tamilya utilise cette fiche</span>
               </span>
               <input
                 type="checkbox"
@@ -287,7 +287,7 @@ export function KnowledgeEditor({ rows }: { rows: KnowledgeRow[] }) {
             <div>
               <p className="font-medium">{rows.length ? "Aucune fiche ne correspond." : "Aucune fiche pour l'instant."}</p>
               <p className="mx-auto mt-1 max-w-sm text-sm text-fg-muted">
-                Une fiche = une information sûre (démarche, lieu, horaire, BTM…). Awa la reçoit quand un de ses mots-clés est
+                Une fiche = une information sûre (démarche, lieu, horaire, BTM…). Tamilya la reçoit quand un de ses mots-clés est
                 dans la question.
               </p>
             </div>

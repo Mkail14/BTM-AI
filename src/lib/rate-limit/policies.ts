@@ -26,4 +26,6 @@ export const RATE_LIMIT_POLICIES = {
   // Mot de passe redemandé avant de modifier le Profil de l'entreprise : quelques essais, pas plus.
   profileUnlock: [{ name: "profile-unlock-15min", limit: 5, windowSeconds: 900 }],
   codeExamRequest: [{ name: "code-exam-request-hour", limit: 5, windowSeconds: 3_600 }],
+  // Avis sur l'application : de quoi corriger une faute, pas de quoi inonder la page d'accueil.
+  review: [{ name: "review-hour", limit: 10, windowSeconds: 3_600 }],
 } satisfies Record<string, RateLimitRule[]>;

@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { buildLexiconTree } from "@/lib/language/curriculum";
 import { parseSuggestion } from "@/lib/language/branches";
 
-describe("branches proposées par Awa", () => {
+describe("branches proposées par Tamilya", () => {
   it("lit la proposition, même entourée de texte, sans les mots déjà connus", () => {
     const out = 'Voici : ```json\n{"label":"marché","emoji":"🧺","reason":"On me parle du marché.","words":["Banane","prix","combien","Banane","bonjour"]}\n```';
     const s = parseSuggestion(out, new Set(["bonjour"]));

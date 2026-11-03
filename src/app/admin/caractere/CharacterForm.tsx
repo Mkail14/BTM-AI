@@ -28,15 +28,15 @@ const GUARANTEES = ["Dit qu'elle est une IA", "Garde ses consignes", "Ne change 
 
 export const sameCharacter = (a: CharacterDraft, b: CharacterDraft) => a.identity === b.identity && a.rules === b.rules;
 
-/** Fiche d'identité d'Awa : fixée par GROUPE BTM, en lecture seule. */
+/** Fiche d'identité de Tamilya : fixée par GROUPE BTM, en lecture seule. */
 function IdentityCard() {
   const facts = ["Fille", `Née le ${AWA_BIRTH_LABEL}`, awaAge(new Date()), "Créée par GROUPE BTM"];
   return (
     <section
-      aria-label="Identité d'Awa"
+      aria-label="Identité de Tamilya"
       className="relative shrink-0 overflow-hidden rounded-2xl border border-border bg-bg p-4 sm:p-5"
     >
-      {/* Halo de la couleur d'Awa, purement décoratif. */}
+      {/* Halo de la couleur de Tamilya, purement décoratif. */}
       <div aria-hidden="true" className="pointer-events-none absolute -top-24 -left-16 size-64 rounded-full bg-accent/15 blur-3xl" />
       <div className="relative flex flex-wrap items-center gap-x-6 gap-y-4">
         <div className="flex min-w-0 items-center gap-4">

@@ -104,7 +104,7 @@ function WordDialog({
               {editing ? "Modifier le mot" : "Ajouter un mot"}
             </h2>
             <p className="mt-0.5 text-sm text-fg-muted">
-              {editing ? "Awa l'utilise dès l'enregistrement." : "Entrée pour ajouter, puis le suivant."}
+              {editing ? "Tamilya l'utilise dès l'enregistrement." : "Entrée pour ajouter, puis le suivant."}
             </p>
           </div>
           <button
@@ -184,7 +184,7 @@ function WordDialog({
               <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl border border-border px-3.5 py-2.5">
                 <span>
                   <span className="block text-sm font-medium">Actif</span>
-                  <span className="block text-xs text-fg-muted">Awa connaît ce mot.</span>
+                  <span className="block text-xs text-fg-muted">Tamilya connaît ce mot.</span>
                 </span>
                 <input
                   type="checkbox"
@@ -380,7 +380,7 @@ function ImportDialog({ categories, onClose }: { categories: string[]; onClose: 
               Fermer
             </button>
             <button type="submit" disabled={pending || words.length === 0} className={primaryButton}>
-              {pending ? "Import…" : "Apprendre à Awa"}
+              {pending ? "Import…" : "Apprendre à Tamilya"}
             </button>
           </div>
         </form>
@@ -418,7 +418,7 @@ export function WordsPanel({ rows, unavailable }: { rows: WordRow[]; unavailable
             Dictionnaire
           </h2>
           <p className="text-xs text-fg-muted">
-            {rows.length} mot{rows.length > 1 ? "s" : ""} · Awa reçoit ceux du message
+            {rows.length} mot{rows.length > 1 ? "s" : ""} · Tamilya reçoit ceux du message
           </p>
         </div>
         <button
@@ -452,7 +452,7 @@ export function WordsPanel({ rows, unavailable }: { rows: WordRow[]; unavailable
           <div>
             <p className="font-medium">Aucun mot pour l&apos;instant</p>
             <p className="mt-1 text-sm text-fg-muted">
-              Collez une liste entière, ou écrivez à Awa dans le chat : « apprends » puis une ligne « bonjour = jéjé » par mot.
+              Collez une liste entière, ou écrivez à Tamilya dans le chat : « apprends » puis une ligne « bonjour = jéjé » par mot.
             </p>
           </div>
         </div>

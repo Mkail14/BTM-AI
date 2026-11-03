@@ -73,7 +73,7 @@ function providerErrorCode(error: unknown): ChatErrorCode {
   }
 }
 
-/** Réponse d'Awa à une leçon de shimaoré : ce qu'elle a retenu, et les lignes qu'elle n'a pas comprises. */
+/** Réponse de Tamilya à une leçon de shimaoré : ce qu'elle a retenu, et les lignes qu'elle n'a pas comprises. */
 function lessonReply({ words, rejected }: WordList): string {
   const lines = [
     words.length === 1 ? "C'est noté ✅ J'ai appris ce mot :" : `C'est noté ✅ J'ai appris ces ${words.length} mots :`,
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
   authTask.catch(() => {});
   aiTask.catch(() => {});
 
-  // 1. Lien coupé sur le schéma de /admin/circuit : le message s'arrête là, Awa ne répond pas.
+  // 1. Lien coupé sur le schéma de /admin/circuit : le message s'arrête là, Tamilya ne répond pas.
   const cuts = await cutsTask;
   const cutAt = flowCutStop(cuts);
   if (cutAt) {
@@ -171,11 +171,11 @@ export async function POST(request: NextRequest) {
         ])
       : null;
   conversationTask?.catch(() => {});
-  // Cerveau d'Awa (Supabase, en cache) : nom, caractère, règles, connaissances, lexique.
+  // Cerveau de Tamilya (Supabase, en cache) : nom, caractère, règles, connaissances, lexique.
   const brainTask = loadAwaBrain();
   brainTask.catch(() => {});
 
-  // Le maître d'Awa (administrateur) lui parle sans quota.
+  // Le maître de Tamilya (administrateur) lui parle sans quota.
   if (!user?.isAdmin) {
     try {
       // Essai sans compte : 5 messages par appareil (30 jours), toutes conversations confondues, puis compte obligatoire.
@@ -222,7 +222,7 @@ export async function POST(request: NextRequest) {
   let userMessageSaved: Promise<unknown> = Promise.resolve();
   // Offres d'emploi et actu de Mayotte, seulement si le message en parle (pas en mode maître : shimaoré seul).
   const liveTask = user?.isAdmin ? Promise.resolve(null) : liveContextFor(body.message);
-  // Adresse du compte : Awa sait ce qui est « près de chez moi » (bureau du code le plus proche…).
+  // Adresse du compte : Tamilya sait ce qui est « près de chez moi » (bureau du code le plus proche…).
   const homeTask =
     user && supabase
       ? getProfileContact(supabase, user.id)
@@ -232,7 +232,7 @@ export async function POST(request: NextRequest) {
           .catch(() => null)
       : Promise.resolve(null);
 
-  // Dossier : ce que la personne a fait sur le site (réservations du code…), pour qu'Awa le remarque d'elle-même.
+  // Dossier : ce que la personne a fait sur le site (réservations du code…), pour que Tamilya le remarque d'elle-même.
   const dossierTask =
     user && supabase
       ? buildDossier(supabase).catch((error: unknown) => {
@@ -242,7 +242,7 @@ export async function POST(request: NextRequest) {
       : Promise.resolve(null);
 
   if (user && supabase) {
-    // Personnalité d'Awa : relue en base, jamais fournie par le client.
+    // Personnalité de Tamilya : relue en base, jamais fournie par le client.
     const personalityTask = getProfile(supabase, user.id).then(
       (profile) => profile.personality,
       (error: unknown) => {
@@ -250,7 +250,7 @@ export async function POST(request: NextRequest) {
         return undefined;
       },
     );
-    // Mémoire d'Awa : ce que la personne dit d'elle (prénom, lieu…) est retenu
+    // Mémoire de Tamilya : ce que la personne dit d'elle (prénom, lieu…) est retenu
     // avant de relire la mémoire, pour être utilisé dès cette réponse.
     const memoriesTask = (async () => {
       await saveMemories(supabase, user.id, extractMemories(body.message));
@@ -344,7 +344,7 @@ export async function POST(request: NextRequest) {
     dossierTask,
   ]);
 
-  // Mode maître (administrateur) : Awa ne parle que shimaoré. Ses anciennes
+  // Mode maître (administrateur) : Tamilya ne parle que shimaoré. Ses anciennes
   // réponses sont nettoyées elles aussi, pour que le modèle ne recopie pas son
   // français, et les [[mots]] traduits depuis sont remplacés par le shimaoré appris.
   const master = Boolean(user?.isAdmin);
@@ -404,7 +404,7 @@ export async function POST(request: NextRequest) {
   // faut retenir de ce message, et c'est Supabase qui le garde. Avec un
   // administrateur, il relève aussi le shimaoré enseigné dans la conversation.
   // Avec le maître, le relevé du shimaoré part tout de suite, en parallèle de la réponse :
-  // les mots retenus s'affichent sous la réponse (« ✓ Retenu »), il sait qu'Awa a appris.
+  // les mots retenus s'affichent sous la réponse (« ✓ Retenu »), il sait que Tamilya a appris.
   let learning: Promise<TaughtWord[]> | null = null;
   if (user && supabase) {
     const previousReply = [...history].reverse().find((turn) => turn.role === "assistant")?.content ?? null;

@@ -67,7 +67,7 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
     items: [
       { label: "Utilisateurs", icon: IconUsers, href: "/admin/utilisateurs" },
       { label: "Code de la route", tab: "Code", icon: IconDocument, href: "/admin/code" },
-      { label: "Circuit d'Awa", tab: "Circuit", icon: IconChip, href: "/admin/circuit" },
+      { label: "Circuit de Tamilya", tab: "Circuit", icon: IconChip, href: "/admin/circuit" },
       { label: "E-mails", icon: IconMail, href: "/admin/emails" },
     ],
   },

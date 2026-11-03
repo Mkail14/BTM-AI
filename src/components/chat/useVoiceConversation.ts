@@ -5,7 +5,7 @@ import { isVoiceSupported, listen, speak, unlockSpeech, type Dictation } from "@
 import { voiceHeard, voiceListenEnd } from "@/lib/chat/voice-level";
 import { stripTranslation } from "@/lib/language/unknown-words";
 
-/** off → listening (on parle) → waiting (Awa répond) → speaking (Awa lit) → listening… */
+/** off → listening (on parle) → waiting (Tamilya répond) → speaking (Tamilya lit) → listening… */
 export type VoiceState = "off" | "listening" | "waiting" | "speaking";
 
 const noSubscribe = () => () => {};
@@ -20,7 +20,7 @@ const VOICE_ERRORS: Record<string, string> = {
 
 /**
  * Mode vocal plein écran, mains libres : la personne parle, le message part
- * quand elle se tait, Awa lit sa réponse puis réécoute, jusqu'à la fermeture.
+ * quand elle se tait, Tamilya lit sa réponse puis réécoute, jusqu'à la fermeture.
  */
 export function useVoiceConversation(onSend: (text: string) => void) {
   const supported = useSyncExternalStore(noSubscribe, isVoiceSupported, () => false);
@@ -28,7 +28,7 @@ export function useVoiceConversation(onSend: (text: string) => void) {
   const [error, setError] = useState<string | null>(null);
   /** Ce que la personne est en train de dire. */
   const [transcript, setTranscript] = useState("");
-  /** Ce qu'Awa lit à voix haute. */
+  /** Ce que Tamilya lit à voix haute. */
   const [reply, setReply] = useState("");
   /** Incrémenté à chaque mot entendu ou prononcé : fait pulser le globe. */
   const [beat, setBeat] = useState(0);
@@ -95,12 +95,12 @@ export function useVoiceConversation(onSend: (text: string) => void) {
     startListening();
   }, [startListening]);
 
-  /** Coupe la parole d'Awa (ou relance l'écoute) pour lui parler tout de suite. */
+  /** Coupe la parole de Tamilya (ou relance l'écoute) pour lui parler tout de suite. */
   const interrupt = useCallback(() => {
     if (active.current) startListening();
   }, [startListening]);
 
-  /** Réponse d'Awa terminée (ou message d'erreur) : elle la lit (sans traduction ajoutée), puis réécoute. */
+  /** Réponse de Tamilya terminée (ou message d'erreur) : elle la lit (sans traduction ajoutée), puis réécoute. */
   const replied = useCallback(
     (answer: string) => {
       if (!active.current) return;

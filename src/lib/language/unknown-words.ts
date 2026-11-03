@@ -1,5 +1,5 @@
 /**
- * Avec son maître, Awa parle shimaoré ; un mot qu'elle ne connaît pas encore,
+ * Avec son maître, Tamilya parle shimaoré ; un mot qu'elle ne connaît pas encore,
  * elle l'écrit en français entre doubles crochets : « Jéjé ! [[marché]] … ».
  * Ces mots s'affichent en couleur : ce sont ceux que le maître doit lui apprendre.
  */

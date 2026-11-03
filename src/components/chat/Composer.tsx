@@ -49,7 +49,7 @@ function RotatingHint({ texts }: { texts: readonly string[] }) {
 }
 
 export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
-  { isStreaming, disabled, disabledReason, onSend, onStop, leading, trailing, placeholder = "Écris à Awa…", examples },
+  { isStreaming, disabled, disabledReason, onSend, onStop, leading, trailing, placeholder = "Écris à Tamilya…", examples },
   ref,
 ) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -107,10 +107,10 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
       // Téléphone : une seule ligne fine (ton, texte, micro, envoi).
       // Ordinateur : carte comme dans les grands assistants, le texte en haut, les outils en dessous.
       // Couleurs de la personnalité (--persona) si elles sont définies, sinon celles du site.
-      className="flex flex-nowrap items-end gap-1 rounded-full border p-1.5 pl-1.5 sm:flex-wrap sm:gap-1.5 sm:rounded-[1.75rem] sm:p-2 border-[var(--persona-border,var(--border))] bg-bg shadow-[0_8px_30px_-12px_rgb(0_0_0/0.25)] transition-[border-color,box-shadow] focus-within:border-[var(--persona,var(--accent))] pointer-fine:focus-within:ring-4 pointer-fine:focus-within:ring-[color-mix(in_srgb,var(--persona,var(--accent))_12%,transparent)]"
+      className="composer flex flex-nowrap items-end gap-1 rounded-full border p-1.5 pl-1.5 sm:flex-wrap sm:gap-1.5 sm:rounded-[1.75rem] sm:p-2 border-[var(--persona-border,var(--border))] bg-bg shadow-[0_8px_30px_-12px_rgb(0_0_0/0.25)] transition-[border-color,box-shadow] focus-within:border-[var(--persona,var(--accent))] pointer-fine:focus-within:ring-4 pointer-fine:focus-within:ring-[color-mix(in_srgb,var(--persona,var(--accent))_12%,transparent)]"
     >
       <label htmlFor="composer" className="sr-only">
-        Message à Awa
+        Message à Tamilya
       </label>
       <div className="relative order-2 min-w-0 flex-1 basis-0 px-1.5 sm:order-first sm:basis-full sm:px-3 sm:pt-1.5">
         {rotating ? <RotatingHint texts={[placeholder, ...examples]} /> : null}

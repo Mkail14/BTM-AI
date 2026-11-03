@@ -6,8 +6,8 @@ import { Feedback, SECONDARY, useSave } from "./ContactForms";
 const ICONS: Record<string, string> = { prenom: "👤", lieu: "🏠", travail: "💼", age: "🎂" };
 
 /**
- * Ce qu'Awa a retenu de toi (prénom, commune, travail…), effaçable un par un
- * ou d'un coup. Awa ne s'en sert que pour mieux te répondre.
+ * Ce que Tamilya a retenu de toi (prénom, commune, travail…), effaçable un par un
+ * ou d'un coup. Tamilya ne s'en sert que pour mieux te répondre.
  */
 export function AwaMemory({ facts }: { facts: { kind: string; content: string }[] }) {
   const { pending, state, run } = useSave();
@@ -16,7 +16,7 @@ export function AwaMemory({ facts }: { facts: { kind: string; content: string }[
     return (
       <div className="space-y-2">
         <p className="rounded-2xl border border-dashed border-border px-4 py-6 text-center text-sm text-fg-muted">
-          Awa n&apos;a encore rien retenu de toi. Dis-lui par exemple ton prénom ou ta commune : elle s&apos;en souviendra.
+          Tamilya n&apos;a encore rien retenu de toi. Dis-lui par exemple ton prénom ou ta commune : elle s&apos;en souviendra.
         </p>
         <Feedback state={state} />
       </div>
@@ -49,7 +49,7 @@ export function AwaMemory({ facts }: { facts: { kind: string; content: string }[
           type="button"
           disabled={pending}
           onClick={() => {
-            if (window.confirm("Faire tout oublier à Awa ? Elle ne se souviendra plus de rien te concernant.")) run(() => forgetMemoryAction());
+            if (window.confirm("Faire tout oublier à Tamilya ? Elle ne se souviendra plus de rien te concernant.")) run(() => forgetMemoryAction());
           }}
           className={`${SECONDARY} text-danger hover:bg-danger-soft`}
         >

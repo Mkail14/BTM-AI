@@ -18,9 +18,9 @@ import type { ApiDetails, FlowEdge, FlowNode } from "./flow";
 
 const CHARACTER_DEFAULTS = { identity: DEFAULT_IDENTITY, rules: DEFAULT_RULES };
 
-export const metadata: Metadata = { title: "Circuit d'Awa", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Circuit de Tamilya", robots: { index: false, follow: false } };
 
-/** Ce que le cerveau d'Awa contient réellement en base (null : illisible). */
+/** Ce que le cerveau de Tamilya contient réellement en base (null : illisible). */
 async function readBrainCounts(admin: SupabaseClient) {
   const [settings, knowledge, lexicon, words] = await Promise.all([
     admin.from("awa_settings").select("name, identity, rules").eq("id", 1).maybeSingle(),
@@ -147,7 +147,7 @@ export default async function AdminCircuitPage() {
   const unplugged: Pick<FlowNode, "status" | "statusLabel" | "reason"> = {
     status: "error",
     statusLabel: "Débranché",
-    reason: "Lien coupé : les messages s'arrêtent ici, Awa ne répond plus.",
+    reason: "Lien coupé : les messages s'arrêtent ici, Tamilya ne répond plus.",
   };
   const unpluggedApi: Pick<FlowNode, "status" | "statusLabel" | "reason"> = {
     status: "off",
@@ -243,10 +243,10 @@ export default async function AdminCircuitPage() {
       id: "output",
       column: 5,
       icon: "reply",
-      title: "Réponse d'Awa",
+      title: "Réponse de Tamilya",
       status: servingIndex >= 0 ? "ok" : "error",
       statusLabel: servingIndex >= 0 ? "Disponible" : "Bloquée",
-      ...(stoppedAt && { reason: "Un lien est coupé : rebranchez-le pour qu'Awa réponde de nouveau." }),
+      ...(stoppedAt && { reason: "Un lien est coupé : rebranchez-le pour que Tamilya réponde de nouveau." }),
     },
   ];
 
@@ -280,9 +280,9 @@ export default async function AdminCircuitPage() {
 
   return (
     <div className="flex min-h-dvh flex-col bg-bg-subtle lg:h-dvh lg:overflow-hidden">
-      <AdminHeader section="Circuit d'Awa" email={user.email} />
+      <AdminHeader section="Circuit de Tamilya" email={user.email} />
       <main id="contenu" className="mx-auto flex w-full max-w-[1600px] min-h-[32rem] flex-1 flex-col p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <h1 className="sr-only">Circuit d&apos;Awa</h1>
+        <h1 className="sr-only">Circuit d&apos;Tamilya</h1>
         <AIFlow nodes={nodes} edges={edges} canAddApi={Boolean(admin) && canEncrypt()} removedApis={removedApis} />
       </main>
     </div>
