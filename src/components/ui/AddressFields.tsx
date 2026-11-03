@@ -18,6 +18,7 @@ export function AddressFields({
   onChange,
   errors,
   inputClass,
+  labelClass = "block text-sm font-medium",
   communes = MAYOTTE_COMMUNES,
   gps = false,
 }: {
@@ -27,6 +28,7 @@ export function AddressFields({
   /** Messages à afficher sous les champs (null : rien à signaler). */
   errors: { commune: string | null; line: string | null };
   inputClass: string;
+  labelClass?: string;
   communes?: readonly string[];
   gps?: boolean;
 }) {
@@ -64,7 +66,7 @@ export function AddressFields({
   return (
     <div className="space-y-3">
       <div>
-        <label htmlFor={`${id}-commune`} className="block text-sm font-medium">
+        <label htmlFor={`${id}-commune`} className={labelClass}>
           Commune
         </label>
         <select
@@ -85,7 +87,7 @@ export function AddressFields({
         {errorLine(errors.commune)}
       </div>
       <div>
-        <label htmlFor={`${id}-line`} className="block text-sm font-medium">
+        <label htmlFor={`${id}-line`} className={labelClass}>
           Adresse exacte
         </label>
         <input

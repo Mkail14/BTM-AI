@@ -5,6 +5,7 @@ import { flushSync } from "react-dom";
 import { ChatView } from "@/components/chat/ChatView";
 import { loadAnonymousDraft } from "@/lib/chat/anonymous-draft";
 import type { PublicReview } from "@/lib/reviews/rules";
+import type { Announcement } from "@/lib/site/announcement-rules";
 import { GuestLanding } from "./GuestLanding";
 
 /** Durée du fondu de la page d'accueil vers la conversation (voir .landing[data-leaving]). */
@@ -19,7 +20,7 @@ type Phase = "landing" | "leaving" | "chat";
  * la conversation. Quand on lui parle, le message part tout de suite et la
  * page d'accueil s'efface en douceur sur la conversation.
  */
-export function GuestHome({ reviews }: { reviews: PublicReview[] }) {
+export function GuestHome({ reviews, announcement }: { reviews: PublicReview[]; announcement: Announcement | null }) {
   const [phase, setPhase] = useState<Phase>("landing");
   const [prompt, setPrompt] = useState<string | null>(null);
   const [hasDraft, setHasDraft] = useState(false);
@@ -79,6 +80,7 @@ export function GuestHome({ reviews }: { reviews: PublicReview[] }) {
       {phase !== "chat" ? (
         <GuestLanding
           reviews={reviews}
+          announcement={announcement}
           leaving={phase === "leaving"}
           hasDraft={hasDraft}
           onStart={(text) => go(text)}

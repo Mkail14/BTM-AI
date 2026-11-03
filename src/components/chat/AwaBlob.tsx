@@ -40,9 +40,9 @@ const rand = (min: number, max: number) => min + Math.random() * (max - min);
 
 /**
  * Tamilya vivante : une goutte qui ne fait jamais deux fois le même mouvement.
- * Sa forme, sa dérive, sa rotation, ses gouttelettes et son cœur (battements
- * irréguliers, parfois doubles) suivent un bruit aléatoire calculé à chaque
- * image, avec de temps en temps un sursaut. Quand Tamilya parle, la goutte suit
+ * Sa forme, sa dérive, sa rotation et ses gouttelettes suivent un bruit
+ * aléatoire calculé à chaque image, avec de temps en temps un sursaut ; son
+ * cœur bat « boum-boum » et la colore à chaque coup. Quand Tamilya parle, la goutte suit
  * sa voix syllabe par syllabe (voice-level.ts) : elle gonfle et s'étire comme
  * une bouche, les gouttelettes s'écartent. Quand la personne parle, elle
  * frémit (elle écoute) ; `busy` : elle réfléchit, plus vive et resserrée.
@@ -92,13 +92,17 @@ export function AwaBlob({
     let t = rand(0, 300);
     let rotation = rand(0, 360);
     let voice = 0;
-    // Cœur : prochain battement à un moment imprévu, parfois double.
-    let nextBeat = last + rand(600, 1600);
+    // Cœur : premier battement peu après l'arrivée.
+    let nextBeat = last + rand(600, 1000);
     let beats: { at: number; strength: number }[] = [];
+    // Couleurs du battement : tournent doucement et sautent à chaque coup, jamais à la même place.
+    let colorTurn = rand(0, 360);
     // Sursaut de temps en temps : la goutte se tend dans une direction.
     let nextJolt = last + rand(2500, 6000);
     let jolt = { at: -1e9, x: 0, y: 0 };
     const dropState = [0, 1, 2].map(() => ({ angle: rand(0, 360), speed: rand(25, 70) * (Math.random() < 0.5 ? -1 : 1), seed: rand(0, 1000) }));
+    // Dernière intensité des couleurs posée : on ne réécrit que si elle change (moins de calcul de style).
+    let lastRainbow = "";
 
     const loop = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000);
@@ -112,12 +116,13 @@ export function AwaBlob({
       const target = voiceLevel();
       voice += (target - voice) * (target > voice ? 0.55 : 0.18);
 
-      // Battements irréguliers.
+      // Cœur : « boum-boum » (un coup fort, un plus léger), à un rythme régulier.
       if (now >= nextBeat) {
-        const strength = rand(0.5, 1);
+        const strength = rand(0.85, 1);
         beats.push({ at: now, strength });
-        if (Math.random() < 0.35) beats.push({ at: now + rand(170, 260), strength: strength * rand(0.4, 0.7) });
-        nextBeat = now + (thinking ? rand(500, 1100) : rand(1100, 2900));
+        colorTurn += rand(70, 150);
+        beats.push({ at: now + rand(230, 270), strength: strength * rand(0.6, 0.75) });
+        nextBeat = now + (thinking ? rand(650, 750) : rand(1050, 1250));
       }
       beats = beats.filter((b) => now - b.at < 700);
       const heart = beats.reduce((max, b) => {
@@ -146,6 +151,16 @@ export function AwaBlob({
       const sy = grow * (1 + voice * 0.12 + joltAmount * 0.08 * Math.abs(jolt.y));
       if (beat.current) beat.current.style.transform = `translate(${tx.toFixed(2)}%, ${ty.toFixed(2)}%) rotate(${tilt.toFixed(2)}deg) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
 
+      // Les couleurs s'allument avec chaque coup du cœur, puis s'effacent.
+      colorTurn += 120 * dt * speed;
+      const rainbow = clamp(heart * 1.2, 0, 1).toFixed(3);
+      if (rainbow !== lastRainbow) {
+        root.current?.style.setProperty("--rainbow", rainbow);
+        lastRainbow = rainbow;
+      }
+      // Couleurs éteintes entre deux battements : leur rotation ne se voit pas, inutile de la poser.
+      if (rainbow !== "0.000") root.current?.style.setProperty("--rainbow-turn", `${(colorTurn % 360).toFixed(1)}deg`);
+
       // Forme : huit rayons qui bougent chacun à leur rythme, plus fort quand elle parle.
       if (body.current) {
         const wobble = 14 + voice * 10 + (thinking ? 4 : 0);
@@ -172,8 +187,20 @@ export function AwaBlob({
 
       frame = requestAnimationFrame(loop);
     };
-    frame = requestAnimationFrame(loop);
-    return () => cancelAnimationFrame(frame);
+    // Hors de l'écran (page défilée plus bas) : l'animation s'arrête, et reprend au retour.
+    const observer = new IntersectionObserver(([entry]) => {
+      cancelAnimationFrame(frame);
+      frame = 0;
+      if (!entry.isIntersecting) return;
+      last = performance.now();
+      frame = requestAnimationFrame(loop);
+    });
+    if (root.current) observer.observe(root.current);
+    else frame = requestAnimationFrame(loop);
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(frame);
+    };
   }, []);
 
   return (

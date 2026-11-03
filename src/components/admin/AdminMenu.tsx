@@ -15,6 +15,7 @@ import {
   IconDocument,
   IconLanguage,
   IconMail,
+  IconMegaphone,
   IconMenu,
   IconSettings,
   IconShield,
@@ -70,6 +71,7 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
       { label: "Code de la route", tab: "Code", icon: IconDocument, href: "/admin/code" },
       { label: "Circuit de Tamilya", tab: "Circuit", icon: IconChip, href: "/admin/circuit" },
       { label: "E-mails", icon: IconMail, href: "/admin/emails" },
+      { label: "Bandeau d'accueil", tab: "Bandeau", icon: IconMegaphone, href: "/admin/bandeau" },
     ],
   },
 ];

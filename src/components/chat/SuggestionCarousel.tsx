@@ -5,14 +5,15 @@ import { useEffect, useRef, useState } from "react";
 export type Suggestion = { emoji: string; title: string; hint: string; text: string };
 
 /** Temps d'affichage de chaque carte. */
-const SHOW_MS = 3800;
+const SHOW_MS = 5000;
 /** Durée de la sortie de l'ancienne carte (doit suivre .gelee-sortie dans globals.css). */
-const LEAVE_MS = 450;
+const LEAVE_MS = 260;
 
 /**
  * Téléphone : les idées de l'accueil, une carte à la fois. Elles changent seules
- * (pause au toucher) ou d'un glissement du doigt ; chaque carte arrive en
- * gélatine (elle s'écrase, s'étire puis se pose). Un appui envoie l'idée à Tamilya.
+ * le temps d'un tour, puis s'arrêtent sur la première (pas de défilement sans fin) ;
+ * un glissement du doigt ou un point permet d'en voir d'autres, et arrête le
+ * défilement seul. Un appui envoie l'idée à Tamilya.
  */
 export function SuggestionCarousel({
   items,
@@ -27,6 +28,8 @@ export function SuggestionCarousel({
   const [leaving, setLeaving] = useState<{ index: number; dir: 1 | -1 } | null>(null);
   const [dir, setDir] = useState<1 | -1>(1);
   const [paused, setPaused] = useState(false);
+  // Défilement seul : un tour au plus, et plus du tout dès qu'on a touché les cartes.
+  const [auto, setAuto] = useState(true);
   const startX = useRef<number | null>(null);
   const swiped = useRef(false);
 
@@ -37,13 +40,16 @@ export function SuggestionCarousel({
   };
   const go = (step: 1 | -1) => show((index + step + items.length) % items.length, step);
 
-  // Défilement automatique, en pause pendant un toucher.
+  // Défilement automatique, en pause pendant un toucher ; il s'arrête en revenant à la première carte.
   useEffect(() => {
-    if (paused || items.length < 2) return;
-    const timer = window.setTimeout(() => go(1), SHOW_MS);
+    if (!auto || paused || items.length < 2) return;
+    const timer = window.setTimeout(() => {
+      if (index === items.length - 1) setAuto(false);
+      go(1);
+    }, SHOW_MS);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- relancé à chaque carte.
-  }, [index, paused, items.length]);
+  }, [index, paused, auto, items.length]);
 
   // L'ancienne carte disparaît une fois sortie.
   useEffect(() => {
@@ -84,6 +90,7 @@ export function SuggestionCarousel({
           setPaused(false);
           if (Math.abs(dx) > 40) {
             swiped.current = true;
+            setAuto(false);
             go(dx < 0 ? 1 : -1);
           }
         }}
@@ -115,16 +122,25 @@ export function SuggestionCarousel({
       </div>
 
       {/* Points : la carte affichée, et un appui pour aller à une autre. */}
-      <div className="mt-2.5 flex justify-center gap-1.5">
+      {/* Point de 6 px dans une zone d'appui de 28 px, assez grande pour le doigt. */}
+      <div className="mt-0.5 -mb-2 flex justify-center">
         {items.map((s, i) => (
           <button
             key={s.title}
             type="button"
             aria-label={`Idée ${i + 1} : ${s.title}`}
             aria-current={i === index || undefined}
-            onClick={() => i !== index && show(i, i > index ? 1 : -1)}
-            className={`h-1.5 rounded-full transition-all duration-300 ${i === index ? "w-5 bg-[var(--persona,var(--accent))]" : "w-1.5 bg-fg-muted/40"}`}
-          />
+            onClick={() => {
+              setAuto(false);
+              if (i !== index) show(i, i > index ? 1 : -1);
+            }}
+            className="grid h-7 place-items-center px-[3px]"
+          >
+            <span
+              aria-hidden="true"
+              className={`h-1.5 rounded-full transition-all duration-300 ${i === index ? "w-5 bg-[var(--persona,var(--accent))]" : "w-1.5 bg-fg-muted/40"}`}
+            />
+          </button>
         ))}
       </div>
     </div>

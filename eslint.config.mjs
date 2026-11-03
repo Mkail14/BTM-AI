@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Bibliothèque de carte copiée telle quelle (fichier minifié, pas notre code).
+    "public/maplibre/**",
   ]),
 ]);
 

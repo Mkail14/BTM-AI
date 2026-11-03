@@ -4,8 +4,10 @@ import { AuthProvider, type AuthUser } from "@/components/auth/AuthProvider";
 import { BRAND } from "@/components/brand/brand";
 import { SplashReady } from "@/components/brand/SplashReady";
 import { SplashScreen } from "@/components/brand/SplashScreen";
+import { HelpBubble } from "@/components/help/HelpBubble";
 import { EnvBadge } from "@/components/layout/EnvBadge";
 import { DialogHost } from "@/components/ui/ConfirmDialog";
+import { ThemeScript } from "@/components/ui/ThemeScript";
 import { getAuthContext } from "@/lib/auth/session";
 import { getProfile } from "@/lib/conversations/repository";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
@@ -56,9 +58,10 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const initialUser = await loadInitialUser();
 
   return (
-    // suppressHydrationWarning : l'écran de lancement pose la classe « chargement » avant l'hydratation.
+    // suppressHydrationWarning : l'écran de lancement (classe « chargement ») et le thème (data-theme) sont posés avant l'hydratation.
     <html lang="fr" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full font-sans">
+        <ThemeScript />
         <SplashScreen />
         <SplashReady />
         <a
@@ -69,6 +72,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         </a>
         <AuthProvider initialUser={initialUser} authAvailable={isSupabaseConfigured}>
           {children}
+          {/* Rond d'aide déplaçable : questions fréquentes, assistant d'aide, e-mail à l'équipe. */}
+          <HelpBubble />
         </AuthProvider>
         <DialogHost />
         <EnvBadge isAdmin={initialUser?.isAdmin ?? false} />

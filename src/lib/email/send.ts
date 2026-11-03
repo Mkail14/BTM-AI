@@ -30,11 +30,12 @@ function getTransporter() {
   return transporter;
 }
 
-export async function sendEmail(to: string, email: RenderedEmail) {
+/** `replyTo` : adresse à qui répondre (message envoyé à l'équipe depuis le rond d'aide). */
+export async function sendEmail(to: string, email: RenderedEmail, { replyTo = EMAIL_FROM_ADDRESS }: { replyTo?: string } = {}) {
   if (!emailConfigured()) throw new Error("Envoi d'e-mails non configuré (SMTP_PASSWORD manquant)");
   await getTransporter().sendMail({
     from: FROM,
-    replyTo: EMAIL_FROM_ADDRESS,
+    replyTo,
     to,
     subject: email.subject,
     html: email.html,

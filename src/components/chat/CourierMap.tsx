@@ -81,7 +81,7 @@ export function CourierMap({ from, to, route, trail, courier, restaurantEmoji, m
       if (cancelled || !frame.current) return;
       // Le travail lourd (tuiles) se fait dans un worker, servi par le site lui-même.
       maplibre.setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
-      const dark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+      const dark = document.documentElement.dataset.theme === "dark";
       const { from: a, to: b } = latest.current;
       created = new maplibre.Map({
         container: frame.current,
@@ -105,7 +105,10 @@ export function CourierMap({ from, to, route, trail, courier, restaurantEmoji, m
         setFree(true);
       });
 
-      new maplibre.Marker({ element: pin("map-pin", `<span class="map-pin-head">${restaurantEmoji}</span><span class="map-pin-tip"></span>`), anchor: "bottom" }).setLngLat(lngLat(a)).addTo(created);
+      const restaurantPin = pin("map-pin", '<span class="map-pin-head"></span><span class="map-pin-tip"></span>');
+      // Emoji posé en texte, jamais en HTML.
+      restaurantPin.querySelector(".map-pin-head")!.textContent = restaurantEmoji;
+      new maplibre.Marker({ element: restaurantPin, anchor: "bottom" }).setLngLat(lngLat(a)).addTo(created);
       new maplibre.Marker({ element: pin("map-pin map-pin-home", '<span class="map-pin-head">🏠</span><span class="map-pin-tip"></span>'), anchor: "bottom" }).setLngLat(lngLat(b)).addTo(created);
       courierEl.current = pin("map-courier", `<span class="map-courier-ring"></span><span class="map-courier-dot">${SCOOTER_SVG}</span>`);
       courierMarker.current = new maplibre.Marker({ element: courierEl.current });

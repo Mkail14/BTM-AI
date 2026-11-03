@@ -28,4 +28,10 @@ export const RATE_LIMIT_POLICIES = {
   codeExamRequest: [{ name: "code-exam-request-hour", limit: 5, windowSeconds: 3_600 }],
   // Avis sur l'application : de quoi corriger une faute, pas de quoi inonder la page d'accueil.
   review: [{ name: "review-hour", limit: 10, windowSeconds: 3_600 }],
+  // Rond d'aide : questions à l'IA d'aide, et messages envoyés à l'équipe par e-mail.
+  helpChat: [
+    { name: "help-chat-min", limit: 6, windowSeconds: 60 },
+    { name: "help-chat-day", limit: 60, windowSeconds: 86_400 },
+  ],
+  helpEmail: [{ name: "help-email-hour", limit: 5, windowSeconds: 3_600 }],
 } satisfies Record<string, RateLimitRule[]>;

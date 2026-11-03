@@ -3,7 +3,6 @@
 import type { AuthError } from "@supabase/supabase-js";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { BrandLogo } from "@/components/brand/BrandLogo";
 import { IconClose } from "@/components/ui/icons";
 import { AddressFields, EMPTY_ADDRESS, type AddressDraft } from "@/components/ui/AddressFields";
 import { PasswordInput } from "@/components/ui/PasswordInput";
@@ -32,9 +31,14 @@ type View = "signin" | "signup" | "confirm";
 type SignedInHandler = (user: AuthUser, next?: string) => void;
 
 const RESEND_COOLDOWN_SECONDS = 60;
-// text-base (16 px) : en dessous, Safari sur iPhone zoome sur le champ touché.
+/*
+ * Champs sobres : blanc à fin contour en clair, verre fumé en sombre, halo rose au
+ * focus, coins peu arrondis. text-base (16 px) au téléphone : en dessous, Safari sur
+ * iPhone zoome sur le champ touché ; 14 px sur ordinateur.
+ */
 const INPUT_CLASS =
-  "w-full rounded-xl border border-border bg-bg px-3.5 py-3 text-base outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 sm:py-2.5";
+  "h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-base outline-none transition-[border-color,box-shadow] placeholder:text-fg-muted/70 focus:border-accent/60 focus:ring-3 focus:ring-accent/15 aria-[invalid=true]:border-danger dark:border-white/10 dark:bg-white/[0.06] sm:text-sm";
+const LABEL_CLASS = "mb-1 block text-xs font-medium text-fg-muted";
 
 function describeAuthError(error: AuthError): string {
   switch (error.code) {
@@ -91,10 +95,21 @@ export function AuthDialog({
       // déplace sur le premier champ du formulaire. Pas sur écran tactile, où
       // le clavier surgirait et masquerait la moitié de la fenêtre.
       if (window.matchMedia("(pointer: fine)").matches) {
-        dialog.querySelector<HTMLElement>("[data-autofocus]")?.focus();
+        dialog.querySelector<HTMLElement>("[data-active] [data-autofocus]")?.focus();
       }
     }
     if (!open && dialog.open) dialog.close();
+  }, [open]);
+
+  // Fenêtre ouverte : la page derrière ne défile pas.
+  useEffect(() => {
+    if (!open) return;
+    const html = document.documentElement;
+    const previous = html.style.overflow;
+    html.style.overflow = "hidden";
+    return () => {
+      html.style.overflow = previous;
+    };
   }, [open]);
 
   return (
@@ -105,9 +120,10 @@ export function AuthDialog({
       onClick={(event) => {
         if (event.target === ref.current) onClose();
       }}
-      // Téléphone : panneau qui monte du bas, pleine largeur. Ordinateur : fenêtre centrée.
-      // Dans les deux cas, la page derrière est assombrie et floutée.
-      className="auth-sheet mx-0 mt-auto mb-0 max-h-[92dvh] w-full max-w-none scrollbar-none overflow-y-auto overscroll-contain rounded-t-3xl border-t border-border bg-bg p-0 pb-[env(safe-area-inset-bottom)] text-fg shadow-2xl backdrop:bg-black/40 backdrop:backdrop-blur-sm sm:m-auto sm:max-h-[calc(100dvh-2rem)] sm:w-[calc(100%-2rem)] sm:max-w-md sm:rounded-2xl sm:border sm:pb-0"
+      // Téléphone : panneau qui monte du bas, pleine largeur. Ordinateur : fenêtre centrée, même
+      // largeur pour la connexion et l'inscription. La page derrière est assombrie et floutée, et
+      // rien ne défile : tout tient sur un écran (inscription en deux colonnes sur ordinateur).
+      className="auth-sheet mx-0 mt-auto mb-0 max-h-dvh w-full max-w-none overflow-y-auto rounded-t-[26px] border-t border-black/5 bg-bg-subtle p-0 pb-[env(safe-area-inset-bottom)] text-fg shadow-2xl backdrop:bg-black/55 backdrop:backdrop-blur-md [scrollbar-width:none] dark:border-white/10 sm:m-auto sm:max-h-[calc(100dvh-3rem)] sm:w-[calc(100%-2rem)] sm:max-w-[460px] sm:rounded-[28px] sm:border sm:pb-0"
     >
       {open ? (
         <AuthPanel
@@ -137,41 +153,123 @@ function AuthPanel({
   onSignedIn: SignedInHandler;
 }) {
   const [view, setView] = useState<View>(options.mode ?? "signin");
+  // Comme sur btm.yt : un écran d'accueil (logo, titre, croquis), puis le formulaire.
+  const [welcome, setWelcome] = useState(authAvailable);
   // L'adresse est partagée entre les écrans : pas besoin de la retaper.
   const [email, setEmail] = useState("");
   const next = options.next ?? "/";
+  const isSignup = view === "signup";
 
   const titles: Record<View, string> = {
-    signin: "Se connecter",
+    signin: "Connexion",
     signup: "Créer un compte",
     confirm: "Confirmez votre adresse e-mail",
   };
 
+  const closeButton = (
+    <button
+      type="button"
+      onClick={onClose}
+      className="absolute top-4 right-4 z-10 grid size-10 place-items-center rounded-full bg-black/[0.05] text-fg transition hover:bg-black/[0.09] dark:bg-white/[0.08] dark:hover:bg-white/[0.13]"
+      aria-label="Fermer"
+    >
+      <IconClose width={16} height={16} />
+    </button>
+  );
+
+  const switchLine = (
+    <p className="text-center text-sm text-fg-muted">
+      {isSignup ? "Déjà un compte ? " : "Pas encore de compte ? "}
+      <button
+        type="button"
+        onClick={() => setView(isSignup ? "signin" : "signup")}
+        className="font-semibold text-accent hover:underline"
+      >
+        {isSignup ? "Se connecter" : "Créer un compte"}
+      </button>
+    </p>
+  );
+
+  if (welcome) {
+    return (
+      // Même taille que la carte de btm.yt : 460 × 780 px sur ordinateur (moins si l'écran est plus bas),
+      // presque tout l'écran sur téléphone.
+      <div className="relative isolate flex min-h-[calc(100dvh-env(safe-area-inset-top)-44px)] flex-col items-center overflow-hidden px-6 pt-9 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center sm:min-h-[min(780px,calc(100dvh-3rem))] sm:px-9 sm:pt-10 sm:pb-8">
+        <LagonSketch />
+        {/* Poignée du panneau, sur téléphone seulement */}
+        <div aria-hidden="true" className="absolute top-2.5 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-fg/15 sm:hidden" />
+        {closeButton}
+        <div className="mt-[clamp(0px,3vh,40px)] flex flex-col items-center gap-[clamp(10px,2.2vh,20px)]">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/icone-192.png"
+            alt=""
+            width={78}
+            height={78}
+            className="size-[clamp(60px,9vh,78px)] rounded-[clamp(18px,2.6vh,24px)] shadow-[0_14px_30px_rgba(17,17,17,0.25)]"
+          />
+          <h2 id={titleId} className="text-[clamp(2.2rem,6.2vh,3.2rem)] leading-[0.95] font-bold tracking-tight">
+            {isSignup ? "Rejoignez" : "Bienvenue sur"}
+            <br />
+            Tamilya
+          </h2>
+        </div>
+        <p className="mt-[clamp(16px,4vh,40px)] text-[15px] leading-relaxed text-fg-muted">
+          Posez vos questions à Tamilya.
+          <br />
+          Retrouvez vos conversations partout.
+        </p>
+        {options.reason ? (
+          <p className="mt-4 w-full rounded-xl border border-border bg-accent-soft px-3.5 py-2.5 text-left text-sm font-medium">
+            {options.reason}
+          </p>
+        ) : null}
+        <div className="mt-auto w-full max-w-[400px] pt-[clamp(14px,3vh,30px)]">
+          <button
+            type="button"
+            onClick={() => setWelcome(false)}
+            className="btn-rose h-11 w-full rounded-full px-5 text-sm font-semibold"
+          >
+            {isSignup ? "S'inscrire avec l'e-mail" : "Continuer avec l'e-mail"}
+          </button>
+        </div>
+        <div className="mt-[clamp(12px,2.4vh,22px)]">{switchLine}</div>
+        <p className="mt-2.5 max-w-[320px] text-xs leading-normal text-fg-muted/80">
+          En continuant, vous acceptez les{" "}
+          <Link href="/confidentialite" target="_blank" className="underline underline-offset-2">
+            règles de confidentialité
+          </Link>{" "}
+          de BTM AI.
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <div className="px-5 pt-3 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:p-6">
+    <div
+      data-view={view}
+      className="relative px-5 pt-[4.5rem] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-9 sm:pt-[4.5rem] sm:pb-8"
+    >
       {/* Poignée du panneau, sur téléphone seulement */}
-      <div aria-hidden="true" className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-border sm:hidden" />
-      <div className="flex items-center justify-between gap-4">
-        <BrandLogo size="sm" />
+      <div aria-hidden="true" className="absolute top-2.5 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-fg/15 sm:hidden" />
+      {authAvailable && view !== "confirm" ? (
         <button
           type="button"
-          onClick={onClose}
-          className="-m-2 grid size-11 place-items-center rounded-full text-fg-muted hover:bg-bg-muted hover:text-fg sm:size-9 sm:rounded-lg"
-          aria-label="Fermer"
+          onClick={() => setWelcome(true)}
+          className="absolute top-4 left-4 z-10 inline-flex h-10 items-center gap-1.5 rounded-full bg-black/[0.05] pr-4 pl-3 text-sm font-semibold transition hover:bg-black/[0.09] dark:bg-white/[0.08] dark:hover:bg-white/[0.13]"
         >
-          <IconClose />
+          <span aria-hidden="true" className="text-base leading-none">‹</span> Autres options
         </button>
-      </div>
+      ) : null}
+      {closeButton}
 
-      <h2 id={titleId} className="mt-4 text-2xl font-semibold tracking-tight sm:text-xl">
+      <h2 id={titleId} className="text-[1.9rem] leading-tight font-bold tracking-tight">
         {titles[view]}
       </h2>
       {view !== "confirm" ? (
-        <p className="mt-1.5 text-sm text-fg-muted">
+        <p className="mt-1 text-sm leading-snug text-fg-muted">
           {options.reason ??
-            (view === "signup"
-              ? "Gratuit. Enregistrez vos conversations et retrouvez-les sur tous vos appareils."
-              : "Retrouvez vos conversations enregistrées.")}
+            (isSignup ? "Gratuit. Retrouvez vos conversations sur tous vos appareils." : "Retrouvez vos conversations avec Tamilya.")}
         </p>
       ) : null}
 
@@ -188,47 +286,112 @@ function AuthPanel({
         />
       ) : (
         <>
-          <div className="mt-5 grid grid-cols-2 rounded-xl bg-bg-muted p-1 text-sm" role="group" aria-label="Type de formulaire">
-            {(["signin", "signup"] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={view === value}
-                onClick={() => setView(value)}
-                className={`rounded-lg px-3 py-2.5 font-medium transition-colors sm:py-1.5 ${
-                  view === value ? "bg-bg text-fg shadow-sm" : "text-fg-muted hover:text-fg"
-                }`}
-              >
-                {value === "signin" ? "Connexion" : "Inscription"}
-              </button>
-            ))}
+          {/*
+           * Les deux formulaires restent montés (ce qu'on y a tapé est gardé), mais seul celui
+           * affiché prend de la place : la connexion, courte, ne laisse plus de grand vide.
+           */}
+          <div>
+            {(["signin", "signup"] as const).map((value) => {
+              const active = view === value;
+              return (
+                <div
+                  key={value}
+                  data-active={active || undefined}
+                  inert={!active}
+                  className={active ? "flex flex-col" : "hidden"}
+                >
+                  {value === "signin" ? (
+                    <SignInForm email={email} onEmailChange={setEmail} next={next} onClose={onClose} onSignedIn={onSignedIn} />
+                  ) : (
+                    <SignUpForm
+                      email={email}
+                      onEmailChange={setEmail}
+                      next={next}
+                      onClose={onClose}
+                      onSignedIn={onSignedIn}
+                      onConfirmationSent={() => setView("confirm")}
+                      onGoToSignIn={() => setView("signin")}
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
-
-          {view === "signin" ? (
-            <SignInForm email={email} onEmailChange={setEmail} next={next} onClose={onClose} onSignedIn={onSignedIn} />
-          ) : (
-            <SignUpForm
-              email={email}
-              onEmailChange={setEmail}
-              next={next}
-              onClose={onClose}
-              onSignedIn={onSignedIn}
-              onConfirmationSent={() => setView("confirm")}
-              onGoToSignIn={() => setView("signin")}
-            />
-          )}
+          <div className="mt-6">{switchLine}</div>
         </>
       )}
     </div>
   );
 }
 
-function Field({ id, label, hint, children }: { id: string; label: string; hint?: ReactNode; children: ReactNode }) {
+// Courbes du fond « lagon » de Tamilya (public/fond/lagon.svg), lues une fois puis gardées.
+let lagonCurves: Promise<string[]> | null = null;
+function loadLagonCurves() {
+  lagonCurves ??= fetch("/fond/lagon.svg")
+    .then((response) => response.text())
+    .then((svg) => (svg.match(/ d="([^"]+)"/)?.[1] ?? "").split(/(?=M)/).filter(Boolean))
+    .catch(() => []);
+  return lagonCurves;
+}
+
+/**
+ * Fond de l'accueil : les courbes du lagon de Tamilya, qui se dessinent une à une
+ * à chaque ouverture de la fenêtre (chaque courbe est un tracé à part).
+ */
+function LagonSketch() {
+  const gradientId = useId();
+  const [curves, setCurves] = useState<string[]>([]);
+  useEffect(() => {
+    let alive = true;
+    void loadLagonCurves().then((list) => {
+      if (alive) setCurves(list);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   return (
-    <div>
-      <label htmlFor={id} className="block text-sm font-medium">
+    <svg
+      className="auth-lagon"
+      viewBox="0 0 640 640"
+      preserveAspectRatio="xMidYMid slice"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <defs>
+        <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="15%" style={{ stopColor: "var(--persona, var(--accent))" }} />
+          <stop offset="100%" style={{ stopColor: "color-mix(in oklab, var(--persona, var(--accent)) 40%, var(--lagon))" }} />
+        </linearGradient>
+      </defs>
+      <g stroke={`url(#${gradientId})`}>
+        {curves.map((d, index) => (
+          <path key={index} d={d} pathLength={1} style={{ animationDelay: `${(index % 15) * 60}ms` }} />
+        ))}
+      </g>
+    </svg>
+  );
+}
+
+function Field({
+  id,
+  label,
+  hint,
+  className,
+  children,
+}: {
+  id: string;
+  label: string;
+  hint?: ReactNode;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={className}>
+      <label htmlFor={id} className={LABEL_CLASS}>
         {label}
-        {hint ? <span className="ml-1 font-normal text-fg-muted">{hint}</span> : null}
+        {hint ? <span className="ml-1 font-normal">{hint}</span> : null}
       </label>
       {children}
     </div>
@@ -237,18 +400,19 @@ function Field({ id, label, hint, children }: { id: string; label: string; hint?
 
 function ErrorMessage({ children }: { children: ReactNode }) {
   return (
-    <div role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">
+    <div role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-[13px] leading-snug text-danger">
       {children}
     </div>
   );
 }
 
+/** Bouton rose plein du site (.btn-rose). */
 function SubmitButton({ pending, label }: { pending: boolean; label: string }) {
   return (
     <button
       type="submit"
       disabled={pending}
-      className="mt-2 w-full rounded-xl bg-accent px-4 py-3.5 text-base font-semibold text-accent-fg transition hover:bg-accent-hover active:scale-[0.99] disabled:opacity-60 sm:py-2.5 sm:text-sm"
+      className="btn-rose mt-1 h-12 w-full rounded-full px-5 text-sm font-semibold"
     >
       {pending ? "Veuillez patienter…" : label}
     </button>
@@ -305,7 +469,7 @@ function SignInForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-5 space-y-4 sm:mt-4 sm:space-y-3">
+    <form onSubmit={handleSubmit} className="mt-4 flex flex-1 flex-col gap-3">
       <Field id="signin-email" label="Adresse e-mail">
         <input
           id="signin-email"
@@ -316,18 +480,18 @@ function SignInForm({
           inputMode="email"
           value={email}
           onChange={(e) => onEmailChange(e.target.value)}
-          className={`mt-1.5 ${INPUT_CLASS}`}
+          className={INPUT_CLASS}
         />
       </Field>
       <div>
         <div className="flex items-baseline justify-between gap-3">
-          <label htmlFor="signin-password" className="block text-sm font-medium">
+          <label htmlFor="signin-password" className={LABEL_CLASS}>
             Mot de passe
           </label>
           <Link
             href="/auth/mot-de-passe-oublie"
             onClick={onClose}
-            className="-my-2 py-2 text-sm text-accent underline-offset-2 hover:underline"
+            className="-my-2 py-2 pr-1 text-xs font-medium text-accent underline-offset-2 hover:underline"
           >
             Mot de passe oublié ?
           </Link>
@@ -355,7 +519,9 @@ function SignInForm({
         </ErrorMessage>
       ) : null}
 
-      <SubmitButton pending={pending} label="Se connecter" />
+      <div className="pt-1">
+        <SubmitButton pending={pending} label="Se connecter" />
+      </div>
     </form>
   );
 }
@@ -456,8 +622,14 @@ function SignUpForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="mt-5 space-y-4 sm:mt-4 sm:space-y-3" noValidate>
-      <Field id="signup-name" label="Comment souhaitez-vous qu'on vous appelle ?">
+    // Ordinateur : deux colonnes (nom | e-mail, commune | adresse, puis mot de passe sur toute la largeur).
+    // Écran peu haut : espacements resserrés, pour que tout tienne sans défiler.
+    <form
+      onSubmit={handleSubmit}
+      className="mt-4 space-y-3 sm:grid sm:grid-cols-2 sm:gap-x-3 sm:gap-y-3 sm:space-y-0 [@media(max-height:700px)]:mt-3 [@media(max-height:700px)]:space-y-2"
+      noValidate
+    >
+      <Field id="signup-name" label="Votre prénom">
         <input
           id="signup-name"
           data-autofocus
@@ -468,7 +640,7 @@ function SignUpForm({
           maxLength={MAX_DISPLAY_NAME_LENGTH}
           value={displayName}
           onChange={(e) => setDisplayName(e.target.value)}
-          className={`mt-1.5 ${INPUT_CLASS}`}
+          className={INPUT_CLASS}
         />
       </Field>
 
@@ -482,14 +654,14 @@ function SignUpForm({
           value={email}
           onChange={(e) => onEmailChange(e.target.value)}
           aria-describedby={suggestion ? "signup-email-suggestion" : undefined}
-          className={`mt-1.5 ${INPUT_CLASS}`}
+          className={INPUT_CLASS}
         />
         {disposable ? (
-          <p className="mt-1.5 text-sm text-danger" aria-live="polite">
+          <p className="mt-1 pl-1 text-xs text-danger" aria-live="polite">
             {DISPOSABLE_EMAIL_MESSAGE}
           </p>
         ) : suggestion ? (
-          <p id="signup-email-suggestion" className="mt-1.5 text-sm text-fg-muted" aria-live="polite">
+          <p id="signup-email-suggestion" className="mt-1 pl-1 text-xs text-fg-muted" aria-live="polite">
             Vouliez-vous dire{" "}
             <button
               type="button"
@@ -503,23 +675,22 @@ function SignUpForm({
         ) : null}
       </Field>
 
-      <fieldset>
-        <legend className="text-sm font-medium">Votre adresse</legend>
-        <p className="mt-0.5 mb-2 text-xs text-fg-muted">
-          Elle sert aux services BTM (livraisons…). Pas d&apos;inquiétude si elle n&apos;est pas parfaite : elle vous sera
-          redemandée à chaque livraison, avec la possibilité de la corriger ou d&apos;utiliser votre position.
-        </p>
+      {/* Commune et adresse côte à côte, même sur téléphone. Elle sert aux services BTM (livraisons…)
+          et sera redemandée, corrigeable, à chaque livraison. */}
+      <fieldset className="sm:col-span-2 [&>div]:grid [&>div]:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] [&>div]:gap-3 [&>div]:space-y-0">
+        <legend className="sr-only">Votre adresse, pour les livraisons BTM</legend>
         <AddressFields
           id="signup-address"
           value={address}
           onChange={setAddress}
           errors={submitted ? addressErrors : { commune: null, line: null }}
-          inputClass={`mt-1.5 ${INPUT_CLASS}`}
+          inputClass={`${INPUT_CLASS} truncate`}
+          labelClass={LABEL_CLASS}
         />
       </fieldset>
 
-      <div>
-        <label htmlFor="signup-password" className="block text-sm font-medium">
+      <div className="sm:col-span-2">
+        <label htmlFor="signup-password" className={LABEL_CLASS}>
           Mot de passe
         </label>
         <PasswordInput
@@ -532,7 +703,11 @@ function SignUpForm({
           aria-invalid={submitted && !passwordOk ? true : undefined}
           className={INPUT_CLASS}
         />
-        <ul id="signup-password-rules" className="mt-2 grid grid-cols-1 gap-1 text-xs sm:grid-cols-2">
+        {/* Règles affichées dès qu'on tape (ou après un essai) : la fenêtre reste courte tant que le champ est vide. */}
+        <ul
+          id="signup-password-rules"
+          className={`mt-1.5 grid grid-cols-2 gap-x-3 gap-y-0.5 pl-1 text-[11px] ${password || submitted ? "" : "sr-only"}`}
+        >
           {checks.map((check) => (
             <li
               key={check.id}
@@ -550,13 +725,13 @@ function SignUpForm({
         </ul>
       </div>
 
-      <label className="flex cursor-pointer items-start gap-3 py-1 text-sm">
+      <label className="flex cursor-pointer items-start gap-2.5 pl-1 text-xs leading-snug sm:col-span-2">
         <input
           type="checkbox"
           checked={consent}
           onChange={(e) => setConsent(e.target.checked)}
           aria-invalid={submitted && !consent ? true : undefined}
-          className="mt-0.5 size-5 shrink-0 accent-[var(--accent)] sm:size-4"
+          className="size-4 shrink-0 accent-[var(--accent)]"
         />
         <span className="text-fg-muted">
           J&apos;ai lu et j&apos;accepte les{" "}
@@ -573,22 +748,26 @@ function SignUpForm({
       </label>
 
       {error ? (
-        <ErrorMessage>
-          {error.message}
-          {error.showSignIn ? (
-            <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-medium">
-              <button type="button" onClick={onGoToSignIn} className="underline underline-offset-2">
-                Se connecter
-              </button>
-              <Link href="/auth/mot-de-passe-oublie" onClick={onClose} className="underline underline-offset-2">
-                Mot de passe oublié
-              </Link>
-            </div>
-          ) : null}
-        </ErrorMessage>
+        <div className="sm:col-span-2">
+          <ErrorMessage>
+            {error.message}
+            {error.showSignIn ? (
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 font-medium">
+                <button type="button" onClick={onGoToSignIn} className="underline underline-offset-2">
+                  Se connecter
+                </button>
+                <Link href="/auth/mot-de-passe-oublie" onClick={onClose} className="underline underline-offset-2">
+                  Mot de passe oublié
+                </Link>
+              </div>
+            ) : null}
+          </ErrorMessage>
+        </div>
       ) : null}
 
-      <SubmitButton pending={pending} label="Créer mon compte" />
+      <div className="sm:col-span-2">
+        <SubmitButton pending={pending} label="Créer mon compte" />
+      </div>
     </form>
   );
 }
@@ -684,7 +863,7 @@ function ResendConfirmation({
       className={
         variant === "link"
           ? `font-medium disabled:cursor-default ${status === "error" ? "text-danger" : "text-fg-muted hover:text-fg"} disabled:hover:text-fg-muted`
-          : "rounded-lg bg-accent px-3 py-1.5 font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-50"
+          : "btn-rose rounded-md px-3 py-1.5 text-xs font-medium"
       }
     >
       {label}
