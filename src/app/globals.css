@@ -2547,62 +2547,43 @@ html:has(.ecran-fixe) body {
 }
 
 /*
- * Bouton « Crème » : la crème de la marque (BRAND.colors.cream), texte encre,
- * filet fin un ton plus foncé. Mat et plein : ni dégradé, ni halo, ni reflet.
- * Le rose reste pour les accents (mot « shimaoré », liens).
+ * Bouton principal : rose plein de la personnalité, texte blanc, un peu plus
+ * lumineux au survol (le style d'origine de Tamilya).
  * --icon : version ronde (envoi du message, initiale d'un avis).
  */
 /* Couche « components » : les classes Tailwind (absolute, tailles…) passent devant. */
 @layer components {
-  .btn-creme {
+  .btn-rose {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: #111111;
-    background: #f5ead9;
-    border: 1px solid #e6d6bd;
+    color: #fff;
+    background: var(--persona, var(--accent));
     transition:
-      background-color 180ms ease,
-      border-color 180ms ease,
+      filter 150ms ease,
       transform 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
-  .btn-creme:hover:not(:disabled) {
-    background: #efdfc5;
-    border-color: #dcc8a8;
+  .btn-rose:hover:not(:disabled) {
+    filter: brightness(1.1);
   }
 
-  .btn-creme:active:not(:disabled) {
+  .btn-rose:active:not(:disabled) {
     transform: scale(0.98);
   }
 
-  .btn-creme:focus-visible {
-    outline: 2px solid #111111;
+  .btn-rose:focus-visible {
+    outline: 2px solid var(--persona, var(--accent));
     outline-offset: 2px;
   }
 
-  .btn-creme:disabled {
+  .btn-rose:disabled {
     cursor: default;
-    opacity: 0.5;
+    opacity: 0.4;
   }
 
-  .btn-creme--icon {
+  .btn-rose--icon {
     border-radius: 999px;
-  }
-
-  @media (prefers-color-scheme: dark) {
-    .btn-creme {
-      color: #f5ead9;
-      background: #2a2520;
-      border-color: #3d3530;
-    }
-    .btn-creme:hover:not(:disabled) {
-      background: #342d27;
-      border-color: #4a4038;
-    }
-    .btn-creme:focus-visible {
-      outline-color: #f5ead9;
-    }
   }
 }
 
