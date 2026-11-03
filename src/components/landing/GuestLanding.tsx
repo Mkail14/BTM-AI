@@ -169,7 +169,7 @@ export function GuestLanding({
             >
               Se connecter
             </button>
-            <button type="button" onClick={signUp} className="btn-rose rounded-full px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap sm:px-4">
+            <button type="button" onClick={signUp} className="btn-creme rounded-full px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap sm:px-4">
               Créer un compte
             </button>
           </div>
@@ -220,7 +220,7 @@ export function GuestLanding({
                 type="submit"
                 disabled={!text.trim() || leaving}
                 aria-label="Parler à Tamilya"
-                className="btn-rose btn-rose--icon absolute top-1/2 right-1.5 size-8 -translate-y-1/2"
+                className="btn-creme btn-creme--icon absolute top-1/2 right-1.5 size-8 -translate-y-1/2"
               >
                 <IconSend width={16} height={16} />
               </button>
@@ -284,7 +284,7 @@ export function GuestLanding({
                   </span>
                 </div>
               ) : null}
-              <button type="button" onClick={giveReview} className="btn-rose mt-7 rounded-full px-5 py-2.5 text-sm font-semibold">
+              <button type="button" onClick={giveReview} className="btn-creme mt-7 rounded-full px-5 py-2.5 text-sm font-semibold">
                 Donner mon avis
               </button>
             </Reveal>

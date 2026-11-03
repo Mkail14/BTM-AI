@@ -2547,71 +2547,61 @@ html:has(.ecran-fixe) body {
 }
 
 /*
- * Bouton « Glass Rose » : une vitre à peine teintée de la couleur de la
- * personnalité. Fond très transparent et flouté, filet clair net, un seul
- * reflet fin sur l'arête du haut. Ni dégradé, ni halo coloré, ni relief :
- * le texte rose profond porte la couleur.
+ * Bouton « Crème » : la crème de la marque (BRAND.colors.cream), texte encre,
+ * filet fin un ton plus foncé. Mat et plein : ni dégradé, ni halo, ni reflet.
+ * Le rose reste pour les accents (mot « shimaoré », liens).
  * --icon : version ronde (envoi du message, initiale d'un avis).
  */
 /* Couche « components » : les classes Tailwind (absolute, tailles…) passent devant. */
 @layer components {
-  .btn-rose {
-    --rose: var(--persona, var(--accent));
-    position: relative;
+  .btn-creme {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    color: color-mix(in oklab, var(--rose) 84%, #12060a);
-    background: color-mix(in oklab, var(--rose) 8%, rgb(255 255 255 / 0.4));
-    border: 1px solid color-mix(in oklab, var(--rose) 22%, rgb(255 255 255 / 0.55));
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.95),
-      0 1px 2px rgb(16 24 40 / 0.05);
-    backdrop-filter: blur(16px) saturate(1.8);
-    -webkit-backdrop-filter: blur(16px) saturate(1.8);
+    color: #111111;
+    background: #f5ead9;
+    border: 1px solid #e6d6bd;
     transition:
-      background-color 200ms ease,
-      border-color 200ms ease,
-      transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+      background-color 180ms ease,
+      border-color 180ms ease,
+      transform 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
-  .btn-rose:hover:not(:disabled) {
-    background: color-mix(in oklab, var(--rose) 13%, rgb(255 255 255 / 0.45));
-    border-color: color-mix(in oklab, var(--rose) 36%, rgb(255 255 255 / 0.5));
+  .btn-creme:hover:not(:disabled) {
+    background: #efdfc5;
+    border-color: #dcc8a8;
   }
 
-  .btn-rose:active:not(:disabled) {
-    background: color-mix(in oklab, var(--rose) 17%, rgb(255 255 255 / 0.45));
+  .btn-creme:active:not(:disabled) {
     transform: scale(0.98);
   }
 
-  .btn-rose:focus-visible {
-    outline: 2px solid color-mix(in oklab, var(--rose) 55%, transparent);
+  .btn-creme:focus-visible {
+    outline: 2px solid #111111;
     outline-offset: 2px;
   }
 
-  .btn-rose:disabled {
+  .btn-creme:disabled {
     cursor: default;
     opacity: 0.5;
   }
 
-  .btn-rose--icon {
+  .btn-creme--icon {
     border-radius: 999px;
   }
 
   @media (prefers-color-scheme: dark) {
-    .btn-rose {
-      color: color-mix(in oklab, var(--rose) 38%, #fff);
-      background: color-mix(in oklab, var(--rose) 14%, rgb(255 255 255 / 0.04));
-      border-color: color-mix(in oklab, var(--rose) 30%, rgb(255 255 255 / 0.12));
-      box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12);
+    .btn-creme {
+      color: #f5ead9;
+      background: #2a2520;
+      border-color: #3d3530;
     }
-    .btn-rose:hover:not(:disabled) {
-      background: color-mix(in oklab, var(--rose) 22%, rgb(255 255 255 / 0.05));
-      border-color: color-mix(in oklab, var(--rose) 48%, rgb(255 255 255 / 0.14));
+    .btn-creme:hover:not(:disabled) {
+      background: #342d27;
+      border-color: #4a4038;
     }
-    .btn-rose:active:not(:disabled) {
-      background: color-mix(in oklab, var(--rose) 28%, rgb(255 255 255 / 0.05));
+    .btn-creme:focus-visible {
+      outline-color: #f5ead9;
     }
   }
 }

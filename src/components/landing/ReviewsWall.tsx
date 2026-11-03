@@ -31,7 +31,7 @@ function ReviewCard({ review, hidden }: { review: PublicReview; hidden?: boolean
       <Stars rating={review.rating} />
       {review.comment ? <p className="line-clamp-5 text-[15px] leading-relaxed text-pretty text-fg">{review.comment}</p> : null}
       <footer className="mt-auto flex min-w-0 items-center gap-2.5 border-t border-border pt-3.5">
-        <span aria-hidden="true" className="btn-rose btn-rose--icon pointer-events-none size-8 shrink-0 text-xs font-semibold">
+        <span aria-hidden="true" className="btn-creme btn-creme--icon pointer-events-none size-8 shrink-0 text-xs font-semibold">
           {review.name.charAt(0).toUpperCase()}
         </span>
         <span className="min-w-0">
