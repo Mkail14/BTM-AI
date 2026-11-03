@@ -183,8 +183,7 @@ export function GuestLanding({
             <AwaBlob label="Parler à Tamilya" onActivate={() => input.current?.focus()} size="min(32vw, 8rem)" goo={8} />
           </div>
 
-          <p className="landing-rise landing-eyebrow mt-9 [animation-delay:80ms]">Version d&apos;essai · elle apprend encore</p>
-          <h1 className="landing-rise landing-title mt-4 [animation-delay:120ms]">
+          <h1 className="landing-rise landing-title mt-9 [animation-delay:120ms]">
             Parle <span className="landing-accent">shimaoré</span> avec Tamilya
           </h1>
           <p className="landing-rise mx-auto mt-5 max-w-md text-base leading-relaxed text-pretty text-fg-muted [animation-delay:200ms] sm:text-lg">
