@@ -93,7 +93,7 @@ export function ReviewsWall({ reviews, onReview }: { reviews: PublicReview[]; on
   const columns = [reviews.filter((_, i) => i % 2 === 0), reviews.filter((_, i) => i % 2 === 1)];
 
   return (
-    <div className="reviews-wall grid h-[30rem] grid-cols-2 gap-3 overflow-hidden sm:h-[34rem]" aria-label="Avis des utilisateurs">
+    <div className="reviews-wall grid h-[30rem] grid-cols-2 gap-3 overflow-hidden sm:h-[max(30rem,calc(100dvh-12rem))]" aria-label="Avis des utilisateurs">
       {columns.map((unique, c) => {
         const loop = lengthen(unique, MIN_PER_COLUMN);
         return (

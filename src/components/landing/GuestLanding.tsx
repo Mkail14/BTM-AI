@@ -245,8 +245,8 @@ export function GuestLanding({
         </section>
 
         {/* Ce qu'il faut savoir sur Tamilya */}
-        <section id="shimaore" className="scroll-mt-20 border-t border-border">
-          <div className="mx-auto grid max-w-5xl gap-10 px-5 py-20 md:grid-cols-[1fr_1.4fr]">
+        <section id="shimaore" className="flex min-h-[calc(100dvh-4rem)] scroll-mt-16 flex-col justify-center border-t border-border">
+          <div className="mx-auto grid w-full max-w-5xl gap-10 px-5 py-16 md:grid-cols-[1fr_1.4fr] md:items-center md:gap-14">
             <Reveal>
               <h2 className="text-3xl font-bold tracking-tight">Une IA qui apprend le shimaoré, pour de vrai</h2>
               <p className="mt-3 text-fg-muted">
@@ -272,10 +272,10 @@ export function GuestLanding({
         </section>
 
         {/* Avis des utilisateurs */}
-        <section id="avis" className="relative scroll-mt-20 overflow-hidden border-t border-border bg-bg-subtle">
+        <section id="avis" className="relative flex min-h-[calc(100dvh-4rem)] scroll-mt-16 flex-col justify-center overflow-hidden border-t border-border bg-bg-subtle">
           {/* Taches de couleur derrière le mur : c'est ce que le flou des cartes laisse deviner. */}
           <div aria-hidden="true" className="reviews-glow pointer-events-none absolute inset-0" />
-          <div className="relative mx-auto grid max-w-5xl gap-10 px-5 py-20 md:grid-cols-[minmax(0,17rem)_1fr] md:items-center md:gap-14">
+          <div className="relative mx-auto grid w-full max-w-5xl gap-10 px-5 py-16 md:grid-cols-[minmax(0,17rem)_1fr] md:items-center md:gap-14">
             <Reveal>
               <h2 className="text-3xl font-bold tracking-tight">Ce qu&apos;ils en disent</h2>
               <p className="mt-3 text-fg-muted">Les avis des personnes qui parlent avec Tamilya.</p>
