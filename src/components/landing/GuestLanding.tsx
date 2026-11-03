@@ -131,6 +131,8 @@ export function GuestLanding({
 }) {
   const { openAuthDialog } = useAuth();
   const [text, setText] = useState("");
+  // Champ : au repos (court), ouvert (étiré), ou qui se referme.
+  const [stretch, setStretch] = useState<"rest" | "open" | "closed">("rest");
   const input = useRef<HTMLInputElement>(null);
   const form = useRef<HTMLFormElement>(null);
   const percent = progress.curriculum.total ? Math.round((progress.curriculum.learned / progress.curriculum.total) * 100) : 0;
@@ -209,7 +211,18 @@ export function GuestLanding({
           </h1>
           <p className="landing-rise mt-4 text-base text-fg-muted [animation-delay:200ms] sm:text-lg">En français ou en shimaoré, pose-lui ta question.</p>
 
-          <form ref={form} onSubmit={submit} className="landing-rise landing-input relative mt-8 [animation-delay:280ms]">
+          {/* Le champ s'étire comme un élastique au clic (data-stretch), et reprend sa taille en rebondissant. */}
+          <div className="landing-rise mt-8 flex justify-center [animation-delay:280ms]">
+          <form
+            ref={form}
+            onSubmit={submit}
+            data-stretch={stretch}
+            onFocus={() => setStretch("open")}
+            onBlur={(e) => {
+              if (!e.currentTarget.contains(e.relatedTarget as Node | null) && !text) setStretch("closed");
+            }}
+            className="landing-input relative"
+          >
             <label htmlFor="landing-message" className="sr-only">
               Ton message à Awa
             </label>
@@ -233,7 +246,9 @@ export function GuestLanding({
             >
               <IconSend width={16} height={16} />
             </button>
+            <span aria-hidden="true" className="landing-input-glow" />
           </form>
+          </div>
 
 
 

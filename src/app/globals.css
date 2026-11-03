@@ -2712,39 +2712,155 @@ html:has(.ecran-fixe) body {
   }
 }
 
-/* Champ « Parle à Awa » : court au repos, il s'étire comme un élastique quand on clique dedans. */
+/*
+ * Champ « Parle à Awa » (GuestLanding) : court au repos. Au clic, il s'étire
+ * comme un élastique (dépasse, revient, rebondit), s'écrase en hauteur
+ * pendant qu'il s'allonge, et une lumière fait le tour de son contour. Quand
+ * on clique ailleurs (champ vide), il reprend sa taille en rebondissant.
+ */
+@property --landing-sweep {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
 .landing-input {
-  width: min(20rem, calc(100vw - 2.5rem));
-  transition: width 650ms cubic-bezier(0.34, 1.8, 0.5, 1);
+  --rest: min(19rem, calc(100vw - 2.5rem));
+  --open: min(34rem, calc(100vw - 2.5rem));
+  width: var(--rest);
+  transform-origin: center;
 }
 
-.landing-input:focus-within {
-  width: min(34rem, calc(100vw - 2.5rem));
-  animation: landing-stretch 650ms ease-out;
+.landing-input[data-stretch="open"] {
+  width: var(--open);
+  animation:
+    landing-stretch-open 900ms linear both,
+    landing-squash 900ms linear both;
 }
 
-@keyframes landing-stretch {
+.landing-input[data-stretch="closed"] {
+  animation: landing-stretch-close 700ms linear both;
+}
+
+/* Ressort amorti : grand dépassement puis rebonds de plus en plus petits. */
+@keyframes landing-stretch-open {
   0% {
-    transform: scaleY(1);
+    width: var(--rest);
   }
-  30% {
-    transform: scaleY(0.88);
+  22% {
+    width: calc(var(--open) + 2.6rem);
   }
-  55% {
-    transform: scaleY(1.06);
+  40% {
+    width: calc(var(--open) - 1.4rem);
   }
-  75% {
-    transform: scaleY(0.98);
+  56% {
+    width: calc(var(--open) + 0.7rem);
+  }
+  72% {
+    width: calc(var(--open) - 0.3rem);
+  }
+  86% {
+    width: calc(var(--open) + 0.1rem);
   }
   100% {
-    transform: scaleY(1);
+    width: var(--open);
   }
+}
+
+@keyframes landing-squash {
+  0% {
+    transform: scale(1, 1);
+  }
+  12% {
+    transform: scale(0.97, 1.12);
+  }
+  24% {
+    transform: scale(1.02, 0.84);
+  }
+  40% {
+    transform: scale(0.99, 1.08);
+  }
+  56% {
+    transform: scale(1, 0.96);
+  }
+  72% {
+    transform: scale(1, 1.02);
+  }
+  100% {
+    transform: scale(1, 1);
+  }
+}
+
+@keyframes landing-stretch-close {
+  0% {
+    width: var(--open);
+    transform: scale(1, 1);
+  }
+  35% {
+    width: calc(var(--rest) - 1.2rem);
+    transform: scale(1, 1.1);
+  }
+  60% {
+    width: calc(var(--rest) + 0.6rem);
+    transform: scale(1, 0.95);
+  }
+  80% {
+    width: calc(var(--rest) - 0.2rem);
+    transform: scale(1, 1.02);
+  }
+  100% {
+    width: var(--rest);
+    transform: scale(1, 1);
+  }
+}
+
+/* Lumière qui fait le tour du contour au clic. */
+.landing-input-glow {
+  position: absolute;
+  inset: -1.5px;
+  border-radius: 999px;
+  padding: 1.5px;
+  pointer-events: none;
+  opacity: 0;
+  background: conic-gradient(from var(--landing-sweep), transparent 0deg, var(--persona, var(--accent)) 50deg, #ffd1e2 80deg, transparent 140deg);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.landing-input[data-stretch="open"] .landing-input-glow {
+  animation: landing-sweep 1100ms cubic-bezier(0.45, 0, 0.2, 1) both;
+}
+
+@keyframes landing-sweep {
+  0% {
+    --landing-sweep: 0deg;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    --landing-sweep: 360deg;
+    opacity: 0;
+  }
+}
+
+.landing-input[data-stretch="open"] input {
+  box-shadow: 0 18px 50px -22px var(--persona, var(--accent));
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .landing-input,
-  .landing-input:focus-within {
-    transition: none;
+  .landing-input[data-stretch] {
     animation: none;
   }
+  .landing-input-glow {
+    display: none;
+  }
 }
+
