@@ -9,7 +9,7 @@ import { lock, unlock, unlockedUntil } from "@/lib/admin/unlock";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 import { isValidBic, isValidIban, normalizeBic, normalizeIban } from "@/lib/site/iban";
-import { saveBankDetails, saveSiteFlags } from "@/lib/site/settings";
+import { saveBankDetails, saveSiteFlags, saveSiteStatus } from "@/lib/site/settings";
 import { forgetDemoWallet } from "@/lib/wallet/demo";
 
 const FAILED: ActionResult = { ok: false, message: "L'enregistrement a échoué (migration site_settings appliquée ?)." };
@@ -69,12 +69,42 @@ export async function saveBankAction(input: unknown): Promise<ActionResult> {
   return { ok: true, message: "RIB enregistré." };
 }
 
-const flagsSchema = z.object({
-  maintenance: z.boolean().optional(),
-  maintenanceMessage: z.string().trim().max(300).optional(),
+const MESSAGE_MAX = 300;
+
+const statusSchema = z.strictObject({
+  maintenance: z.boolean(),
+  maintenanceMessage: z.string().trim().max(MESSAGE_MAX, `Message : ${MESSAGE_MAX} caractères au plus.`).optional(),
+});
+
+/**
+ * État de la plateforme : en ligne ou en maintenance. Un seul état enregistré
+ * (les deux interrupteurs de l'écran en sont les deux faces, jamais contradictoires),
+ * inscrit au journal avec l'auteur et l'heure.
+ */
+export async function setPlatformStatusAction(input: unknown): Promise<ActionResult> {
+  const auth = await requirePrincipalAdminAction();
+  if (!auth) return NOT_PRINCIPAL;
+  if (!(await unlockedUntil(auth.user.id))) return LOCKED;
+  const parsed = statusSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Données invalides." };
+  const { maintenance, maintenanceMessage } = parsed.data;
+  const saved = await saveSiteStatus(maintenance, maintenanceMessage, { id: auth.user.id, email: auth.user.email ?? null });
+  if (!saved) return { ok: false, message: "Changement non enregistré (migration 20261120010000_journal_etat_plateforme.sql appliquée ?)." };
+  revalidatePath("/", "layout");
+  return {
+    ok: true,
+    message: maintenance
+      ? "Site en maintenance : les visiteurs voient la page d'attente, partout en moins de 30 secondes. Toi, tu gardes l'accès."
+      : "Site en ligne : tout le monde y a de nouveau accès.",
+  };
+}
+
+const flagsSchema = z.strictObject({
+  maintenanceMessage: z.string().trim().max(MESSAGE_MAX, `Message : ${MESSAGE_MAX} caractères au plus.`).optional(),
   demoMode: z.boolean().optional(),
 });
 
+/** Message aux visiteurs (sans changer l'état) et mode démo. */
 export async function saveFlagsAction(input: unknown): Promise<ActionResult> {
   const auth = await requirePrincipalAdminAction();
   if (!auth) return NOT_PRINCIPAL;
@@ -83,19 +113,15 @@ export async function saveFlagsAction(input: unknown): Promise<ActionResult> {
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Données invalides." };
   if (!(await saveSiteFlags(parsed.data, auth.user.id))) return FAILED;
   revalidatePath("/", "layout");
-  const { maintenance, demoMode } = parsed.data;
+  const { demoMode } = parsed.data;
   // Chaque démonstration repart de 150 € (les autres navigateurs oublient le leur à leur prochaine page, démo éteinte).
   if (demoMode !== undefined) await forgetDemoWallet();
   const message =
-    maintenance !== undefined
-      ? maintenance
-        ? "Site en maintenance : les visiteurs voient la page d'attente (toi, tu gardes l'accès)."
-        : "Site rouvert à tout le monde."
-      : demoMode !== undefined
-        ? demoMode
-          ? "Mode démo allumé : commande de repas et solde fictif visibles des administrateurs."
-          : "Mode démo éteint : le site est redevenu normal."
-        : "Message enregistré.";
+    demoMode !== undefined
+      ? demoMode
+        ? "Mode démo allumé : commande de repas et solde fictif visibles des administrateurs."
+        : "Mode démo éteint : le site est redevenu normal."
+      : "Message enregistré.";
   return { ok: true, message };
 }
 

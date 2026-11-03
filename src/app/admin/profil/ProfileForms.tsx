@@ -9,8 +9,16 @@ import { PasswordInput } from "@/components/ui/PasswordInput";
 import type { ActionResult } from "@/lib/admin/action-auth";
 import type { AdminAccount } from "@/lib/admin/delegation";
 import { bankFromBic, bankFromIban, formatIban, isValidBic, isValidIban, normalizeIban, parseRib } from "@/lib/site/iban";
-import type { BankDetails, SiteFlags } from "@/lib/site/settings";
-import { grantAdminAction, lockAction, revokeAdminAction, saveBankAction, saveFlagsAction, unlockAction } from "./actions";
+import type { BankDetails, SiteFlags, StatusChange } from "@/lib/site/settings";
+import {
+  grantAdminAction,
+  lockAction,
+  revokeAdminAction,
+  saveBankAction,
+  saveFlagsAction,
+  setPlatformStatusAction,
+  unlockAction,
+} from "./actions";
 
 /** Lance une action serveur, montre son résultat et relit la page (verrou compris). */
 function useAction() {
@@ -365,10 +373,10 @@ function Switch({
   hint: string;
   checked: boolean;
   disabled: boolean;
-  tone: "warning" | "accent";
+  tone: "warning" | "accent" | "success";
   onChange: (next: boolean) => void;
 }) {
-  const on = tone === "warning" ? "bg-warning" : "bg-accent";
+  const on = tone === "warning" ? "bg-warning" : tone === "success" ? "bg-success" : "bg-accent";
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="min-w-0">
@@ -398,54 +406,111 @@ function Switch({
 
 const MESSAGE_MAX = 300;
 
-export function SitePanel({ flags }: { flags: SiteFlags }) {
+const logFormat = new Intl.DateTimeFormat("fr-FR", {
+  day: "numeric",
+  month: "short",
+  hour: "2-digit",
+  minute: "2-digit",
+  timeZone: "Indian/Mayotte",
+});
+
+/** Historique des mises en maintenance et réouvertures (auteur, heure, message). */
+function StatusHistory({ log }: { log: StatusChange[] | null }) {
+  if (log === null) {
+    return <p className="text-xs text-fg-muted">Historique indisponible : appliquer la migration 20261120010000_journal_etat_plateforme.sql.</p>;
+  }
+  if (log.length === 0) return <p className="text-xs text-fg-muted">Aucun changement enregistré pour l&apos;instant.</p>;
+  return (
+    <ol className="space-y-2">
+      {log.map((entry) => (
+        <li key={entry.at} className="flex items-start gap-2.5 text-xs">
+          <span aria-hidden="true" className={`mt-1 size-2 shrink-0 rounded-full ${entry.maintenance ? "bg-warning" : "bg-success"}`} />
+          <div className="min-w-0">
+            <p>
+              <span className="font-medium">{entry.maintenance ? "Mis en maintenance" : "Remis en ligne"}</span>
+              <span className="text-fg-muted"> · {logFormat.format(new Date(entry.at))}</span>
+            </p>
+            <p className="truncate text-fg-muted" title={entry.byEmail ?? undefined}>
+              {entry.byEmail ?? "compte supprimé"}
+              {entry.maintenance && entry.message ? ` · « ${entry.message} »` : ""}
+            </p>
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/**
+ * État de la plateforme. Un seul état est enregistré (en ligne ou en
+ * maintenance) : « Site en ligne » et « Mode maintenance » en sont les deux
+ * faces, ils basculent ensemble et ne peuvent jamais se contredire.
+ */
+export function SitePanel({ flags, log }: { flags: SiteFlags; log: StatusChange[] | null }) {
   const { pending, result, run } = useAction();
   const { editing } = useLock();
   const [message, setMessage] = useState(flags.maintenanceMessage);
   const unsaved = message.trim() !== flags.maintenanceMessage;
 
+  /** Bascule l'état ; le message tapé et pas encore enregistré part avec. */
+  const setMaintenance = (maintenance: boolean) => {
+    if (maintenance === flags.maintenance) return;
+    const save = () =>
+      run(() => setPlatformStatusAction(unsaved ? { maintenance, maintenanceMessage: message } : { maintenance }));
+    if (!maintenance) return save();
+    void confirmDialog({
+      title: "Mettre le site en maintenance ?",
+      message: "Les visiteurs verront la page de maintenance et ne pourront plus utiliser Tamilya. Les administrateurs gardent l'accès.",
+      confirmLabel: "Passer en maintenance",
+      tone: "danger",
+    }).then((ok) => ok && save());
+  };
+
   const aside = (
     <>
-      <Badge on={flags.maintenance} onLabel="Fermé" offLabel="En ligne" />
-      <EditButton section="site" label="Site" />
+      <Badge on={flags.maintenance} onLabel="Maintenance" offLabel="En ligne" />
+      <EditButton section="site" label="État de la plateforme" />
     </>
   );
 
   if (editing !== "site") {
     return (
-      <Panel icon={IconSettings} title="Site" subtitle="Accès du public et démonstration" aside={aside} status={result}>
+      <Panel icon={IconSettings} title="État de la plateforme" subtitle="Accès du public et démonstration" aside={aside} status={result}>
         <div className="divide-y divide-border rounded-xl border border-border">
-          <Row label="Maintenance">{flags.maintenance ? <span className="text-warning">Activée</span> : "Désactivée"}</Row>
+          <Row label="Site en ligne">{flags.maintenance ? <span className="text-warning">Non</span> : <span className="text-success">Oui</span>}</Row>
+          <Row label="Mode maintenance">{flags.maintenance ? <span className="text-warning">Activé</span> : "Désactivé"}</Row>
           <Row label="Message aux visiteurs">
             {flags.maintenanceMessage ? flags.maintenanceMessage : <span className="font-normal text-fg-muted">Aucun</span>}
           </Row>
           <Row label="Mode démo">{flags.demoMode ? <span className="text-accent">Allumé</span> : "Éteint"}</Row>
         </div>
         {flags.demoMode ? <p className="text-xs text-warning">Mode démo allumé : pense à l&apos;éteindre après la présentation.</p> : null}
+        <div className="rounded-xl border border-border p-4">
+          <p className="mb-3 text-xs font-medium text-fg-muted">Derniers changements</p>
+          <StatusHistory log={log} />
+        </div>
       </Panel>
     );
   }
 
   return (
-    <Panel icon={IconSettings} title="Site" subtitle="Accès du public et démonstration" aside={aside} status={result} editing>
+    <Panel icon={IconSettings} title="État de la plateforme" subtitle="Accès du public et démonstration" aside={aside} status={result} editing>
       <div className="space-y-4 rounded-xl border border-border p-4">
         <Switch
-          label="Maintenance"
-          hint="Les visiteurs voient une page d'attente. Les administrateurs gardent l'accès."
+          label="Site en ligne"
+          hint="Allumé : tout le monde utilise Tamilya normalement. Éteint : le site passe en maintenance."
+          checked={!flags.maintenance}
+          disabled={pending}
+          tone="success"
+          onChange={(online) => setMaintenance(!online)}
+        />
+        <Switch
+          label="Mode maintenance"
+          hint="Allumé : les visiteurs voient la page de maintenance, l'API leur est fermée. Les administrateurs gardent l'accès."
           checked={flags.maintenance}
           disabled={pending}
           tone="warning"
-          onChange={(maintenance) => {
-            // Le message tapé et pas encore enregistré part avec l'interrupteur.
-            const save = () => run(() => saveFlagsAction(unsaved ? { maintenance, maintenanceMessage: message } : { maintenance }));
-            if (!maintenance) return save();
-            void confirmDialog({
-              title: "Mettre le site en maintenance ?",
-              message: "Les visiteurs ne pourront plus l'utiliser. Toi, tu gardes l'accès.",
-              confirmLabel: "Fermer le site",
-              tone: "danger",
-            }).then((ok) => ok && save());
-          }}
+          onChange={setMaintenance}
         />
         <form
           onSubmit={(e) => {
@@ -492,6 +557,11 @@ export function SitePanel({ flags }: { flags: SiteFlags }) {
           onChange={(demoMode) => run(() => saveFlagsAction({ demoMode }))}
         />
         {flags.demoMode ? <p className="text-xs text-warning">Allumé : pense à l&apos;éteindre après la présentation.</p> : null}
+      </div>
+
+      <div className="rounded-xl border border-border p-4">
+        <p className="mb-3 text-xs font-medium text-fg-muted">Derniers changements</p>
+        <StatusHistory log={log} />
       </div>
     </Panel>
   );

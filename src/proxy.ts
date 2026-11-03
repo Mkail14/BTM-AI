@@ -15,10 +15,13 @@ export async function proxy(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
 
   if (!isAdmin && !OPEN_DURING_MAINTENANCE.some((p) => pathname.startsWith(p)) && (await getSiteFlags()).maintenance) {
+    // Jamais mise en cache : la réouverture doit se voir tout de suite.
+    const headers = { "Retry-After": "600", "Cache-Control": "no-store" };
     if (pathname.startsWith("/api/")) {
-      return NextResponse.json({ error: "Site en maintenance : réessaie un peu plus tard." }, { status: 503, headers: { "Retry-After": "600" } });
+      return NextResponse.json({ error: "Site en maintenance : réessaie un peu plus tard." }, { status: 503, headers });
     }
-    const page = NextResponse.rewrite(new URL("/maintenance", request.url), { status: 503 });
+    // Même adresse (réécriture, pas redirection) : recharger la page suffit quand le site rouvre.
+    const page = NextResponse.rewrite(new URL("/maintenance", request.url), { status: 503, headers });
     for (const cookie of response.cookies.getAll()) page.cookies.set(cookie);
     return page;
   }

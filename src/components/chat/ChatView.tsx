@@ -95,8 +95,10 @@ function turnsToUi(turns: ChatTurn[]): UiMessage[] {
 
 async function readErrorMessage(res: Response): Promise<{ code: string; message: string }> {
   try {
-    const data = (await res.json()) as { error?: { code?: string; message?: string } };
-    if (data.error?.message) return { code: data.error.code ?? "internal", message: data.error.message };
+    const data = (await res.json()) as { error?: string | { code?: string; message?: string } };
+    // Texte seul : réponse du proxy (site passé en maintenance pendant la conversation).
+    if (typeof data.error === "string" && data.error) return { code: "service_unavailable", message: data.error };
+    if (typeof data.error === "object" && data.error?.message) return { code: data.error.code ?? "internal", message: data.error.message };
   } catch {
     // Corps non JSON.
   }

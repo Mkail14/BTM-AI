@@ -118,6 +118,9 @@ select tests.check('Alice : ne lit pas les clés d''API', tests.visible('select 
 select tests.check('Alice : ne lit pas les secrets des sites partenaires', tests.visible('select * from public.awa_partner_keys') <= 0);
 select tests.check('Alice : ne lit pas les appareils connus', tests.visible('select * from public.known_devices') <= 0);
 select tests.check('Alice : ne lit pas les réglages du site (IBAN)', tests.visible('select * from public.site_settings') <= 0);
+select tests.check('Alice : ne lit pas le journal de la maintenance', tests.visible('select * from public.site_status_log') <= 0);
+select tests.denied('Alice : met le site en maintenance', $$select public.set_site_status(true, 'piraté', tests.alice(), 'a@exemple.test')$$);
+select tests.denied('Alice : écrit dans le journal de la maintenance', $$insert into public.site_status_log (maintenance) values (false)$$);
 select tests.check('Alice : ne lit pas les réglages de Tamilya', tests.visible('select * from public.awa_settings') <= 0);
 select tests.denied('Alice : modifie le caractère de Tamilya', $$update public.awa_settings set identity = 'x'$$);
 select tests.denied('Alice : ajoute un mot au dictionnaire', $$insert into public.awa_words (french, shimaore) values ('x', 'y')$$);
@@ -139,6 +142,17 @@ select tests.denied('Alice : écrit un souvenir sans passer par le serveur',
   $$insert into public.awa_memories (user_id, kind, content) values (tests.alice(), 'travail', 'faux souvenir')$$, 'S1');
 select tests.denied('Alice : crée une conversation sans passer par le serveur',
   $$insert into public.conversations (user_id, title) values (tests.alice(), 'x')$$, 'S1');
+select tests.denied('Alice : crée une demande du code déjà payée',
+  $$insert into public.code_exam_requests (center_id, center_name, starts_at, exam_type, civility, last_name, first_name, birth_date, city, phone, email, neph, paid_at, fee_cents)
+    values ('X', 'Faux bureau', now(), 'B', 'Mme', 'A', 'A', '2000-01-01', 'Sada', '0639000000', 'a@exemple.test', '000000000000', now(), 0)$$);
+select tests.denied('Alice : vide la table des messages (TRUNCATE)', $$truncate public.messages$$);
+rollback;
+
+-- Le serveur lui-même (clé secrète) ne peut pas glisser un message dans la conversation d'un autre.
+begin;
+set local role service_role;
+select tests.denied('Serveur : message de Bruno dans la conversation d''Alice',
+  $$insert into public.messages (conversation_id, user_id, role, content) values ('10000000-0000-4000-8000-00000000000a', tests.bruno(), 'assistant', 'x')$$);
 rollback;
 
 -- ===========================================================================
@@ -163,6 +177,18 @@ select tests.check('Admin : ne lit pas les conversations des autres', tests.visi
 select tests.check('Admin : ne lit pas la mémoire des autres par l''API', tests.visible($$select * from public.awa_memories$$) = 0);
 select tests.check('Admin : ne lit pas les clés d''API par l''API', tests.visible('select * from public.ai_providers') <= 0);
 select tests.denied('Admin : modifie un solde', $$update public.wallets set balance_cents = 0$$);
+select tests.denied('Admin : change l''état du site par l''API (seul le serveur le peut)', $$select public.set_site_status(true, 'x', '00000000-0000-4000-8000-0000000000ad', 'admin@exemple.test')$$);
+rollback;
+
+-- Serveur : la mise en maintenance et son inscription au journal vont ensemble.
+begin;
+set local role service_role;
+select public.set_site_status(true, 'Retour à 14 h', '00000000-0000-4000-8000-0000000000ad', 'admin@exemple.test');
+select tests.check('Serveur : maintenance enregistrée', (select maintenance from public.site_settings where id = 1));
+select tests.check('Serveur : changement inscrit au journal (auteur, état, message)',
+  exists (select 1 from public.site_status_log where maintenance and message = 'Retour à 14 h' and changed_by_email = 'admin@exemple.test'));
+select public.set_site_status(false, null, '00000000-0000-4000-8000-0000000000ad', 'admin@exemple.test');
+select tests.check('Serveur : réouverture, message gardé', (select not maintenance and maintenance_message = 'Retour à 14 h' from public.site_settings where id = 1));
 rollback;
 
 -- ===========================================================================

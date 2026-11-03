@@ -9,9 +9,9 @@ export function AdminSignIn() {
     <button
       type="button"
       onClick={() => openAuthDialog({ reason: "Accès administrateur pendant la maintenance.", next: "/admin", mode: "signin" })}
-      className="mt-6 text-xs text-fg-muted hover:text-fg hover:underline"
+      className="-my-2 inline-block py-2 text-fg-muted underline-offset-2 hover:text-fg hover:underline"
     >
-      Connexion administrateur
+      Accès administrateur
     </button>
   );
 }

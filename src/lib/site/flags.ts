@@ -16,8 +16,9 @@ const FLAGS_TTL_MS = 30_000;
 let cached: { flags: SiteFlags; at: number } | null = null;
 let client: SupabaseClient | null = null;
 
-export async function getSiteFlags(): Promise<SiteFlags> {
-  if (cached && Date.now() - cached.at < FLAGS_TTL_MS) return cached.flags;
+/** fresh : relu en base (page des réglages, pour ne jamais montrer un état périmé). */
+export async function getSiteFlags({ fresh = false }: { fresh?: boolean } = {}): Promise<SiteFlags> {
+  if (!fresh && cached && Date.now() - cached.at < FLAGS_TTL_MS) return cached.flags;
   const secretKey = process.env.SUPABASE_SECRET_KEY;
   if (!isSupabaseConfigured || !secretKey) return OFF;
   client ??= createClient(supabaseUrl, secretKey, { auth: { persistSession: false, autoRefreshToken: false } });
