@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cache } from "react";
 import { isPersonalityId, type PersonalityId } from "@/lib/ai/personalities";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type {
   ChatRole,
   ChatTurn,
@@ -12,9 +13,18 @@ import type {
 
 /**
  * Accès aux conversations. Toutes les fonctions reçoivent un client lié à la
- * session de l'utilisateur : RLS garantit qu'il ne lit et n'écrit que ses
- * propres données, même si un identifiant est modifié côté client.
+ * session de l'utilisateur : RLS garantit qu'il ne lit que ses propres
+ * données, même si un identifiant est modifié côté client.
+ *
+ * Les créations (conversation, message) passent par le serveur seul (clé
+ * secrète) : un compte ne peut plus écrire de faux message de Tamilya ni
+ * contourner les quotas en appelant la base directement. Le compte vient
+ * toujours de la session, et la base refuse un message dont le compte n'est
+ * pas celui de la conversation (déclencheur messages_owner_matches).
  */
+
+/** Client d'écriture : la clé secrète si elle est là, sinon celui de la session (développement). */
+const writer = (supabase: SupabaseClient) => getSupabaseAdminClient() ?? supabase;
 
 type ConversationRow = { id: string; title: string; updated_at: string };
 type MessageRow = {
@@ -89,7 +99,7 @@ export async function createConversation(
   userId: string,
   title: string,
 ) {
-  const { data, error } = await supabase
+  const { data, error } = await writer(supabase)
     .from("conversations")
     .insert({ user_id: userId, title })
     .select("id, title, updated_at")
@@ -108,7 +118,7 @@ export async function insertMessage(
     status?: MessageStatus;
   },
 ) {
-  const { error } = await supabase.from("messages").insert({
+  const { error } = await writer(supabase).from("messages").insert({
     conversation_id: input.conversationId,
     user_id: input.userId,
     role: input.role,
@@ -128,7 +138,7 @@ export async function importConversation(
   const conversation = await createConversation(supabase, userId, title);
   // Horodatages croissants pour conserver l'ordre d'origine.
   const base = Date.now() - turns.length;
-  const { error } = await supabase.from("messages").insert(
+  const { error } = await writer(supabase).from("messages").insert(
     turns.map((turn, index) => ({
       conversation_id: conversation.id,
       user_id: userId,
@@ -139,7 +149,7 @@ export async function importConversation(
     })),
   );
   if (error) {
-    await supabase.from("conversations").delete().eq("id", conversation.id);
+    await writer(supabase).from("conversations").delete().eq("id", conversation.id).eq("user_id", userId);
     throw error;
   }
   return conversation;

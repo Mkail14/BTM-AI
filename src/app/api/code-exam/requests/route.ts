@@ -104,7 +104,9 @@ export async function POST(request: NextRequest) {
     return fail(402, `Solde insuffisant : il manque ${((payment.feeCents - payment.balanceCents) / 100).toFixed(2).replace(".", ",")} € dans ton portefeuille.`);
   }
 
-  const { data: saved, error } = await supabase.from("code_exam_requests").insert({
+  // Écrite par le serveur seul (clé secrète), après les vérifications ci-dessus : un compte
+  // ne peut pas créer de demande « payée » ni pour un faux créneau en appelant la base.
+  const { data: saved, error } = await (getSupabaseAdminClient() ?? supabase).from("code_exam_requests").insert({
     user_id: user.id,
     center_id: center.id,
     center_name: center.name,

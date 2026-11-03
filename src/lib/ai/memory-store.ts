@@ -9,6 +9,7 @@ import {
   type MemoryFact,
   type MemoryUpdate,
 } from "./memory";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { completeText } from "./complete";
 import type { AIProvider } from "./types";
 
@@ -25,10 +26,17 @@ export async function getMemories(supabase: SupabaseClient): Promise<MemoryFact[
   return (data ?? []).filter((fact) => isMemoryAllowed(fact.content));
 }
 
-/** Enregistre ou remplace (une valeur par sorte) les informations repérées. */
+/** Client d'écriture : la clé secrète si elle est là, sinon celui de la session (développement). */
+const writer = (supabase: SupabaseClient) => getSupabaseAdminClient() ?? supabase;
+
+/**
+ * Enregistre ou remplace (une valeur par sorte) les informations repérées.
+ * Écrit par le serveur seul, avec le compte de la session : un compte ne peut
+ * pas glisser de faux souvenirs en appelant la base directement.
+ */
 export async function saveMemories(supabase: SupabaseClient, userId: string, facts: readonly MemoryFact[]) {
   if (facts.length === 0) return;
-  const { error } = await supabase
+  const { error } = await writer(supabase)
     .from("awa_memories")
     .upsert(
       facts.map((fact) => ({ user_id: userId, kind: fact.kind, content: fact.content })),
@@ -45,7 +53,7 @@ async function applyMemoryUpdates(supabase: SupabaseClient, userId: string, upda
     updates.filter((u): u is MemoryFact => u.content !== null),
   );
   if (forgotten.length > 0) {
-    const { error } = await supabase.from("awa_memories").delete().eq("user_id", userId).in("kind", forgotten);
+    const { error } = await writer(supabase).from("awa_memories").delete().eq("user_id", userId).in("kind", forgotten);
     if (error) throw error;
   }
 }
