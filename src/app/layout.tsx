@@ -4,6 +4,7 @@ import { AuthProvider, type AuthUser } from "@/components/auth/AuthProvider";
 import { BRAND } from "@/components/brand/brand";
 import { SplashReady } from "@/components/brand/SplashReady";
 import { SplashScreen } from "@/components/brand/SplashScreen";
+import { EnvBadge } from "@/components/layout/EnvBadge";
 import { DialogHost } from "@/components/ui/ConfirmDialog";
 import { getAuthContext } from "@/lib/auth/session";
 import { getProfile } from "@/lib/conversations/repository";
@@ -70,6 +71,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           {children}
         </AuthProvider>
         <DialogHost />
+        <EnvBadge isAdmin={initialUser?.isAdmin ?? false} />
       </body>
     </html>
   );
