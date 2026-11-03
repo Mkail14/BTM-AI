@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, type ComponentType, type ReactNode, type SVGProps } from "react";
+import { createContext, useContext, useEffect, useRef, useState, type ComponentType, type ReactNode, type SVGProps } from "react";
 import { IconDashboard, IconLock, IconMapPin, IconSparkle, IconStar, IconTrash, IconUser } from "@/components/ui/icons";
 
 export type SettingsTab = "apercu" | "profil" | "adresse" | "awa" | "avis" | "securite" | "suppression";
@@ -55,15 +55,33 @@ export function SettingsView({
   const [active, setActive] = useState<SettingsTab>(initial ?? sections[0]?.id ?? "apercu");
   const current = sections.find((s) => s.id === active) ?? sections[0];
   const CurrentIcon = current?.icon;
+  const navRef = useRef<HTMLUListElement>(null);
+  const sectionRef = useRef<HTMLElement>(null);
+  const changed = useRef(false);
+
+  // Téléphone : l'onglet choisi est ramené dans la bande (elle défile de côté), et la
+  // rubrique ouverte remonte sous l'en-tête si on l'a choisie plus bas dans la page.
+  useEffect(() => {
+    if (!changed.current) return;
+    navRef.current?.querySelector<HTMLElement>("[aria-current=page]")?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
+    const top = sectionRef.current?.getBoundingClientRect().top ?? 0;
+    if (window.matchMedia("(max-width: 767px)").matches && top < 56) {
+      window.scrollTo({ top: window.scrollY + top - 140, behavior: "smooth" });
+    }
+  }, [active]);
+  const open = (tab: SettingsTab) => {
+    changed.current = true;
+    setActive(tab);
+  };
 
   return (
-    <TabContext.Provider value={setActive}>
+    <TabContext.Provider value={open}>
       <div className="flex flex-1 flex-col gap-4 md:min-h-0 md:flex-row md:gap-6">
         <aside className="shrink-0 md:flex md:w-64 md:flex-col md:gap-4">
           <div className="hidden md:block">{identity}</div>
           <nav aria-label="Rubriques des paramètres">
             {/* Téléphone : onglets qui défilent de côté ; tablette et ordinateur : menu vertical. */}
-            <ul className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:flex-col md:gap-0.5 md:overflow-visible md:px-0">
+            <ul ref={navRef} className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:flex-col md:gap-0.5 md:overflow-visible md:px-0">
               {sections.map((s, i) => {
                 const selected = s.id === current?.id;
                 const Icon = s.icon;
@@ -71,7 +89,7 @@ export function SettingsView({
                   <li key={s.id} className={`shrink-0 ${s.danger && i > 0 ? "md:mt-3 md:border-t md:border-border md:pt-3" : ""}`}>
                     <button
                       type="button"
-                      onClick={() => setActive(s.id)}
+                      onClick={() => open(s.id)}
                       aria-current={selected ? "page" : undefined}
                       className={`relative flex w-full items-center gap-2 rounded-full border px-3.5 py-2 text-sm whitespace-nowrap transition md:gap-3 md:rounded-xl md:border-0 md:px-3 md:py-2 md:text-left ${
                         selected
@@ -104,6 +122,7 @@ export function SettingsView({
 
         {current ? (
           <section
+            ref={sectionRef}
             key={current.id}
             aria-labelledby={`rubrique-${current.id}`}
             className="flex flex-1 animate-[correct-fade_.18s_ease-out] flex-col rounded-3xl border border-border bg-bg shadow-sm md:min-h-0 md:overflow-hidden"

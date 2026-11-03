@@ -494,7 +494,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       // overscroll-contain : l'effet élastique en bout de liste ne fait pas bouger toute la page.
       className={`relative flex h-full min-h-0 flex-col overscroll-contain ${messages.length === 0 ? "overflow-hidden" : "overflow-y-auto"}`}
     >
-      <header className="sticky top-0 z-10 flex h-14 shrink-0 items-center gap-2 persona-backdrop border-b border-border px-3 md:border-transparent md:px-5">
+      {/* z-20 : au-dessus des boutons des messages (copier, écouter : z-10) qui défilent dessous. */}
+      <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 persona-backdrop border-b border-border px-3 md:border-transparent md:px-5">
         <button
           type="button"
           onClick={openSidebar}

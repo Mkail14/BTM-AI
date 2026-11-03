@@ -42,19 +42,21 @@ export async function AdminHeader({ section }: { section?: string; email?: strin
           <div className="ml-auto flex shrink-0 items-center gap-1">
             {/* État du site : un clic mène au Profil pour l'éteindre. */}
             {status.map((s) => {
+              // Téléphone : la pastille seule (le libellé reste lu par les lecteurs d'écran), toujours visible.
               const chip = (
                 <>
-                  <span aria-hidden="true" className={`size-1.5 animate-pulse rounded-full ${s.dot}`} />
-                  {s.label}
+                  <span aria-hidden="true" className={`size-2 animate-pulse rounded-full motion-reduce:animate-none sm:size-1.5 ${s.dot}`} />
+                  <span className="max-sm:sr-only">{s.label}</span>
                 </>
               );
-              const className = "mr-1 hidden items-center gap-2 rounded-full border border-border px-3 py-1 text-xs font-medium sm:inline-flex";
+              const className =
+                "mr-0.5 inline-flex items-center gap-2 rounded-full border border-border px-2.5 py-2 text-xs font-medium sm:mr-1 sm:px-3 sm:py-1";
               return principal ? (
-                <Link key={s.label} href="/admin/profil" className={`${className} hover:bg-bg-muted`}>
+                <Link key={s.label} href="/admin/profil" title={s.label} className={`${className} hover:bg-bg-muted`}>
                   {chip}
                 </Link>
               ) : (
-                <span key={s.label} className={className}>
+                <span key={s.label} title={s.label} className={className}>
                   {chip}
                 </span>
               );

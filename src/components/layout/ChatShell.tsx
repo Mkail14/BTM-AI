@@ -76,6 +76,8 @@ export function ChatShell({
   }, [userId, refreshToken]);
 
   const refreshConversations = useCallback(() => setRefreshToken((n) => n + 1), []);
+  // Stable : le tiroir s'en sert dans ses effets (retour du téléphone, Échap).
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
 
   const startNewChat = useCallback(() => {
     if (!userId) clearAnonymousDraft();
@@ -116,7 +118,7 @@ export function ChatShell({
           ref={frameRef}
           className="fixed top-0 right-[env(safe-area-inset-right)] left-[env(safe-area-inset-left)] flex h-dvh overflow-hidden"
         >
-          <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+          <Sidebar open={sidebarOpen} onClose={closeSidebar} />
           <PersonaMain>{children}</PersonaMain>
         </div>
         <PersonalityDialog cards={personalityCards} />

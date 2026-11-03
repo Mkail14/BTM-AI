@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState, type ComponentType, type SVGProps } from "react";
+import { useCallback, useEffect, useRef, useState, type ComponentType, type SVGProps } from "react";
 import { createPortal } from "react-dom";
 import { BrandLogo } from "@/components/brand/BrandLogo";
+import { useBackToClose } from "@/components/layout/useBackToClose";
 import {
   IconBook,
   IconChip,
@@ -129,6 +130,9 @@ export function AdminMenu({ principal = false }: { principal?: boolean }) {
   const pathname = usePathname();
   const panelRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  // Bouton « retour » du téléphone : ferme le menu au lieu de quitter la page.
+  const close = useCallback(() => setOpen(false), []);
+  const dismiss = useBackToClose(open, close);
 
   // Échap pour fermer, focus dans le panneau à l'ouverture puis rendu au bouton.
   useEffect(() => {
@@ -136,16 +140,17 @@ export function AdminMenu({ principal = false }: { principal?: boolean }) {
     panelRef.current?.querySelector<HTMLElement>("a, button")?.focus();
     const trigger = triggerRef.current;
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape") dismiss();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       trigger?.focus();
     };
-  }, [open]);
+  }, [open, dismiss]);
 
-  const itemClass = "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm";
+  // Lignes de 44 px au doigt sur téléphone.
+  const itemClass = "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm";
 
   return (
     <>
@@ -155,7 +160,7 @@ export function AdminMenu({ principal = false }: { principal?: boolean }) {
         onClick={() => setOpen(true)}
         aria-label="Ouvrir le menu d'administration"
         aria-expanded={open}
-        className="-ml-1 rounded-lg p-2 text-fg-muted hover:bg-bg-muted hover:text-fg lg:hidden"
+        className="-ml-1.5 grid size-10 place-items-center rounded-lg text-fg-muted hover:bg-bg-muted hover:text-fg lg:hidden"
       >
         <IconMenu />
       </button>
@@ -164,7 +169,7 @@ export function AdminMenu({ principal = false }: { principal?: boolean }) {
       {open
         ? createPortal(
             <>
-              <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm" onClick={() => setOpen(false)} aria-hidden="true" />
+              <div className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm" onClick={dismiss} aria-hidden="true" />
               <div
                 ref={panelRef}
                 role="dialog"
@@ -179,9 +184,9 @@ export function AdminMenu({ principal = false }: { principal?: boolean }) {
                   </span>
                   <button
                     type="button"
-                    onClick={() => setOpen(false)}
+                    onClick={dismiss}
                     aria-label="Fermer le menu"
-                    className="rounded-lg p-2 text-fg-muted hover:bg-bg-muted hover:text-fg"
+                    className="grid size-10 place-items-center rounded-lg text-fg-muted hover:bg-bg-muted hover:text-fg"
                   >
                     <IconClose />
                   </button>
@@ -200,7 +205,7 @@ export function AdminMenu({ principal = false }: { principal?: boolean }) {
                             <li key={label}>
                               <Link
                                 href={href}
-                                onClick={() => setOpen(false)}
+                                onClick={close}
                                 aria-current={active ? "page" : undefined}
                                 className={`${itemClass} ${active ? "bg-bg-muted font-medium" : "hover:bg-bg-muted"}`}
                               >

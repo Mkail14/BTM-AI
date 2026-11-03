@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore, type TouchEvent } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { alertDialog, confirmDialog } from "@/components/ui/ConfirmDialog";
@@ -10,6 +10,7 @@ import { IconClose, IconDashboard, IconLock, IconPlus, IconSettings, IconSidebar
 import { AccountMenu } from "./AccountMenu";
 import { ConversationItem } from "./ConversationItem";
 import { useChatShell } from "./ChatShell";
+import { useBackToClose } from "./useBackToClose";
 
 const COLLAPSED_KEY = "btm.sidebar.collapsed";
 const COLLAPSED_EVENT = "btm:sidebar-collapsed";
@@ -50,16 +51,34 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   /** Bouton carré centré quand la barre est repliée. */
   const iconOnly = collapsed ? "md:justify-center md:px-0" : "";
 
+  /** Fermeture voulue (croix, fond, Échap, glissement) : le bouton « retour » du téléphone ferme aussi le tiroir. */
+  const dismiss = useBackToClose(open, onClose, "(max-width: 767px)");
+
   // Tiroir mobile : Échap pour fermer, focus déplacé dans le panneau.
   useEffect(() => {
     if (!open) return;
-    panelRef.current?.querySelector<HTMLElement>("button, a")?.focus();
+    panelRef.current?.querySelector<HTMLElement>("button, a")?.focus({ preventScroll: true });
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") dismiss();
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [open, onClose]);
+  }, [open, dismiss]);
+
+  // Tiroir mobile : glisser vers la gauche le referme.
+  const swipe = useRef<{ x: number; y: number } | null>(null);
+  const onTouchStart = (event: TouchEvent) => {
+    const touch = event.touches[0];
+    swipe.current = open && touch ? { x: touch.clientX, y: touch.clientY } : null;
+  };
+  const onTouchEnd = (event: TouchEvent) => {
+    const start = swipe.current;
+    const touch = event.changedTouches[0];
+    swipe.current = null;
+    if (!start || !touch) return;
+    const dx = touch.clientX - start.x;
+    if (dx < -60 && Math.abs(dx) > Math.abs(touch.clientY - start.y) * 1.5) dismiss();
+  };
 
   async function handleDelete(id: string, title: string) {
     const ok = await confirmDialog({
@@ -93,10 +112,12 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   return (
     <>
       {open ? (
-        <div className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm md:hidden" onClick={onClose} aria-hidden="true" />
+        <div className="fixed inset-0 z-30 bg-black/40 backdrop-blur-sm md:hidden" onClick={dismiss} aria-hidden="true" />
       ) : null}
       <div
         ref={panelRef}
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
         className={`fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col overflow-x-hidden border-r border-border bg-bg-subtle transition-[width,translate] duration-200 ease-out md:static md:z-auto md:translate-x-0 ${
           collapsed ? "md:w-16" : "md:w-72"
         } ${open ? "visible translate-x-0" : "invisible -translate-x-full md:visible"}`}
@@ -112,7 +133,11 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           <div className={`flex items-center gap-1.5 ${collapsed ? "md:flex-col md:gap-3" : ""}`}>
             <button
               type="button"
-              onClick={startNewChat}
+              onClick={() => {
+                // Déjà sur l'accueil : pas de changement de page, l'entrée du tiroir peut être retirée.
+                if (pathname === "/") dismiss();
+                startNewChat();
+              }}
               aria-label="Nouvelle conversation"
               aria-keyshortcuts="Control+Shift+O Meta+Shift+O"
               title="Nouvelle conversation"
@@ -122,8 +147,8 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
             </button>
             <button
               type="button"
-              onClick={onClose}
-              className="rounded-lg p-2 text-fg-muted hover:bg-bg-muted md:hidden"
+              onClick={dismiss}
+              className="grid size-10 place-items-center rounded-lg text-fg-muted hover:bg-bg-muted md:hidden"
               aria-label="Fermer le menu"
             >
               <IconClose />

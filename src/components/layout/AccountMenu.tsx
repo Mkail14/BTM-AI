@@ -73,7 +73,12 @@ export function AccountMenu({
         triggerRef.current?.focus();
       }
     }
-    const onResize = () => setAnchor(null);
+    // Largeur seulement : sur téléphone, la barre d'adresse qui se replie change la hauteur
+    // (événement resize) et fermait le menu sous le doigt.
+    const width = window.innerWidth;
+    const onResize = () => {
+      if (window.innerWidth !== width) setAnchor(null);
+    };
     document.addEventListener("keydown", onKeyDown);
     window.addEventListener("resize", onResize);
     menuRef.current?.querySelector<HTMLElement>("[role=menuitem]")?.focus();
