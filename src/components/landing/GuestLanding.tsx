@@ -10,7 +10,6 @@ import { CHAT_LIMITS } from "@/lib/chat/limits";
 import type { PublicReview } from "@/lib/reviews/rules";
 import { ReviewsWall } from "./ReviewsWall";
 
-const PERSONA = "var(--persona,var(--accent))";
 const SIGNUP_REASON = "Crée ton compte gratuit pour parler à Tamilya sans limite.";
 const REVIEW_REASON = "Crée ton compte gratuit pour donner ton avis sur Tamilya.";
 
@@ -147,7 +146,7 @@ export function GuestLanding({
         data-scrolled={scrolled || undefined}
         className="landing-nav sticky top-0 z-20 border-b border-transparent bg-bg/60 pt-[env(safe-area-inset-top)] backdrop-blur-xl backdrop-saturate-150 transition-colors data-[scrolled]:border-border data-[scrolled]:bg-bg/75"
       >
-        <div className="mx-auto flex h-16 max-w-5xl items-center gap-6 px-5">
+        <div className="mx-auto flex h-16 max-w-5xl items-center gap-3 px-4 sm:gap-6 sm:px-5">
           <button type="button" onClick={talkAgain} aria-label="BTM AI — haut de la page" className="rounded">
             <BrandLogo size="sm" />
           </button>
@@ -166,16 +165,11 @@ export function GuestLanding({
             <button
               type="button"
               onClick={() => openAuthDialog({ mode: "signin" })}
-              className="rounded-full px-3 py-1.5 text-sm font-medium text-fg-muted transition hover:text-fg"
+              className="rounded-full px-2.5 py-1.5 text-sm font-medium whitespace-nowrap text-fg-muted transition hover:text-fg sm:px-3"
             >
               Se connecter
             </button>
-            <button
-              type="button"
-              onClick={signUp}
-              className="rounded-full px-4 py-1.5 text-sm font-semibold text-white transition hover:brightness-110"
-              style={{ background: PERSONA }}
-            >
+            <button type="button" onClick={signUp} className="btn-rose rounded-full px-3.5 py-1.5 text-sm font-semibold whitespace-nowrap sm:px-4">
               Créer un compte
             </button>
           </div>
@@ -189,16 +183,16 @@ export function GuestLanding({
             <AwaBlob label="Parler à Tamilya" onActivate={() => input.current?.focus()} size="min(32vw, 8rem)" goo={8} />
           </div>
 
-          <p className="landing-rise mt-8 text-sm font-medium text-fg-muted [animation-delay:80ms]">Version d&apos;essai · elle apprend encore</p>
-          <h1 className="landing-rise mt-3 text-4xl leading-[1.08] font-bold tracking-tight [animation-delay:120ms] sm:text-6xl">
-            Parle <span style={{ color: PERSONA }}>shimaoré</span> avec Tamilya
+          <p className="landing-rise landing-eyebrow mt-9 [animation-delay:80ms]">Version d&apos;essai · elle apprend encore</p>
+          <h1 className="landing-rise landing-title mt-4 [animation-delay:120ms]">
+            Parle <span className="landing-accent">shimaoré</span> avec Tamilya
           </h1>
-          <p className="landing-rise mx-auto mt-4 max-w-xl text-base text-fg-muted [animation-delay:200ms] sm:text-lg">
+          <p className="landing-rise mx-auto mt-5 max-w-md text-base leading-relaxed text-pretty text-fg-muted [animation-delay:200ms] sm:text-lg">
             Écris-lui en français ou en shimaoré : elle te répond dans la langue de Mayotte.
           </p>
 
           {/* Le champ s'étire comme un élastique au clic (data-stretch), et reprend sa taille en rebondissant. */}
-          <div className="landing-rise mt-8 flex justify-center [animation-delay:280ms]">
+          <div className="landing-rise mt-9 flex justify-center [animation-delay:280ms]">
             <form
               onSubmit={submit}
               data-stretch={stretch}
@@ -226,8 +220,7 @@ export function GuestLanding({
                 type="submit"
                 disabled={!text.trim() || leaving}
                 aria-label="Parler à Tamilya"
-                className="absolute top-1/2 right-1.5 grid size-8 -translate-y-1/2 place-items-center rounded-full text-white transition hover:brightness-110 active:scale-95 disabled:opacity-40"
-                style={{ background: PERSONA }}
+                className="btn-rose btn-rose--icon absolute top-1/2 right-1.5 size-8 -translate-y-1/2"
               >
                 <IconSend width={16} height={16} />
               </button>
@@ -246,23 +239,23 @@ export function GuestLanding({
 
         {/* Ce qu'il faut savoir sur Tamilya */}
         <section id="shimaore" className="flex min-h-[calc(100dvh-4rem)] scroll-mt-16 flex-col justify-center border-t border-border">
-          <div className="mx-auto grid w-full max-w-5xl gap-10 px-5 py-16 md:grid-cols-[1fr_1.4fr] md:items-center md:gap-14">
+          <div className="mx-auto grid w-full max-w-5xl gap-10 px-5 py-16 md:grid-cols-[1.15fr_1fr] md:items-center md:gap-16">
             <Reveal>
-              <h2 className="text-3xl font-bold tracking-tight">Une IA qui apprend le shimaoré, pour de vrai</h2>
-              <p className="mt-3 text-fg-muted">
+              <h2 className="landing-h2">Une IA qui apprend le shimaoré, pour de vrai</h2>
+              <p className="mt-5 max-w-sm leading-relaxed text-fg-muted">
                 Tamilya est créée à Mayotte par GROUPE BTM. Pour l&apos;instant, elle se consacre à une seule chose : la langue de l&apos;île.
               </p>
             </Reveal>
             <ul className="divide-y divide-border border-y border-border">
               {POINTS.map((point, i) => (
                 <li key={point.title}>
-                  <Reveal delay={i * 70} className="grid gap-1 py-5 sm:grid-cols-[2.5rem_1fr]">
-                    <span aria-hidden="true" className="text-sm font-semibold tabular-nums text-fg-muted">
+                  <Reveal delay={i * 70} className="grid gap-1.5 py-6 sm:grid-cols-[3rem_1fr] sm:py-7">
+                    <span aria-hidden="true" className="landing-index pt-1">
                       0{i + 1}
                     </span>
                     <div>
-                      <h3 className="font-semibold">{point.title}</h3>
-                      <p className="mt-1 text-sm leading-relaxed text-fg-muted">{point.text}</p>
+                      <h3 className="text-lg font-semibold tracking-tight">{point.title}</h3>
+                      <p className="mt-1.5 max-w-md text-[15px] leading-relaxed text-fg-muted">{point.text}</p>
                     </div>
                   </Reveal>
                 </li>
@@ -273,15 +266,13 @@ export function GuestLanding({
 
         {/* Avis des utilisateurs */}
         <section id="avis" className="relative flex min-h-[calc(100dvh-4rem)] scroll-mt-16 flex-col justify-center overflow-hidden border-t border-border bg-bg-subtle">
-          {/* Taches de couleur derrière le mur : c'est ce que le flou des cartes laisse deviner. */}
-          <div aria-hidden="true" className="reviews-glow pointer-events-none absolute inset-0" />
-          <div className="relative mx-auto grid w-full max-w-5xl gap-10 px-5 py-16 md:grid-cols-[minmax(0,17rem)_1fr] md:items-center md:gap-14">
+          <div className="relative mx-auto grid w-full max-w-5xl gap-10 px-5 py-16 md:grid-cols-[minmax(0,19rem)_1fr] md:items-center md:gap-16">
             <Reveal>
-              <h2 className="text-3xl font-bold tracking-tight">Ce qu&apos;ils en disent</h2>
-              <p className="mt-3 text-fg-muted">Les avis des personnes qui parlent avec Tamilya.</p>
+              <h2 className="landing-h2">Ce qu&apos;ils en disent</h2>
+              <p className="mt-4 leading-relaxed text-fg-muted">Les avis des personnes qui parlent avec Tamilya.</p>
               {reviews.length ? (
-                <div className="mt-6 flex items-center gap-4">
-                  <span className="text-5xl font-bold tracking-tight tabular-nums">{ratingFormat.format(average)}</span>
+                <div className="mt-8 flex items-center gap-4 border-t border-border pt-6">
+                  <span className="text-6xl leading-none font-semibold tracking-[-0.04em] tabular-nums">{ratingFormat.format(average)}</span>
                   <span>
                     <span
                       role="img"
@@ -293,12 +284,7 @@ export function GuestLanding({
                   </span>
                 </div>
               ) : null}
-              <button
-                type="button"
-                onClick={giveReview}
-                className="mt-6 rounded-full px-5 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.98]"
-                style={{ background: PERSONA }}
-              >
+              <button type="button" onClick={giveReview} className="btn-rose mt-7 rounded-full px-5 py-2.5 text-sm font-semibold">
                 Donner mon avis
               </button>
             </Reveal>

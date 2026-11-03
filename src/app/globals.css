@@ -2546,6 +2546,166 @@ html:has(.ecran-fixe) body {
   isolation: isolate;
 }
 
+/*
+ * Bouton « Glass Rose » : une vitre à peine teintée de la couleur de la
+ * personnalité. Fond très transparent et flouté, filet clair net, un seul
+ * reflet fin sur l'arête du haut. Ni dégradé, ni halo coloré, ni relief :
+ * le texte rose profond porte la couleur.
+ * --icon : version ronde (envoi du message, initiale d'un avis).
+ */
+/* Couche « components » : les classes Tailwind (absolute, tailles…) passent devant. */
+@layer components {
+  .btn-rose {
+    --rose: var(--persona, var(--accent));
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: color-mix(in oklab, var(--rose) 84%, #12060a);
+    background: color-mix(in oklab, var(--rose) 8%, rgb(255 255 255 / 0.4));
+    border: 1px solid color-mix(in oklab, var(--rose) 22%, rgb(255 255 255 / 0.55));
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.95),
+      0 1px 2px rgb(16 24 40 / 0.05);
+    backdrop-filter: blur(16px) saturate(1.8);
+    -webkit-backdrop-filter: blur(16px) saturate(1.8);
+    transition:
+      background-color 200ms ease,
+      border-color 200ms ease,
+      transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+
+  .btn-rose:hover:not(:disabled) {
+    background: color-mix(in oklab, var(--rose) 13%, rgb(255 255 255 / 0.45));
+    border-color: color-mix(in oklab, var(--rose) 36%, rgb(255 255 255 / 0.5));
+  }
+
+  .btn-rose:active:not(:disabled) {
+    background: color-mix(in oklab, var(--rose) 17%, rgb(255 255 255 / 0.45));
+    transform: scale(0.98);
+  }
+
+  .btn-rose:focus-visible {
+    outline: 2px solid color-mix(in oklab, var(--rose) 55%, transparent);
+    outline-offset: 2px;
+  }
+
+  .btn-rose:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+
+  .btn-rose--icon {
+    border-radius: 999px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    .btn-rose {
+      color: color-mix(in oklab, var(--rose) 38%, #fff);
+      background: color-mix(in oklab, var(--rose) 14%, rgb(255 255 255 / 0.04));
+      border-color: color-mix(in oklab, var(--rose) 30%, rgb(255 255 255 / 0.12));
+      box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12);
+    }
+    .btn-rose:hover:not(:disabled) {
+      background: color-mix(in oklab, var(--rose) 22%, rgb(255 255 255 / 0.05));
+      border-color: color-mix(in oklab, var(--rose) 48%, rgb(255 255 255 / 0.14));
+    }
+    .btn-rose:active:not(:disabled) {
+      background: color-mix(in oklab, var(--rose) 28%, rgb(255 255 255 / 0.05));
+    }
+  }
+}
+
+/*
+ * Accueil : direction « lagon ». Petites capitales encadrées de filets pour
+ * l'étiquette, titre serré et équilibré, et sous « shimaoré » une ligne
+ * ondulée — la même courbe de niveau que le fond, pas un dégradé.
+ */
+.landing-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+.landing-eyebrow::before,
+.landing-eyebrow::after {
+  content: "";
+  width: 1.75rem;
+  height: 1px;
+  background: color-mix(in oklab, var(--fg) 22%, transparent);
+}
+
+/* Téléphone : l'étiquette passe sans ses filets, sur une ligne si possible. */
+@media (max-width: 479px) {
+  .landing-eyebrow {
+    letter-spacing: 0.12em;
+  }
+  .landing-eyebrow::before,
+  .landing-eyebrow::after {
+    display: none;
+  }
+}
+
+.landing-title {
+  font-size: clamp(2.5rem, 7vw, 4.75rem);
+  line-height: 1.02;
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.landing-accent {
+  position: relative;
+  display: inline-block;
+  color: color-mix(in oklab, var(--persona, var(--accent)) 88%, var(--fg));
+}
+
+.landing-accent::after {
+  content: "";
+  position: absolute;
+  left: 2%;
+  right: 2%;
+  bottom: -0.08em;
+  height: 0.16em;
+  background: currentColor;
+  opacity: 0.45;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 8' preserveAspectRatio='none'%3E%3Cpath d='M1 5.5C11 2 19 2 29 4.5S49 7.5 60 4.5S80 1.5 91 4S110 6.5 119 3' fill='none' stroke='%23000' stroke-width='1.6' stroke-linecap='round'/%3E%3C/svg%3E") center / 100% 100% no-repeat;
+  transform-origin: left;
+  animation: landing-underline 900ms cubic-bezier(0.65, 0, 0.35, 1) 650ms both;
+}
+
+@keyframes landing-underline {
+  from {
+    transform: scaleX(0);
+  }
+}
+
+.landing-h2 {
+  font-size: clamp(2rem, 4.2vw, 3rem);
+  line-height: 1.06;
+  font-weight: 650;
+  letter-spacing: -0.035em;
+  text-wrap: balance;
+}
+
+.landing-index {
+  font-family: var(--font-mono), ui-monospace, monospace;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  color: color-mix(in oklab, var(--persona, var(--accent)) 70%, var(--fg-muted));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-accent::after {
+    animation: none;
+  }
+}
+
 .landing-rise {
   animation: awa-hello-rise 800ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
@@ -2907,26 +3067,23 @@ html[data-morph]::view-transition-new(root) {
 }
 
 /*
- * Avis des utilisateurs sur la page d'accueil (ReviewsWall). Les cartes sont
- * translucides et floutent ce qui passe derrière : les taches de couleur de
- * .reviews-glow. Deux colonnes défilent en sens inverse ; pause au survol.
+ * Avis des utilisateurs sur la page d'accueil (ReviewsWall) : cartes sobres,
+ * filet fin et fond plein, sans ombre ni flou. Deux colonnes défilent en sens
+ * inverse ; pause au survol. La carte d'invitation est un emplacement vide
+ * (pointillés), pour ne jamais ressembler à un faux avis.
  */
-.reviews-glow {
-  background:
-    radial-gradient(closest-side at 72% 28%, color-mix(in oklab, var(--persona, var(--accent)) 30%, transparent), transparent),
-    radial-gradient(closest-side at 92% 78%, color-mix(in oklab, #f59e0b 22%, transparent), transparent),
-    radial-gradient(closest-side at 50% 95%, color-mix(in oklab, var(--persona, var(--accent)) 18%, transparent), transparent);
-  background-size: 70% 80%, 50% 60%, 60% 50%;
-  background-position: 100% 0, 100% 100%, 40% 100%;
-  background-repeat: no-repeat;
+.review-card {
+  background: var(--bg);
+  border: 1px solid color-mix(in oklab, var(--fg) 9%, transparent);
+  transition: border-color 200ms ease;
 }
 
-.review-card {
-  background: color-mix(in oklab, var(--bg) 55%, transparent);
-  border: 1px solid color-mix(in oklab, var(--fg) 9%, transparent);
-  box-shadow: 0 8px 24px -16px rgb(0 0 0 / 0.25);
-  backdrop-filter: blur(18px) saturate(1.5);
-  -webkit-backdrop-filter: blur(18px) saturate(1.5);
+.review-card:hover {
+  border-color: color-mix(in oklab, var(--persona, var(--accent)) 28%, var(--border));
+}
+
+.review-invite {
+  border: 1px dashed color-mix(in oklab, var(--fg) 18%, transparent);
 }
 
 /* Étoiles de la note moyenne, remplies en proportion (--fill). */

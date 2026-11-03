@@ -14,7 +14,7 @@ const monthYear = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numer
 
 function Stars({ rating, className = "" }: { rating: number; className?: string }) {
   return (
-    <span className={`flex gap-0.5 text-sm leading-none ${className}`} aria-label={`${rating} étoile${rating > 1 ? "s" : ""} sur 5`}>
+    <span className={`flex gap-px text-[13px] leading-none ${className}`} aria-label={`${rating} étoile${rating > 1 ? "s" : ""} sur 5`}>
       {[1, 2, 3, 4, 5].map((n) => (
         <span key={n} aria-hidden="true" className={n <= rating ? "text-[#f59e0b]" : "text-fg/15"}>
           ★
@@ -27,15 +27,11 @@ function Stars({ rating, className = "" }: { rating: number; className?: string 
 /** Carte d'avis au fond flouté : les couleurs de la section passent à travers. */
 function ReviewCard({ review, hidden }: { review: PublicReview; hidden?: boolean }) {
   return (
-    <article aria-hidden={hidden || undefined} className="review-card flex flex-col gap-3 rounded-2xl p-4 sm:p-5">
+    <article aria-hidden={hidden || undefined} className="review-card flex flex-col gap-3.5 rounded-xl p-5">
       <Stars rating={review.rating} />
-      {review.comment ? <p className="line-clamp-5 text-sm leading-relaxed text-fg sm:text-[15px]">{review.comment}</p> : null}
-      <footer className="flex min-w-0 items-center gap-2.5">
-        <span
-          aria-hidden="true"
-          className="grid size-8 shrink-0 place-items-center rounded-full text-xs font-semibold text-white"
-          style={{ background: "var(--persona,var(--accent))" }}
-        >
+      {review.comment ? <p className="line-clamp-5 text-[15px] leading-relaxed text-pretty text-fg">{review.comment}</p> : null}
+      <footer className="mt-auto flex min-w-0 items-center gap-2.5 border-t border-border pt-3.5">
+        <span aria-hidden="true" className="btn-rose btn-rose--icon pointer-events-none size-8 shrink-0 text-xs font-semibold">
           {review.name.charAt(0).toUpperCase()}
         </span>
         <span className="min-w-0">
@@ -54,13 +50,19 @@ function ReviewCard({ review, hidden }: { review: PublicReview; hidden?: boolean
 /** Carte qui invite à donner son avis (jamais de faux avis pour remplir). */
 function InviteCard({ onReview, first }: { onReview: () => void; first: boolean }) {
   return (
-    <div className="review-card flex flex-col items-start gap-3 rounded-2xl p-5">
-      <Stars rating={5} />
-      <p className="text-sm leading-relaxed text-fg sm:text-[15px]">
+    <div className="review-invite flex flex-col items-start justify-between gap-4 rounded-xl p-5">
+      <p className="text-[15px] leading-relaxed text-pretty text-fg-muted">
         {first ? "Sois le premier à dire ce que tu penses de Tamilya." : "Tu as parlé avec Tamilya ?"} Ton avis aide les autres à la découvrir.
       </p>
-      <button type="button" onClick={onReview} className="text-sm font-semibold underline-offset-4 hover:underline" style={{ color: "var(--persona,var(--accent))" }}>
-        Donner mon avis →
+      <button
+        type="button"
+        onClick={onReview}
+        className="group inline-flex items-center gap-1.5 text-sm font-semibold text-[color-mix(in_oklab,var(--persona,var(--accent))_80%,var(--fg))]"
+      >
+        Donner mon avis
+        <span aria-hidden="true" className="transition-transform duration-200 group-hover:translate-x-0.5">
+          →
+        </span>
       </button>
     </div>
   );
