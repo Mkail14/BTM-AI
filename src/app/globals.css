@@ -2603,9 +2603,6 @@ html:has(.ecran-fixe) body {
   }
 }
 
-.landing-input input:focus {
-  box-shadow: 0 24px 70px -20px var(--landing-glow);
-}
 
 /* Départ vers la conversation : le contenu s'envole en flou. */
 .landing[data-leaving] .landing-content {
@@ -2851,9 +2848,6 @@ html:has(.ecran-fixe) body {
   }
 }
 
-.landing-input[data-stretch="open"] input {
-  box-shadow: 0 18px 50px -22px var(--persona, var(--accent));
-}
 
 @media (prefers-reduced-motion: reduce) {
   .landing-input[data-stretch] {
