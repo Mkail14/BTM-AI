@@ -47,7 +47,7 @@ export default async function UsagePage() {
 
   return (
     <SettingsFrame isAdmin={user.isAdmin} section="Utilisation">
-      <div className="grid grid-cols-1 min-h-0 flex-1 content-start gap-5 overflow-y-auto md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 flex-1 content-start gap-5 md:min-h-0 md:overflow-y-auto md:grid-cols-[minmax(0,22rem)_minmax(0,1fr)]">
         {/* Quota du jour */}
         <section aria-labelledby="quota" className="rounded-3xl border border-border bg-bg p-6">
           <div className="flex items-center justify-between">

@@ -537,7 +537,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
         </div>
       </header>
 
-      <div ref={contentRef} className="flex min-h-0 flex-1 flex-col">
+      <div ref={contentRef} className={`flex flex-1 flex-col ${messages.length === 0 ? "min-h-0" : "shrink-0"}`}>
         {messages.length === 0 ? (
           // Accueil : Awa (globe animé) au centre, suggestions juste au-dessus de la zone de saisie, collée en bas.
           <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col px-4 sm:px-6">
@@ -547,7 +547,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
               <AwaBlob
                 label={voiceEnabled ? "Parler à Awa" : "Écrire à Awa"}
                 onActivate={voiceEnabled && !blocked && online ? voice.start : () => composerRef.current?.focus()}
-                className="shrink-0 [@media(max-height:560px)]:hidden"
+                // Pendant le mode vocal, ce même globe est au centre de l'écran (morphose) : ici, il s'efface.
+                className={`awa-blob-home shrink-0 [@media(max-height:560px)]:hidden ${voice.state !== "off" ? "is-away" : ""}`}
               />
               <h1 suppressHydrationWarning className="awa-hello-rise mt-5 text-2xl font-semibold tracking-tight sm:mt-8 sm:text-4xl [@media(max-height:560px)]:mt-0">
                 {greeting()}

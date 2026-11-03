@@ -6,6 +6,20 @@ import { getVoiceMood, voiceLevel } from "@/lib/chat/voice-level";
 /** Durée de l'animation du clic avant d'ouvrir (voix ou zone de saisie). */
 const POP_MS = 520;
 
+/**
+ * Place du globe au moment du clic : le mode vocal s'en sert pour faire
+ * « grandir » ce même globe jusqu'au centre de l'écran (morphose), au lieu
+ * d'en ouvrir un autre par-dessus.
+ */
+let launch: { rect: DOMRect; at: number } | null = null;
+
+/** Place du globe touché il y a moins d'une seconde (une seule fois), sinon null. */
+export function takeLaunchOrigin(): DOMRect | null {
+  const origin = launch && performance.now() - launch.at < 1000 ? launch.rect : null;
+  launch = null;
+  return origin;
+}
+
 /** Bruit lisse à une dimension : valeurs au hasard sur une grille, reliées en douceur. Jamais deux fois le même chemin. */
 function makeNoise() {
   const lattice = Float32Array.from({ length: 512 }, () => Math.random() * 2 - 1);
@@ -171,6 +185,7 @@ export function AwaBlob({
       data-popping={popping || undefined}
       onClick={() => {
         if (popping) return;
+        if (root.current) launch = { rect: root.current.getBoundingClientRect(), at: performance.now() };
         // Animations réduites : on ouvre tout de suite.
         if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return onActivate();
         setPopping(true);

@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect } from "react";
-import { AwaBlob } from "./AwaBlob";
+import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { AwaBlob, takeLaunchOrigin } from "./AwaBlob";
 import { IconClose, IconMic } from "@/components/ui/icons";
 import { speakableText } from "@/lib/chat/voice";
 import { splitUnknownWords } from "@/lib/language/unknown-words";
@@ -37,6 +37,38 @@ export function VoiceOverlay({
     onClose?.();
   }, [onClose, stopVoice]);
 
+  const visible = state !== "off" || standalone;
+  const overlay = useRef<HTMLDivElement>(null);
+  const orb = useRef<HTMLDivElement>(null);
+
+  /*
+   * Morphose à l'ouverture : le globe de l'accueil glisse et grandit jusqu'au
+   * centre (il part exactement de là où on l'a touché), pendant que la page
+   * s'assombrit et se floute derrière lui, sans voile qui couvre d'un coup.
+   * Le texte et les boutons arrivent ensuite.
+   */
+  useLayoutEffect(() => {
+    if (!visible) return;
+    const from = takeLaunchOrigin();
+    const el = orb.current;
+    if (!from || !el || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const to = el.getBoundingClientRect();
+    const dx = from.left + from.width / 2 - (to.left + to.width / 2);
+    const dy = from.top + from.height / 2 - (to.top + to.height / 2);
+    const k = from.width / to.width;
+    overlay.current?.setAttribute("data-morph", "");
+    el.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) scale(${k})` },
+        { transform: `translate(${dx * 0.15}px, ${dy * 0.15}px) scale(${1.06})`, offset: 0.7 },
+        { transform: "none" },
+      ],
+      { duration: 820, easing: "cubic-bezier(0.22, 1, 0.36, 1)" },
+    );
+    overlay.current?.style.setProperty("--morph-x", `${from.left + from.width / 2}px`);
+    overlay.current?.style.setProperty("--morph-y", `${from.top + from.height / 2}px`);
+  }, [visible]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") close();
@@ -64,25 +96,28 @@ export function VoiceOverlay({
 
   return (
     <div
+      ref={overlay}
       role="dialog"
       aria-modal="true"
       aria-label="Conversation vocale avec Awa"
       className="voice-overlay fixed inset-0 z-[60] flex flex-col items-center px-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] text-white"
     >
-      <p className="text-sm font-medium tracking-[0.3em] text-white/50 uppercase">Awa</p>
+      <p className="voice-morph-in text-sm font-medium tracking-[0.3em] text-white/50 uppercase">Awa</p>
 
       <div className="flex w-full flex-1 flex-col items-center justify-center gap-10">
         {/* La même Awa que sur l'accueil, en grand : elle suit sa voix quand elle parle, frémit quand on lui parle. */}
-        <AwaBlob
-          label={state === "speaking" ? "Couper Awa et parler" : "Parler"}
-          onActivate={talk}
-          immediate
-          busy={state === "waiting"}
-          size="min(60vw, 16rem)"
-          goo={13}
-        />
+        <div ref={orb}>
+          <AwaBlob
+            label={state === "speaking" ? "Couper Awa et parler" : "Parler"}
+            onActivate={talk}
+            immediate
+            busy={state === "waiting"}
+            size="min(60vw, 16rem)"
+            goo={13}
+          />
+        </div>
 
-        <div className="w-full max-w-xl text-center" aria-live="polite">
+        <div className="voice-morph-in w-full max-w-xl text-center [animation-delay:380ms]" aria-live="polite">
           <p className={`text-base font-medium ${error && state === "off" ? "text-red-300" : "text-white/80"}`}>
             {error && state === "off" ? error : LABELS[state]}
           </p>
@@ -90,7 +125,7 @@ export function VoiceOverlay({
         </div>
       </div>
 
-      <div className="flex items-center gap-6">
+      <div className="voice-morph-in flex items-center gap-6 [animation-delay:480ms]">
         <button
           type="button"
           onClick={talk}

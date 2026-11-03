@@ -57,7 +57,7 @@ export function SettingsView({
 
   return (
     <TabContext.Provider value={setActive}>
-      <div className="flex min-h-0 flex-1 flex-col gap-4 md:flex-row md:gap-6">
+      <div className="flex flex-1 flex-col gap-4 md:min-h-0 md:flex-row md:gap-6">
         <aside className="shrink-0 md:flex md:w-64 md:flex-col md:gap-4">
           <div className="hidden md:block">{identity}</div>
           <nav aria-label="Rubriques des paramètres">
@@ -105,7 +105,7 @@ export function SettingsView({
           <section
             key={current.id}
             aria-labelledby={`rubrique-${current.id}`}
-            className="flex min-h-0 flex-1 animate-[correct-fade_.18s_ease-out] flex-col overflow-hidden rounded-3xl border border-border bg-bg shadow-sm"
+            className="flex flex-1 animate-[correct-fade_.18s_ease-out] flex-col rounded-3xl border border-border bg-bg shadow-sm md:min-h-0 md:overflow-hidden"
           >
             <header className="flex shrink-0 items-center gap-3 border-b border-border px-5 py-4 md:px-7">
               {CurrentIcon ? (
@@ -123,7 +123,7 @@ export function SettingsView({
                 <p className="truncate text-sm text-fg-muted">{current.hint}</p>
               </div>
             </header>
-            <div className="scrollbar-none min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 md:px-7 md:py-6">
+            <div className="scrollbar-none flex-1 px-5 py-5 md:min-h-0 md:overflow-y-auto md:overscroll-contain md:px-7 md:py-6">
               <div className="max-w-2xl">{panels[current.id]}</div>
             </div>
           </section>

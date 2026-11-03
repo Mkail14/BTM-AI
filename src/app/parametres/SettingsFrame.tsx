@@ -17,8 +17,8 @@ export function SettingsFrame({
   children: ReactNode;
 }) {
   return (
-    <div className="flex h-dvh flex-col overflow-hidden bg-bg-subtle">
-      <header className="shrink-0 border-b border-border bg-bg">
+    <div className="flex min-h-dvh flex-col bg-bg-subtle md:h-dvh md:overflow-hidden">
+      <header className="sticky top-0 z-20 shrink-0 border-b border-border bg-bg/95 backdrop-blur md:static md:bg-bg md:backdrop-blur-none">
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4">
           <Link href="/" aria-label="BTM AI — retour à la conversation" className="rounded">
             <BrandLogo size="md" />
@@ -46,7 +46,7 @@ export function SettingsFrame({
           </div>
         </div>
       </header>
-      <main id="contenu" className="mx-auto flex min-h-0 w-full max-w-5xl flex-1 flex-col gap-5 px-4 py-5 md:py-8">
+      <main id="contenu" className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 px-4 pt-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] md:min-h-0 md:py-8">
         {children}
       </main>
     </div>

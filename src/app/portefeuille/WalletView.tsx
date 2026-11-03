@@ -180,7 +180,7 @@ export function WalletView({
 
   return (
     // Seule cette colonne défile.
-    <div className="-mx-4 -my-5 min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 md:-my-8 md:py-8">
+    <div className="md:-mx-4 md:-my-8 md:min-h-0 md:flex-1 md:overflow-y-auto md:overscroll-contain md:px-4 md:py-8">
       <div className="mx-auto grid w-full max-w-5xl gap-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start">
         {/* Colonne gauche : solde et actions */}
         <div className="space-y-5 lg:sticky lg:top-0">

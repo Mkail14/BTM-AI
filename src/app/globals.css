@@ -2858,3 +2858,62 @@ html:has(.ecran-fixe) body {
   }
 }
 
+
+/*
+ * Ouverture du mode vocal par morphose (VoiceOverlay, data-morph) : le globe
+ * touché sur l'accueil glisse et grandit jusqu'au centre (Web Animations),
+ * l'arrière-plan s'assombrit et se floute peu à peu sous lui (la page reste
+ * devinée derrière), puis le texte et les boutons montent en douceur.
+ */
+.voice-overlay[data-morph] {
+  background: none;
+  animation: none;
+}
+
+.voice-overlay[data-morph]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    radial-gradient(38rem 38rem at 50% 42%, color-mix(in srgb, var(--orb) 14%, transparent), transparent 70%),
+    rgb(5 6 10 / 0.88);
+  -webkit-backdrop-filter: blur(24px) saturate(1.15);
+  backdrop-filter: blur(24px) saturate(1.15);
+  animation: voice-morph-bg 760ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Le globe arrive déjà formé : pas d'éclosion par-dessus la morphose. */
+.voice-overlay[data-morph] .awa-blob {
+  animation: awa-float 6s ease-in-out 820ms infinite;
+}
+
+.voice-morph-in {
+  animation: order-rise-soft 600ms 300ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+@keyframes voice-morph-bg {
+  from {
+    opacity: 0;
+    -webkit-backdrop-filter: blur(0) saturate(1);
+    backdrop-filter: blur(0) saturate(1);
+  }
+}
+
+/* Globe de l'accueil : il s'efface pendant que son double est au centre, puis revient. */
+.awa-blob-home {
+  transition: opacity 300ms ease, scale 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.awa-blob-home.is-away {
+  opacity: 0;
+  scale: 0.6;
+  transition-duration: 120ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-overlay[data-morph]::before,
+  .voice-morph-in {
+    animation: none;
+  }
+}
