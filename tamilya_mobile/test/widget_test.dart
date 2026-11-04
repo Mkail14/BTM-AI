@@ -61,6 +61,8 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text("Continuer avec l'e-mail"));
     await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('auth-email')), 'a@exemple.fr');
+    await tester.enterText(find.byKey(const Key('auth-password')), 'secret123');
     await tester.tap(find.text('Se connecter'));
     await tester.pumpAndSettle();
   }
@@ -91,6 +93,8 @@ void main() {
 
     await tester.tap(find.text("Continuer avec l'e-mail"));
     await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const Key('auth-email')), 'a@exemple.fr');
+    await tester.enterText(find.byKey(const Key('auth-password')), 'secret123');
     await tester.tap(find.text('Se connecter'));
     await tester.pumpAndSettle();
 
