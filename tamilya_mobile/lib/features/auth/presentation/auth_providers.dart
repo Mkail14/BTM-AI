@@ -3,20 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../data/fake_auth_repository.dart';
 import '../domain/auth_repository.dart';
 
-/// Surchargé en C3 par l'implémentation Supabase (et dans les tests).
+/// Surchargé au démarrage par l'implémentation Supabase (voir `main.dart`) ;
+/// sans configuration, l'application tourne en mode maquette (dépôt factice).
 final authRepositoryProvider = Provider<AuthRepository>(
-  (ref) => const FakeAuthRepository(),
+  (ref) => FakeAuthRepository(),
 );
 
-/// Session de l'utilisateur. Faux état local en C2 ; en C3 l'état vient de
-/// Supabase (session restaurée = on saute l'accueil).
+/// Session de l'utilisateur : vrai = connecté. Suit le dépôt (session
+/// restaurée au démarrage, connexion, déconnexion, expiration).
 class SessionController extends Notifier<bool> {
   @override
-  bool build() => false;
-
-  void signIn() => state = true;
-
-  void signOut() => state = false;
+  bool build() {
+    final repo = ref.watch(authRepositoryProvider);
+    final sub = repo.sessionChanges.listen((signedIn) => state = signedIn);
+    ref.onDispose(sub.cancel);
+    return repo.hasSession;
+  }
 }
 
 final sessionProvider = NotifierProvider<SessionController, bool>(

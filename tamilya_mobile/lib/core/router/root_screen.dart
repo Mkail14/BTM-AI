@@ -25,11 +25,10 @@ class _RootScreenState extends ConsumerState<RootScreen> {
 
   Future<void> _openAuth({String? message}) async {
     _pending = message;
-    final ok = await showAuthSheet(
+    await showAuthSheet(
       context,
       reason: message == null ? null : kSignupReason,
     );
-    if (ok && mounted) ref.read(sessionProvider.notifier).signIn();
   }
 
   @override

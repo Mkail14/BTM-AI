@@ -12,6 +12,7 @@ import '../../features/chat/presentation/chat_controller.dart';
 import '../../features/chat/presentation/chat_screen.dart';
 import '../../features/conversations/presentation/conversations_drawer.dart';
 import '../../features/legal/presentation/legal_screen.dart';
+import '../../features/settings/presentation/settings_providers.dart';
 import '../../features/settings/presentation/settings_screen.dart';
 
 /// Routes : /splash -> / (accueil visiteur ou chat selon la session) ;
@@ -49,14 +50,32 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     );
   }
 
+  final refresh = ValueNotifier<int>(0);
+  ref.listen<bool>(sessionProvider, (previous, signedIn) {
+    if (!signedIn) ref.invalidate(accountProvider);
+    refresh.value++;
+  });
+  ref.onDispose(refresh.dispose);
+
   return GoRouter(
     initialLocation: '/splash',
+    refreshListenable: refresh,
     redirect: (context, state) {
-      if (Env.forceTheme.isNotEmpty &&
-          state.matchedLocation == '/recette/chat') {
-        ref.read(sessionProvider.notifier).signIn();
+      final loc = state.matchedLocation;
+      if (Env.forceTheme.isNotEmpty && loc == '/recette/chat') {
+        // Outil de recette (dépôt factice) : ouvre une session sans réseau.
+        ref
+            .read(authRepositoryProvider)
+            .signIn(email: 'recette@exemple.invalid', password: 'x');
         return '/';
       }
+      // Garde : sans session, seuls l'accueil, le lancement et le légal.
+      final open =
+          loc == '/' ||
+          loc == '/splash' ||
+          loc.startsWith('/legal') ||
+          loc.startsWith('/recette');
+      if (!ref.read(sessionProvider) && !open) return '/';
       return null;
     },
     routes: [
@@ -91,7 +110,6 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           onOpenLegal: (page) => context.push('/legal/$page'),
           onSignOut: () async {
             await ref.read(authRepositoryProvider).signOut();
-            ref.read(sessionProvider.notifier).signOut();
             if (context.mounted) context.go('/');
           },
         ),

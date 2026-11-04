@@ -12,6 +12,7 @@ class AppTextField extends StatelessWidget {
     this.textInputAction,
     this.autofillHints,
     this.errorText,
+    this.fieldKey,
     this.onSubmitted,
   });
 
@@ -23,6 +24,7 @@ class AppTextField extends StatelessWidget {
   final TextInputAction? textInputAction;
   final Iterable<String>? autofillHints;
   final String? errorText;
+  final Key? fieldKey;
   final ValueChanged<String>? onSubmitted;
 
   @override
@@ -33,6 +35,7 @@ class AppTextField extends StatelessWidget {
         Text(label, style: Theme.of(context).textTheme.bodyMedium),
         const SizedBox(height: 6),
         TextField(
+          key: fieldKey,
           controller: controller,
           obscureText: obscureText,
           keyboardType: keyboardType,

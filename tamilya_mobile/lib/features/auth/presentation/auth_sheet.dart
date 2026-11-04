@@ -4,10 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/config/feature_flags.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/tokens.dart';
-import '../../../shared/widgets/app_text_field.dart';
+
 import '../../../shared/widgets/lagon_background.dart';
 import '../../../shared/widgets/primary_button.dart';
-import 'auth_providers.dart';
+import 'auth_forms.dart';
 
 /// Texte du web quand la connexion est demandée au premier envoi.
 const String kSignupReason =
@@ -44,25 +44,6 @@ class AuthSheet extends ConsumerStatefulWidget {
 class _AuthSheetState extends ConsumerState<AuthSheet> {
   late bool _signup = widget.signup;
   bool _form = false;
-  bool _pending = false;
-  final TextEditingController _email = TextEditingController();
-  final TextEditingController _password = TextEditingController();
-
-  @override
-  void dispose() {
-    _email.dispose();
-    _password.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submit() async {
-    setState(() => _pending = true);
-    await ref
-        .read(authRepositoryProvider)
-        .signIn(email: _email.text.trim(), password: _password.text);
-    if (!mounted) return;
-    Navigator.of(context).pop(true);
-  }
 
   void _soon() {
     ScaffoldMessenger.of(context)
@@ -107,7 +88,14 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
                   ),
                 ),
               ),
-              _form ? _formView(context, p) : _welcome(context, p),
+              _form
+                  ? AuthFormView(
+                      key: ValueKey(_signup),
+                      initialMode: _signup ? AuthMode.signUp : AuthMode.signIn,
+                      onSignedIn: () => Navigator.of(context).pop(true),
+                      onBack: () => setState(() => _form = false),
+                    )
+                  : _welcome(context, p),
               Positioned(
                 top: 14,
                 right: 14,
@@ -269,64 +257,6 @@ class _AuthSheetState extends ConsumerState<AuthSheet> {
                   ),
                 ],
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _formView(BuildContext context, TamilyaPalette p) {
-    final theme = Theme.of(context);
-    return SafeArea(
-      child: SingleChildScrollView(
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        padding: EdgeInsets.fromLTRB(
-          20,
-          72,
-          20,
-          20 + MediaQuery.viewInsetsOf(context).bottom,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              _signup ? 'Créer un compte' : 'Connexion',
-              style: theme.textTheme.titleLarge?.copyWith(fontSize: 28),
-            ),
-            const SizedBox(height: 24),
-            AppTextField(
-              label: 'Adresse e-mail',
-              controller: _email,
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.next,
-              autofillHints: const [AutofillHints.email],
-            ),
-            const SizedBox(height: 16),
-            AppTextField(
-              label: 'Mot de passe',
-              controller: _password,
-              obscureText: true,
-              textInputAction: TextInputAction.done,
-              autofillHints: const [AutofillHints.password],
-            ),
-            if (!_signup)
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: _soon,
-                  child: const Text('Mot de passe oublié ?'),
-                ),
-              ),
-            const SizedBox(height: 12),
-            PrimaryButton(
-              label: _signup ? 'Créer mon compte' : 'Se connecter',
-              loading: _pending,
-              onPressed: _submit,
-            ),
-            TextButton(
-              onPressed: () => setState(() => _form = false),
-              child: const Text('Retour'),
             ),
           ],
         ),
