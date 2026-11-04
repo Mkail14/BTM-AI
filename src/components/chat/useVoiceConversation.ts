@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { isVoiceSupported, listen, speak, unlockSpeech, type Dictation } from "@/lib/chat/voice";
+import { createSpeaker, isVoiceSupported, listen, speak, unlockSpeech, type Dictation, type Speaker } from "@/lib/chat/voice";
 import { voiceHeard, voiceListenEnd } from "@/lib/chat/voice-level";
 import { stripTranslation } from "@/lib/language/unknown-words";
 
@@ -58,6 +58,8 @@ export function useVoiceConversation(onSend: (text: string) => void) {
   const active = useRef(false);
   const dictation = useRef<Dictation | null>(null);
   const stopSpeaking = useRef<(() => void) | null>(null);
+  /** Voix en cours, qui reçoit les phrases au fil de la réponse. */
+  const speaker = useRef<Speaker | null>(null);
   const sendRef = useRef(onSend);
   useEffect(() => {
     sendRef.current = onSend;
@@ -156,27 +158,62 @@ export function useVoiceConversation(onSend: (text: string) => void) {
     if (active.current) startListening();
   }, [startListening]);
 
+  const speakerOptions = useCallback(
+    () => ({
+      onWord: () => setBeat((n) => n + 1),
+      onDone: () => {
+        stopSpeaking.current = null;
+        speaker.current = null;
+        if (active.current) startListening();
+      },
+    }),
+    [startListening],
+  );
+
+  /**
+   * Phrase de la réponse, envoyée par le serveur dès qu'elle est terminée :
+   * Tamilya commence à parler pendant que la suite s'écrit encore.
+   */
+  const say = useCallback(
+    (sentence: string) => {
+      if (!active.current) return;
+      const text = stripTranslation(sentence);
+      if (!speaker.current) {
+        const created = createSpeaker(speakerOptions());
+        speaker.current = created;
+        stopSpeaking.current = () => {
+          created.stop();
+          speaker.current = null;
+        };
+        setReply("");
+        setState("speaking");
+      }
+      speaker.current.add(text);
+      setReply((previous) => (previous ? `${previous} ${text}` : text));
+    },
+    [speakerOptions],
+  );
+
   /** Réponse de Tamilya terminée (ou message d'erreur) : elle la lit (sans traduction ajoutée), puis réécoute. */
   const replied = useCallback(
     (answer: string) => {
       if (!active.current) return;
+      // Déjà lue phrase par phrase : il n'y a plus qu'à finir.
+      if (speaker.current) {
+        speaker.current.end();
+        return;
+      }
       const text = stripTranslation(answer);
       setReply(text);
       setState("speaking");
-      stopSpeaking.current = speak(text, {
-        onWord: () => setBeat((n) => n + 1),
-        onDone: () => {
-          stopSpeaking.current = null;
-          if (active.current) startListening();
-        },
-      });
+      stopSpeaking.current = speak(text, speakerOptions());
     },
-    [startListening],
+    [speakerOptions],
   );
 
   useEffect(() => stop, [stop]);
 
-  return { supported, state, error, hint, transcript, reply, beat, start, stop, interrupt, replied };
+  return { supported, state, error, hint, transcript, reply, beat, start, stop, interrupt, say, replied };
 }
 
 export type VoiceConversation = ReturnType<typeof useVoiceConversation>;

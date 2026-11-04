@@ -32,6 +32,8 @@ export type ChatStreamEvent =
   | { type: "delta"; text: string }
   /** Texte final qui remplace tout ce qui a été affiché (mode maître : réponse corrigée). */
   | { type: "replace"; text: string }
+  /** Mode vocal : phrase terminée (déjà corrigée en mode maître), à lire tout de suite. */
+  | { type: "speech"; text: string }
   /** Mode maître : shimaoré retenu de ce message (affiché « ✓ Retenu » sous la réponse). */
   | { type: "learned"; words: { french: string; shimaore: string }[] }
   | { type: "done"; finishReason: FinishReason }

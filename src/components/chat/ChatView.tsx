@@ -138,7 +138,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   // Message dicté : le serveur le sait, Tamilya répond court, pour être écoutée.
   const voice = useVoiceConversation((text) => sendRef.current(text, true));
   const voiceEnabled = Boolean(user?.isAdmin) && voice.supported;
-  const { replied: voiceReplied, stop: stopVoice } = voice;
+  const { replied: voiceReplied, say: voiceSay, stop: stopVoice } = voice;
 
   // Clic du maître sur un [[mot]] orange : la traduction est retenue pour
   // toujours, et le mot est remplacé partout dans la conversation affichée.
@@ -311,6 +311,10 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             reply += event.text;
             updateMessage(assistantId, (m) => ({ ...m, content: m.content + event.text }));
             break;
+          case "speech":
+            // Mode vocal : phrase terminée, lue tout de suite pendant que la suite s'écrit.
+            if (spoken && !stale()) voiceSay(event.text);
+            break;
           case "replace":
             // Mode maître : version corrigée de la réponse, à la place du texte reçu en direct.
             reply = event.text;
@@ -422,7 +426,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
         if (createdConversationId && !stale()) window.history.replaceState(null, "", `/c/${createdConversationId}`);
       }
     },
-    [conversationId, isStreaming, messages, refreshConversations, updateMessage, userId, voiceReplied, stopVoice, openAuthDialog],
+    [conversationId, isStreaming, messages, refreshConversations, updateMessage, userId, voiceReplied, voiceSay, stopVoice, openAuthDialog],
   );
 
   useEffect(() => {

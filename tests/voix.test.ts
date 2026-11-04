@@ -60,3 +60,16 @@ describe("voix sans grésillement ni attente", () => {
     assert.deepEqual(speechChunks("Sans point final"), ["Sans point final"]);
   });
 });
+
+describe("voix au fil de la réponse", () => {
+  it("envoie chaque phrase dès qu'elle est terminée", async () => {
+    const { createSentenceSplitter } = await import("@/lib/chat/sentences");
+    const s = createSentenceSplitter();
+    assert.deepEqual(s.push("Oui ! Il fait beau à Mamou"), []);
+    assert.deepEqual(s.push("dzou aujourd'hui. La ba"), ["Oui ! Il fait beau à Mamoudzou aujourd'hui."]);
+    assert.deepEqual(s.push("rge coûte 0.75 euro"), []);
+    assert.deepEqual(s.push(" pour un piéton ! Mara"), ["La barge coûte 0.75 euro pour un piéton !"]);
+    assert.deepEqual(s.end(), ["Mara"]);
+    assert.deepEqual(s.end(), []);
+  });
+});

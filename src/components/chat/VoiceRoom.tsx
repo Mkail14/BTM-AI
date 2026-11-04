@@ -27,6 +27,7 @@ export function VoiceRoom() {
   const conversationId = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const repliedRef = useRef<(text: string) => void>(() => {});
+  const sayRef = useRef<(text: string) => void>(() => {});
 
   async function ask(text: string) {
     const controller = new AbortController();
@@ -36,6 +37,8 @@ export function VoiceRoom() {
       if (event.type === "meta") conversationId.current = event.conversationId;
       else if (event.type === "delta") reply += event.text;
       else if (event.type === "replace") reply = event.text;
+      // Phrase terminée : Tamilya la dit tout de suite, pendant que la suite s'écrit.
+      else if (event.type === "speech") sayRef.current(event.text);
       else if (event.type === "error" && !reply) reply = event.message;
     };
     try {
@@ -67,7 +70,8 @@ export function VoiceRoom() {
   const voice = useVoiceConversation((text) => void ask(text));
   useEffect(() => {
     repliedRef.current = voice.replied;
-  }, [voice.replied]);
+    sayRef.current = voice.say;
+  }, [voice.replied, voice.say]);
   useEffect(() => () => abortRef.current?.abort(), []);
 
   return <VoiceOverlay voice={voice} standalone onClose={() => router.push("/admin")} />;

@@ -36,6 +36,9 @@ export function isVoiceSupported(): boolean {
 
 export type Dictation = { stop(): void; cancel(): void };
 
+/** Silence après le dernier mot entendu avant d'envoyer la phrase. */
+const END_OF_SPEECH_MS = 800;
+
 /**
  * Écoute une phrase : `onText` reçoit le texte au fil de la parole, `onEnd`
  * le texte final quand la personne se tait (vide si rien n'a été compris).
@@ -58,15 +61,20 @@ export function listen({
 
   let text = "";
   let cancelled = false;
+  // Fin de phrase : 0,8 s sans nouveau mot suffit, sans attendre que Chrome conclue de lui-même (1 à 2 s).
+  let silence: ReturnType<typeof setTimeout> | null = null;
   recognition.onresult = (event) => {
     text = Array.from(event.results, (result) => result[0]?.transcript ?? "").join("").trim();
     onText(text);
+    if (silence) clearTimeout(silence);
+    if (text) silence = setTimeout(() => recognition.stop(), END_OF_SPEECH_MS);
   };
   recognition.onerror = (event) => {
     // « no-speech » : silence, ce n'est pas une erreur à montrer.
     if (event.error !== "no-speech" && event.error !== "aborted") onError(event.error);
   };
   recognition.onend = () => {
+    if (silence) clearTimeout(silence);
     if (!cancelled) onEnd(text);
   };
   try {
@@ -188,7 +196,7 @@ export function speechChunks(text: string): string[] {
   return chunks;
 }
 
-/** Morceaux téléchargés en avance pendant que le précédent est lu. */
+/** Phrases demandées à Gemini en même temps, au plus (les suivantes attendent leur tour). */
 const PREFETCH = 2;
 
 async function fetchSpeech(text: string, signal: AbortSignal): Promise<Blob> {
@@ -196,40 +204,57 @@ async function fetchSpeech(text: string, signal: AbortSignal): Promise<Blob> {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ text: text.slice(0, 2000) }),
-    signal,
+    signal: AbortSignal.any([signal, AbortSignal.timeout(GEMINI_WAIT_MS)]),
   });
   if (!response.ok) throw new Error(`voix ${response.status}`);
   return response.blob();
 }
 
-/**
- * Lit la réponse avec la voix Gemini de Tamilya (choisie dans /admin/voix),
- * phrase par phrase : la première est demandée seule pour parler vite, les
- * suivantes se préparent pendant la lecture. Si Gemini ne répond pas (pas
- * connecté, quota, réseau), la voix du navigateur prend la suite. Mêmes
- * rappels dans les deux cas. Renvoie de quoi couper la parole.
- */
-export function speak(text: string, options: SpeakOptions): () => void {
-  const spoken = splitUnknownWords(text)
+/** Texte prononçable d'un morceau de réponse (sans Markdown ni [[ ]]). */
+const spokenOf = (raw: string) =>
+  splitUnknownWords(raw)
     .map((segment) => speakableText(segment.text))
     .filter(Boolean)
     .join(" ");
-  if (!spoken || Date.now() < geminiPausedUntil || typeof Audio === "undefined") return browserSpeak(text, options);
 
-  window.speechSynthesis?.cancel();
-  const chunks = speechChunks(spoken);
+export type Speaker = {
+  /** Ajoute une phrase à dire ; la lecture commence dès la première. */
+  add(text: string): void;
+  /** Plus rien à ajouter : onDone quand la dernière phrase est dite. */
+  end(): void;
+  /** Coupe la parole. */
+  stop(): void;
+};
+
+/**
+ * Voix de Tamilya au fil de la réponse : chaque phrase ajoutée est demandée
+ * tout de suite à Gemini (voix choisie dans /admin/voix) et lue dès que la
+ * précédente est finie. Si Gemini ne répond pas (pas connecté, quota,
+ * réseau), la voix du navigateur prend la suite.
+ */
+export function createSpeaker(options: SpeakOptions): Speaker {
   const controller = new AbortController();
-  const requests: Promise<Blob>[] = [];
-  const request = (index: number) => {
-    if (index < chunks.length) requests[index] ??= fetchSpeech(chunks[index], controller.signal);
-    return requests[index];
-  };
-  const audio = player ?? new Audio();
-  let stopFallback: (() => void) | null = null;
+  type Item = { raw: string; text: string; audio: Promise<Blob> | null };
+  const queue: Item[] = [];
+  let browser = typeof Audio === "undefined" || Date.now() < geminiPausedUntil;
+  let ended = false;
   let stopped = false;
+  let playing = false;
   let url: string | null = null;
+  let stopBrowser: (() => void) | null = null;
+  const audio = browser ? null : (player ??= new Audio());
 
+  // Au plus PREFETCH demandes en cours, dans l'ordre de la file.
+  const prefetch = () => {
+    if (browser) return;
+    for (const item of queue.slice(0, PREFETCH)) {
+      if (item.audio) continue;
+      item.audio = fetchSpeech(item.text, controller.signal);
+      item.audio.catch(() => {});
+    }
+  };
   const release = () => {
+    if (!audio) return;
     audio.onended = audio.onerror = audio.ontimeupdate = null;
     if (url) URL.revokeObjectURL(url);
     url = null;
@@ -242,20 +267,22 @@ export function speak(text: string, options: SpeakOptions): () => void {
     options.onDone();
   };
 
-  /** Lit un morceau jusqu'au bout ; le globe suit la voix, un « mot » à chaque espace franchi. */
-  const play = (blob: Blob, offset: number, chunk: string) =>
+  /** Lit un morceau avec Gemini ; le globe suit la voix, un « mot » à chaque espace franchi. */
+  const playBlob = (blob: Blob, text: string) =>
     new Promise<void>((resolve, reject) => {
+      if (!audio) return reject(new Error("pas de lecteur"));
       release();
       url = URL.createObjectURL(blob);
       audio.src = url;
+      voiceSpeakStart(text);
       let lastIndex = -1;
       audio.ontimeupdate = () => {
         if (!audio.duration || !Number.isFinite(audio.duration)) return;
-        const at = Math.floor((audio.currentTime / audio.duration) * chunk.length);
-        const index = chunk.lastIndexOf(" ", at) + 1;
+        const at = Math.floor((audio.currentTime / audio.duration) * text.length);
+        const index = text.lastIndexOf(" ", at) + 1;
         if (index === lastIndex) return;
         lastIndex = index;
-        voiceWord(spoken, offset + index);
+        voiceWord(text, index);
         options.onWord?.();
       };
       audio.onended = () => resolve();
@@ -263,51 +290,73 @@ export function speak(text: string, options: SpeakOptions): () => void {
       audio.play().catch(reject);
     });
 
-  void (async () => {
-    const timer = setTimeout(() => controller.abort(), GEMINI_WAIT_MS);
-    let index = 0;
+  const playBrowser = (raw: string) =>
+    new Promise<void>((resolve) => {
+      stopBrowser = browserSpeak(raw, { onWord: options.onWord, onDone: resolve });
+    });
+
+  const next = async () => {
+    if (playing || stopped) return;
+    const item = queue[0];
+    if (!item) {
+      if (ended) finish();
+      return;
+    }
+    playing = true;
     try {
-      for (let i = 0; i < PREFETCH; i++) void request(i)?.catch(() => {});
-      let offset = 0;
-      for (; index < chunks.length; index++) {
-        const blob = await request(index);
-        if (index === 0) {
-          clearTimeout(timer);
-          voiceSpeakStart(spoken);
-        }
+      if (browser || !item.audio) {
+        await playBrowser(item.raw);
+      } else {
+        const blob = await item.audio;
         if (stopped) return;
-        void request(index + PREFETCH)?.catch(() => {});
-        await play(blob, offset, chunks[index]);
-        offset += chunks[index].length + 1;
+        await playBlob(blob, item.text);
       }
-      finish();
+      queue.shift();
     } catch (error) {
-      clearTimeout(timer);
       if (stopped) return;
       console.info("[voix] Voix Gemini indisponible, voix du navigateur", error);
+      // Cette phrase et les suivantes : voix du navigateur.
+      browser = true;
       geminiPausedUntil = Date.now() + GEMINI_PAUSE_MS;
       release();
-      // La voix du navigateur reprend là où Gemini s'est arrêté.
-      const rest = index === 0 ? text : chunks.slice(index).join(" ");
-      stopFallback = browserSpeak(rest, {
-        onWord: options.onWord,
-        onDone: () => {
-          if (stopped) return;
-          stopped = true;
-          options.onDone();
-        },
-      });
+    } finally {
+      playing = false;
     }
-  })();
-
-  return () => {
-    stopped = true;
-    controller.abort();
-    audio.pause();
-    release();
-    stopFallback?.();
-    voiceSpeakEnd();
+    if (stopped) return;
+    prefetch();
+    void next();
   };
+
+  return {
+    add(raw) {
+      const text = spokenOf(raw);
+      if (stopped || !text) return;
+      if (!browser) window.speechSynthesis?.cancel();
+      queue.push({ raw, text, audio: null });
+      prefetch();
+      void next();
+    },
+    end() {
+      ended = true;
+      void next();
+    },
+    stop() {
+      stopped = true;
+      controller.abort();
+      audio?.pause();
+      release();
+      stopBrowser?.();
+      voiceSpeakEnd();
+    },
+  };
+}
+
+/** Lit une réponse entière, phrase par phrase (voir createSpeaker). Renvoie de quoi couper la parole. */
+export function speak(text: string, options: SpeakOptions): () => void {
+  const speaker = createSpeaker(options);
+  for (const chunk of speechChunks(text)) speaker.add(chunk);
+  speaker.end();
+  return speaker.stop;
 }
 
 /** iOS n’autorise la lecture qu’après un geste : à appeler au toucher du micro. */

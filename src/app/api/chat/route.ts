@@ -17,6 +17,7 @@ import { buildModelHistory } from "@/lib/chat/history";
 import { quickTitle } from "@/lib/chat/title";
 import { nameConversation } from "@/lib/ai/title";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
+import { createSentenceSplitter } from "@/lib/chat/sentences";
 import { encodeStreamEvent } from "@/lib/chat/stream-protocol";
 import type { ChatErrorCode, ChatStreamEvent, ChatTurn, FinishReason, MessageStatus } from "@/lib/chat/types";
 import { chatRequestSchema } from "@/lib/chat/validation";
@@ -481,6 +482,15 @@ export async function POST(request: NextRequest) {
       // Hors mode maître : la balise des mots shimaoré inconnus (« <<inconnu: …>> »)
       // est retirée du flux ; les mots partent dans la liste « À traduire » de l'admin.
       const tagFilter = createUnknownTagFilter();
+      // Mode vocal : chaque phrase terminée part à la voix sans attendre la fin
+      // (en mode maître, déjà corrigée comme le sera la réponse enregistrée).
+      const sentences = body.voice ? createSentenceSplitter() : null;
+      const speakSentences = (list: string[]) => {
+        for (const sentence of list) send({ type: "speech", text: master ? toShimaore(sentence) : sentence });
+      };
+      const speak = (piece: string) => {
+        if (sentences && piece) speakSentences(sentences.push(piece));
+      };
       let shown = "";
       let tagClosed = false;
       const closeTag = () => {
@@ -490,6 +500,7 @@ export async function POST(request: NextRequest) {
         if (rest) {
           shown += rest;
           send({ type: "delta", text: rest });
+          speak(rest);
         }
         text = shown.trimEnd();
         const known = [...brain.lexicon, ...brain.words].map((entry) => entry.shimaore);
@@ -529,8 +540,10 @@ export async function POST(request: NextRequest) {
               const visible = tagFilter.push(chunk.text);
               shown += visible;
               if (visible) send({ type: "delta", text: visible });
+              speak(visible);
             } else {
               send({ type: "delta", text: chunk.text });
+              speak(chunk.text);
             }
           } else if (chunk.type === "finish") {
             finish = chunk.reason;
@@ -539,6 +552,7 @@ export async function POST(request: NextRequest) {
 
         flush();
         closeTag();
+        if (sentences) speakSentences(sentences.end());
         // Filet de sécurité : demande de repas reconnue mais pas de bloc dans la réponse (petit modèle, mode maître) : on l'ajoute.
         if (foodQuery && text && !text.includes("```commande-repas")) {
           const block = foodBlock(foodQuery);
