@@ -76,18 +76,50 @@ export function createBearerClient(token: string): SupabaseClient {
 
 type Claims = { sub?: unknown; role?: unknown; [key: string]: unknown };
 
+/** Algorithmes de signature attendus des jetons Supabase Auth (asymétriques, ou HS256 historique). */
+const ALLOWED_ALGS = new Set(["ES256", "RS256", "HS256"]);
+
+function decodeSegment(segment: string): Record<string, unknown> | null {
+  try {
+    const value: unknown = JSON.parse(Buffer.from(segment, "base64url").toString("utf8"));
+    return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Valide le jeton côté serveur : getClaims(token) vérifie la signature (clés
- * JWKS du projet, ou getUser() pour une clé symétrique) et l'expiration.
- * Renvoie null si le jeton est invalide, expiré, ou n'est pas celui d'un utilisateur.
+ * Contrôle local, sans réseau, avant tout appel à Supabase Auth : un jeton forgé
+ * (autre projet, alg inattendu, jeton d'une autre audience) ne doit pas coûter
+ * de téléchargement de JWKS ni d'appel getUser.
+ */
+export function precheckBearerToken(token: string, url: string = supabaseUrl): boolean {
+  const [rawHeader, rawPayload] = token.split(".");
+  if (!rawHeader || !rawPayload) return false;
+  const header = decodeSegment(rawHeader);
+  const payload = decodeSegment(rawPayload);
+  if (!header || !payload) return false;
+  if (typeof header.alg !== "string" || !ALLOWED_ALGS.has(header.alg)) return false;
+  if (payload.iss !== `${url.replace(/\/+$/, "")}/auth/v1`) return false;
+  if (payload.aud !== "authenticated") return false;
+  return true;
+}
+
+/**
+ * Valide le jeton côté serveur : contrôle local (iss, alg, aud), puis
+ * getClaims(token) qui vérifie la signature (clés JWKS du projet, ou getUser()
+ * pour une clé symétrique) et l'expiration. Renvoie null si le jeton est
+ * invalide, expiré, anonyme ou n'est pas celui d'un utilisateur.
  */
 export async function verifyBearerClaims(client: SupabaseClient, token: string): Promise<Claims | null> {
-  if (!token) return null;
+  if (!token || !precheckBearerToken(token)) return null;
   try {
     const { data, error } = await client.auth.getClaims(token);
     const claims = data?.claims as Claims | undefined;
     if (error || !claims || typeof claims.sub !== "string" || !claims.sub) return null;
     if (claims.role !== "authenticated") return null;
+    // Comptes anonymes Supabase : pas d'identité durable, pas de quota de compte.
+    if (claims.is_anonymous === true) return null;
     return claims;
   } catch {
     return null;

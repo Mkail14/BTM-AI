@@ -19,7 +19,12 @@ before(async () => {
   security = await import("@/lib/security/request");
 });
 
-const JWT = "aaa.bbb.ccc";
+const ISS = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1`;
+const b64 = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
+/** Jeton factice (signature bidon : la vérification cryptographique est faite par getClaims, simulé ici). */
+const makeToken = (payload: Record<string, unknown> = {}, header: Record<string, unknown> = {}) =>
+  `${b64({ alg: "ES256", typ: "JWT", kid: "k1", ...header })}.${b64({ iss: ISS, aud: "authenticated", ...payload })}.c2ln`;
+const JWT = makeToken();
 const USER_ID = "11111111-1111-4111-8111-111111111111";
 
 type ClaimsAnswer = { data: { claims: Record<string, unknown> } | null; error: Error | null };
@@ -116,6 +121,40 @@ describe("validation du jeton Bearer (getSessionUser)", () => {
     const user = await session.userFromClient(client);
     assert.equal(user?.isAdmin, true);
     assert.equal(user?.isPrincipalAdmin, true);
+  });
+});
+
+describe("contrôle local du jeton avant tout appel réseau (R-3) et comptes anonymes (R-2)", () => {
+  it("jeton bien formé du bon projet : accepté par le contrôle local", () => {
+    assert.equal(bearer.precheckBearerToken(JWT), true);
+    assert.equal(bearer.precheckBearerToken(makeToken({}, { alg: "RS256" })), true);
+    assert.equal(bearer.precheckBearerToken(makeToken({}, { alg: "HS256" })), true);
+  });
+
+  it("refuse sans appeler Supabase : autre projet, alg inattendu, autre audience, charge illisible", async () => {
+    const bad = [
+      makeToken({ iss: "https://autre-projet.supabase.test/auth/v1" }),
+      makeToken({ iss: ISS + "/x" }),
+      makeToken({}, { alg: "none" }),
+      makeToken({}, { alg: "ES512" }),
+      makeToken({ aud: "anon" }),
+      "xxx.yyy.zzz",
+    ];
+    for (const token of bad) {
+      const { client, calls } = fakeClient({ data: { claims: validClaims }, error: null });
+      bearer.registerBearerClient(client, token);
+      assert.equal(await session.userFromClient(client), null);
+      assert.equal(calls.length, 0, "getClaims ne doit pas être appelé");
+    }
+  });
+
+  it("refuse un jeton de compte anonyme Supabase", async () => {
+    const { client } = fakeClient({ data: { claims: { ...validClaims, is_anonymous: true } }, error: null });
+    bearer.registerBearerClient(client, JWT);
+    assert.equal(await session.userFromClient(client), null);
+    const ok = fakeClient({ data: { claims: { ...validClaims, is_anonymous: false } }, error: null });
+    bearer.registerBearerClient(ok.client, JWT);
+    assert.equal((await session.userFromClient(ok.client))?.id, USER_ID);
   });
 });
 
