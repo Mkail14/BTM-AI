@@ -4,7 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tamilya_mobile/app.dart';
 import 'package:tamilya_mobile/core/theme/app_theme.dart';
 import 'package:tamilya_mobile/core/theme/tokens.dart';
+import 'package:tamilya_mobile/features/auth/presentation/auth_sheet.dart';
+import 'package:tamilya_mobile/features/auth/presentation/splash_screen.dart';
+import 'package:tamilya_mobile/features/chat/data/fake_chat_repository.dart';
 import 'package:tamilya_mobile/features/chat/domain/chat_repository.dart';
+import 'package:tamilya_mobile/features/chat/presentation/home_screen.dart';
 import 'package:tamilya_mobile/features/chat/presentation/chat_controller.dart';
 import 'package:tamilya_mobile/features/chat/presentation/composer.dart';
 import 'package:tamilya_mobile/features/chat/presentation/message_bubble.dart';
@@ -22,20 +26,99 @@ void main() {
     expect(dark.extension<TamilyaColors>()!.palette, TamilyaPalette.dark);
   });
 
-  testWidgets('navigation : splash, connexion, chat, tiroir, paramètres', (
-    tester,
-  ) async {
-    await tester.pumpWidget(const ProviderScope(child: TamilyaApp()));
-    expect(find.text('Tamilya'), findsOneWidget);
+  /// Écran de téléphone, animations système coupées (pas d'animation infinie).
+  void phone(WidgetTester tester) {
+    tester.view.physicalSize = const Size(390, 844);
+    tester.view.devicePixelRatio = 1;
+    tester.platformDispatcher.accessibilityFeaturesTestValue =
+        const FakeAccessibilityFeatures(disableAnimations: true);
+    addTearDown(() {
+      tester.view.resetPhysicalSize();
+      tester.view.resetDevicePixelRatio();
+      tester.platformDispatcher.clearAccessibilityFeaturesTestValue();
+    });
+  }
 
+  Future<void> openApp(WidgetTester tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          chatRepositoryProvider.overrideWithValue(
+            const FakeChatRepository(delay: Duration.zero),
+          ),
+        ],
+        child: const TamilyaApp(),
+      ),
+    );
     await tester.pump(const Duration(seconds: 2));
     await tester.pumpAndSettle();
-    expect(find.text('Se connecter'), findsOneWidget);
+  }
 
+  /// Écrit à l'accueil, envoie, passe par la feuille de connexion.
+  Future<void> signInFromHome(WidgetTester tester, String message) async {
+    await tester.enterText(find.byType(TextField), message);
+    await tester.testTextInput.receiveAction(TextInputAction.send);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text("Continuer avec l'e-mail"));
+    await tester.pumpAndSettle();
     await tester.tap(find.text('Se connecter'));
     await tester.pumpAndSettle();
-    expect(find.text('Parle shimaoré avec Tamilya'), findsOneWidget);
+  }
+
+  testWidgets('premier écran : splash puis accueil (pas de connexion)', (
+    tester,
+  ) async {
+    phone(tester);
+    await tester.pumpWidget(const ProviderScope(child: TamilyaApp()));
+    expect(find.byType(SplashScreen), findsOneWidget);
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.text('Essayer Tamilya'), findsOneWidget);
+    expect(find.text('Comment dit-on merci ?'), findsOneWidget);
+  });
+
+  testWidgets('envoi à l accueil : feuille de connexion, puis chat + message', (
+    tester,
+  ) async {
+    phone(tester);
+    await openApp(tester);
+    await tester.enterText(find.byType(TextField), 'Bonjour Tamilya');
+    await tester.testTextInput.receiveAction(TextInputAction.send);
+    await tester.pumpAndSettle();
+    expect(find.text(kSignupReason), findsOneWidget);
+    expect(find.text('Bienvenue chez\nBTM AI'), findsOneWidget);
+
+    await tester.tap(find.text("Continuer avec l'e-mail"));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Se connecter'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(HomeScreen), findsNothing);
     expect(find.byType(Composer), findsOneWidget);
+    // Le message gardé est envoyé automatiquement, la réponse factice suit.
+    expect(find.text('Bonjour Tamilya'), findsOneWidget);
+    expect(find.textContaining('réponse factice'), findsOneWidget);
+  });
+
+  testWidgets('fermer la feuille garde le texte et reste sur l accueil', (
+    tester,
+  ) async {
+    phone(tester);
+    await openApp(tester);
+    await tester.enterText(find.byType(TextField), 'Garde-moi');
+    await tester.testTextInput.receiveAction(TextInputAction.send);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Fermer'));
+    await tester.pumpAndSettle();
+    expect(find.byType(HomeScreen), findsOneWidget);
+    expect(find.text('Garde-moi'), findsOneWidget);
+  });
+
+  testWidgets('chat : tiroir et paramètres', (tester) async {
+    phone(tester);
+    await openApp(tester);
+    await signInFromHome(tester, 'Salut');
 
     await tester.tap(find.byTooltip('Ouvrir le menu'));
     await tester.pumpAndSettle();
@@ -48,11 +131,9 @@ void main() {
   });
 
   testWidgets('le retour système ferme le tiroir', (tester) async {
-    await tester.pumpWidget(const ProviderScope(child: TamilyaApp()));
-    await tester.pump(const Duration(seconds: 2));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Se connecter'));
-    await tester.pumpAndSettle();
+    phone(tester);
+    await openApp(tester);
+    await signInFromHome(tester, 'Salut');
 
     await tester.tap(find.byTooltip('Ouvrir le menu'));
     await tester.pumpAndSettle();
@@ -61,6 +142,21 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.text('Nouvelle conversation'), findsNothing);
+  });
+
+  test('couleurs dérivées de la persona (bulle 11 % clair, 22 % sombre)', () {
+    bool near(Color a, Color b) =>
+        (a.r - b.r).abs() < 0.01 &&
+        (a.g - b.g).abs() < 0.01 &&
+        (a.b - b.b).abs() < 0.01;
+    expect(
+      near(TamilyaPalette.light.userBubble, const Color(0xFFF9E7ED)),
+      isTrue,
+    );
+    expect(
+      near(TamilyaPalette.dark.userBubble, const Color(0xFF3B1926)),
+      isTrue,
+    );
   });
 
   testWidgets('la saisie : Entrée ne déclenche pas l envoi', (tester) async {
