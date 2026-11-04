@@ -1,0 +1,5 @@
+{
+  "API_BASE_URL": "http://localhost:8090",
+  "SUPABASE_URL": "https://<projet>.supabase.co",
+  "SUPABASE_PUBLISHABLE_KEY": "<clé publishable ou anon, publique par conception>"
+}

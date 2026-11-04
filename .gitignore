@@ -16,3 +16,7 @@ android/key.properties
 # Config d'environnement (valeurs publiques mais propres a chaque poste)
 tamilya_mobile/env/*.json
 !tamilya_mobile/env/example.json
+
+# Configuration locale (valeurs publiques mais propres à l environnement)
+tamilya_mobile/config/*.json
+!tamilya_mobile/config/*.example.json
