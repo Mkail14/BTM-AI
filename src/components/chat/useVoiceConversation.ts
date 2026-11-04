@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { createSpeaker, isVoiceSupported, listen, speak, unlockSpeech, type Dictation, type Speaker } from "@/lib/chat/voice";
+import { createSpeaker, holdMicrophone, isVoiceSupported, listen, speak, unlockSpeech, type Dictation, type Speaker } from "@/lib/chat/voice";
 import { voiceHeard, voiceListenEnd } from "@/lib/chat/voice-level";
 import { beginVoiceTurn } from "@/lib/chat/voice-metrics";
 import { stripTranslation } from "@/lib/language/unknown-words";
@@ -54,6 +54,8 @@ export function useVoiceConversation(onSend: (text: string) => void) {
   /** Rien n'arrive du micro depuis plusieurs écoutes : conseil affiché sous « Je t'écoute… ». */
   const [hint, setHint] = useState<string | null>(null);
   const silences = useRef(0);
+  /** iPhone : micro tenu ouvert pendant tout le mode vocal (voir holdMicrophone). */
+  const releaseMic = useRef<(() => void) | null>(null);
   /** Diagnostic de l'écoute (affiché sous le globe, mode admin) : les 3 derniers évènements. */
   const [debug, setDebug] = useState("");
   const note = useCallback((event: string) => {
@@ -76,6 +78,8 @@ export function useVoiceConversation(onSend: (text: string) => void) {
 
   const stop = useCallback(() => {
     active.current = false;
+    releaseMic.current?.();
+    releaseMic.current = null;
     if (restartTimer.current) clearTimeout(restartTimer.current);
     restartTimer.current = null;
     dictation.current?.cancel();
@@ -105,6 +109,7 @@ export function useVoiceConversation(onSend: (text: string) => void) {
       }, LISTEN_GUARD_MS);
     };
     const current: Dictation | null = listen({
+      onEvent: (event) => note(event === "audiostart" ? "micro capte" : "son reçu"),
       onText: (text) => {
         armGuard();
         silences.current = 0;
@@ -182,6 +187,13 @@ export function useVoiceConversation(onSend: (text: string) => void) {
     retries.current = 0;
     setReply("");
     unlockSpeech();
+    // iPhone : sans micro tenu ouvert, la dictée n'entend plus rien après la 1re réponse lue.
+    void holdMicrophone().then((release) => {
+      if (active.current) {
+        releaseMic.current?.();
+        releaseMic.current = release;
+      } else release();
+    });
     // Réveille le serveur pendant que la personne parle : la première réponse part plus vite.
     void fetch("/api/voice/warm", { method: "POST" }).catch(() => {});
     active.current = true;

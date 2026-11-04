@@ -18,6 +18,8 @@ type Recognition = {
   onresult: ((event: { resultIndex: number; results: RecognitionResultList }) => void) | null;
   onerror: ((event: { error: string }) => void) | null;
   onend: (() => void) | null;
+  onaudiostart?: (() => void) | null;
+  onsoundstart?: (() => void) | null;
   start(): void;
   stop(): void;
   abort(): void;
@@ -48,15 +50,20 @@ export function listen({
   onText,
   onEnd,
   onError,
+  onEvent,
 }: {
   onText: (text: string) => void;
   onEnd: (text: string) => void;
   onError: (error: string) => void;
+  /** Diagnostic : le micro capte (audiostart), un son arrive (soundstart). */
+  onEvent?: (event: "audiostart" | "soundstart") => void;
 }): Dictation | null {
   const Ctor = recognitionConstructor();
   if (!Ctor) return null;
   const recognition = new Ctor();
   recognition.lang = "fr-FR";
+  recognition.onaudiostart = () => onEvent?.("audiostart");
+  recognition.onsoundstart = () => onEvent?.("soundstart");
   recognition.continuous = false;
   recognition.interimResults = true;
 
@@ -492,6 +499,28 @@ export function speak(text: string, options: SpeakOptions): () => void {
   for (const chunk of speechChunks(text)) speaker.add(chunk);
   speaker.end();
   return speaker.stop;
+}
+
+/** iPhone et iPad (iPadOS se présente comme un Mac tactile). */
+export function isAppleMobile(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+}
+
+/**
+ * iPhone : après qu'une page a joué un son, iOS passe l'audio en « lecture » et
+ * la dictée n'entend plus rien (1er message entendu, 2e silence). Garder le
+ * micro ouvert pendant tout le mode vocal maintient iOS en « écoute et
+ * lecture » : les deux marchent ensemble. Renvoie de quoi le refermer.
+ */
+export async function holdMicrophone(): Promise<() => void> {
+  if (!isAppleMobile() || !navigator.mediaDevices?.getUserMedia) return () => {};
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+    return () => stream.getTracks().forEach((track) => track.stop());
+  } catch {
+    return () => {};
+  }
 }
 
 /** iOS n’autorise la lecture qu’après un geste : à appeler au toucher du micro. */
