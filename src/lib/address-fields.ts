@@ -44,3 +44,8 @@ export function geolocationErrorMessage(code: number): string {
   if (code === 3) return "La localisation a pris trop de temps. Réessaie, ou écris ton adresse.";
   return "Position introuvable pour le moment. Écris ton adresse.";
 }
+
+/** Espaces multiples (retours à la ligne compris) ramenés à un seul, bords retirés. */
+export function normalizeAddressLine(line: string): string {
+  return line.replace(/\s+/g, " ").trim();
+}

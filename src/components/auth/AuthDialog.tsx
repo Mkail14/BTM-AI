@@ -7,6 +7,7 @@ import { IconClose } from "@/components/ui/icons";
 import { AddressFields, EMPTY_ADDRESS, type AddressDraft } from "@/components/ui/AddressFields";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import { addressFieldErrors } from "@/lib/address";
+import { normalizeAddressLine } from "@/lib/address-fields";
 import { DISPOSABLE_EMAIL_MESSAGE, isDisposableEmail } from "@/lib/auth/disposable-email";
 import {
   isPasswordValid,
@@ -654,7 +655,7 @@ function SignUpForm({
         options: {
           emailRedirectTo: confirmationRedirect(next),
           // Recopiés dans le profil par la base (handle_new_user), qui les revérifie.
-          data: { display_name: name, address_commune: address.commune, address_line: address.line.replace(/s+/g, " ").trim() },
+          data: { display_name: name, address_commune: address.commune, address_line: normalizeAddressLine(address.line) },
         },
       });
       if (signUpError) {

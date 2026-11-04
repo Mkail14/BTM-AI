@@ -23,3 +23,9 @@ describe("champs d'adresse sans zod (navigateur)", () => {
     assert.doesNotMatch(readFileSync("src/lib/address-fields.ts", "utf8"), /from "zod"/);
   });
 });
+
+describe("normalizeAddressLine (BUG-1 : l'ancien /s+/g retirait les « s »)", () => {
+  it("garde les lettres « s » et ramène les espaces à un seul", () => {
+    assert.equal(fields.normalizeAddressLine("  12  rue des   Sources \n Mamoudzou "), "12 rue des Sources Mamoudzou");
+  });
+});
