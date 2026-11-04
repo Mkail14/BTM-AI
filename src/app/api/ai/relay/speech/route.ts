@@ -15,7 +15,12 @@ import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 
 export const maxDuration = 60;
 
-const bodySchema = z.object({ text: z.string().trim().min(1).max(SPEECH_MAX_CHARS), voice: z.string().refine(isGeminiVoice) });
+const bodySchema = z.object({
+  text: z.string().trim().min(1).max(SPEECH_MAX_CHARS),
+  voice: z.string().refine(isGeminiVoice),
+  // Pour comparer les formats à l'oreille depuis un poste de l'équipe.
+  format: z.enum(["mp3", "mp3-hq", "wav", "wav-raw"]).optional(),
+});
 
 export async function POST(request: NextRequest) {
   if (!relayEnabled()) return NextResponse.json({ error: "Introuvable." }, { status: 404 });
@@ -42,8 +47,8 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Demande invalide." }, { status: 400 });
 
   try {
-    const { audio, trace } = await synthesizeSpeech(parsed.data.text, parsed.data.voice as GeminiVoiceId, request.signal);
-    return new Response(audio as BodyInit, { headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "x-voice-trace": trace } });
+    const { audio, contentType, trace } = await synthesizeSpeech(parsed.data.text, parsed.data.voice as GeminiVoiceId, request.signal, parsed.data.format);
+    return new Response(audio as BodyInit, { headers: { "Content-Type": contentType, "Cache-Control": "no-store", "x-voice-trace": trace } });
   } catch (error) {
     console.error("[relais voix] Lecture impossible", error);
     const code = error instanceof AIProviderError ? error.code : "unavailable";

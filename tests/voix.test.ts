@@ -23,7 +23,7 @@ describe("voix compressée", () => {
     const { pcmToMp3 } = await import("@/lib/ai/voice/gemini-tts");
     const samples = new Int16Array(24_000);
     for (let i = 0; i < samples.length; i++) samples[i] = Math.round(8000 * Math.sin((i / 24_000) * 2 * Math.PI * 220));
-    const mp3 = await pcmToMp3(new Uint8Array(samples.buffer), 24_000);
+    const mp3 = await pcmToMp3(samples, 24_000);
     assert.ok(mp3.length > 1000 && mp3.length < 48_000 / 4, `taille ${mp3.length}`);
     assert.equal(mp3[0], 0xff);
   });
