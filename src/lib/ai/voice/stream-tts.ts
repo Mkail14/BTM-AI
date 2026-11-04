@@ -187,11 +187,13 @@ export async function streamSpeech(text: string, voice: GeminiVoiceId, signal: A
     const { Mp3Encoder } = await import("@breezystack/lamejs");
     const encoder = new Mp3Encoder(1, rate, KBPS);
     const cleaner = createSpeechCleaner(rate);
+    // L'encodeur rend des Int8Array, que Next refuse d'envoyer (« failed to pipe response ») : vue Uint8Array, sans copie.
+    const bytes = (mp3: ArrayLike<number> & ArrayBufferView) => new Uint8Array(mp3.buffer, mp3.byteOffset, mp3.byteLength);
     const encode = (samples: Int16Array) => {
       const out: Uint8Array[] = [];
       for (let i = 0; i < samples.length; i += 1152 * 20) {
         const mp3 = encoder.encodeBuffer(samples.subarray(i, i + 1152 * 20));
-        if (mp3.length) out.push(mp3);
+        if (mp3.length) out.push(bytes(mp3));
       }
       return out;
     };
@@ -204,7 +206,7 @@ export async function streamSpeech(text: string, voice: GeminiVoiceId, signal: A
           }
           for (const mp3 of encode(cleaner.end())) controller.enqueue(mp3);
           const last = encoder.flush();
-          if (last.length) controller.enqueue(last);
+          if (last.length) controller.enqueue(bytes(last));
           console.info(`[voix] ${model} : ${chunks} morceau(x), premier son en ${firstAudioMs} ms`);
         } catch (error) {
           // Coupure en cours de route (annulation, réseau) : le son s'arrête là.
