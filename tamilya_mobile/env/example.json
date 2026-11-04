@@ -1,0 +1,9 @@
+{
+  "APP_ENV": "dev",
+  "API_BASE_URL": "https://api.exemple.invalid",
+  "SUPABASE_URL": "https://exemple.supabase.invalid",
+  "SUPABASE_PUBLISHABLE_KEY": "cle-publishable-fictive",
+  "FEATURE_GUEST_MODE": "false",
+  "FEATURE_GOOGLE_SIGNIN": "false",
+  "FEATURE_APPLE_SIGNIN": "false"
+}
