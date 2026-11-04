@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../shared/widgets/brand_logo.dart';
 import 'settings_providers.dart';
 
 /// Paramètres : libellés repris du web (03-uiux.md §5). Les sous-écrans
@@ -43,16 +44,40 @@ class SettingsScreen extends ConsumerWidget {
       String subtitle, {
       VoidCallback? onTap,
       Color? color,
-    }) => ListTile(
-      leading: Icon(icon, color: color),
-      title: Text(title, style: TextStyle(color: color)),
-      subtitle: Text(subtitle),
-      trailing: const Icon(Icons.chevron_right_rounded),
-      onTap: onTap ?? () => _soon(context),
+    }) => Padding(
+      padding: const EdgeInsets.fromLTRB(Gaps.lg, 4, Gaps.lg, 4),
+      child: Material(
+        color: p.bg,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: p.border),
+        ),
+        child: ListTile(
+          leading: Icon(icon, color: color),
+          title: Text(title, style: TextStyle(color: color)),
+          subtitle: Text(subtitle),
+          trailing: const Icon(Icons.chevron_right_rounded),
+          onTap: onTap ?? () => _soon(context),
+        ),
+      ),
     );
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Paramètres')),
+      backgroundColor: p.bgSubtle,
+      appBar: AppBar(
+        backgroundColor: p.bgSubtle,
+        titleSpacing: 0,
+        title: Row(
+          children: [
+            const BrandLogo(height: 24),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Text('/', style: TextStyle(color: p.border)),
+            ),
+            const Text('Paramètres', style: TextStyle(fontSize: 14)),
+          ],
+        ),
+      ),
       body: SafeArea(
         child: ListView(
           children: [
