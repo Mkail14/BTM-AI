@@ -29,7 +29,7 @@ export function VoiceOverlay({
   /** Après l'arrêt (bouton ✕ ou Échap). */
   onClose?: () => void;
 }) {
-  const { state, transcript, reply, error, start, interrupt } = voice;
+  const { state, transcript, reply, error, hint, start, interrupt } = voice;
   const stopVoice = voice.stop;
   const talk = state === "off" ? start : interrupt;
   const close = useCallback(() => {
@@ -91,7 +91,7 @@ export function VoiceOverlay({
           ),
         )
       : state === "listening"
-        ? transcript
+        ? transcript || hint
         : "";
 
   return (

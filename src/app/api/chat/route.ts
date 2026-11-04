@@ -208,8 +208,8 @@ export async function POST(request: NextRequest) {
           return null;
         })
       : Promise.resolve(null);
-  // Offres d'emploi et actu de Mayotte, seulement si le message en parle (pas en mode maître : shimaoré seul).
-  const liveTask = user?.isAdmin ? Promise.resolve(null) : liveContextFor(body.message).catch(() => null);
+  // Offres d'emploi et actu de Mayotte, seulement si le message en parle (mode maître compris).
+  const liveTask = liveContextFor(body.message).catch(() => null);
   // Commande de repas et tickets de barge ouverts à ce compte ? Dernière commande (cookie signé).
   const foodTask = canOrderFood(user).catch(() => false);
   const bargeTask = canBuyBargeTickets(user).catch(() => false);

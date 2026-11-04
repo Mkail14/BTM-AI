@@ -20,6 +20,16 @@ describe("sources en direct", () => {
     assert.deepEqual(liveIntent("Il y a des offres d'emploi à Mamoudzou ?"), { jobs: true, news: false });
     assert.deepEqual(liveIntent("Quoi de neuf à Mayotte aujourd'hui ?"), { jobs: false, news: true });
     assert.deepEqual(liveIntent("Comment on dit merci ?"), { jobs: false, news: false });
+    assert.equal(liveIntent("Il se passe quoi à Mayotte ?").news, true);
+    assert.equal(liveIntent("Les dernières nouvelles ?").news, true);
+  });
+
+  it("retrouve les articles qui parlent du sujet du message", async () => {
+    const { matchNews } = await import("@/lib/live/match");
+    const item = (title: string, summary = "") => ({ source: "T", title, link: "https://x.yt", date: null, summary });
+    const items = [item("Grève des taxis à Mamoudzou", "Les chauffeurs bloquent la ville"), item("Match de football à Dembéni")];
+    assert.deepEqual(matchNews(items, "c'est quoi cette grève des taxis ?", 5).map((n) => n.title), ["Grève des taxis à Mamoudzou"]);
+    assert.deepEqual(matchNews(items, "Comment vas-tu à Mayotte ?", 5), []);
   });
 });
 

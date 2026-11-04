@@ -18,6 +18,12 @@ const VOICE_ERRORS: Record<string, string> = {
   network: "La dictée a besoin d'internet (et ne marche pas dans Brave). Essaie avec Chrome ou Edge.",
 };
 
+/** Écoutes muettes d'affilée (environ 8 s chacune dans Chrome) avant de prévenir que le micro n'envoie rien. */
+const SILENCES_BEFORE_HINT = 2;
+
+export const NO_SOUND_HINT =
+  "Je ne t'entends pas. Clique sur l'icône du micro dans la barre d'adresse de Chrome et choisis le bon micro. Vérifie aussi Windows : Paramètres → Confidentialité → Microphone, avec l'accès autorisé pour Chrome.";
+
 /**
  * Mode vocal plein écran, mains libres : la personne parle, le message part
  * quand elle se tait, Tamilya lit sa réponse puis réécoute, jusqu'à la fermeture.
@@ -32,6 +38,9 @@ export function useVoiceConversation(onSend: (text: string) => void) {
   const [reply, setReply] = useState("");
   /** Incrémenté à chaque mot entendu ou prononcé : fait pulser le globe. */
   const [beat, setBeat] = useState(0);
+  /** Rien n'arrive du micro depuis plusieurs écoutes : conseil affiché sous « Je t'écoute… ». */
+  const [hint, setHint] = useState<string | null>(null);
+  const silences = useRef(0);
   const active = useRef(false);
   const dictation = useRef<Dictation | null>(null);
   const stopSpeaking = useRef<(() => void) | null>(null);
@@ -60,6 +69,8 @@ export function useVoiceConversation(onSend: (text: string) => void) {
     let heard = 0;
     dictation.current = listen({
       onText: (text) => {
+        silences.current = 0;
+        setHint(null);
         setTranscript(text);
         setBeat((n) => n + 1);
         // Le globe frémit quand la personne parle : il écoute.
@@ -71,7 +82,11 @@ export function useVoiceConversation(onSend: (text: string) => void) {
         dictation.current = null;
         if (!active.current) return;
         // Silence : on continue d'écouter tant que le mode vocal est ouvert.
-        if (!text) return listenAgain();
+        if (!text) {
+          silences.current += 1;
+          if (silences.current >= SILENCES_BEFORE_HINT) setHint(NO_SOUND_HINT);
+          return listenAgain();
+        }
         setState("waiting");
         sendRef.current(text);
       },
@@ -89,6 +104,8 @@ export function useVoiceConversation(onSend: (text: string) => void) {
   /** Ouvre le mode vocal (au toucher : débloque aussi la lecture sur iPhone). */
   const start = useCallback(() => {
     setError(null);
+    setHint(null);
+    silences.current = 0;
     setReply("");
     unlockSpeech();
     active.current = true;
@@ -120,7 +137,7 @@ export function useVoiceConversation(onSend: (text: string) => void) {
 
   useEffect(() => stop, [stop]);
 
-  return { supported, state, error, transcript, reply, beat, start, stop, interrupt, replied };
+  return { supported, state, error, hint, transcript, reply, beat, start, stop, interrupt, replied };
 }
 
 export type VoiceConversation = ReturnType<typeof useVoiceConversation>;

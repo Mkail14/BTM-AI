@@ -83,7 +83,7 @@ export function fallbackModels(available: readonly string[], chosen: string): st
   return available.filter((id) => id !== chosen && FALLBACK_MODEL.test(id)).sort(newer);
 }
 
-async function listKeyModels(config: AIConfig, signal: AbortSignal): Promise<string[]> {
+export async function listKeyModels(config: Pick<AIConfig, "apiKey" | "baseUrl">, signal: AbortSignal): Promise<string[]> {
   const cached = modelsCache.get(keyId(config.apiKey));
   if (cached && cached.expiresAt > Date.now()) return cached.models;
   try {

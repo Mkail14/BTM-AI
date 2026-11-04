@@ -19,6 +19,7 @@ import {
   IconSettings,
   IconShield,
   IconSparkle,
+  IconSpeaker,
   IconUsers,
 } from "@/components/ui/icons";
 
@@ -61,6 +62,7 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
       { label: "Connaissances", icon: IconBook, href: "/admin/connaissances" },
       { label: "Lexique shimaoré", tab: "Lexique", icon: IconLanguage, href: "/admin/lexique" },
       { label: "Apprentissage du shimaoré", tab: "Apprentissage", icon: IconGauge, href: "/admin/apprentissage" },
+      { label: "Voix de Tamilya", tab: "Voix", icon: IconSpeaker, href: "/admin/voix" },
       { label: "Mémoire", icon: IconDatabase, href: "/admin/memoire" },
     ],
   },

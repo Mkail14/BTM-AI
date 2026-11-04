@@ -51,6 +51,11 @@ export const RATE_LIMIT_POLICIES = {
     { name: "site-min", limit: 60, windowSeconds: 60 },
     { name: "site-day", limit: 5_000, windowSeconds: 86_400 },
   ],
+  // Voix Gemini de Tamilya : une lecture par réponse, plus les essais de voix dans l'admin.
+  voiceSpeak: [
+    { name: "voice-min", limit: 20, windowSeconds: 60 },
+    { name: "voice-day", limit: 500, windowSeconds: 86_400 },
+  ],
   // Relais IA (seulement s'il est ouvert) : protège la clé de BTM contre un secret volé.
   aiRelay: [
     { name: "relay-min", limit: 120, windowSeconds: 60 },

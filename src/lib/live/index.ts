@@ -1,10 +1,12 @@
 import "server-only";
 import { getMayotteJobs } from "./jobs";
 import { liveIntent } from "./intent";
-import { getMayotteNews } from "./news";
+import { matchNews } from "./match";
+import { getMayotteNews, type NewsItem } from "./news";
 
 const MAX_WAIT_MS = 3_500;
-const NEWS_IN_PROMPT = 8;
+const NEWS_IN_PROMPT = 12;
+const MATCHED_NEWS = 5;
 const JOBS_IN_PROMPT = 12;
 
 const day = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", timeZone: "Indian/Mayotte" });
@@ -23,23 +25,32 @@ async function jobsBlock(): Promise<string | null> {
   ].join("\n");
 }
 
-async function newsBlock(): Promise<string | null> {
+const newsLine = (n: NewsItem) => `- ${when(n.date)}, ${n.source} : ${n.title}. ${n.summary} (${n.link})`;
+
+/**
+ * Question sur l'actualité : les derniers articles, plus ceux qui parlent du sujet.
+ * Autre message : seulement les articles qui touchent à ce qu'il dit (sinon rien).
+ */
+async function newsBlock(message: string, asked: boolean): Promise<string | null> {
   const items = await getMayotteNews();
   if (!items.length) return null;
+  const matched = matchNews(items, message, MATCHED_NEWS);
+  if (!asked && !matched.length) return null;
+  const chosen = asked ? [...new Set([...matched, ...items.slice(0, NEWS_IN_PROMPT)])] : matched;
   return [
-    "Derniers articles des journaux de Mayotte :",
-    ...items.slice(0, NEWS_IN_PROMPT).map((n) => `- ${when(n.date)}, ${n.source} : ${n.title}. ${n.summary} (${n.link})`),
+    asked ? "Derniers articles des journaux de Mayotte :" : "Articles récents des journaux de Mayotte sur ce sujet :",
+    ...chosen.map(newsLine),
   ].join("\n");
 }
 
 /**
- * Informations en direct pour le message : offres d'emploi et/ou actualité,
- * seulement si la question en parle. Ne retarde jamais la réponse de plus de
+ * Informations en direct pour le message : offres d'emploi si la question en
+ * parle ; actualité si elle en parle ou si un article touche à son sujet. Ne retarde jamais la réponse de plus de
  * quelques secondes : une source trop lente est simplement ignorée.
  */
 export async function liveContextFor(message: string): Promise<string | null> {
   const intent = liveIntent(message);
-  const tasks = [intent.jobs ? jobsBlock() : null, intent.news ? newsBlock() : null].filter(
+  const tasks = [intent.jobs ? jobsBlock() : null, newsBlock(message, intent.news)].filter(
     (task): task is Promise<string | null> => task !== null,
   );
   if (!tasks.length) return null;

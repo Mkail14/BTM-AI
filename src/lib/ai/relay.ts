@@ -17,7 +17,7 @@ import { AIProviderError, type AIErrorCode, type AIProvider, type AIStreamChunk 
 const MAX_SKEW_MS = 5 * 60_000;
 
 /** Plafonds d'une demande relayée (plus bas que ceux d'une conversation stockée). */
-export const RELAY_LIMITS = { systemChars: 50_000, maxOutputTokens: 8_000, bodyBytes: 400_000 } as const;
+export const RELAY_LIMITS = { systemChars: 200_000, maxOutputTokens: 8_000, bodyBytes: 600_000 } as const;
 
 /**
  * Route du relais ouverte sur ce serveur ? Fermée par défaut : il faut
@@ -88,7 +88,7 @@ export function createRelayProvider(url: string, secret: string): AIProvider {
       if (response.status === 404 || response.status === 405) {
         throw new AIProviderError("unavailable", "Relais fermé sur le site en ligne : mettez RELAY_ENABLED=1 dans ses variables (ou mettez le site à jour).");
       }
-      if (response.status === 413) throw new AIProviderError("bad_request", "Relais : demande trop longue (consignes de plus de 50 000 caractères).");
+      if (response.status === 413) throw new AIProviderError("bad_request", "Relais : demande trop longue (plus de 600 Ko).");
       if (!response.ok || !response.body) throw new AIProviderError("unavailable", `Relais : erreur ${response.status}`);
 
       // Une ligne JSON par morceau de réponse.
@@ -109,4 +109,27 @@ export function createRelayProvider(url: string, secret: string): AIProvider {
       }
     },
   };
+}
+
+/** Voix de Tamilya en développement local : le site en ligne lit le texte avec Gemini et renvoie le WAV. */
+export async function relaySpeech(url: string, secret: string, payload: { text: string; voice: string }, signal: AbortSignal): Promise<Uint8Array> {
+  const body = JSON.stringify(payload);
+  const time = Date.now();
+  const response = await fetch(`${url}/api/ai/relay/speech`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-relay-time": String(time), "x-relay-signature": signRelay(body, time, secret) },
+    body,
+    signal,
+    cache: "no-store",
+  }).catch((error: unknown) => {
+    throw new AIProviderError("unavailable", `Site en ligne injoignable (${url})`, { cause: error });
+  });
+  if (response.status === 404 || response.status === 405) {
+    throw new AIProviderError("unavailable", "Voix : relais fermé ou site en ligne pas encore à jour (route /api/ai/relay/speech).");
+  }
+  if (!response.ok) {
+    const detail = await response.json().catch(() => null) as { error?: string } | null;
+    throw new AIProviderError("unavailable", `Voix (site en ligne) : ${detail?.error ?? `erreur ${response.status}`}`);
+  }
+  return new Uint8Array(await response.arrayBuffer());
 }
