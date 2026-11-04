@@ -30,7 +30,7 @@ function NavLink({ href, ...props }: { href: string; className: string; onClick?
  * ailleurs (sans `onHome`), ils mènent à l'accueil.
  */
 export function LandingNav({ scrolled = false, onHome }: { scrolled?: boolean; onHome?: () => void }) {
-  const { openAuthDialog } = useAuth();
+  const { user, openAuthDialog } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   // Menu ☰ du téléphone : le bouton retour le ferme au lieu de quitter la page.
@@ -80,7 +80,7 @@ export function LandingNav({ scrolled = false, onHome }: { scrolled?: boolean; o
           <button
             type="button"
             onClick={() => openAuthDialog({ mode: "signin" })}
-            className="hidden px-2 py-2 whitespace-nowrap opacity-80 transition hover:opacity-100 sm:block"
+            className={user ? "hidden" : "hidden px-2 py-2 whitespace-nowrap opacity-80 transition hover:opacity-100 sm:block"}
           >
             Se connecter
           </button>
@@ -118,7 +118,7 @@ export function LandingNav({ scrolled = false, onHome }: { scrolled?: boolean; o
                 </NavLink>
               </li>
             ))}
-            <li>
+            <li hidden={Boolean(user)}>
               <button
                 type="button"
                 onClick={() => {

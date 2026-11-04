@@ -34,4 +34,10 @@ export const RATE_LIMIT_POLICIES = {
     { name: "help-chat-day", limit: 60, windowSeconds: 86_400 },
   ],
   helpEmail: [{ name: "help-email-hour", limit: 5, windowSeconds: 3_600 }],
+  // API des développeurs : leur clé Gemini paie, mais le serveur de BTM travaille quand même.
+  developerKey: [
+    { name: "dev-key-min", limit: 20, windowSeconds: 60 },
+    { name: "dev-key-day", limit: 2_000, windowSeconds: 86_400 },
+  ],
+  developerIp: [{ name: "dev-ip-min", limit: 60, windowSeconds: 60 }],
 } satisfies Record<string, RateLimitRule[]>;
