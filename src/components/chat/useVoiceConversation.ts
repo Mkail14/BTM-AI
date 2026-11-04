@@ -54,6 +54,12 @@ export function useVoiceConversation(onSend: (text: string) => void) {
   /** Rien n'arrive du micro depuis plusieurs écoutes : conseil affiché sous « Je t'écoute… ». */
   const [hint, setHint] = useState<string | null>(null);
   const silences = useRef(0);
+  /** Diagnostic de l'écoute (affiché sous le globe, mode admin) : les 3 derniers évènements. */
+  const [debug, setDebug] = useState("");
+  const note = useCallback((event: string) => {
+    const at = new Date().toLocaleTimeString("fr-FR", { minute: "2-digit", second: "2-digit" });
+    setDebug((previous) => [...previous.split(" · ").filter(Boolean).slice(-2), `${at} ${event}`].join(" · "));
+  }, []);
   const retries = useRef(0);
   const restartTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   /** Relance de l'écoute depuis la fin d'une écoute (begin est défini avant startListening). */
@@ -84,6 +90,7 @@ export function useVoiceConversation(onSend: (text: string) => void) {
   /** Ouvre le micro pour une phrase. */
   const begin = useCallback(() => {
     let heard = 0;
+    const openedAt = performance.now();
     // Chrome reste parfois en écoute sans jamais rien renvoyer : sans nouvelle au bout de
     // 15 s (il conclut normalement après ~8 s de silence), on rouvre le micro.
     let guard: ReturnType<typeof setTimeout> | null = null;
@@ -91,6 +98,7 @@ export function useVoiceConversation(onSend: (text: string) => void) {
       if (guard) clearTimeout(guard);
       guard = setTimeout(() => {
         if (!active.current || dictation.current !== current) return;
+        note("micro muet 15 s, réouverture");
         current?.cancel();
         dictation.current = null;
         startListeningRef.current();
@@ -110,6 +118,7 @@ export function useVoiceConversation(onSend: (text: string) => void) {
       },
       onEnd: (text) => {
         if (guard) clearTimeout(guard);
+        note(text ? `entendu ${text.length} car.` : `fin d'écoute sans rien (${Math.round((performance.now() - openedAt) / 100) / 10} s)`);
         voiceListenEnd();
         dictation.current = null;
         if (!active.current) return;
@@ -124,6 +133,7 @@ export function useVoiceConversation(onSend: (text: string) => void) {
         sendRef.current(text);
       },
       onError: (code) => {
+        note(`erreur ${code}`);
         // Passagère : la fin d'écoute qui suit relance le micro.
         if (TRANSIENT.has(code) && retries.current < MAX_RETRIES) {
           retries.current += 1;
@@ -135,12 +145,15 @@ export function useVoiceConversation(onSend: (text: string) => void) {
       },
     });
     dictation.current = current;
-    if (current) armGuard();
+    if (current) {
+      armGuard();
+      note("micro ouvert");
+    }
     if (!dictation.current) {
       setError("Ce navigateur ne gère pas la dictée : ouvre la page dans Chrome ou Edge.");
       stop();
     }
-  }, [stop]);
+  }, [note, stop]);
 
   const startListening = useCallback(() => {
     stopSpeaking.current?.();
@@ -235,7 +248,7 @@ export function useVoiceConversation(onSend: (text: string) => void) {
 
   useEffect(() => stop, [stop]);
 
-  return { supported, state, error, hint, transcript, reply, beat, start, stop, interrupt, say, replied };
+  return { supported, state, error, hint, debug, transcript, reply, beat, start, stop, interrupt, say, replied };
 }
 
 export type VoiceConversation = ReturnType<typeof useVoiceConversation>;

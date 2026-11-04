@@ -29,7 +29,7 @@ export function VoiceOverlay({
   /** Après l'arrêt (bouton ✕ ou Échap). */
   onClose?: () => void;
 }) {
-  const { state, transcript, reply, error, hint, start, interrupt } = voice;
+  const { state, transcript, reply, error, hint, debug, start, interrupt } = voice;
   const stopVoice = voice.stop;
   const talk = state === "off" ? start : interrupt;
   const close = useCallback(() => {
@@ -122,6 +122,8 @@ export function VoiceOverlay({
             {error && state === "off" ? error : LABELS[state]}
           </p>
           <p className="mt-3 line-clamp-4 min-h-[3lh] text-lg leading-relaxed text-white/60">{text}</p>
+          {/* Diagnostic de l'écoute (le mode vocal n'est ouvert qu'aux administrateurs). */}
+          {debug ? <p className="mt-2 text-xs text-white/35 tabular-nums">{debug}</p> : null}
         </div>
       </div>
 

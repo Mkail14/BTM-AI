@@ -25,6 +25,8 @@ const bodySchema = z.object({
   maxOutputTokens: z.number().int().min(16).max(32_000).transform((n) => Math.min(n, RELAY_LIMITS.maxOutputTokens)),
   persona: z.boolean().optional(),
   fast: z.boolean().optional(),
+  // Comparaison des modèles depuis un poste de l'équipe (demande signée).
+  model: z.string().regex(/^gemini-[w.-]{1,60}$/).optional(),
 });
 
 export async function POST(request: NextRequest) {

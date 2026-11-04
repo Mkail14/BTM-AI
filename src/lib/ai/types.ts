@@ -17,6 +17,8 @@ export type AIStreamInput = {
   persona?: boolean;
   /** Réponse à l'oral (mode vocal) : réflexion minimale, et modèle AI_VOICE_MODEL s'il est défini. */
   fast?: boolean;
+  /** Essai d'un autre modèle Gemini (relais signé seulement, pour comparer les temps). */
+  model?: string;
 };
 
 /** Contrat commun à tous les fournisseurs de modèle. */

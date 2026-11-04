@@ -105,9 +105,10 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
 
   return {
     id: "gemini",
-    async *stream({ system, messages, maxOutputTokens, signal, fast }: AIStreamInput): AsyncIterable<AIStreamChunk> {
+    async *stream({ system, messages, maxOutputTokens, signal, fast, model: tryModel }: AIStreamInput): AsyncIterable<AIStreamChunk> {
       // À l'oral : modèle réservé au vocal s'il est réglé (AI_VOICE_MODEL, ex. un « flash-lite »), sinon le modèle habituel.
-      const preferred = (fast && process.env.AI_VOICE_MODEL?.trim().replace(/^models\//, "")) || chosen;
+      // tryModel : essai d'un autre modèle par le relais signé (comparaison des temps).
+      const preferred = tryModel || (fast && process.env.AI_VOICE_MODEL?.trim().replace(/^models\//, "")) || chosen;
       const timeoutSignal = AbortSignal.timeout(config.timeoutMs);
       const combined = AbortSignal.any([signal, timeoutSignal]);
 

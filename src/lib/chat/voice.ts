@@ -276,10 +276,23 @@ export function createSpeaker(options: SpeakOptions): Speaker {
     if (url) URL.revokeObjectURL(url);
     url = null;
   };
+  /**
+   * Lecteur rendu au système après la réponse : un lecteur qui garde un son
+   * chargé (surtout en flux) peut garder la main sur l'audio du téléphone, et
+   * Chrome n'entend alors plus rien au micro pour le message suivant.
+   */
+  const releasePlayer = () => {
+    if (!audio) return;
+    audio.pause();
+    audio.removeAttribute("src");
+    audio.load();
+    if ("mediaSession" in navigator) navigator.mediaSession.playbackState = "none";
+  };
   const finish = () => {
     if (stopped) return;
     stopped = true;
     release();
+    releasePlayer();
     voiceSpeakEnd();
     options.onDone();
   };
@@ -465,8 +478,8 @@ export function createSpeaker(options: SpeakOptions): Speaker {
     stop() {
       stopped = true;
       controller.abort();
-      audio?.pause();
       release();
+      releasePlayer();
       stopBrowser?.();
       voiceSpeakEnd();
     },
