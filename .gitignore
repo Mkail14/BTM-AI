@@ -1,0 +1,14 @@
+# Flutter/Dart
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+*.iml
+.idea/
+# Secrets
+*.env
+.env*
+android/key.properties
+*.jks
+*.keystore
