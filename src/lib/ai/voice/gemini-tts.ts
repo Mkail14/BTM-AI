@@ -7,7 +7,7 @@ import type { GeminiVoiceId } from "./voices";
 
 /**
  * Voix de Tamilya par la synthèse vocale de Gemini, avec la clé Gemini déjà
- * utilisée pour ses réponses (pas d'autre abonnement). Renvoie un fichier WAV.
+ * utilisée pour ses réponses (pas d'autre abonnement). Renvoie un fichier MP3.
  */
 
 /** Modèles de voix connus, du plus rapide au plus soigné (si la liste des modèles de la clé est illisible). */
@@ -37,32 +37,32 @@ export function ttsModels(available: readonly string[]): string[] {
   return found.sort((a, b) => Number(/pro/.test(a)) - Number(/pro/.test(b)) || version(b) - version(a));
 }
 
-/** En-tête WAV autour du son brut de Gemini (PCM 16 bits, mono). */
-export function pcmToWav(pcm: Uint8Array, sampleRate = 24_000): Uint8Array {
-  const wav = new Uint8Array(44 + pcm.length);
-  const view = new DataView(wav.buffer);
-  const ascii = (offset: number, text: string) => [...text].forEach((c, i) => view.setUint8(offset + i, c.charCodeAt(0)));
-  ascii(0, "RIFF");
-  view.setUint32(4, 36 + pcm.length, true);
-  ascii(8, "WAVE");
-  ascii(12, "fmt ");
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
-  ascii(36, "data");
-  view.setUint32(40, pcm.length, true);
-  wav.set(pcm, 44);
-  return wav;
+/**
+ * Son brut de Gemini (PCM 16 bits, mono) en MP3 48 kb/s : 8 fois plus léger que
+ * le WAV. À Mayotte, le téléchargement depuis le serveur (Irlande) prenait plus
+ * de temps que Gemini lui-même.
+ */
+export async function pcmToMp3(pcm: Uint8Array, sampleRate = 24_000): Promise<Uint8Array> {
+  // Import dynamique : le paquet n'exporte l'encodeur que dans sa version ES (pas avec require).
+  const { Mp3Encoder } = await import("@breezystack/lamejs");
+  const samples = new Int16Array(pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + (pcm.byteLength & ~1)));
+  const encoder = new Mp3Encoder(1, sampleRate, 48);
+  const chunks: Uint8Array[] = [];
+  for (let i = 0; i < samples.length; i += 1152 * 20) chunks.push(encoder.encodeBuffer(samples.subarray(i, i + 1152 * 20)));
+  chunks.push(encoder.flush());
+  const out = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
+  let offset = 0;
+  for (const c of chunks) {
+    out.set(c, offset);
+    offset += c.length;
+  }
+  return out;
 }
 
 type TtsResponse = { candidates?: { content?: { parts?: { inlineData?: { mimeType?: string; data?: string } }[] } }[] };
 
-/** Son WAV, et le trajet (modèles essayés, statut, durée) pour l’en-tête x-voice-trace. */
-export async function synthesizeSpeech(text: string, voice: GeminiVoiceId, signal: AbortSignal): Promise<{ wav: Uint8Array; trace: string }> {
+/** Son MP3, et le trajet (modèles essayés, statut, durée) pour l’en-tête x-voice-trace. */
+export async function synthesizeSpeech(text: string, voice: GeminiVoiceId, signal: AbortSignal): Promise<{ audio: Uint8Array; trace: string }> {
   const started = Date.now();
   const trace: string[] = [];
   const key = await geminiKey();
@@ -110,7 +110,7 @@ export async function synthesizeSpeech(text: string, voice: GeminiVoiceId, signa
       continue;
     }
     const rate = Number(audio.mimeType?.match(/rate=(\d+)/)?.[1] ?? 24_000);
-    return { wav: pcmToWav(Buffer.from(audio.data, "base64"), rate), trace: trace.join(" ") };
+    return { audio: await pcmToMp3(Buffer.from(audio.data, "base64"), rate), trace: trace.join(" ") };
   }
   throw lastError ?? new AIProviderError("quota", "Aucun modèle de voix Gemini disponible pour cette clé.");
 }

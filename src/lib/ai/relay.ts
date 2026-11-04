@@ -111,7 +111,7 @@ export function createRelayProvider(url: string, secret: string): AIProvider {
   };
 }
 
-/** Voix de Tamilya en développement local : le site en ligne lit le texte avec Gemini et renvoie le WAV. */
+/** Voix de Tamilya en développement local : le site en ligne lit le texte avec Gemini et renvoie le MP3. */
 export async function relaySpeech(url: string, secret: string, payload: { text: string; voice: string }, signal: AbortSignal): Promise<Uint8Array> {
   const body = JSON.stringify(payload);
   const time = Date.now();

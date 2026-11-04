@@ -11,7 +11,7 @@ import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
 
 /**
- * Voix de Tamilya (Gemini) : le texte d'une réponse → un fichier WAV. Comptes
+ * Voix de Tamilya (Gemini) : le texte d'une réponse → un fichier MP3. Comptes
  * connectés seulement ; `voice` (essai d'une autre voix) réservé aux admins.
  * En cas d'échec, le navigateur reprend sa propre voix.
  */
@@ -44,11 +44,11 @@ export async function POST(request: NextRequest) {
     // Développement local : Google refuse Gemini depuis Mayotte, le site en ligne lit à la place.
     const relay = relayUrl();
     const secret = keysSecret();
-    const wav =
+    const audio =
       relay && secret
         ? await relaySpeech(relay, secret, { text: parsed.data.text, voice }, request.signal)
-        : (await synthesizeSpeech(parsed.data.text, voice, request.signal)).wav;
-    return new Response(wav as BodyInit, { headers: { "Content-Type": "audio/wav", "Cache-Control": "no-store" } });
+        : (await synthesizeSpeech(parsed.data.text, voice, request.signal)).audio;
+    return new Response(audio as BodyInit, { headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" } });
   } catch (error) {
     if (error instanceof AIProviderError && error.code === "aborted") return new Response(null, { status: 499 });
     console.error("[voix] Lecture impossible", error);
