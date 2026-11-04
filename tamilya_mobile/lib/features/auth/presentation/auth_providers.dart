@@ -7,3 +7,18 @@ import '../domain/auth_repository.dart';
 final authRepositoryProvider = Provider<AuthRepository>(
   (ref) => const FakeAuthRepository(),
 );
+
+/// Session de l'utilisateur. Faux état local en C2 ; en C3 l'état vient de
+/// Supabase (session restaurée = on saute l'accueil).
+class SessionController extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void signIn() => state = true;
+
+  void signOut() => state = false;
+}
+
+final sessionProvider = NotifierProvider<SessionController, bool>(
+  SessionController.new,
+);

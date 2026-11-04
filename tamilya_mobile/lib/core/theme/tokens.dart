@@ -22,6 +22,7 @@ class TamilyaPalette {
     required this.successSoft,
     required this.focus,
     required this.onDanger,
+    required this.isDark,
   });
 
   final Color bg;
@@ -42,15 +43,40 @@ class TamilyaPalette {
   final Color successSoft;
   final Color focus;
   final Color onDanger;
+  final bool isDark;
 
   /// Persona par défaut du web (`--persona`), identique dans les deux thèmes.
-  static const Color _persona = Color(0xFFC8295F);
+  static const Color persona = Color(0xFFC8295F);
 
-  /// Bulle utilisateur : persona à 11 % sur le fond (`--persona-soft`).
-  Color get userBubble => Color.lerp(bg, _persona, 0.11)!;
+  /// Fond de conversation : persona à 4 % (clair) / 7 % (sombre) sur `bg`.
+  Color get personaSurface => Color.lerp(bg, persona, isDark ? 0.07 : 0.04)!;
 
-  /// Bordure du composer : persona à 30 % sur `border` (`--persona-border`).
-  Color get composerBorder => Color.lerp(border, _persona, 0.30)!;
+  /// Bulle utilisateur, avatar : persona à 11 % / 22 % (globals.css:94-125).
+  Color get userBubble => Color.lerp(bg, persona, isDark ? 0.22 : 0.11)!;
+
+  /// Bordure du composer : persona à 30 % / 45 % sur `border`.
+  Color get composerBorder =>
+      Color.lerp(border, persona, isDark ? 0.45 : 0.30)!;
+
+  /// Halo du haut de conversation : persona à 11 % / 20 %.
+  Color get personaGlow => persona.withValues(alpha: isDark ? 0.20 : 0.11);
+
+  /// Couleurs « Google » des courbes et du mot en dégradé.
+  List<Color> get rainbow => isDark
+      ? const [
+          Color(0xFF4285F4),
+          Color(0xFF9B72CB),
+          Color(0xFFEA4335),
+          Color(0xFFFBBC05),
+          Color(0xFF34A853),
+        ]
+      : const [
+          Color(0xFF1A73E8),
+          Color(0xFF8E5BC4),
+          Color(0xFFD93025),
+          Color(0xFFE37400),
+          Color(0xFF188038),
+        ];
 
   static const TamilyaPalette light = TamilyaPalette(
     bg: Color(0xFFFFFFFF),
@@ -71,6 +97,7 @@ class TamilyaPalette {
     successSoft: Color(0xFFE8F6ED),
     focus: Color(0xFFC8295F),
     onDanger: Color(0xFFFFFFFF),
+    isDark: false,
   );
 
   static const TamilyaPalette dark = TamilyaPalette(
@@ -92,6 +119,7 @@ class TamilyaPalette {
     successSoft: Color(0xFF14301F),
     focus: Color(0xFFF58BB2),
     onDanger: Color(0xFF131516),
+    isDark: true,
   );
 }
 

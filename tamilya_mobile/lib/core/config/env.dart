@@ -7,6 +7,9 @@ abstract final class Env {
     'APP_ENV',
     defaultValue: 'dev',
   );
+
+  /// Outil de recette : `--dart-define=FORCE_THEME=dark|light` (sinon système).
+  static const String forceTheme = String.fromEnvironment('FORCE_THEME');
   static const String apiBaseUrl = String.fromEnvironment('API_BASE_URL');
   static const String supabaseUrl = String.fromEnvironment('SUPABASE_URL');
   static const String supabasePublishableKey = String.fromEnvironment(

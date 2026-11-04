@@ -1,4 +1,4 @@
-﻿name: tamilya_mobile
+name: tamilya_mobile
 description: "Tamilya, l'assistante qui apprend le shimaoré (application mobile)."
 publish_to: 'none'
 version: 1.0.0+1
@@ -24,3 +24,8 @@ flutter:
   uses-material-design: true
   assets:
     - assets/brand/
+    - assets/fond/
+  fonts:
+    - family: Geist
+      fonts:
+        - asset: assets/fonts/Geist-Variable.ttf
