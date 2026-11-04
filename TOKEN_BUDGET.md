@@ -33,7 +33,10 @@ _L'environnement ne donne pas à l'orchestrateur la consommation exacte de chaqu
 | 2026-11-04 | 3 UI/UX (repris) | sonnet | C2 revue | 103 709 tokens (9 outils, 2 min 23) | ✅ |
 | 2026-11-04 | 2 Flutter (repris) | sonnet | C2 corrections + identifiant | 162 900 tokens (26 outils, 7 min 39) | ✅ |
 
-**Total communiqué : 1 472 423 tokens** (A 418 596 + B 130 060 + C1 145 347 + revue C1 184 264 + corrections C1 194 239 + C2 133 308 + revue C2 103 709 + corrections C2 162 900) (la part consommée avant l'interruption n'est pas connue).
+| 2026-11-04 | 3 UI/UX (repris) | sonnet | C2b spec visuelle (captures) | 178 149 tokens (23 outils, 4 min 27) | ✅ |
+| 2026-11-05 | 2 Flutter (repris) | sonnet | C2b refonte visuelle (4 itérations de captures) | 298 457 tokens (85 outils, 28 min 29) | ✅ |
+
+**Total communiqué : 1 949 029 tokens** (A 418 596 + B 130 060 + C1 145 347 + revue C1 184 264 + corrections C1 194 239 + C2 133 308 + revue C2 103 709 + corrections C2 162 900 + spec C2b 178 149 + refonte C2b 298 457) (la part consommée avant l'interruption n'est pas connue).
 
 ## Incidents
 - 2026-11-04 : les 4 agents d'audit se sont arrêtés sur la limite d'usage de 5 h du compte (HTTP 429). Avant la reprise, aucun rapport n'était écrit. À 18 h, ils ont été repris avec leur contexte (SendMessage) plutôt que relancés à neuf, pour ne pas refaire les lectures déjà faites.
@@ -48,6 +51,7 @@ _L'environnement ne donne pas à l'orchestrateur la consommation exacte de chaqu
 - Constats clés revérifiés par 1 commande ciblée de l'orchestrateur au lieu d'une contre-expertise par un agent.
 
 ## Écarts aux règles
+- **Économie qui a coûté cher** : en phase A, j'ai renoncé à l'audit visuel du site en ligne pour économiser des tokens. Résultat : C2 ne ressemble pas au site et une passe C2b est nécessaire. Règle ajoutée : toute mission d'interface se compare à des captures du site réel.
 - C1 a été confié à un **nouvel** agent Backend au lieu de reprendre l'agent A4 avec son contexte. Le nouvel agent relira les fichiers d'auth que A4 connaissait déjà. Compensation : le rapport 04 lui est indiqué comme point de départ. À éviter pour les phases suivantes.
 
 ## Optimisations possibles

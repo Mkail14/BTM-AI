@@ -19,8 +19,17 @@ class LegalScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final title = titles[page];
+    final p = context.palette;
     return Scaffold(
-      appBar: AppBar(title: Text(title ?? 'Page introuvable')),
+      backgroundColor: p.bgSubtle,
+      appBar: AppBar(
+        backgroundColor: p.bgSubtle,
+        titleSpacing: 0,
+        title: Text(
+          title ?? 'Page introuvable',
+          style: const TextStyle(fontSize: 16),
+        ),
+      ),
       body: SafeArea(
         child: title == null
             ? const EmptyState(

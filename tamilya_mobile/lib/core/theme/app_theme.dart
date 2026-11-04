@@ -25,9 +25,8 @@ extension TamilyaThemeContext on BuildContext {
       Theme.of(this).extension<TamilyaColors>()!.palette;
 }
 
-/// Police : Geist n'est pas embarquée en C2 (voir docs/missions/C2-flutter.md).
-/// Renseigner ici le nom de la famille quand les fichiers seront ajoutés.
-const String? kFontFamily = null;
+/// Police Geist variable (SIL OFL 1.1), embarquée dans assets/fonts.
+const String kFontFamily = 'Geist';
 
 abstract final class AppTheme {
   static ThemeData get light => _build(TamilyaPalette.light, Brightness.light);
@@ -135,11 +134,13 @@ abstract final class AppTheme {
     titleLarge: TextStyle(
       fontSize: 20,
       fontWeight: FontWeight.w600,
+      fontVariations: const [FontVariation('wght', 600)],
       color: p.fg,
     ),
     titleMedium: TextStyle(
       fontSize: 16,
       fontWeight: FontWeight.w600,
+      fontVariations: const [FontVariation('wght', 600)],
       color: p.fg,
     ),
     bodyLarge: TextStyle(fontSize: 16, height: 1.6, color: p.fg),
@@ -148,3 +149,6 @@ abstract final class AppTheme {
     labelLarge: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
   );
 }
+
+/// Graisse intermédiaire de la police variable Geist (ex. 650 du titre).
+List<FontVariation> wght(double weight) => [FontVariation('wght', weight)];

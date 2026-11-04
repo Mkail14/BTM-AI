@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/config/limits.dart';
@@ -29,9 +31,31 @@ class Composer extends StatefulWidget {
 
 class _ComposerState extends State<Composer> {
   final TextEditingController _controller = TextEditingController();
+  Timer? _hintTimer;
+  int _hint = 0;
+
+  /// Indices tournants quand le champ est vide (RotatingHint du site).
+  static const List<String> _hints = [
+    'Écris à Tamilya…',
+    'Comment dit-on « merci » en shimaoré ?',
+    'Où passer le code de la route à Mamoudzou ?',
+  ];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_hintTimer == null && !MediaQuery.disableAnimationsOf(context)) {
+      _hintTimer = Timer.periodic(const Duration(milliseconds: 3200), (_) {
+        if (mounted && _controller.text.isEmpty) {
+          setState(() => _hint = (_hint + 1) % _hints.length);
+        }
+      });
+    }
+  }
 
   @override
   void dispose() {
+    _hintTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -111,8 +135,8 @@ class _ComposerState extends State<Composer> {
               textInputAction: TextInputAction.newline,
               textCapitalization: TextCapitalization.sentences,
               style: Theme.of(context).textTheme.bodyLarge,
-              decoration: const InputDecoration(
-                hintText: 'Écris à Tamilya…',
+              decoration: InputDecoration(
+                hintText: _hints[_hint],
                 filled: false,
                 border: InputBorder.none,
                 enabledBorder: InputBorder.none,

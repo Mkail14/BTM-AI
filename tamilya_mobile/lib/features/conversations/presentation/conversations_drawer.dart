@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/tokens.dart';
+import '../../../shared/widgets/brand_logo.dart';
 import 'conversations_providers.dart';
 
 /// Tiroir latéral : nouvelle conversation, historique, paramètres.
@@ -34,6 +35,20 @@ class ConversationsDrawer extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Padding(
+              padding: const EdgeInsets.fromLTRB(Gaps.lg, Gaps.md, Gaps.sm, 0),
+              child: Row(
+                children: [
+                  const BrandLogo(height: 22),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: 'Fermer le menu',
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.of(context).maybePop(),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
               padding: const EdgeInsets.all(Gaps.md),
               child: ListTile(
                 leading: const Icon(Icons.add_rounded),
@@ -48,8 +63,9 @@ class ConversationsDrawer extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(Gaps.lg, Gaps.sm, Gaps.lg, 4),
               child: Text(
-                'Historique',
+                'HISTORIQUE',
                 style: theme.textTheme.bodySmall?.copyWith(
+                  letterSpacing: 1.2,
                   fontWeight: FontWeight.w600,
                 ),
               ),
