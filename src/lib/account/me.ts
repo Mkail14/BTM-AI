@@ -8,6 +8,7 @@ import { chatErrorBody } from "@/lib/chat/errors";
 import type { ChatErrorCode } from "@/lib/chat/types";
 import { profileSchema } from "@/lib/chat/validation";
 import { getProfile } from "@/lib/conversations/repository";
+import { bearerTokenOf, isBearerClient } from "@/lib/supabase/bearer";
 import { consumeRateLimits, RATE_LIMIT_POLICIES, type RateLimitDecision } from "@/lib/rate-limit";
 import { DELETE_CONFIRMATION } from "./confirmation";
 import { removeAccount, saveDisplayName, savePersonality, type AccountDeps, type AccountResult } from "./settings";
@@ -25,6 +26,8 @@ export type MeResponse = { status: number; body: unknown; headers?: Record<strin
 export type MeDeps = Partial<AccountDeps> & {
   loadCards?: () => Promise<PersonalityCard[]>;
   rateLimit?: (userId: string) => Promise<RateLimitDecision>;
+  /** Le compte existe-t-il encore côté Auth ? Par défaut : getUser(token) pour un client Bearer. */
+  verifyUser?: (supabase: SupabaseClient, user: SessionUser) => Promise<boolean>;
 };
 
 type Authed = { supabase: SupabaseClient; user: SessionUser };
@@ -62,6 +65,23 @@ function accountDeps(deps: MeDeps): AccountDeps | undefined {
     notifyDeleted: notifyDeleted ?? (async () => {}),
     getAdminClient: getAdminClient ?? (() => null),
   };
+}
+
+/**
+ * Routes sensibles (PATCH, DELETE) : en plus de la signature, le serveur Auth
+ * confirme que le compte existe encore et n'est pas banni (getClaims ne vérifie
+ * que signature et expiration). Seulement pour un jeton Bearer : le chemin cookie
+ * du site n'est pas modifié.
+ */
+async function accountStillValid(supabase: SupabaseClient, user: SessionUser, deps: MeDeps): Promise<boolean> {
+  if (deps.verifyUser) return deps.verifyUser(supabase, user);
+  if (!isBearerClient(supabase)) return true;
+  try {
+    const { data, error } = await supabase.auth.getUser(bearerTokenOf(supabase));
+    return !error && data.user?.id === user.id;
+  } catch {
+    return false;
+  }
 }
 
 async function profileView(supabase: SupabaseClient, user: SessionUser) {
@@ -113,6 +133,7 @@ export async function patchMe(ctx: MeContext, raw: unknown, deps: MeDeps = {}): 
   const parsed = patchMeSchema.safeParse(raw);
   if (!parsed.success) return failure(400, "invalid_request", parsed.error.issues[0]?.message ?? "Valeur invalide.");
   const { displayName, personality } = parsed.data;
+  if (!(await accountStillValid(auth.supabase, auth.user, deps))) return unauthorized();
 
   try {
     const limiter =
@@ -158,6 +179,8 @@ export async function deleteMe(ctx: MeContext, raw: unknown, deps: MeDeps = {}):
 
   const parsed = deleteMeSchema.safeParse(raw);
   if (!parsed.success) return failure(400, "invalid_request", `Écris ${DELETE_CONFIRMATION} pour confirmer.`);
+
+  if (!(await accountStillValid(auth.supabase, auth.user, deps))) return unauthorized();
 
   const result = await removeAccount(auth.user, parsed.data.confirmation, accountDeps(deps));
   return result.ok ? { status: 200, body: { message: result.message } } : fromFailedResult(result);

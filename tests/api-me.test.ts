@@ -234,3 +234,57 @@ describe("cœur partagé avec les Server Actions", () => {
     });
   });
 });
+
+describe("R-4 : compte vérifié auprès de Supabase Auth sur PATCH et DELETE", () => {
+  const gone = { verifyUser: async () => false };
+
+  it("PATCH : compte supprimé ou banni -> 401, rien d'écrit", async () => {
+    const { client, updates } = fakeSupabase({ display_name: null, personality: null });
+    const res = await me.patchMe({ supabase: client, user: USER }, { displayName: "x" }, deps(gone).deps);
+    assert.equal(res.status, 401);
+    assert.equal(updates.length, 0);
+  });
+
+  it("DELETE : compte supprimé -> 401, aucune suppression tentée", async () => {
+    let asked = false;
+    const { deps: d } = deps({ ...gone, getAdminClient: (() => (asked = true, null)) as never });
+    const res = await me.deleteMe({ supabase: {} as SupabaseClient, user: USER }, { confirmation: "SUPPRIMER" }, d);
+    assert.equal(res.status, 401);
+    assert.equal(asked, false);
+  });
+
+  it("GET ne fait pas ce contrôle (pas de getUser)", async () => {
+    const { client } = fakeSupabase({ display_name: null, personality: null });
+    const res = await me.getMe({ supabase: client, user: USER }, deps(gone).deps);
+    assert.equal(res.status, 200);
+  });
+
+  it("par défaut, un client cookie n'est pas contrôlé (web inchangé)", async () => {
+    const { client } = fakeSupabase({ display_name: null, personality: null });
+    const base = deps().deps;
+    delete (base as { verifyUser?: unknown }).verifyUser;
+    const res = await me.patchMe({ supabase: client, user: USER }, { displayName: "y" }, base);
+    assert.equal(res.status, 200);
+  });
+});
+
+describe("R-4 : chemin par défaut avec un client Bearer", () => {
+  it("appelle getUser(token) et refuse une erreur ou un autre identifiant", async () => {
+    const bearer = await import("@/lib/supabase/bearer");
+    for (const [answer, status] of [
+      [{ data: { user: { id: USER.id } }, error: null }, 200],
+      [{ data: { user: null }, error: new Error("User from sub claim in JWT does not exist") }, 401],
+      [{ data: { user: { id: "autre" } }, error: null }, 401],
+    ] as const) {
+      const seen: unknown[] = [];
+      const { client } = fakeSupabase({ display_name: null, personality: null });
+      (client as unknown as { auth: unknown }).auth = { getUser: async (t: unknown) => (seen.push(t), answer) };
+      bearer.registerBearerClient(client, "tok.en.x");
+      const base = deps().deps;
+      delete (base as { verifyUser?: unknown }).verifyUser;
+      const res = await me.patchMe({ supabase: client, user: USER }, { personality: "cool" }, base);
+      assert.equal(res.status, status);
+      assert.deepEqual(seen, ["tok.en.x"]);
+    }
+  });
+});
