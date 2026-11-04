@@ -30,6 +30,7 @@ import { correctInContextAction, teachUnknownWordAction } from "@/app/(chat)/act
 import { CorrectContext, type Correction } from "./Correctable";
 import { replacePassage } from "@/lib/language/replace-passage";
 import { fillKnownWords, translationTable } from "@/lib/language/unknown-words";
+import { markVoice, markVoiceServer } from "@/lib/chat/voice-metrics";
 
 /** Message de l'utilisateur auquel répond la réponse de Tamilya n° `index` (aide à comprendre ce qu'elle voulait dire). */
 function questionBefore(messages: readonly UiMessage[], index: number): string | undefined {
@@ -309,11 +310,16 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
           case "delta":
             countGuestMessage();
             reply += event.text;
+            if (spoken) markVoice("firstToken");
             updateMessage(assistantId, (m) => ({ ...m, content: m.content + event.text }));
             break;
           case "speech":
             // Mode vocal : phrase terminée, lue tout de suite pendant que la suite s'écrit.
+            if (spoken) markVoice("firstSentence");
             if (spoken && !stale()) voiceSay(event.text);
+            break;
+          case "timing":
+            if (spoken) markVoiceServer({ firstTokenMs: event.firstTokenMs });
             break;
           case "replace":
             // Mode maître : version corrigée de la réponse, à la place du texte reçu en direct.
@@ -363,6 +369,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
           ...(spoken ? { voice: true } : {}),
         };
 
+        if (spoken) markVoice("sent");
         const res = await fetch("/api/chat", {
           method: "POST",
           headers: { "Content-Type": "application/json" },

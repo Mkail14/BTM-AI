@@ -34,6 +34,8 @@ export type ChatStreamEvent =
   | { type: "replace"; text: string }
   /** Mode vocal : phrase terminée (déjà corrigée en mode maître), à lire tout de suite. */
   | { type: "speech"; text: string }
+  /** Mode vocal : temps du serveur jusqu'au premier mot du modèle (chronométrage, /admin/voix). */
+  | { type: "timing"; firstTokenMs: number }
   /** Mode maître : shimaoré retenu de ce message (affiché « ✓ Retenu » sous la réponse). */
   | { type: "learned"; words: { french: string; shimaore: string }[] }
   | { type: "done"; finishReason: FinishReason }

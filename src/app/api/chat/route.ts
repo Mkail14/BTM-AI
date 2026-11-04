@@ -526,6 +526,7 @@ export async function POST(request: NextRequest) {
           system,
           messages,
           persona: true,
+          fast: body.voice,
           maxOutputTokens: body.voice ? Math.min(ai.config.maxOutputTokens, VOICE_MAX_OUTPUT_TOKENS) : ai.config.maxOutputTokens,
           signal,
           onAttempt: (slotId, error) => {
@@ -534,7 +535,10 @@ export async function POST(request: NextRequest) {
           },
         })) {
           if (chunk.type === "text") {
-            firstTextMs ??= Date.now() - startedAt;
+            if (firstTextMs === null) {
+              firstTextMs = Date.now() - startedAt;
+              if (body.voice) send({ type: "timing", firstTokenMs: firstTextMs });
+            }
             text += chunk.text;
             if (!master) {
               const visible = tagFilter.push(chunk.text);

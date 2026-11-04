@@ -3,6 +3,7 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { PageIntro } from "@/components/admin/form";
 import { loadVoice } from "@/lib/ai/voice/settings";
 import { requireAdmin } from "@/lib/auth/session";
+import { VoiceMetrics } from "./VoiceMetrics";
 import { VoicePicker } from "./VoicePicker";
 
 export const metadata: Metadata = { title: "Voix de Tamilya", robots: { index: false, follow: false } };
@@ -20,6 +21,7 @@ export default async function AdminVoicePage() {
           Écoute les voix, puis choisis celle de Tamilya. Elles passent par ta clé Gemini, sans autre abonnement. Si Gemini ne
           répond pas, Tamilya reprend la voix du navigateur.
         </PageIntro>
+        <VoiceMetrics />
         <VoicePicker saved={voice} />
       </main>
     </div>

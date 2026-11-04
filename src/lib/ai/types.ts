@@ -15,6 +15,8 @@ export type AIStreamInput = {
   onAttempt?: (slotId: string, error?: AIErrorCode) => void;
   /** Réponse de Tamilya à une personne (pas une tâche de fond) : rappel d'harmonisation pour les modèles hors référence. */
   persona?: boolean;
+  /** Réponse à l'oral (mode vocal) : réflexion minimale, et modèle AI_VOICE_MODEL s'il est défini. */
+  fast?: boolean;
 };
 
 /** Contrat commun à tous les fournisseurs de modèle. */

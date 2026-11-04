@@ -71,6 +71,7 @@ export function createRelayProvider(url: string, secret: string): AIProvider {
         messages: input.messages,
         maxOutputTokens: input.maxOutputTokens,
         persona: input.persona ?? false,
+        fast: input.fast ?? false,
       });
       const time = Date.now();
       const response = await fetch(`${url}/api/ai/relay`, {

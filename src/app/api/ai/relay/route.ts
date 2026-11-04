@@ -24,6 +24,7 @@ const bodySchema = z.object({
   // Au-delà de 8 000 jetons, la demande est ramenée au plafond plutôt que refusée.
   maxOutputTokens: z.number().int().min(16).max(32_000).transform((n) => Math.min(n, RELAY_LIMITS.maxOutputTokens)),
   persona: z.boolean().optional(),
+  fast: z.boolean().optional(),
 });
 
 export async function POST(request: NextRequest) {

@@ -40,6 +40,7 @@ export async function POST(request: NextRequest) {
   }
 
   const voice: GeminiVoiceId = user.isAdmin && parsed.data.voice ? (parsed.data.voice as GeminiVoiceId) : await loadVoice();
+  const startedAt = Date.now();
   try {
     // Développement local : Google refuse Gemini depuis Mayotte, le site en ligne lit à la place.
     const relay = relayUrl();
@@ -48,7 +49,10 @@ export async function POST(request: NextRequest) {
       relay && secret
         ? await relaySpeech(relay, secret, { text: parsed.data.text, voice }, request.signal)
         : (await synthesizeSpeech(parsed.data.text, voice, request.signal)).audio;
-    return new Response(audio as BodyInit, { headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store" } });
+    return new Response(audio as BodyInit, {
+      // x-voice-ms : temps de fabrication de la voix sur le serveur (chronométrage, /admin/voix).
+      headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "x-voice-ms": String(Date.now() - startedAt) },
+    });
   } catch (error) {
     if (error instanceof AIProviderError && error.code === "aborted") return new Response(null, { status: 499 });
     console.error("[voix] Lecture impossible", error);

@@ -105,7 +105,9 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
 
   return {
     id: "gemini",
-    async *stream({ system, messages, maxOutputTokens, signal }: AIStreamInput): AsyncIterable<AIStreamChunk> {
+    async *stream({ system, messages, maxOutputTokens, signal, fast }: AIStreamInput): AsyncIterable<AIStreamChunk> {
+      // À l'oral : modèle réservé au vocal s'il est réglé (AI_VOICE_MODEL, ex. un « flash-lite »), sinon le modèle habituel.
+      const preferred = (fast && process.env.AI_VOICE_MODEL?.trim().replace(/^models\//, "")) || chosen;
       const timeoutSignal = AbortSignal.timeout(config.timeoutMs);
       const combined = AbortSignal.any([signal, timeoutSignal]);
 
@@ -131,7 +133,7 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
       const open = async (model: string): Promise<{ reader: ReadableStreamDefaultReader<string>; first: string } | null> => {
         // Réglages de réflexion du plus rapide au plus sûr : un réglage que le modèle
         // refuse (400 qui parle de « thinking ») est retiré au lieu de faire échouer la réponse.
-        const attempts = config.disableReasoning ? [...thinkingSettings(model), null] : [null];
+        const attempts = config.disableReasoning || fast ? [...thinkingSettings(model), null] : [null];
         for (const [index, thinkingConfig] of attempts.entries()) {
           const attempt = new AbortController();
           const timer = setTimeout(() => attempt.abort(), FIRST_CHUNK_MS);
@@ -187,20 +189,20 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
       const resting = (model: string) => (exhausted.get(`${keyId(config.apiKey)}:${model}`) ?? 0) > Date.now();
       let opened: Awaited<ReturnType<typeof open>> = null;
       let alternatives: string[] | null = null;
-      let usedModel = chosen;
+      let usedModel = preferred;
       const tried = new Set<string>();
       // Le modèle choisi d'abord (sauf s'il vient d'être refusé), puis les autres modèles de la clé.
       for (let i = 0; i < MAX_MODEL_TRIES && !opened; i++) {
-        let model: string | undefined = !tried.has(chosen) && !resting(chosen) ? chosen : undefined;
+        let model: string | undefined = !tried.has(preferred) && !resting(preferred) ? preferred : undefined;
         if (!model) {
-          alternatives ??= fallbackModels(await listKeyModels(config, combined), chosen);
+          alternatives ??= fallbackModels(await listKeyModels(config, combined), preferred);
           model = alternatives.find((id) => !tried.has(id) && !resting(id)) ?? alternatives.find((id) => !tried.has(id));
         }
         if (!model) break;
         tried.add(model);
         usedModel = model;
         opened = await open(model);
-        if (opened && model !== chosen) console.info(`[ai] Gemini : « ${chosen} » indisponible, réponse par « ${model} »`);
+        if (opened && model !== preferred) console.info(`[ai] Gemini : « ${preferred} » indisponible, réponse par « ${model} »`);
       }
       if (!opened) throw lastError ?? new AIProviderError("quota", "Aucun modèle Gemini de cette clé n'est disponible");
 

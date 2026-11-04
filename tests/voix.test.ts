@@ -73,3 +73,24 @@ describe("voix au fil de la réponse", () => {
     assert.deepEqual(s.end(), []);
   });
 });
+
+describe("chronométrage du vocal", () => {
+  it("calcule médiane, P90 et P95", async () => {
+    const { percentile } = await import("@/lib/chat/voice-metrics");
+    const values = Array.from({ length: 20 }, (_, i) => (i + 1) * 100);
+    assert.equal(percentile(values, 50), 1000);
+    assert.equal(percentile(values, 90), 1800);
+    assert.equal(percentile(values, 95), 1900);
+    assert.equal(percentile([], 50), null);
+  });
+
+  it("note chaque étape une seule fois, depuis la fin de la phrase", async () => {
+    const { beginVoiceTurn, markVoice, markVoiceServer } = await import("@/lib/chat/voice-metrics");
+    beginVoiceTurn();
+    markVoice("sent");
+    markVoiceServer({ ttsMs: 900 });
+    markVoiceServer({ ttsMs: 2000 });
+    // Sans localStorage (Node) : l'enregistrement échoue en silence, sans erreur.
+    assert.doesNotThrow(() => markVoice("audioStart"));
+  });
+});

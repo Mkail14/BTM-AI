@@ -1,6 +1,7 @@
 // Sinon (pas français) : shimaoré, lu par une voix swahili, langue bantoue proche.
 import { looksFrench, splitUnknownWords } from "@/lib/language/unknown-words";
 import { voiceSpeakEnd, voiceSpeakStart, voiceWord } from "./voice-level";
+import { markVoice, markVoiceFallback, markVoiceServer } from "./voice-metrics";
 
 /**
  * Voix du chat, entièrement dans le navigateur (Web Speech API) : dictée en
@@ -199,7 +200,9 @@ export function speechChunks(text: string): string[] {
 /** Phrases demandées à Gemini en même temps, au plus (les suivantes attendent leur tour). */
 const PREFETCH = 2;
 
-async function fetchSpeech(text: string, signal: AbortSignal): Promise<Blob> {
+type SpeechAudio = { blob: Blob; serverMs: number | undefined };
+
+async function fetchSpeech(text: string, signal: AbortSignal): Promise<SpeechAudio> {
   const response = await fetch("/api/voice/speak", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -207,7 +210,8 @@ async function fetchSpeech(text: string, signal: AbortSignal): Promise<Blob> {
     signal: AbortSignal.any([signal, AbortSignal.timeout(GEMINI_WAIT_MS)]),
   });
   if (!response.ok) throw new Error(`voix ${response.status}`);
-  return response.blob();
+  const serverMs = Number(response.headers.get("x-voice-ms")) || undefined;
+  return { blob: await response.blob(), serverMs };
 }
 
 /** Texte prononçable d'un morceau de réponse (sans Markdown ni [[ ]]). */
@@ -234,7 +238,7 @@ export type Speaker = {
  */
 export function createSpeaker(options: SpeakOptions): Speaker {
   const controller = new AbortController();
-  type Item = { raw: string; text: string; audio: Promise<Blob> | null };
+  type Item = { raw: string; text: string; audio: Promise<SpeechAudio> | null };
   const queue: Item[] = [];
   let browser = typeof Audio === "undefined" || Date.now() < geminiPausedUntil;
   let ended = false;
@@ -255,7 +259,7 @@ export function createSpeaker(options: SpeakOptions): Speaker {
   };
   const release = () => {
     if (!audio) return;
-    audio.onended = audio.onerror = audio.ontimeupdate = null;
+    audio.onended = audio.onerror = audio.ontimeupdate = audio.onplaying = null;
     if (url) URL.revokeObjectURL(url);
     url = null;
   };
@@ -285,6 +289,7 @@ export function createSpeaker(options: SpeakOptions): Speaker {
         voiceWord(text, index);
         options.onWord?.();
       };
+      audio.onplaying = () => markVoice("audioStart");
       audio.onended = () => resolve();
       audio.onerror = () => reject(new Error("lecture"));
       audio.play().catch(reject);
@@ -292,6 +297,9 @@ export function createSpeaker(options: SpeakOptions): Speaker {
 
   const playBrowser = (raw: string) =>
     new Promise<void>((resolve) => {
+      markVoiceFallback();
+      markVoice("audioReady");
+      markVoice("audioStart");
       stopBrowser = browserSpeak(raw, { onWord: options.onWord, onDone: resolve });
     });
 
@@ -307,8 +315,10 @@ export function createSpeaker(options: SpeakOptions): Speaker {
       if (browser || !item.audio) {
         await playBrowser(item.raw);
       } else {
-        const blob = await item.audio;
+        const { blob, serverMs } = await item.audio;
         if (stopped) return;
+        markVoiceServer({ ttsMs: serverMs });
+        markVoice("audioReady");
         await playBlob(blob, item.text);
       }
       queue.shift();

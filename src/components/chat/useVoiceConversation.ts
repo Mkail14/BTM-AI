@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createSpeaker, isVoiceSupported, listen, speak, unlockSpeech, type Dictation, type Speaker } from "@/lib/chat/voice";
 import { voiceHeard, voiceListenEnd } from "@/lib/chat/voice-level";
+import { beginVoiceTurn } from "@/lib/chat/voice-metrics";
 import { stripTranslation } from "@/lib/language/unknown-words";
 
 /** off → listening (on parle) → waiting (Tamilya répond) → speaking (Tamilya lit) → listening… */
@@ -102,6 +103,7 @@ export function useVoiceConversation(onSend: (text: string) => void) {
           if (silences.current >= SILENCES_BEFORE_HINT) setHint(NO_SOUND_HINT);
           return startListeningRef.current();
         }
+        beginVoiceTurn();
         setState("waiting");
         sendRef.current(text);
       },
