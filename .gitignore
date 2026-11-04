@@ -12,3 +12,7 @@ build/
 android/key.properties
 *.jks
 *.keystore
+
+# Config d'environnement (valeurs publiques mais propres a chaque poste)
+tamilya_mobile/env/*.json
+!tamilya_mobile/env/example.json
