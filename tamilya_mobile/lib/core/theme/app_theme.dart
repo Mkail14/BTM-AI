@@ -42,7 +42,7 @@ abstract final class AppTheme {
       secondary: p.accent,
       onSecondary: p.accentFg,
       error: p.danger,
-      onError: isLight ? const Color(0xFFFFFFFF) : p.bg,
+      onError: p.onDanger,
       surface: p.bg,
       onSurface: p.fg,
       onSurfaceVariant: p.fgMuted,

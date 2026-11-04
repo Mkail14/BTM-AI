@@ -102,12 +102,17 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ),
         body: Column(
           children: [
-            Expanded(child: _MessageList(state: state, onRetry: null)),
-            Composer(
-              sending: state.isTyping,
-              enabled: !state.loading,
-              onSend: _send,
-              onStop: controller.stop,
+            Expanded(
+              child: _MessageList(state: state, onRetry: controller.retry),
+            ),
+            SafeArea(
+              top: false,
+              child: Composer(
+                sending: state.isTyping,
+                enabled: !state.loading,
+                onSend: _send,
+                onStop: controller.stop,
+              ),
             ),
           ],
         ),
@@ -138,6 +143,7 @@ class _MessageList extends StatelessWidget {
     final count = state.messages.length + (showTyping ? 1 : 0);
     return ListView.separated(
       reverse: true,
+      keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
       padding: const EdgeInsets.symmetric(
         horizontal: Gaps.lg,
         vertical: Gaps.lg,
@@ -154,7 +160,11 @@ class _MessageList extends StatelessWidget {
         final offset = showTyping ? 1 : 0;
         final message =
             state.messages[state.messages.length - 1 - (index - offset)];
-        return MessageBubble(message: message, onRetry: onRetry);
+        final isLast = identical(message, state.messages.last);
+        return MessageBubble(
+          message: message,
+          onRetry: isLast ? onRetry : null,
+        );
       },
     );
   }

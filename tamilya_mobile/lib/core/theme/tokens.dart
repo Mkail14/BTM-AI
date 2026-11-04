@@ -21,6 +21,7 @@ class TamilyaPalette {
     required this.success,
     required this.successSoft,
     required this.focus,
+    required this.onDanger,
   });
 
   final Color bg;
@@ -40,6 +41,16 @@ class TamilyaPalette {
   final Color success;
   final Color successSoft;
   final Color focus;
+  final Color onDanger;
+
+  /// Persona par défaut du web (`--persona`), identique dans les deux thèmes.
+  static const Color _persona = Color(0xFFC8295F);
+
+  /// Bulle utilisateur : persona à 11 % sur le fond (`--persona-soft`).
+  Color get userBubble => Color.lerp(bg, _persona, 0.11)!;
+
+  /// Bordure du composer : persona à 30 % sur `border` (`--persona-border`).
+  Color get composerBorder => Color.lerp(border, _persona, 0.30)!;
 
   static const TamilyaPalette light = TamilyaPalette(
     bg: Color(0xFFFFFFFF),
@@ -59,6 +70,7 @@ class TamilyaPalette {
     success: Color(0xFF15803D),
     successSoft: Color(0xFFE8F6ED),
     focus: Color(0xFFC8295F),
+    onDanger: Color(0xFFFFFFFF),
   );
 
   static const TamilyaPalette dark = TamilyaPalette(
@@ -79,6 +91,7 @@ class TamilyaPalette {
     success: Color(0xFF4CCB7A),
     successSoft: Color(0xFF14301F),
     focus: Color(0xFFF58BB2),
+    onDanger: Color(0xFF131516),
   );
 }
 

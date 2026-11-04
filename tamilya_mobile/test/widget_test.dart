@@ -4,7 +4,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:tamilya_mobile/app.dart';
 import 'package:tamilya_mobile/core/theme/app_theme.dart';
 import 'package:tamilya_mobile/core/theme/tokens.dart';
+import 'package:tamilya_mobile/features/chat/domain/chat_repository.dart';
+import 'package:tamilya_mobile/features/chat/presentation/chat_controller.dart';
 import 'package:tamilya_mobile/features/chat/presentation/composer.dart';
+import 'package:tamilya_mobile/features/chat/presentation/message_bubble.dart';
+import 'package:tamilya_mobile/shared/models/chat_message.dart';
 
 void main() {
   test('le thème clair et le thème sombre se construisent sur les tokens', () {
@@ -78,4 +82,102 @@ void main() {
     await tester.pump();
     expect(sent, ['Bonjour']);
   });
+
+  testWidgets('le bouton d envoi fait au moins 48 dp', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(body: Composer(onSend: (_) {})),
+      ),
+    );
+    final size = tester.getSize(find.byType(IconButton));
+    expect(size.width, greaterThanOrEqualTo(48));
+    expect(size.height, greaterThanOrEqualTo(48));
+  });
+
+  testWidgets('compteur dès 80 % et envoi bloqué au-delà de 4000', (
+    tester,
+  ) async {
+    final sent = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(body: Composer(onSend: sent.add)),
+      ),
+    );
+    await tester.enterText(find.byType(TextField), 'a' * 3000);
+    await tester.pump();
+    expect(find.textContaining('caractères'), findsNothing);
+
+    await tester.enterText(find.byType(TextField), 'a' * 3300);
+    await tester.pump();
+    expect(find.text('3300 / 4000 caractères'), findsOneWidget);
+    await tester.tap(find.byTooltip('Envoyer le message'));
+    expect(sent, hasLength(1));
+
+    await tester.enterText(find.byType(TextField), 'a' * 4001);
+    await tester.pump();
+    expect(find.text('4001 / 4000 caractères'), findsOneWidget);
+    await tester.tap(find.byTooltip('Envoyer le message'), warnIfMissed: false);
+    expect(sent, hasLength(1));
+  });
+
+  testWidgets('Réessayer appelle l action sur une réponse en erreur', (
+    tester,
+  ) async {
+    var retried = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(
+          body: MessageBubble(
+            message: const ChatMessage(
+              id: 'a',
+              role: MessageRole.assistant,
+              text: '',
+              status: MessageStatus.error,
+            ),
+            onRetry: () => retried++,
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.text('Réessayer'));
+    expect(retried, 1);
+  });
+
+  test('le contrôleur renvoie le dernier message après une erreur', () async {
+    final repo = _FlakyRepository();
+    final container = ProviderContainer(
+      overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(container.dispose);
+    final provider = chatControllerProvider(null);
+    container.listen(provider, (_, _) {});
+    final controller = container.read(provider.notifier);
+
+    await controller.send('Bonjour');
+    expect(container.read(provider).messages.last.status, MessageStatus.error);
+
+    await controller.retry();
+    final messages = container.read(provider).messages;
+    expect(repo.calls, 2);
+    expect(messages, hasLength(2));
+    expect(messages.last.status, MessageStatus.complete);
+    expect(messages.last.text, 'ok');
+  });
+}
+
+class _FlakyRepository implements ChatRepository {
+  int calls = 0;
+
+  @override
+  Future<List<ChatMessage>> history(String conversationId) async => const [];
+
+  @override
+  Stream<String> sendMessage({String? conversationId, required String text}) {
+    calls++;
+    if (calls == 1) return Stream.error(Exception('échec'));
+    return Stream.value('ok');
+  }
 }

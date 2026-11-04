@@ -64,6 +64,20 @@ class ChatController extends Notifier<ChatState> {
 
   void stop() => _stopRequested = true;
 
+  /// Renvoie le dernier message utilisateur après une réponse en erreur ou
+  /// interrompue. Action explicite de l'utilisateur (ARCHITECTURE A4) : le
+  /// message en échec est retiré de l'affichage, puis le texte est renvoyé.
+  Future<void> retry() async {
+    if (state.isTyping) return;
+    final messages = [...state.messages];
+    if (messages.isEmpty || messages.last.role != MessageRole.assistant) return;
+    messages.removeLast();
+    if (messages.isEmpty || messages.last.role != MessageRole.user) return;
+    final text = messages.removeLast().text;
+    state = state.copyWith(messages: messages);
+    await send(text);
+  }
+
   Future<void> send(String text) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty || state.isTyping) return;

@@ -40,7 +40,7 @@ class _UserBubble extends StatelessWidget {
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             decoration: BoxDecoration(
-              color: p.accentSoft,
+              color: p.userBubble,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(Radii.bubble),
                 topRight: Radius.circular(Radii.bubble),
@@ -93,9 +93,17 @@ class _AssistantMessage extends StatelessWidget {
                 style: theme.textTheme.bodyLarge?.copyWith(color: p.danger),
               ),
             )
+          else if (message.status != MessageStatus.streaming)
+            SelectableText(text, style: theme.textTheme.bodyLarge)
           else
-            SelectableText(
-              message.status == MessageStatus.streaming ? '$text▍' : text,
+            Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(text: text),
+                  // Curseur décoratif, exclu de la lecture d'écran.
+                  const WidgetSpan(child: ExcludeSemantics(child: Text('▍'))),
+                ],
+              ),
               style: theme.textTheme.bodyLarge,
             ),
           if (message.status == MessageStatus.interrupted)

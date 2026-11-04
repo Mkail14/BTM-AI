@@ -61,3 +61,10 @@ Tout sous `tamilya_mobile/` plus `.gitignore` (racine) et ce document. Dépôt w
 
 ## Dépendances / reste pour C3
 Auth Supabase + stockage sécurisé, dio + intercepteur, décodeur NDJSON et `ChatController` réel (annulation, erreurs, retry), lecture Supabase des conversations, `/api/me`, garde de routes et deep links, `Env` validé au démarrage, Markdown, freezed, l10n, url_launcher, icônes et splash natifs, tests de couche data.
+
+## Corrections post-revue
+Appliquées d'après `docs/missions/C2-revue-uiux.md` (hors « reste pour C3 » et police Geist).
+- P0 : composer dans `SafeArea(top: false)` ; bouton d'envoi 48 x 48 dp.
+- P1 : compteur « n / 4000 caractères » dès 80 % (`lib/core/config/limits.dart`), rouge au-delà, envoi bloqué au-delà de 4000 ; « Réessayer » branché sur `ChatController.retry()` (retire la réponse en échec et renvoie le dernier message, action explicite) uniquement sur le dernier message ; bulle utilisateur = mélange 11 % de l'accent sur le fond (`TamilyaPalette.userBubble`, sombre #27171e).
+- P2 : fond du composer `bg`, bordure mélangée 30 % (`composerBorder`) ; `onDanger` ajouté à la palette ; fermeture du clavier au glissement ; curseur de streaming exclu de la lecture d'écran (pendant le streaming le texte n'est plus sélectionnable).
+- Tests ajoutés : bouton >= 48 dp, compteur à 80 % et blocage à 4001, « Réessayer » appelé, `retry()` du contrôleur. Résultats : `flutter analyze` : No issues found ; `flutter test` : 8 tests, All tests passed ; `flutter build web` : réussi.
