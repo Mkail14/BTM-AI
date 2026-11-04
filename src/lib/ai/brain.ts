@@ -87,14 +87,25 @@ let loading: Promise<AwaBrain> | null = null;
 /** Change à chaque invalidateAwaBrain() : une lecture commencée avant n'est pas gardée. */
 let generation = 0;
 
+/**
+ * Cerveau lu il y a moins d'une minute : servi tout de suite, relu en même temps
+ * pour le message suivant. La relecture complète (milliers de mots) retardait
+ * chaque réponse, surtout à l'oral où deux messages sont espacés de plus de 5 s.
+ * Après une leçon ou une correction, invalidateAwaBrain() vide le cache : la
+ * relecture est alors attendue, la leçon sert dès le message suivant.
+ */
+const STALE_MS = 60_000;
+
 export function loadAwaBrain(): Promise<AwaBrain> {
-  if (cache && cache.expiresAt > Date.now()) return Promise.resolve(cache.brain);
+  const now = Date.now();
+  if (cache && cache.expiresAt > now) return Promise.resolve(cache.brain);
   if (!loading) {
     const task = readAwaBrain(generation).finally(() => {
       if (loading === task) loading = null;
     });
     loading = task;
   }
+  if (cache && cache.expiresAt + STALE_MS > now) return Promise.resolve(cache.brain);
   return loading;
 }
 

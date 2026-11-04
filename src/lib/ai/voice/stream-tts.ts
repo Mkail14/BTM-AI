@@ -95,7 +95,16 @@ export async function streamSpeech(text: string, voice: GeminiVoiceId, signal: A
   const started = Date.now();
   const trace: string[] = [];
   const key = await geminiKey();
-  const combined = AbortSignal.any([signal, AbortSignal.timeout(TIMEOUT_MS)]);
+  // Le signal de la requête ne vaut que jusqu'au premier son : Next l'annule une fois la
+  // réponse rendue, ce qui coupait Gemini en plein flux (son vide). Ensuite, c'est
+  // l'annulation du flux par le navigateur (cancel) qui arrête Gemini.
+  const gemini = new AbortController();
+  const timer = setTimeout(() => gemini.abort(), TIMEOUT_MS);
+  const onAbort = () => gemini.abort();
+  signal.addEventListener("abort", onAbort, { once: true });
+  const combined = gemini.signal;
+  let handedOff = false;
+  try {
   const models = ttsModels(await listKeyModels(key, combined));
   const restKey = (model: string) => `${key.apiKey.slice(-8)}:${model}`;
   const ordered = [...new Set([...models.filter((m) => (resting.get(restKey(m)) ?? 0) < Date.now()), ...models])].slice(0, 3);
@@ -171,6 +180,8 @@ export async function streamSpeech(text: string, voice: GeminiVoiceId, signal: A
       continue;
     }
     const firstAudioMs = Date.now() - started;
+    handedOff = true;
+    signal.removeEventListener("abort", onAbort);
     trace.push(`${model}:200:${Date.now() - at}ms`);
 
     const { Mp3Encoder } = await import("@breezystack/lamejs");
@@ -197,16 +208,24 @@ export async function streamSpeech(text: string, voice: GeminiVoiceId, signal: A
           console.info(`[voix] ${model} : ${chunks} morceau(x), premier son en ${firstAudioMs} ms`);
         } catch (error) {
           // Coupure en cours de route (annulation, réseau) : le son s'arrête là.
-          if (!signal.aborted) console.error("[voix] Flux interrompu", error);
+          if (!gemini.signal.aborted) console.error("[voix] Flux interrompu", error);
         } finally {
+          clearTimeout(timer);
           controller.close();
         }
       },
       cancel() {
+        gemini.abort();
         void reader.cancel().catch(() => {});
       },
     });
     return { stream, firstAudioMs, trace: trace.join(" ") };
   }
   throw lastError ?? new AIProviderError("quota", "Aucun modèle de voix Gemini disponible pour cette clé.");
+  } finally {
+    if (!handedOff) {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", onAbort);
+    }
+  }
 }

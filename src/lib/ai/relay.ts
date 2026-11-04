@@ -119,15 +119,22 @@ export function createRelayProvider(url: string, secret: string): AIProvider {
 export async function relaySpeech(url: string, secret: string, payload: { text: string; voice: string }, signal: AbortSignal): Promise<Response> {
   const body = JSON.stringify(payload);
   const time = Date.now();
+  // Signal de la requête suivi jusqu'aux en-têtes seulement : ensuite, c'est l'annulation du flux
+  // par le navigateur qui coupe (sinon Next coupait le son en plein milieu).
+  const upstream = new AbortController();
+  const onAbort = () => upstream.abort();
+  signal.addEventListener("abort", onAbort, { once: true });
   const response = await fetch(`${url}/api/ai/relay/speech`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-relay-time": String(time), "x-relay-signature": signRelay(body, time, secret) },
     body,
-    signal,
+    signal: upstream.signal,
     cache: "no-store",
-  }).catch((error: unknown) => {
-    throw new AIProviderError("unavailable", `Site en ligne injoignable (${url})`, { cause: error });
-  });
+  })
+    .catch((error: unknown) => {
+      throw new AIProviderError("unavailable", `Site en ligne injoignable (${url})`, { cause: error });
+    })
+    .finally(() => signal.removeEventListener("abort", onAbort));
   if (response.status === 404 || response.status === 405) {
     throw new AIProviderError("unavailable", "Voix : relais fermé ou site en ligne pas encore à jour (route /api/ai/relay/speech).");
   }

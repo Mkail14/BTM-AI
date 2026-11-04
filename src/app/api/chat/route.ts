@@ -62,6 +62,8 @@ const GUEST_TRIAL_IP = [{ name: "anon-trial-ip-30d", limit: 30, windowSeconds: 3
 const LEARN_WAIT_MS = 6_000;
 /** Réponse dictée (mode vocal) : de quoi dire trois phrases, pas une page qui retarderait la voix. */
 const VOICE_MAX_OUTPUT_TOKENS = 500;
+/** À l'oral : attente maximale des journaux et offres d'emploi avant de répondre. */
+const VOICE_LIVE_WAIT_MS = 1_200;
 
 function errorResponse(status: number, code: ChatErrorCode, headers?: HeadersInit) {
   return NextResponse.json(chatErrorBody(code), { status, headers });
@@ -212,7 +214,7 @@ export async function POST(request: NextRequest) {
         })
       : Promise.resolve(null);
   // Offres d'emploi et actu de Mayotte, seulement si le message en parle (mode maître compris).
-  const liveTask = liveContextFor(body.message).catch(() => null);
+  const liveTask = liveContextFor(body.message, { maxWaitMs: body.voice ? VOICE_LIVE_WAIT_MS : undefined }).catch(() => null);
   // Commande de repas et tickets de barge ouverts à ce compte ? Dernière commande (cookie signé).
   const foodTask = canOrderFood(user).catch(() => false);
   const bargeTask = canBuyBargeTickets(user).catch(() => false);

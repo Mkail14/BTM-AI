@@ -50,13 +50,14 @@ async function newsBlock(message: string, asked: boolean): Promise<string | null
  * parle ; actualité si elle en parle ou si un article touche à son sujet. Ne retarde jamais la réponse de plus de
  * quelques secondes : une source trop lente est simplement ignorée.
  */
-export async function liveContextFor(message: string): Promise<string | null> {
+export async function liveContextFor(message: string, { maxWaitMs }: { maxWaitMs?: number } = {}): Promise<string | null> {
   const intent = liveIntent(message);
   const tasks = [intent.jobs ? jobsBlock() : null, newsBlock(message, intent.news)].filter(
     (task): task is Promise<string | null> => task !== null,
   );
   if (!tasks.length) return null;
-  const wait = intent.news ? NEWS_WAIT_MS : MAX_WAIT_MS;
+  // À l'oral, on ne fait pas attendre la voix : ce qui n'est pas encore lu est laissé de côté.
+  const wait = Math.min(intent.news ? NEWS_WAIT_MS : MAX_WAIT_MS, maxWaitMs ?? Infinity);
   const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), wait));
   const blocks = await Promise.all(
     tasks.map((task) =>
