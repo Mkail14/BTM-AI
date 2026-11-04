@@ -17,11 +17,7 @@ const TIMEOUT_MS = 30_000;
 const RESTING_MS = 10 * 60_000;
 const resting = new Map<string, number>();
 
-/**
- * Consigne de lecture courte, collée au texte (« Dis … : ») : une consigne
- * longue finit lue à voix haute. AI_VOICE_STYLE=0 l’enlève.
- */
-const style = () => (process.env.AI_VOICE_STYLE?.trim() === "0" ? "" : "Dis d’une voix douce et chaleureuse : ");
+// Pas de consigne de style : Gemini la lit à voix haute avec le texte (vérifié). La voix choisie donne le ton.
 
 async function geminiKey(): Promise<{ apiKey: string; baseUrl: string | undefined }> {
   const chain = await loadAIChain();
@@ -65,7 +61,10 @@ export function pcmToWav(pcm: Uint8Array, sampleRate = 24_000): Uint8Array {
 
 type TtsResponse = { candidates?: { content?: { parts?: { inlineData?: { mimeType?: string; data?: string } }[] } }[] };
 
-export async function synthesizeSpeech(text: string, voice: GeminiVoiceId, signal: AbortSignal): Promise<Uint8Array> {
+/** Son WAV, et le trajet (modèles essayés, statut, durée) pour l’en-tête x-voice-trace. */
+export async function synthesizeSpeech(text: string, voice: GeminiVoiceId, signal: AbortSignal): Promise<{ wav: Uint8Array; trace: string }> {
+  const started = Date.now();
+  const trace: string[] = [];
   const key = await geminiKey();
   const combined = AbortSignal.any([signal, AbortSignal.timeout(TIMEOUT_MS)]);
   const models = ttsModels(await listKeyModels(key, combined));
@@ -73,12 +72,14 @@ export async function synthesizeSpeech(text: string, voice: GeminiVoiceId, signa
   const ordered = [...models.filter((m) => (resting.get(restKey(m)) ?? 0) < Date.now()), ...models];
   let lastError: AIProviderError | null = null;
 
+  trace.push(`liste:${Date.now() - started}ms`);
   for (const model of [...new Set(ordered)].slice(0, 3)) {
+    const at = Date.now();
     const response = await fetch(`${geminiRoot(key.baseUrl)}/models/${encodeURIComponent(model)}:generateContent`, {
       method: "POST",
       headers: geminiHeaders(key.apiKey),
       body: JSON.stringify({
-        contents: [{ parts: [{ text: `${style()}${text}` }] }],
+        contents: [{ parts: [{ text }] }],
         generationConfig: {
           responseModalities: ["AUDIO"],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
@@ -90,6 +91,7 @@ export async function synthesizeSpeech(text: string, voice: GeminiVoiceId, signa
       throw new AIProviderError("unavailable", "Connexion à Gemini impossible", { cause: error });
     });
 
+    trace.push(`${model}:${response.status}:${Date.now() - at}ms`);
     if (!response.ok) {
       const body = await response.text().catch(() => "");
       lastError = errorFromStatus(response.status, body);
@@ -108,7 +110,7 @@ export async function synthesizeSpeech(text: string, voice: GeminiVoiceId, signa
       continue;
     }
     const rate = Number(audio.mimeType?.match(/rate=(\d+)/)?.[1] ?? 24_000);
-    return pcmToWav(Buffer.from(audio.data, "base64"), rate);
+    return { wav: pcmToWav(Buffer.from(audio.data, "base64"), rate), trace: trace.join(" ") };
   }
   throw lastError ?? new AIProviderError("quota", "Aucun modèle de voix Gemini disponible pour cette clé.");
 }

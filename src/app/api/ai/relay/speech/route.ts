@@ -42,8 +42,8 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Demande invalide." }, { status: 400 });
 
   try {
-    const wav = await synthesizeSpeech(parsed.data.text, parsed.data.voice as GeminiVoiceId, request.signal);
-    return new Response(wav as BodyInit, { headers: { "Content-Type": "audio/wav", "Cache-Control": "no-store" } });
+    const { wav, trace } = await synthesizeSpeech(parsed.data.text, parsed.data.voice as GeminiVoiceId, request.signal);
+    return new Response(wav as BodyInit, { headers: { "Content-Type": "audio/wav", "Cache-Control": "no-store", "x-voice-trace": trace } });
   } catch (error) {
     console.error("[relais voix] Lecture impossible", error);
     const code = error instanceof AIProviderError ? error.code : "unavailable";

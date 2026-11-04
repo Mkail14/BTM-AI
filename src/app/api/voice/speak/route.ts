@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     const wav =
       relay && secret
         ? await relaySpeech(relay, secret, { text: parsed.data.text, voice }, request.signal)
-        : await synthesizeSpeech(parsed.data.text, voice, request.signal);
+        : (await synthesizeSpeech(parsed.data.text, voice, request.signal)).wav;
     return new Response(wav as BodyInit, { headers: { "Content-Type": "audio/wav", "Cache-Control": "no-store" } });
   } catch (error) {
     if (error instanceof AIProviderError && error.code === "aborted") return new Response(null, { status: 499 });
