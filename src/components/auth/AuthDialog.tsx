@@ -16,6 +16,7 @@ import {
   passwordChecks,
   suggestEmailCorrection,
 } from "@/lib/auth/signup";
+import { renderGoogleButton } from "@/lib/auth/google-identity";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { AuthUser } from "./AuthProvider";
 
@@ -232,7 +233,7 @@ function AuthPanel({
           >
             {isSignup ? "S'inscrire avec l'e-mail" : "Continuer avec l'e-mail"}
           </button>
-          <GoogleButton next={next} isSignup={isSignup} />
+          <GoogleButton next={next} isSignup={isSignup} onSignedIn={onSignedIn} />
         </div>
         <div className="mt-[clamp(12px,2.4vh,22px)]">{switchLine}</div>
         <p className="mt-2.5 max-w-[320px] text-xs leading-normal text-fg-muted/80">
@@ -326,12 +327,62 @@ function AuthPanel({
 }
 
 /**
- * Connexion ou inscription avec Google : Google renvoie sur /auth/callback, qui
- * ouvre la session. Le compte est créé à la première venue (prénom pris chez Google).
+ * Connexion ou inscription avec Google, comme sur btm.yt : le bouton de Google
+ * ouvre sa fenêtre par-dessus le site, et le jeton rendu ouvre la session ici
+ * (signInWithIdToken). Le compte est créé à la première venue (prénom pris chez
+ * Google). Si le script de Google ne se charge pas (bloqueur…), notre bouton
+ * prend le relais par redirection (/auth/callback).
  */
-function GoogleButton({ next, isSignup }: { next: string; isSignup: boolean }) {
+function GoogleButton({ next, isSignup, onSignedIn }: { next: string; isSignup: boolean; onSignedIn: SignedInHandler }) {
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
+  // Bouton de Google dessiné : le nôtre, identique, s'efface.
+  const [ready, setReady] = useState(false);
+  const slot = useRef<HTMLDivElement>(null);
+  const handler = useRef(onSignedIn);
+  useEffect(() => {
+    handler.current = onSignedIn;
+  });
+
+  useEffect(() => {
+    const element = slot.current;
+    if (!element) return;
+    let cancelled = false;
+    renderGoogleButton(element, {
+      signup: isSignup,
+      dark: document.documentElement.dataset.theme === "dark",
+      onToken: async (token, nonce) => {
+        const supabase = getSupabaseBrowserClient();
+        if (!supabase) return;
+        setPending(true);
+        setFailed(false);
+        try {
+          const { data, error } = await supabase.auth.signInWithIdToken({ provider: "google", token, nonce });
+          if (error || !data.user) {
+            console.warn("[google] Supabase a refusé le jeton :", error?.code, error?.message);
+            setFailed(true);
+            return;
+          }
+          const meta = data.user.user_metadata ?? {};
+          const name = meta.display_name ?? meta.given_name;
+          handler.current({ id: data.user.id, email: data.user.email ?? null, displayName: typeof name === "string" ? name : null }, next);
+        } catch {
+          setFailed(true);
+        } finally {
+          setPending(false);
+        }
+      },
+    })
+      .then(() => {
+        if (!cancelled && element.querySelector("iframe, div[role=button]")) setReady(true);
+      })
+      .catch(() => {
+        // Script de Google bloqué : notre bouton reste, par redirection.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isSignup, next]);
 
   async function start() {
     const supabase = getSupabaseBrowserClient();
@@ -357,10 +408,17 @@ function GoogleButton({ next, isSignup }: { next: string; isSignup: boolean }) {
 
   return (
     <>
+      {/* Bouton de Google (dessiné par lui), à la place du nôtre dès qu'il est prêt. */}
+      <div
+        ref={slot}
+        aria-hidden={!ready || pending}
+        className={ready && !pending ? "mt-2.5 flex h-11 w-full justify-center overflow-hidden" : "pointer-events-none absolute h-0 w-full max-w-[400px] overflow-hidden opacity-0"}
+      />
       <button
         type="button"
         onClick={start}
         disabled={pending}
+        hidden={ready && !pending}
         className="mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2.5 rounded-full border border-black/10 bg-white px-5 text-sm font-semibold text-[#1f1f1f] transition hover:bg-black/[0.03] disabled:opacity-70 dark:border-white/15 dark:bg-white/[0.06] dark:text-fg dark:hover:bg-white/[0.1]"
       >
         <svg aria-hidden="true" viewBox="0 0 48 48" width={18} height={18}>
