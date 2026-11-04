@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/tokens.dart';
 import '../../../shared/widgets/brand_logo.dart';
+import '../../../core/errors/app_failure.dart';
+import '../domain/profile.dart';
 import 'settings_providers.dart';
 
 /// Paramètres : libellés repris du web (03-uiux.md §5). Les sous-écrans
@@ -22,6 +24,84 @@ class SettingsScreen extends ConsumerWidget {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(const SnackBar(content: Text('Bientôt disponible.')));
+  }
+
+  void _fail(BuildContext context, Object e) {
+    if (!context.mounted) return;
+    final message = e is AppFailure ? e.message : 'Une erreur est survenue.';
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _editName(BuildContext context, WidgetRef ref) async {
+    final current = ref.read(profileProvider).value?.displayName ?? '';
+    final controller = TextEditingController(text: current);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Ton nom'),
+        content: TextField(
+          key: const Key('settings-name'),
+          controller: controller,
+          maxLength: 60,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Comment on t\'appelle ?',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Annuler'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, controller.text),
+            child: const Text('Enregistrer'),
+          ),
+        ],
+      ),
+    );
+    controller.dispose();
+    if (name == null || name.trim() == current) return;
+    try {
+      await ref.read(accountProvider.notifier).saveName(name);
+    } catch (e) {
+      if (context.mounted) _fail(context, e);
+    }
+  }
+
+  Future<void> _pickPersonality(BuildContext context, WidgetRef ref) async {
+    final data = ref.read(accountProvider).value;
+    if (data == null) return;
+    final chosen = data.profile.personality ?? data.defaultPersonality;
+    final id = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            for (final PersonalityCard c in data.personalities)
+              ListTile(
+                leading: Text(c.emoji, style: const TextStyle(fontSize: 24)),
+                title: Text(c.label),
+                subtitle: Text(c.description),
+                trailing: c.id == chosen
+                    ? const Icon(Icons.check_rounded)
+                    : null,
+                onTap: () => Navigator.pop(ctx, c.id),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (id == null || id == chosen) return;
+    try {
+      await ref.read(accountProvider.notifier).savePersonality(id);
+    } catch (e) {
+      if (context.mounted) _fail(context, e);
+    }
   }
 
   @override
@@ -97,8 +177,11 @@ class SettingsScreen extends ConsumerWidget {
                   ],
                 ),
                 loading: () => const LinearProgressIndicator(),
-                error: (_, _) =>
-                    const Text("Le profil n'a pas pu être chargé."),
+                error: (e, _) => Text(
+                  e is AppFailure
+                      ? e.message
+                      : "Le profil n'a pas pu être chargé.",
+                ),
               ),
             ),
             section('Compte'),
@@ -106,11 +189,13 @@ class SettingsScreen extends ConsumerWidget {
               Icons.person_outline_rounded,
               'Profil',
               'Ton nom et ton téléphone',
+              onTap: () => _editName(context, ref),
             ),
             tile(
               Icons.auto_awesome_outlined,
               'Tamilya',
               "Sa personnalité et ce qu'elle retient",
+              onTap: () => _pickPersonality(context, ref),
             ),
             tile(
               Icons.lock_outline_rounded,
