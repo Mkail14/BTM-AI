@@ -94,3 +94,33 @@ describe("chronométrage du vocal", () => {
     assert.doesNotThrow(() => markVoice("audioStart"));
   });
 });
+
+describe("voix en continu", () => {
+  const rate = 24_000;
+  const ms = (n: number) => Math.round((rate * n) / 1000);
+  const tone = (n: number) => Array.from({ length: ms(n) }, (_, i) => Math.round(6000 * Math.sin(i / 3)));
+  const silence = (n: number) => new Array(ms(n)).fill(0);
+
+  it("nettoie le son reçu par morceaux comme le son entier", async () => {
+    const { cleanSpeech } = await import("@/lib/ai/voice/gemini-tts");
+    const { createSpeechCleaner } = await import("@/lib/ai/voice/stream-tts");
+    const all = Int16Array.from([...tone(40), ...silence(200), ...tone(1500), ...silence(150), ...tone(900), ...silence(400), ...tone(150)]);
+    const cleaner = createSpeechCleaner(rate);
+    const out: number[] = [];
+    for (let i = 0; i < all.length; i += 2400) out.push(...cleaner.push(all.slice(i, i + 2400)));
+    out.push(...cleaner.end());
+    const whole = cleanSpeech(all, rate);
+    // Même longueur à 40 ms près : le bruit du début et le grésillement de la fin sont coupés.
+    assert.ok(Math.abs(out.length - whole.length) <= ms(40), `${out.length} contre ${whole.length}`);
+    assert.ok(out.length < all.length - ms(300));
+  });
+
+  it("rassemble les octets coupés entre deux morceaux", async () => {
+    const { createPcmReader } = await import("@/lib/ai/voice/stream-tts");
+    const read = createPcmReader();
+    const bytes = Buffer.from(new Int16Array([1000, -2000, 3000]).buffer);
+    const a = read(bytes.subarray(0, 3).toString("base64"));
+    const b = read(bytes.subarray(3).toString("base64"));
+    assert.deepEqual([...a, ...b], [1000, -2000, 3000]);
+  });
+});

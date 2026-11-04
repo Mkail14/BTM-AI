@@ -3,7 +3,7 @@ import { z } from "zod";
 import { AIProviderError } from "@/lib/ai";
 import { relaySpeech, relayUrl } from "@/lib/ai/relay";
 import { keysSecret } from "@/lib/ai/secret-box";
-import { synthesizeSpeech } from "@/lib/ai/voice/gemini-tts";
+import { streamSpeech } from "@/lib/ai/voice/stream-tts";
 import { loadVoice } from "@/lib/ai/voice/settings";
 import { isGeminiVoice, SPEECH_MAX_CHARS, type GeminiVoiceId } from "@/lib/ai/voice/voices";
 import { getAuthContext } from "@/lib/auth/session";
@@ -45,13 +45,19 @@ export async function POST(request: NextRequest) {
     // Développement local : Google refuse Gemini depuis Mayotte, le site en ligne lit à la place.
     const relay = relayUrl();
     const secret = keysSecret();
-    const audio =
-      relay && secret
-        ? await relaySpeech(relay, secret, { text: parsed.data.text, voice }, request.signal)
-        : (await synthesizeSpeech(parsed.data.text, voice, request.signal)).audio;
-    return new Response(audio as BodyInit, {
-      // x-voice-ms : temps de fabrication de la voix sur le serveur (chronométrage, /admin/voix).
-      headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "x-voice-ms": String(Date.now() - startedAt) },
+    // Son en continu : la réponse part dès le premier morceau de voix de Gemini.
+    let stream: ReadableStream<Uint8Array> | null;
+    let firstAudioMs: number;
+    if (relay && secret) {
+      const upstream = await relaySpeech(relay, secret, { text: parsed.data.text, voice }, request.signal);
+      stream = upstream.body;
+      firstAudioMs = Number(upstream.headers.get("x-voice-ms")) || Date.now() - startedAt;
+    } else {
+      ({ stream, firstAudioMs } = await streamSpeech(parsed.data.text, voice, request.signal));
+    }
+    return new Response(stream, {
+      // x-voice-ms : temps jusqu'au premier son sur le serveur (chronométrage, /admin/voix).
+      headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "x-voice-ms": String(firstAudioMs) },
     });
   } catch (error) {
     if (error instanceof AIProviderError && error.code === "aborted") return new Response(null, { status: 499 });

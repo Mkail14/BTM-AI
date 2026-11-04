@@ -112,8 +112,11 @@ export function createRelayProvider(url: string, secret: string): AIProvider {
   };
 }
 
-/** Voix de Tamilya en développement local : le site en ligne lit le texte avec Gemini et renvoie le MP3. */
-export async function relaySpeech(url: string, secret: string, payload: { text: string; voice: string }, signal: AbortSignal): Promise<Uint8Array> {
+/**
+ * Voix de Tamilya en développement local : le site en ligne lit le texte avec
+ * Gemini et renvoie le MP3 au fil de l'eau ; la réponse est transmise telle quelle.
+ */
+export async function relaySpeech(url: string, secret: string, payload: { text: string; voice: string }, signal: AbortSignal): Promise<Response> {
   const body = JSON.stringify(payload);
   const time = Date.now();
   const response = await fetch(`${url}/api/ai/relay/speech`, {
@@ -132,5 +135,5 @@ export async function relaySpeech(url: string, secret: string, payload: { text: 
     const detail = await response.json().catch(() => null) as { error?: string } | null;
     throw new AIProviderError("unavailable", `Voix (site en ligne) : ${detail?.error ?? `erreur ${response.status}`}`);
   }
-  return new Uint8Array(await response.arrayBuffer());
+  return response;
 }

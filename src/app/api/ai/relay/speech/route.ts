@@ -4,6 +4,7 @@ import { AIProviderError } from "@/lib/ai";
 import { relayEnabled, verifyRelay } from "@/lib/ai/relay";
 import { keysSecret } from "@/lib/ai/secret-box";
 import { synthesizeSpeech } from "@/lib/ai/voice/gemini-tts";
+import { streamSpeech } from "@/lib/ai/voice/stream-tts";
 import { isGeminiVoice, SPEECH_MAX_CHARS, type GeminiVoiceId } from "@/lib/ai/voice/voices";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 
@@ -47,8 +48,15 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Demande invalide." }, { status: 400 });
 
   try {
-    const { audio, contentType, trace } = await synthesizeSpeech(parsed.data.text, parsed.data.voice as GeminiVoiceId, request.signal, parsed.data.format);
-    return new Response(audio as BodyInit, { headers: { "Content-Type": contentType, "Cache-Control": "no-store", "x-voice-trace": trace } });
+    // Formats de test (comparaison à l'oreille) : son entier. Sinon : MP3 en continu, comme sur le site.
+    if (parsed.data.format) {
+      const { audio, contentType, trace } = await synthesizeSpeech(parsed.data.text, parsed.data.voice as GeminiVoiceId, request.signal, parsed.data.format);
+      return new Response(audio as BodyInit, { headers: { "Content-Type": contentType, "Cache-Control": "no-store", "x-voice-trace": trace } });
+    }
+    const { stream, firstAudioMs, trace } = await streamSpeech(parsed.data.text, parsed.data.voice as GeminiVoiceId, request.signal);
+    return new Response(stream, {
+      headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "x-voice-trace": trace, "x-voice-ms": String(firstAudioMs) },
+    });
   } catch (error) {
     console.error("[relais voix] Lecture impossible", error);
     const code = error instanceof AIProviderError ? error.code : "unavailable";

@@ -151,6 +151,8 @@ export function useVoiceConversation(onSend: (text: string) => void) {
     retries.current = 0;
     setReply("");
     unlockSpeech();
+    // Réveille le serveur pendant que la personne parle : la première réponse part plus vite.
+    void fetch("/api/voice/warm", { method: "POST" }).catch(() => {});
     active.current = true;
     startListening();
   }, [startListening]);

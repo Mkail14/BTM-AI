@@ -200,9 +200,18 @@ export function speechChunks(text: string): string[] {
 /** Phrases demandées à Gemini en même temps, au plus (les suivantes attendent leur tour). */
 const PREFETCH = 2;
 
-type SpeechAudio = { blob: Blob; serverMs: number | undefined };
+/**
+ * Son reçu du serveur. `blob` : téléchargé en entier d'avance (phrases
+ * suivantes) ; null : à jouer pendant qu'il arrive (première phrase).
+ */
+type SpeechAudio = { response: Response; serverMs: number | undefined; blob: Promise<Blob> | null };
 
-async function fetchSpeech(text: string, signal: AbortSignal): Promise<SpeechAudio> {
+/** Le navigateur sait jouer un MP3 pendant son téléchargement (Chrome, Edge, Android ; pas l'iPhone). */
+function canStreamAudio(): boolean {
+  return typeof MediaSource !== "undefined" && MediaSource.isTypeSupported("audio/mpeg");
+}
+
+async function fetchSpeech(text: string, signal: AbortSignal, streamed: boolean): Promise<SpeechAudio> {
   const response = await fetch("/api/voice/speak", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -211,7 +220,9 @@ async function fetchSpeech(text: string, signal: AbortSignal): Promise<SpeechAud
   });
   if (!response.ok) throw new Error(`voix ${response.status}`);
   const serverMs = Number(response.headers.get("x-voice-ms")) || undefined;
-  return { blob: await response.blob(), serverMs };
+  const blob = streamed ? null : response.blob();
+  blob?.catch(() => {});
+  return { response, serverMs, blob };
 }
 
 /** Texte prononçable d'un morceau de réponse (sans Markdown ni [[ ]]). */
@@ -247,13 +258,15 @@ export function createSpeaker(options: SpeakOptions): Speaker {
   let url: string | null = null;
   let stopBrowser: (() => void) | null = null;
   const audio = browser ? null : (player ??= new Audio());
+  /** La première phrase demandée est jouée pendant qu'elle arrive : c'est elle qui fait attendre. */
+  let requested = 0;
 
   // Au plus PREFETCH demandes en cours, dans l'ordre de la file.
   const prefetch = () => {
     if (browser) return;
     for (const item of queue.slice(0, PREFETCH)) {
       if (item.audio) continue;
-      item.audio = fetchSpeech(item.text, controller.signal);
+      item.audio = fetchSpeech(item.text, controller.signal, requested++ === 0 && canStreamAudio());
       item.audio.catch(() => {});
     }
   };
@@ -295,6 +308,69 @@ export function createSpeaker(options: SpeakOptions): Speaker {
       audio.play().catch(reject);
     });
 
+  /**
+   * Joue le MP3 pendant son téléchargement (MediaSource) : le son démarre dès
+   * les premiers octets. Durée inconnue pendant le flux : le globe suit un
+   * débit de parole moyen (14 caractères par seconde).
+   */
+  const playStream = (response: Response, text: string) =>
+    new Promise<void>((resolve, reject) => {
+      const body = response.body;
+      if (!audio || !body) return reject(new Error("pas de flux"));
+      release();
+      const source = new MediaSource();
+      url = URL.createObjectURL(source);
+      audio.src = url;
+      voiceSpeakStart(text);
+      let lastIndex = -1;
+      audio.ontimeupdate = () => {
+        const at = Math.min(text.length, Math.floor(audio.currentTime * 14));
+        const index = text.lastIndexOf(" ", at) + 1;
+        if (index === lastIndex) return;
+        lastIndex = index;
+        voiceWord(text, index);
+        options.onWord?.();
+      };
+      audio.onplaying = () => markVoice("audioStart");
+      audio.onended = () => resolve();
+      audio.onerror = () => reject(new Error("lecture"));
+      source.addEventListener(
+        "sourceopen",
+        () => {
+          void (async () => {
+            const buffer = source.addSourceBuffer("audio/mpeg");
+            const reader = body.getReader();
+            const append = (chunk: Uint8Array) =>
+              new Promise<void>((done, fail) => {
+                buffer.addEventListener("updateend", () => done(), { once: true });
+                buffer.addEventListener("error", () => fail(new Error("tampon")), { once: true });
+                buffer.appendBuffer(chunk as BufferSource);
+              });
+            let started = false;
+            try {
+              for (;;) {
+                const { value, done } = await reader.read();
+                if (stopped) return void reader.cancel().catch(() => {});
+                if (done) break;
+                if (!value?.length) continue;
+                await append(value);
+                if (!started) {
+                  started = true;
+                  markVoice("audioReady");
+                  audio.play().catch(reject);
+                }
+              }
+              if (!started) return reject(new Error("son vide"));
+              if (source.readyState === "open") source.endOfStream();
+            } catch (error) {
+              reject(error);
+            }
+          })();
+        },
+        { once: true },
+      );
+    });
+
   const playBrowser = (raw: string) =>
     new Promise<void>((resolve) => {
       markVoiceFallback();
@@ -315,11 +391,15 @@ export function createSpeaker(options: SpeakOptions): Speaker {
       if (browser || !item.audio) {
         await playBrowser(item.raw);
       } else {
-        const { blob, serverMs } = await item.audio;
+        const { response, serverMs, blob } = await item.audio;
         if (stopped) return;
         markVoiceServer({ ttsMs: serverMs });
-        markVoice("audioReady");
-        await playBlob(blob, item.text);
+        if (blob) {
+          const ready = await blob;
+          if (stopped) return;
+          markVoice("audioReady");
+          await playBlob(ready, item.text);
+        } else await playStream(response, item.text);
       }
       queue.shift();
     } catch (error) {

@@ -15,11 +15,12 @@ const KNOWN_TTS_MODELS = ["gemini-2.5-flash-preview-tts", "gemini-2.5-pro-previe
 const TIMEOUT_MS = 30_000;
 /** Un modèle sans quota est mis de côté ce temps-là. */
 const RESTING_MS = 10 * 60_000;
-const resting = new Map<string, number>();
+export const resting = new Map<string, number>();
+export { RESTING_MS };
 
 // Pas de consigne de style : Gemini la lit à voix haute avec le texte (vérifié). La voix choisie donne le ton.
 
-async function geminiKey(): Promise<{ apiKey: string; baseUrl: string | undefined }> {
+export async function geminiKey(): Promise<{ apiKey: string; baseUrl: string | undefined }> {
   const chain = await loadAIChain();
   for (const slot of chain) {
     if (slot.result.ok && isGeminiUrl(slot.result.config.baseUrl)) {
@@ -54,8 +55,10 @@ function speechWindows(samples: Int16Array, size: number): boolean[] {
  * la toute fin du son, séparé de la parole par un silence. On le coupe, on
  * retire les silences des bords (en gardant un peu d'air) et on fond l'entrée
  * et la sortie pour éviter le « clic ».
+ * Son reçu par morceaux : `lead: false` laisse le début tel quel (déjà traité),
+ * `tail: false` laisse la fin (la suite n'est pas encore arrivée).
  */
-export function cleanSpeech(samples: Int16Array, rate: number): Int16Array {
+export function cleanSpeech(samples: Int16Array, rate: number, { lead = true, tail = true } = {}): Int16Array {
   const size = Math.round(rate / 50);
   const windows = speechWindows(samples, size);
   // Plages de parole [début, fin[ en fenêtres.
@@ -69,21 +72,21 @@ export function cleanSpeech(samples: Int16Array, rate: number): Int16Array {
   if (!runs.length) return samples;
   const ms = (n: number) => n * 20;
   // Bruit du début : court (≤ 120 ms), suivi d'un silence d'au moins 100 ms.
-  while (runs.length > 1 && ms(runs[0][1] - runs[0][0]) <= 120 && ms(runs[1][0] - runs[0][1]) >= 100) runs.shift();
+  while (lead && runs.length > 1 && ms(runs[0][1] - runs[0][0]) <= 120 && ms(runs[1][0] - runs[0][1]) >= 100) runs.shift();
   // Bruit de la fin : court (≤ 260 ms), après un silence d'au moins 200 ms.
-  while (runs.length > 1) {
+  while (tail && runs.length > 1) {
     const [last, before] = [runs.at(-1)!, runs.at(-2)!];
     if (ms(last[1] - last[0]) > 260 || ms(last[0] - before[1]) < 200) break;
     runs.pop();
   }
   const margin = 4; // 80 ms d'air autour de la parole
-  const start = Math.max(0, (runs[0][0] - margin) * size);
-  const end = Math.min(samples.length, (runs.at(-1)![1] + margin) * size);
+  const start = lead ? Math.max(0, (runs[0][0] - margin) * size) : 0;
+  const end = tail ? Math.min(samples.length, (runs.at(-1)![1] + margin) * size) : samples.length;
   const out = samples.slice(start, end);
   const fade = Math.min(Math.round(rate * 0.03), Math.floor(out.length / 2));
   for (let i = 0; i < fade; i++) {
-    out[i] = Math.round((out[i] * i) / fade);
-    out[out.length - 1 - i] = Math.round((out[out.length - 1 - i] * i) / fade);
+    if (lead) out[i] = Math.round((out[i] * i) / fade);
+    if (tail) out[out.length - 1 - i] = Math.round((out[out.length - 1 - i] * i) / fade);
   }
   return out;
 }
