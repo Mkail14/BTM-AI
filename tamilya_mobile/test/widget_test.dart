@@ -1,30 +1,81 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:tamilya_mobile/main.dart';
+import 'package:tamilya_mobile/app.dart';
+import 'package:tamilya_mobile/core/theme/app_theme.dart';
+import 'package:tamilya_mobile/core/theme/tokens.dart';
+import 'package:tamilya_mobile/features/chat/presentation/composer.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  test('le thème clair et le thème sombre se construisent sur les tokens', () {
+    final light = AppTheme.light;
+    final dark = AppTheme.dark;
+    expect(light.colorScheme.primary, const Color(0xFFC8295F));
+    expect(light.scaffoldBackgroundColor, const Color(0xFFFFFFFF));
+    expect(dark.colorScheme.primary, const Color(0xFFF06A9B));
+    expect(dark.scaffoldBackgroundColor, const Color(0xFF131516));
+    expect(light.extension<TamilyaColors>()!.palette, TamilyaPalette.light);
+    expect(dark.extension<TamilyaColors>()!.palette, TamilyaPalette.dark);
+  });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+  testWidgets('navigation : splash, connexion, chat, tiroir, paramètres', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const ProviderScope(child: TamilyaApp()));
+    expect(find.text('Tamilya'), findsOneWidget);
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    expect(find.text('Se connecter'), findsOneWidget);
+
+    await tester.tap(find.text('Se connecter'));
+    await tester.pumpAndSettle();
+    expect(find.text('Parle shimaoré avec Tamilya'), findsOneWidget);
+    expect(find.byType(Composer), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Ouvrir le menu'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nouvelle conversation'), findsOneWidget);
+    expect(find.text('Dire bonjour en shimaoré'), findsOneWidget);
+
+    await tester.tap(find.text('Paramètres'));
+    await tester.pumpAndSettle();
+    expect(find.text('Ton nom et ton téléphone'), findsOneWidget);
+  });
+
+  testWidgets('le retour système ferme le tiroir', (tester) async {
+    await tester.pumpWidget(const ProviderScope(child: TamilyaApp()));
+    await tester.pump(const Duration(seconds: 2));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Se connecter'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('Ouvrir le menu'));
+    await tester.pumpAndSettle();
+    expect(find.text('Nouvelle conversation'), findsOneWidget);
+
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.text('Nouvelle conversation'), findsNothing);
+  });
+
+  testWidgets('la saisie : Entrée ne déclenche pas l envoi', (tester) async {
+    final sent = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: Scaffold(body: Composer(onSend: sent.add)),
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField), 'Bonjour');
+    await tester.testTextInput.receiveAction(TextInputAction.newline);
+    await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
+    expect(sent, isEmpty);
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    await tester.tap(find.byTooltip('Envoyer le message'));
+    await tester.pump();
+    expect(sent, ['Bonjour']);
   });
 }
