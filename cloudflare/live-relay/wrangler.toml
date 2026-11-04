@@ -1,0 +1,9 @@
+# Relais du vocal en direct de Tamilya (voir src/index.ts).
+# Déploiement : pnpm dlx wrangler@4 deploy (depuis ce dossier).
+# Secrets : pnpm dlx wrangler@4 secret put GEMINI_API_KEY / LIVE_TICKET_SECRET
+name = "tamilya-live-relay"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+
+[vars]
+SITE_URL = "https://tamilya.yt"

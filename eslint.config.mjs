@@ -14,6 +14,8 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     // Bibliothèque de carte copiée telle quelle (fichier minifié, pas notre code).
     "public/maplibre/**",
+    // Relais Cloudflare du vocal en direct : déployé à part (wrangler), types de Workers.
+    "cloudflare/**",
   ]),
 ]);
 
