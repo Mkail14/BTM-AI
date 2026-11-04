@@ -5,6 +5,7 @@ import { getAuthContext } from "@/lib/auth/session";
 import { canOrderFood } from "@/lib/food/access";
 import { canBuyBargeTickets } from "@/lib/barge/access";
 import { BARGE_BLOCK, bargeBlockFor, bargeSpec, detectBargeTicket } from "@/lib/barge/intent";
+import { BTM_DEVIS_BLOCK, btmDevisBlockFor, btmDevisSpec, detectBtmDevis } from "@/lib/btm/intent";
 import { FOOD_CATALOG } from "@/lib/food/catalog";
 import { detectFoodOrder, foodBlock } from "@/lib/food/intent";
 import { addWhenToBlock, formatWhenDay, parseCodeExamWhen } from "@/lib/code-exam/when";
@@ -390,6 +391,8 @@ export async function POST(request: NextRequest) {
       : null;
   // Demande de ticket de barge reconnue ici : l'achat s'ouvre à coup sûr.
   const bargeIntent = bargeTickets && !body.voice ? detectBargeTicket(body.message) : null;
+  // Demande de devis BTM (mur, dalle…) reconnue ici : le devis s'ouvre à coup sûr.
+  const btmDevis = !body.voice && detectBtmDevis(body.message) ? btmDevisSpec(body.message) : null;
   // Jour voulu pour le code (« demain », « vendredi matin ») : calculé ici, les modèles se trompent de date.
   const codeWhen = parseCodeExamWhen(body.message);
   const system = buildSystemPrompt(personality ?? undefined, {
@@ -413,6 +416,8 @@ export async function POST(request: NextRequest) {
     bargeTickets,
     bargeIntent,
     bargeSpec: bargeIntent === "buy" ? bargeSpec(body.message) : undefined,
+    btmDevisOffer: true,
+    btmDevis,
     codeExamDay: codeWhen.day ? formatWhenDay(codeWhen.day) : null,
     foodOrder,
   });
@@ -541,6 +546,12 @@ export async function POST(request: NextRequest) {
         // Ticket de barge demandé mais pas de bloc dans la réponse : on l'ajoute.
         if (bargeIntent === "buy" && text && !text.includes("```" + BARGE_BLOCK)) {
           const block = bargeBlockFor(body.message);
+          text += block;
+          send({ type: "delta", text: block });
+        }
+        // Devis BTM demandé mais pas de bloc dans la réponse : on l'ajoute.
+        if (btmDevis && text && !text.includes("```" + BTM_DEVIS_BLOCK)) {
+          const block = btmDevisBlockFor(body.message);
           text += block;
           send({ type: "delta", text: block });
         }

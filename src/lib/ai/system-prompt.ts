@@ -81,6 +81,10 @@ export type PromptContext = {
   bargeIntent?: "buy" | "free" | null;
   /** Tickets lus dans le message (« pieton 2, voiture 1 ») : écrits tels quels dans le bloc. */
   bargeSpec?: string;
+  /** Devis BTM possibles ici (conversation de BTM AI, qui affiche le bloc devis-btm). */
+  btmDevisOffer?: boolean;
+  /** Ce message demande un devis BTM (detectBtmDevis) : contenu du bloc devis-btm (« dalle longueur=8 », « choix »). */
+  btmDevis?: string | null;
   /** Dernière commande de repas et son état à l'instant (describeOrder, src/lib/food/last-order.ts). */
   foodOrder?: string | null;
   /** Tamilya sur un autre site de GROUPE BTM (route /api/awa) : rôle sur place et données du site. */
@@ -162,6 +166,16 @@ const BARGE = [
   "```ticket-barge\npieton 1\n```",
   "- Dans le bloc, seulement les tickets demandés (« pieton 1 » par défaut). Un véhicule (« voiture 1 », « moto 1 », « velo 1 ») UNIQUEMENT si la personne le dit : ne suppose jamais une voiture.",
   "- Une simple question sur la barge (horaires, prix, trajet) : réponds sans le bloc. Le choix du jour, des tickets et le paiement se font dans ce qui s'affiche : ne les demande pas toi-même.",
+].join("\n");
+
+// Le bloc est remplacé dans la conversation par le devis BTM (BtmDevis) : mesures, matériaux, code de retrait.
+const BTM_DEVIS = [
+  "Devis BTM : BTM (btm.yt) est la plateforme bâtiment de GROUPE BTM. Elle chiffre les matériaux d'un ouvrage (mur, dalle, fondation, terrasse, carrelage) aux prix des fournisseurs partenaires de Mayotte, puis donne un code de retrait : présenté au fournisseur, il fait payer le « prix BTM », plus bas qu'au comptoir, sans frais. Tu peux faire ce devis directement dans la conversation.",
+  "- UNIQUEMENT quand la personne veut un devis, une estimation ou le prix des matériaux d'un de ces ouvrages, écris une phrase courte puis ce bloc, seul sur ses lignes (l'ouvrage, puis les mesures qu'elle a données, ou « choix » si l'ouvrage n'est pas dit) :",
+  "```devis-btm\ndalle longueur=8 largeur=6 epaisseur=12\n```",
+  "- Mesures possibles : mur longueur, hauteur (m), ouvertures (m²) ; dalle et terrasse longueur, largeur (m), epaisseur (cm) ; fondation longueur, largeur, profondeur (m) ; carrelage longueur, largeur (m), format (30x30, 45x45 ou 60x60). N'écris que celles qu'elle a dites.",
+  "- Les mesures manquantes, le détail des matériaux, les prix et le code de retrait s'affichent dans le bloc : ne calcule rien et n'écris aucun prix toi-même.",
+  "- Une question sur un devis déjà fait sur btm.yt (code refusé, paiement…) : réponds sans le bloc et propose l'assistance de btm.yt.",
 ].join("\n");
 
 // Non modifiable depuis la base, et placé en fin de message système : sans elle, les petits modèles remplissent.
@@ -308,6 +322,7 @@ export function buildSystemPrompt(
   }
   if (context.foodOrdering && !context.site && !context.voice) sections.push(FOOD);
   if (context.bargeTickets && !context.site && !context.voice) sections.push(BARGE);
+  if (context.btmDevisOffer && !context.site && !context.voice) sections.push(BTM_DEVIS);
   // Commande en cours (une donnée, pas une consigne) : Tamilya répond « elle arrive quand ? » sans rouvrir le bloc.
   if (context.foodOrder && !context.site) {
     sections.push(
@@ -341,6 +356,17 @@ export function buildSystemPrompt(
             "Le bloc ne montre que ces tickets (lus dans son message) : n'y ajoute ni véhicule ni personne qu'elle n'a pas cités.",
           ].join("\n")
         : "POUR CE MESSAGE : la personne veut un ticket pour partir de Petite-Terre. Dis-lui simplement, en une ou deux phrases, que la traversée depuis Petite-Terre (Dzaoudzi) vers Mamoudzou est gratuite : pas besoin de ticket. N'ajoute pas le bloc ticket-barge.",
+    );
+  }
+  // Demande de devis BTM reconnue par le serveur.
+  if (context.btmDevis && context.btmDevisOffer && !context.site && !context.voice) {
+    sections.push(
+      [
+        "POUR CE MESSAGE : la personne veut un devis BTM (matériaux de construction).",
+        "Réponds en UNE phrase courte en français (même avec ton maître), sans poser de question ni donner de prix, puis ce bloc exactement, seul sur ses lignes :",
+        `\`\`\`devis-btm\n${oneLine(context.btmDevis, 120)}\n\`\`\``,
+        "Les mesures, les matériaux, le total et le code de retrait se font dans ce qui s'affiche.",
+      ].join("\n"),
     );
   }
   if (context.voice) sections.push(VOICE);

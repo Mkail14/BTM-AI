@@ -4,11 +4,13 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { markUnknownWords } from "@/lib/language/unknown-words";
 import { BARGE_BLOCK } from "@/lib/barge/intent";
+import { BTM_DEVIS_BLOCK } from "@/lib/btm/intent";
 import { UnknownWord } from "./UnknownWord";
 
 // Tickets de barge, créneaux du code et commande de repas : chargés seulement
 // quand Tamilya écrit le bloc spécial (carte, QR code, formulaires…).
 const BargeTickets = dynamic(() => import("./BargeTickets").then((m) => m.BargeTickets));
+const BtmDevis = dynamic(() => import("./BtmDevis").then((m) => m.BtmDevis));
 const CodeExamSlots = dynamic(() => import("./CodeExamSlots").then((m) => m.CodeExamSlots));
 const FoodOrder = dynamic(() => import("./FoodOrder").then((m) => m.FoodOrder));
 
@@ -39,6 +41,11 @@ const components: Components = {
     if (code === `language-${FOOD_BLOCK}`) return <FoodOrder query={textOf(children).trim()} />;
     // Bloc ```ticket-barge``` : achat de tickets de barge (Mamoudzou → Dzaoudzi).
     if (code === `language-${BARGE_BLOCK}`) return <BargeTickets query={textOf(children).trim()} />;
+    // Bloc ```devis-btm``` : devis de matériaux BTM (« dalle longueur=8 largeur=6 »), avec code de retrait.
+    if (code === `language-${BTM_DEVIS_BLOCK}`) {
+      const block = textOf(children).trim();
+      return <BtmDevis key={block} query={block} />;
+    }
     return <pre>{children}</pre>;
   },
   a: ({ href, title, children }) =>

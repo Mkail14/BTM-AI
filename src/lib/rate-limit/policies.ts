@@ -23,6 +23,8 @@ export const RATE_LIMIT_POLICIES = {
   // Formulaires avec téléphone et adresse : assez pour se tromper, pas pour inonder l'équipe.
   foodOrder: [{ name: "food-order-hour", limit: 10, windowSeconds: 3_600 }],
   bargeTicket: [{ name: "barge-ticket-hour", limit: 10, windowSeconds: 3_600 }],
+  // Devis BTM enregistrés sur btm.yt depuis la conversation.
+  btmDevis: [{ name: "btm-devis-hour", limit: 15, windowSeconds: 3_600 }],
   // Mot de passe redemandé avant de modifier le Profil de l'entreprise : quelques essais, pas plus.
   profileUnlock: [{ name: "profile-unlock-15min", limit: 5, windowSeconds: 900 }],
   codeExamRequest: [{ name: "code-exam-request-hour", limit: 5, windowSeconds: 3_600 }],
