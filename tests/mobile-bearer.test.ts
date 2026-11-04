@@ -8,14 +8,17 @@ process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_cle_fictive";
 
 type Bearer = typeof import("@/lib/supabase/bearer");
 type Session = typeof import("@/lib/auth/identity");
+type Identity = Session;
 type Security = typeof import("@/lib/security/request");
 let bearer: Bearer;
 let session: Session;
+let identity: Identity;
 let security: Security;
 
 before(async () => {
   bearer = await import("@/lib/supabase/bearer");
   session = await import("@/lib/auth/identity");
+  identity = session;
   security = await import("@/lib/security/request");
 });
 
@@ -53,8 +56,13 @@ describe("choix de la source d'identité", () => {
 
   it("un cookie de session Supabase prime sur l'en-tête Authorization", () => {
     for (const name of ["sb-abc-auth-token", "sb-abc-auth-token.0", "sb-abc-auth-token.1"]) {
-      assert.deepEqual(bearer.chooseAuthSource([name], `Bearer ${JWT}`), { kind: "cookie" });
+      assert.deepEqual(bearer.chooseAuthSource([name], `Bearer ${JWT}`), {
+        kind: "cookie",
+        fallback: { kind: "bearer", token: JWT },
+      });
     }
+    // Navigateur : jamais d'en-tête Authorization, aucun repli.
+    assert.deepEqual(bearer.chooseAuthSource(["sb-abc-auth-token"], null), { kind: "cookie", fallback: null });
   });
 
   it("sans cookie de session, un Bearer bien formé est retenu", () => {
@@ -155,6 +163,39 @@ describe("contrôle local du jeton avant tout appel réseau (R-3) et comptes ano
     const ok = fakeClient({ data: { claims: { ...validClaims, is_anonymous: false } }, error: null });
     bearer.registerBearerClient(ok.client, JWT);
     assert.equal((await session.userFromClient(ok.client))?.id, USER_ID);
+  });
+});
+
+describe("cookie sans session + Bearer (R-6)", () => {
+  const cookieOnly = (answer: ClaimsAnswer) => fakeClient(answer).client;
+  const make = (tag: string) => (token: string) => bearer.registerBearerClient({ tag } as unknown as SupabaseClient, token);
+
+  it("cookie valide : il prime, le Bearer est ignoré", async () => {
+    const cookie = cookieOnly({ data: { claims: { sub: USER_ID } }, error: null });
+    const source = bearer.chooseAuthSource(["sb-abc-auth-token"], `Bearer ${JWT}`);
+    assert.equal(await identity.selectClient(source, () => cookie, make("bearer")), cookie);
+  });
+
+  it("cookie sans session et Bearer présent : le Bearer prend le relais", async () => {
+    const cookie = cookieOnly({ data: null, error: new Error("Auth session missing") });
+    const source = bearer.chooseAuthSource(["sb-abc-auth-token"], `Bearer ${JWT}`);
+    const chosen = await identity.selectClient(source, () => cookie, make("bearer"));
+    assert.notEqual(chosen, cookie);
+    assert.equal(bearer.bearerTokenOf(chosen), JWT);
+  });
+
+  it("cookie sans session et Bearer mal formé : refus (pas d'invité)", async () => {
+    const cookie = cookieOnly({ data: null, error: new Error("x") });
+    const source = bearer.chooseAuthSource(["sb-abc-auth-token"], "Bearer nimporte");
+    const chosen = await identity.selectClient(source, () => cookie, make("bearer"));
+    assert.equal(bearer.bearerTokenOf(chosen), "");
+  });
+
+  it("cookie sans session et sans Bearer (navigateur) : client cookie, sans validation supplémentaire", async () => {
+    const { client, calls } = fakeClient({ data: null, error: new Error("x") });
+    const source = bearer.chooseAuthSource(["sb-abc-auth-token"], null);
+    assert.equal(await identity.selectClient(source, () => client, make("bearer")), client);
+    assert.equal(calls.length, 0);
   });
 });
 

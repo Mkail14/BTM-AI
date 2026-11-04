@@ -2,6 +2,7 @@ import "server-only";
 import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { cookies, headers } from "next/headers";
+import { selectClient } from "@/lib/auth/identity";
 import { chooseAuthSource, createBearerClient } from "./bearer";
 import {
   isSupabaseConfigured,
@@ -15,7 +16,8 @@ import {
  *
  * Deux sources d'identité, par ordre de priorité :
  * 1. le cookie de session Supabase (site web) : comportement historique, et
- *    l'en-tête Authorization est alors ignoré ;
+ *    l'en-tête Authorization est alors ignoré, sauf si le cookie ne donne aucune
+ *    session ET qu'un Bearer est présent (le Bearer prend alors le relais) ;
  * 2. à défaut, `Authorization: Bearer <jwt>` (application mobile) : client sans
  *    cookies qui agit avec ce jeton. Il est validé par getSessionUser() ; un
  *    Bearer invalide n'est jamais traité comme un invité (voir getAuthContext).
@@ -30,9 +32,10 @@ export async function createSupabaseServerClient(): Promise<SupabaseClient | nul
     cookieStore.getAll().map((c) => c.name),
     (await headers()).get("authorization"),
   );
-  if (source.kind === "bearer") return createBearerClient(source.token);
-  if (source.kind === "bearer-malformed") return createBearerClient("");
+  return selectClient(source, () => createCookieClient(cookieStore), createBearerClient);
+}
 
+function createCookieClient(cookieStore: Awaited<ReturnType<typeof cookies>>): SupabaseClient {
   return createServerClient(supabaseUrl, supabasePublishableKey, {
     cookies: {
       getAll() {

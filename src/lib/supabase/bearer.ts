@@ -15,12 +15,16 @@ import { supabasePublishableKey, supabaseUrl } from "./config";
  *   la clé publique ni la clé secrète.
  */
 
-export type AuthSource =
-  | { kind: "cookie" }
+export type BearerSource =
   | { kind: "none" }
   | { kind: "bearer"; token: string }
   /** En-tête Bearer présent mais sans jeton exploitable. */
   | { kind: "bearer-malformed" };
+
+export type AuthSource =
+  /** `fallback` : l'en-tête Bearer, utilisé seulement si le cookie ne donne aucune session (voir selectClient). */
+  | { kind: "cookie"; fallback: BearerSource | null }
+  | BearerSource;
 
 /** Cookies de session de @supabase/ssr : « sb-<projet>-auth-token », éventuellement découpé en « .0 », « .1 »… */
 const SESSION_COOKIE = /^sb-.+-auth-token(\.\d+)?$/;
@@ -35,7 +39,12 @@ const JWT_SHAPE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/;
 const MAX_TOKEN_LENGTH = 8192;
 
 export function chooseAuthSource(cookieNames: Iterable<string>, authorization: string | null): AuthSource {
-  if (hasSessionCookie(cookieNames)) return { kind: "cookie" };
+  const bearer = parseAuthorization(authorization);
+  if (hasSessionCookie(cookieNames)) return { kind: "cookie", fallback: bearer.kind === "none" ? null : bearer };
+  return bearer;
+}
+
+function parseAuthorization(authorization: string | null): BearerSource {
   if (!authorization) return { kind: "none" };
   const match = /^\s*Bearer(?:\s+(.*))?$/i.exec(authorization);
   if (!match) return { kind: "none" }; // Autre schéma (Basic…) : pas notre affaire.

@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { bearerTokenOf, isBearerClient, verifyBearerClaims } from "@/lib/supabase/bearer";
+import { type AuthSource, bearerTokenOf, isBearerClient, verifyBearerClaims } from "@/lib/supabase/bearer";
 import { hasAdminRole, hasPrincipalAdminRole } from "./roles";
 
 export type SessionUser = {
@@ -43,4 +43,25 @@ export async function resolveAuthContext(supabase: SupabaseClient | null) {
   // acceptent les invités doivent répondre 401 au lieu de traiter l'appel en invité.
   const invalidBearer = !user && isBearerClient(supabase);
   return { supabase, user, invalidBearer };
+}
+
+/**
+ * Choisit le client de la requête. Le cookie de session prime. Seul cas où le
+ * Bearer prend le relais : un cookie sb-* présent mais sans session valide
+ * (périmé, étranger) ET un en-tête Bearer présent. Un navigateur n'envoie jamais
+ * Authorization de lui-même : le site web n'est pas concerné.
+ */
+export async function selectClient(
+  source: AuthSource,
+  makeCookieClient: () => SupabaseClient,
+  makeBearerClient: (token: string) => SupabaseClient,
+): Promise<SupabaseClient> {
+  if (source.kind === "bearer") return makeBearerClient(source.token);
+  if (source.kind === "bearer-malformed") return makeBearerClient("");
+  const cookieClient = makeCookieClient();
+  if (source.kind === "cookie" && source.fallback) {
+    if (await userFromClient(cookieClient)) return cookieClient;
+    return makeBearerClient(source.fallback.kind === "bearer" ? source.fallback.token : "");
+  }
+  return cookieClient;
 }
