@@ -50,6 +50,10 @@ function fromFailedResult(result: Extract<AccountResult, { ok: false }>): MeResp
       return failure(400, "invalid_request", result.message);
     case "forbidden":
       return failure(403, "invalid_request", result.message);
+    case "reauth_required":
+      return failure(401, "reauth_required", result.message);
+    case "wallet_not_empty":
+      return failure(409, "wallet_not_empty", result.message);
     case "unavailable":
       return failure(503, "service_unavailable", result.message);
     default:
@@ -58,12 +62,14 @@ function fromFailedResult(result: Extract<AccountResult, { ok: false }>): MeResp
 }
 
 function accountDeps(deps: MeDeps): AccountDeps | undefined {
-  const { notifyChange, notifyDeleted, getAdminClient } = deps;
-  if (!notifyChange && !notifyDeleted && !getAdminClient) return undefined;
+  const { notifyChange, notifyDeleted, getAdminClient, now, readWallet } = deps;
+  if (!notifyChange && !notifyDeleted && !getAdminClient && !now && !readWallet) return undefined;
   return {
     notifyChange: notifyChange ?? (async () => {}),
     notifyDeleted: notifyDeleted ?? (async () => {}),
     getAdminClient: getAdminClient ?? (() => null),
+    now: now ?? (() => Date.now()),
+    readWallet: readWallet ?? (async () => ({ balanceCents: 0, pendingTopup: false })),
   };
 }
 
@@ -182,6 +188,6 @@ export async function deleteMe(ctx: MeContext, raw: unknown, deps: MeDeps = {}):
 
   if (!(await accountStillValid(auth.supabase, auth.user, deps))) return unauthorized();
 
-  const result = await removeAccount(auth.user, parsed.data.confirmation, accountDeps(deps));
+  const result = await removeAccount(auth.supabase, auth.user, parsed.data.confirmation, accountDeps(deps));
   return result.ok ? { status: 200, body: { message: result.message } } : fromFailedResult(result);
 }

@@ -9,7 +9,23 @@ export type SessionUser = {
   isAdmin: boolean;
   /** Administrateur principal (pas délégué) : seul à ouvrir le Profil de l'entreprise. */
   isPrincipalAdmin: boolean;
+  /**
+   * Instant (secondes Unix) de la dernière authentification réelle (mot de passe,
+   * Google…), lu dans `amr[].timestamp` du jeton ; null s'il est absent.
+   * `iat` ne convient pas : il change à chaque rafraîchissement du jeton, sans
+   * que l'utilisateur ait prouvé son identité.
+   */
+  authenticatedAt: number | null;
 };
+
+export function authenticationTime(claims: Record<string, unknown>): number | null {
+  const amr = claims.amr;
+  if (!Array.isArray(amr)) return null;
+  const times = amr
+    .map((entry) => (entry && typeof entry === "object" ? (entry as { timestamp?: unknown }).timestamp : undefined))
+    .filter((t): t is number => typeof t === "number" && Number.isFinite(t));
+  return times.length ? Math.max(...times) : null;
+}
 
 /**
  * Utilisateur d'un client Supabase déjà créé.
@@ -33,6 +49,7 @@ export async function userFromClient(client: SupabaseClient): Promise<SessionUse
     email: typeof email === "string" ? email : null,
     isAdmin: hasAdminRole(claims),
     isPrincipalAdmin: hasPrincipalAdminRole(claims),
+    authenticatedAt: authenticationTime(claims),
   };
 }
 

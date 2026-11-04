@@ -6,6 +6,7 @@ import { profileSchema } from "@/lib/chat/validation";
 import { getProfile, updatePersonality, updateProfile } from "@/lib/conversations/repository";
 import { notifyAccountChange, notifyAccountDeleted } from "@/lib/email/notify";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { formatEuros } from "@/lib/wallet/limits";
 import { DELETE_CONFIRMATION } from "./confirmation";
 
 /**
@@ -21,19 +22,47 @@ export type AccountResult =
       ok: false;
       message: string;
       /** invalid_request : saisie refusée ; forbidden : compte protégé ; unavailable : service absent ; internal : échec. */
-      kind: "invalid_request" | "forbidden" | "unavailable" | "internal";
+      kind: "invalid_request" | "forbidden" | "unavailable" | "internal" | "reauth_required" | "wallet_not_empty";
     };
 
 export type AccountDeps = {
   notifyChange: typeof notifyAccountChange;
   notifyDeleted: typeof notifyAccountDeleted;
   getAdminClient: typeof getSupabaseAdminClient;
+  /** Heure courante en ms (remplaçable dans les tests). */
+  now: () => number;
+  /** Solde et recharge en cours du compte (lecture RLS). */
+  readWallet: (supabase: SupabaseClient, userId: string) => Promise<{ balanceCents: number; pendingTopup: boolean }>;
 };
+
+/** Une suppression de compte exige une authentification de moins de 10 minutes. */
+export const RECENT_AUTH_SECONDS = 600;
+
+async function readWalletState(supabase: SupabaseClient, userId: string) {
+  const [wallet, pending] = await Promise.all([
+    supabase.from("wallets").select("balance_cents").eq("user_id", userId).maybeSingle(),
+    supabase
+      .from("wallet_transactions")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("kind", "topup")
+      .eq("status", "pending")
+      .limit(1),
+  ]);
+  if (wallet.error) throw wallet.error;
+  if (pending.error) throw pending.error;
+  return {
+    balanceCents: Number((wallet.data as { balance_cents?: number } | null)?.balance_cents ?? 0),
+    pendingTopup: (pending.data?.length ?? 0) > 0,
+  };
+}
 
 const defaultDeps: AccountDeps = {
   notifyChange: notifyAccountChange,
   notifyDeleted: notifyAccountDeleted,
   getAdminClient: getSupabaseAdminClient,
+  now: () => Date.now(),
+  readWallet: readWalletState,
 };
 
 const SAVE_FAILED = "L'enregistrement a échoué. Réessaie.";
@@ -87,12 +116,45 @@ export async function savePersonality(
  * La fermeture de la session (cookies) reste à la charge de l'appelant.
  */
 export async function removeAccount(
+  supabase: SupabaseClient,
   user: SessionUser,
   confirmation: unknown,
   deps: AccountDeps = defaultDeps,
 ): Promise<AccountResult> {
   if (confirmation !== DELETE_CONFIRMATION) {
     return { ok: false, kind: "invalid_request", message: `Écris ${DELETE_CONFIRMATION} pour confirmer.` };
+  }
+
+  // Authentification récente : un jeton ou une session volés ne suffisent pas à détruire le compte.
+  const ageSeconds = user.authenticatedAt === null ? Infinity : deps.now() / 1000 - user.authenticatedAt;
+  if (ageSeconds > RECENT_AUTH_SECONDS) {
+    return {
+      ok: false,
+      kind: "reauth_required",
+      message: "Pour ta sécurité, reconnecte-toi avant de supprimer ton compte (ta connexion date de plus de 10 minutes).",
+    };
+  }
+
+  // Le portefeuille disparaît avec le compte : solde et recharge en cours doivent être réglés avant.
+  try {
+    const wallet = await deps.readWallet(supabase, user.id);
+    if (wallet.balanceCents > 0) {
+      return {
+        ok: false,
+        kind: "wallet_not_empty",
+        message: `Ton portefeuille contient encore ${formatEuros(wallet.balanceCents)}. Utilise ou fais rembourser ton solde avant de supprimer ton compte.`,
+      };
+    }
+    if (wallet.pendingTopup) {
+      return {
+        ok: false,
+        kind: "wallet_not_empty",
+        message: "Une recharge de ton portefeuille est en cours. Attends qu'elle soit terminée avant de supprimer ton compte.",
+      };
+    }
+  } catch (error) {
+    console.error("[parametres] Portefeuille illisible avant la suppression", error);
+    return { ok: false, kind: "internal", message: "La suppression a échoué. Réessaie." };
   }
 
   const admin = deps.getAdminClient();

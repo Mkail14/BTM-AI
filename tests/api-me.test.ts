@@ -14,7 +14,7 @@ before(async () => {
   settings = await import("@/lib/account/settings");
 });
 
-const USER: SessionUser = { id: "11111111-1111-4111-8111-111111111111", email: "fatima@example.test", isAdmin: false, isPrincipalAdmin: false };
+const USER: SessionUser = { id: "11111111-1111-4111-8111-111111111111", email: "fatima@example.test", isAdmin: false, isPrincipalAdmin: false, authenticatedAt: Math.floor(Date.now() / 1000) - 30 };
 
 type Row = { display_name: string | null; personality: string | null };
 
@@ -227,7 +227,7 @@ describe("cœur partagé avec les Server Actions", () => {
       kind: "invalid_request",
       message: "Personnalité inconnue.",
     });
-    assert.deepEqual(await settings.removeAccount(USER, "non"), {
+    assert.deepEqual(await settings.removeAccount({} as SupabaseClient, USER, "non"), {
       ok: false,
       kind: "invalid_request",
       message: "Écris SUPPRIMER pour confirmer.",
@@ -286,5 +286,72 @@ describe("R-4 : chemin par défaut avec un client Bearer", () => {
       assert.equal(res.status, status);
       assert.deepEqual(seen, ["tok.en.x"]);
     }
+  });
+});
+
+describe("suppression du compte : authentification récente et portefeuille (R-1, web et mobile)", () => {
+  const ctx = { supabase: {} as SupabaseClient, user: USER };
+  const ok = { confirmation: "SUPPRIMER" };
+  const wallet = (balanceCents: number, pendingTopup = false) => ({ readWallet: async () => ({ balanceCents, pendingTopup }) });
+  const spyAdmin = (deleted: string[]) =>
+    (() => ({ auth: { admin: { deleteUser: async (id: string) => (deleted.push(id), { error: null }) } } })) as never;
+
+  it("connexion de plus de 10 minutes : 401 reauth_required, rien n'est supprimé", async () => {
+    const deleted: string[] = [];
+    const old = { ...USER, authenticatedAt: Math.floor(Date.now() / 1000) - 601 };
+    const res = await me.deleteMe({ supabase: ctx.supabase, user: old }, ok, deps({ getAdminClient: spyAdmin(deleted) }).deps);
+    assert.equal(res.status, 401);
+    assert.equal(code(res.body), "reauth_required");
+    assert.deepEqual(deleted, []);
+  });
+
+  it("instant de connexion absent du jeton : traité comme trop ancien", async () => {
+    const res = await me.deleteMe({ supabase: ctx.supabase, user: { ...USER, authenticatedAt: null } }, ok, deps().deps);
+    assert.equal(code(res.body), "reauth_required");
+  });
+
+  it("connexion de 9 minutes : acceptée", async () => {
+    const deleted: string[] = [];
+    const recent = { ...USER, authenticatedAt: Math.floor(Date.now() / 1000) - 540 };
+    const res = await me.deleteMe({ supabase: ctx.supabase, user: recent }, ok, deps({ getAdminClient: spyAdmin(deleted) }).deps);
+    assert.equal(res.status, 200);
+  });
+
+  it("solde positif : 409 wallet_not_empty avec le montant, rien n'est supprimé", async () => {
+    const deleted: string[] = [];
+    const res = await me.deleteMe(ctx, ok, deps({ ...wallet(1250), getAdminClient: spyAdmin(deleted) }).deps);
+    assert.equal(res.status, 409);
+    assert.equal(code(res.body), "wallet_not_empty");
+    assert.match(message(res.body), /^Ton portefeuille contient encore 12,50.€. Utilise ou fais rembourser/);
+    assert.deepEqual(deleted, []);
+  });
+
+  it("recharge en cours : 409 wallet_not_empty", async () => {
+    const res = await me.deleteMe(ctx, ok, deps({ ...wallet(0, true) }).deps);
+    assert.equal(res.status, 409);
+    assert.match(message(res.body), /recharge/);
+  });
+
+  it("portefeuille illisible : refus prudent (500), rien n'est supprimé", async () => {
+    const deleted: string[] = [];
+    const res = await me.deleteMe(
+      ctx,
+      ok,
+      deps({ readWallet: async () => { throw new Error("rls"); }, getAdminClient: spyAdmin(deleted) }).deps,
+    );
+    assert.equal(res.status, 500);
+    assert.deepEqual(deleted, []);
+  });
+
+  it("même cœur que la Server Action : mêmes refus, avec le genre d'erreur pour l'interface", async () => {
+    const old = { ...USER, authenticatedAt: 1 };
+    const r1 = await settings.removeAccount(ctx.supabase, old, "SUPPRIMER");
+    assert.equal(r1.ok === false && r1.kind, "reauth_required");
+    const r2 = await settings.removeAccount(ctx.supabase, USER, "SUPPRIMER", {
+      ...deps().deps,
+      ...wallet(500),
+      now: () => Date.now(),
+    } as never);
+    assert.equal(r2.ok === false && r2.kind, "wallet_not_empty");
   });
 });

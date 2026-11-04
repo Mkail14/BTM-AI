@@ -13,7 +13,12 @@ import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { deleteMyReview, saveMyReview } from "@/lib/reviews";
 import { publicName, reviewSchema } from "@/lib/reviews/rules";
 
-export type ProfileFormState = { status: "idle" | "saved" | "error"; message?: string };
+export type ProfileFormState = {
+  status: "idle" | "saved" | "error";
+  message?: string;
+  /** reauth_required : la session est trop ancienne, l'interface propose de se reconnecter. */
+  code?: "reauth_required";
+};
 
 export async function updateProfileAction(
   _previous: ProfileFormState,
@@ -50,8 +55,12 @@ export async function deleteAccountAction(confirmation: unknown): Promise<Profil
   const { supabase, user } = await getAuthContext();
   if (!supabase || !user) return { status: "error", message: "Ta session a expiré. Reconnecte-toi." };
 
-  const result = await removeAccount(user, confirmation);
-  if (!result.ok) return { status: "error", message: result.message };
+  const result = await removeAccount(supabase, user, confirmation);
+  if (!result.ok) {
+    return result.kind === "reauth_required"
+      ? { status: "error", message: result.message, code: "reauth_required" }
+      : { status: "error", message: result.message };
+  }
 
   // Efface les cookies de session (le jeton ne correspond plus à aucun compte).
   await supabase.auth.signOut({ scope: "local" }).catch(() => {});

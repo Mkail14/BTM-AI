@@ -24,6 +24,8 @@ export type ChatErrorCode =
   | "refusal"
   | "service_unavailable"
   | "flow_cut"
+  | "reauth_required"
+  | "wallet_not_empty"
   | "internal";
 
 /** Événements du flux NDJSON renvoyé par /api/chat. */

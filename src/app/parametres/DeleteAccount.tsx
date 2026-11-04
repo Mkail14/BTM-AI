@@ -3,6 +3,8 @@
 import { useId, useState, useTransition } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { IconTrash } from "@/components/ui/icons";
+import { authRequiredPath } from "@/lib/auth/redirect";
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { deleteAccountAction } from "./actions";
 import { DELETE_CONFIRMATION } from "./confirmation";
 
@@ -20,21 +22,31 @@ export function DeleteAccount({ email, isAdmin }: { email: string | null; isAdmi
   const inputId = useId();
   const [typed, setTyped] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [needsReauth, setNeedsReauth] = useState(false);
   const [pending, startTransition] = useTransition();
   const ready = typed.trim().toUpperCase() === DELETE_CONFIRMATION;
 
   function remove() {
     if (!ready) return;
     setError(null);
+    setNeedsReauth(false);
     startTransition(async () => {
       const result = await deleteAccountAction(DELETE_CONFIRMATION);
       if (result.status === "error") {
         setError(result.message ?? "La suppression a échoué.");
+        setNeedsReauth(result.code === "reauth_required");
         return;
       }
       // L’application oublie la session supprimée et revient à l’accueil.
       await signOut();
     });
+  }
+
+  // Session trop ancienne : on se déconnecte puis on rouvre la connexion habituelle (e-mail et mot de passe, ou Google),
+  // qui ramène ici pour recommencer.
+  async function reconnect() {
+    await getSupabaseBrowserClient()?.auth.signOut().catch(() => {});
+    window.location.assign(authRequiredPath("/parametres?rubrique=suppression"));
   }
 
   return (
@@ -81,6 +93,15 @@ export function DeleteAccount({ email, isAdmin }: { email: string | null; isAdmi
         <p role="alert" className="text-sm text-danger">
           {error}
         </p>
+      ) : null}
+      {needsReauth ? (
+        <button
+          type="button"
+          onClick={reconnect}
+          className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium transition hover:bg-bg-subtle"
+        >
+          Me reconnecter
+        </button>
       ) : null}
 
       <button

@@ -86,7 +86,7 @@ describe("validation du jeton Bearer (getSessionUser)", () => {
     const { client, calls } = fakeClient({ data: { claims: validClaims }, error: null });
     bearer.registerBearerClient(client, JWT);
     const user = await session.userFromClient(client);
-    assert.deepEqual(user, { id: USER_ID, email: "fatima@example.test", isAdmin: false, isPrincipalAdmin: false });
+    assert.deepEqual(user, { id: USER_ID, email: "fatima@example.test", isAdmin: false, isPrincipalAdmin: false, authenticatedAt: null });
     assert.deepEqual(calls, [JWT]);
   });
 
@@ -196,6 +196,20 @@ describe("cookie sans session + Bearer (R-6)", () => {
     const source = bearer.chooseAuthSource(["sb-abc-auth-token"], null);
     assert.equal(await identity.selectClient(source, () => client, make("bearer")), client);
     assert.equal(calls.length, 0);
+  });
+});
+
+describe("instant d'authentification (amr), base de l'exigence de connexion récente", () => {
+  it("prend le plus récent des timestamps amr ; ignore iat", async () => {
+    const claims = { ...validClaims, iat: 9999999999, amr: [{ method: "password", timestamp: 1000 }, { method: "otp", timestamp: 2000 }] };
+    const { client } = fakeClient({ data: { claims }, error: null });
+    bearer.registerBearerClient(client, JWT);
+    assert.equal((await session.userFromClient(client))?.authenticatedAt, 2000);
+  });
+
+  it("amr absent ou illisible : null", () => {
+    assert.equal(session.authenticationTime({}), null);
+    assert.equal(session.authenticationTime({ amr: ["password", { timestamp: "x" }] }), null);
   });
 });
 
