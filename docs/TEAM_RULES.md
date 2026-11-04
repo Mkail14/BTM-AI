@@ -19,7 +19,8 @@
 3. Développement mobile : une branche Git par mission (`feat/<module>`), revue de l'orchestrateur avant fusion.
 4. Jamais de modification des variables d'environnement de production, jamais de déploiement, jamais de publication store sans accord explicite de l'utilisateur.
 5. **Secrets** : ne jamais recopier une valeur de clé/mot de passe/jeton dans un rapport ou un message. Citer seulement le nom de la variable et le fichier.
-6. Architecture centrale : décidée par l'orchestrateur sur proposition de l'architecte.
+6. **Commits : jamais `git add -A` ni `git add .`.** Ajouter uniquement les chemins de sa mission (ex. `git add tamilya_mobile/ docs/missions/<sa-mission>.md`). `PROJECT_CONTROL.md`, `TOKEN_BUDGET.md` et les rapports des autres agents ne sont jamais commités par un agent.
+7. Architecture centrale : décidée par l'orchestrateur sur proposition de l'architecte.
 
 ## Format de rapport obligatoire (concis, vérifiable)
 ```
