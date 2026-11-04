@@ -18,6 +18,8 @@ export const RATE_LIMIT_POLICIES = {
     { name: "user-min", limit: 15, windowSeconds: 60 },
     { name: "user-day", limit: 300, windowSeconds: 86_400 },
   ],
+  // Réglages du compte depuis l'application mobile (/api/me) : un changement de nom envoie un e-mail.
+  accountUpdate: [{ name: "account-update-hour", limit: 30, windowSeconds: 3_600 }],
   conversationImport: [{ name: "import-hour", limit: 10, windowSeconds: 3_600 }],
   walletTopup: [{ name: "wallet-topup-hour", limit: 10, windowSeconds: 3_600 }],
   // Formulaires avec téléphone et adresse : assez pour se tromper, pas pour inonder l'équipe.

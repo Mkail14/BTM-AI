@@ -1,2 +1,1 @@
-/** Mot à recopier pour confirmer la suppression du compte. */
-export const DELETE_CONFIRMATION = "SUPPRIMER";
+export { DELETE_CONFIRMATION } from "@/lib/account/confirmation";
