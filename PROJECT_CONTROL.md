@@ -24,7 +24,7 @@ _Tenu par l'orchestrateur. Dernière mise à jour : 2026-11-04._
 | # | Agent | Modèle | État |
 |---|---|---|---|
 | 1 | Architecte | opus | ✅ A1 terminé — à reprendre en phase B |
-| 2 | Flutter | sonnet | ✅ C2 validé — prochaine mission C3 |
+| 2 | Flutter | sonnet | ✅ C2b rendu — prochaine mission C3 |
 | 3 | UI/UX | sonnet | ✅ revue de C2 rendue |
 | 4 | Backend | sonnet | ✅ A4 + C1 terminés |
 | 5 | Sécurité | opus | ✅ revue de C1 rendue |
@@ -42,6 +42,7 @@ _Tenu par l'orchestrateur. Dernière mise à jour : 2026-11-04._
 - ✅ **Flutter 3.47.9** installé par l'utilisateur (zip, SHA-256 vérifié) dans `C:Usersaloaldevlutter`, ajouté au PATH du compte.
 - ✅ **C1 poussée** sur GitHub : branche `feat/mobile-bearer` (5448158), qui inclut le commit local `0b39a1e` (jamais poussé jusque-là). develop et main inchangés (acd099d). Fusion : après test de la préversion par l'utilisateur.
 - En cours :
+  - **C2b — fidélité visuelle : terminée, en attente de l'avis de l'utilisateur** (branche `feat/c2b-fidelite`, non fusionnée). Commits 8729d98, 3a80287, 53623ae, 1ae228b (le dernier ne compile pas seul : découpage par chemins). Orchestrateur : captures comparées à celles du site ; accueil très proche (lagon, orbe, titre Geist en dégradé, pilule, en-tête, bandeau) ; feuille de connexion et chat vide conformes à la spec. analyze 0, **12/12 tests**. Écarts assumés : orbe simplifié, thème clair non vérifié visuellement, sous-titre machine à écrire absent de la capture d'accueil, chevauchement de textes pendant la transition du carrousel de suggestions (AnimatedSwitcher), routes `/recette/*` actives seulement avec `--dart-define=FORCE_THEME` (à retirer avant publication).
 - Valeurs par défaut retenues en attendant les réponses de l'utilisateur (réversibles, via les flags d'ARCHITECTURE §9) : mode invité **désactivé** en V1, connexion **e-mail uniquement** (Google et Apple désactivés : « Se connecter avec Apple » n'est donc pas exigée).
 - En attente : C2 (squelette Flutter, **SDK en cours de téléchargement**), C3, D, E.
 
