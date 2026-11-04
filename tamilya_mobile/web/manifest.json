@@ -1,6 +1,6 @@
 {
-    "name": "tamilya_mobile",
-    "short_name": "tamilya_mobile",
+    "name": "Tamilya",
+    "short_name": "Tamilya",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

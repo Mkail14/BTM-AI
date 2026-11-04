@@ -1,4 +1,4 @@
-package yt.tamilya.tamilya_mobile
+package yt.tamilya.app
 
 import io.flutter.embedding.android.FlutterActivity
 

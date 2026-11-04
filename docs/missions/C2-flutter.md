@@ -8,7 +8,7 @@ Branche `feat/c2-squelette`. Projet : `tamilya_mobile/`.
 - Geist non embarquée (voir écarts). Aucun appel réseau.
 
 ## Constats
-- Identifiant `yt.tamilya.tamilya_mobile` (flutter create --org yt.tamilya) : **provisoire**, à confirmer avant tout store/signature/App Links.
+- Identifiant d'application : `yt.tamilya.app` (définitif, voir Corrections post-revue).
 - Geist : aucun paquet `geist` dans `node_modules` du dépôt web. Seuls fichiers trouvés : `next/dist/compiled/@vercel/og/Geist-Regular.ttf` (une seule graisse, Regular) et des `.woff2` des devtools Next (non utilisables par Flutter). Les LICENSE voisines sont celles de Next (MIT) et de satori (MPL-2.0), pas celle de la police. Licence de Geist non confirmée localement (l'architecture dit « OFL, à confirmer ») : **non embarquée**. Police système en C2 (`kFontFamily = null` dans `lib/core/theme/app_theme.dart`).
 - Icône : `assets/brand/icone-maskable-512.png` copiée ; `icone-1024-PROVISOIRE.png` produite par agrandissement HighQualityBicubic (PNG, fond non vérifié opaque : iOS exige un 1024 opaque, à refaire à partir d'une source vectorielle). Icônes natives et splash natif non générés.
 
@@ -68,3 +68,5 @@ Appliquées d'après `docs/missions/C2-revue-uiux.md` (hors « reste pour C3 » 
 - P1 : compteur « n / 4000 caractères » dès 80 % (`lib/core/config/limits.dart`), rouge au-delà, envoi bloqué au-delà de 4000 ; « Réessayer » branché sur `ChatController.retry()` (retire la réponse en échec et renvoie le dernier message, action explicite) uniquement sur le dernier message ; bulle utilisateur = mélange 11 % de l'accent sur le fond (`TamilyaPalette.userBubble`, sombre #27171e).
 - P2 : fond du composer `bg`, bordure mélangée 30 % (`composerBorder`) ; `onDanger` ajouté à la palette ; fermeture du clavier au glissement ; curseur de streaming exclu de la lecture d'écran (pendant le streaming le texte n'est plus sélectionnable).
 - Tests ajoutés : bouton >= 48 dp, compteur à 80 % et blocage à 4001, « Réessayer » appelé, `retry()` du contrôleur. Résultats : `flutter analyze` : No issues found ; `flutter test` : 8 tests, All tests passed ; `flutter build web` : réussi.
+- Identifiant définitif `yt.tamilya.app` (décision utilisateur), commit séparé : Android `namespace` et `applicationId` (build.gradle.kts), `MainActivity.kt` déplacé vers `kotlin/yt/tamilya/app/` avec son `package` ; iOS `PRODUCT_BUNDLE_IDENTIFIER` = `yt.tamilya.app` (Runner) et `yt.tamilya.app.RunnerTests`. Nom du paquet Dart `tamilya_mobile` inchangé. Nom affiché corrigé en « Tamilya » : `android:label`, `CFBundleDisplayName`, `CFBundleName`, plus titre et manifest web. `git grep` : plus aucune occurrence de `yt.tamilya.tamilya_mobile` ni de `tamilyaMobile`.
+- Note : le commit de corrections a embarqué par erreur `PROJECT_CONTROL.md`, `TOKEN_BUDGET.md` (modifiés par l'orchestrateur) et `docs/missions/C2-revue-uiux.md` via `git add -A` ; contenu inchangé, à savoir pour la revue.
