@@ -16,7 +16,17 @@ const VOICE_ERRORS: Record<string, string> = {
   "audio-capture": "Aucun micro détecté sur cet appareil.",
   // Chrome envoie la voix à Google pour la transcrire ; Brave et certains réseaux le bloquent.
   network: "La dictée a besoin d'internet (et ne marche pas dans Brave). Essaie avec Chrome ou Edge.",
+  busy: "Le micro est encore occupé. Touche le globe pour réessayer.",
 };
+
+/** Erreurs passagères de Chrome : on relance l'écoute au lieu de tout fermer (jusqu'à 3 fois d'affilée). */
+const TRANSIENT = new Set(["network", "busy"]);
+const MAX_RETRIES = 3;
+/**
+ * Pause avant de rouvrir le micro : Chrome refuse souvent une écoute lancée
+ * juste après la précédente (ou juste après la voix de Tamilya).
+ */
+const RESTART_DELAY_MS = 300;
 
 /** Écoutes muettes d'affilée (environ 8 s chacune dans Chrome) avant de prévenir que le micro n'envoie rien. */
 const SILENCES_BEFORE_HINT = 2;
@@ -41,6 +51,10 @@ export function useVoiceConversation(onSend: (text: string) => void) {
   /** Rien n'arrive du micro depuis plusieurs écoutes : conseil affiché sous « Je t'écoute… ». */
   const [hint, setHint] = useState<string | null>(null);
   const silences = useRef(0);
+  const retries = useRef(0);
+  const restartTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  /** Relance de l'écoute depuis la fin d'une écoute (begin est défini avant startListening). */
+  const startListeningRef = useRef<() => void>(() => {});
   const active = useRef(false);
   const dictation = useRef<Dictation | null>(null);
   const stopSpeaking = useRef<(() => void) | null>(null);
@@ -51,6 +65,8 @@ export function useVoiceConversation(onSend: (text: string) => void) {
 
   const stop = useCallback(() => {
     active.current = false;
+    if (restartTimer.current) clearTimeout(restartTimer.current);
+    restartTimer.current = null;
     dictation.current?.cancel();
     dictation.current = null;
     stopSpeaking.current?.();
@@ -60,16 +76,13 @@ export function useVoiceConversation(onSend: (text: string) => void) {
     setState("off");
   }, []);
 
-  const startListening = useCallback(function listenAgain() {
-    stopSpeaking.current?.();
-    stopSpeaking.current = null;
-    dictation.current?.cancel();
-    setTranscript("");
-    setState("listening");
+  /** Ouvre le micro pour une phrase. */
+  const begin = useCallback(() => {
     let heard = 0;
     dictation.current = listen({
       onText: (text) => {
         silences.current = 0;
+        retries.current = 0;
         setHint(null);
         setTranscript(text);
         setBeat((n) => n + 1);
@@ -85,12 +98,18 @@ export function useVoiceConversation(onSend: (text: string) => void) {
         if (!text) {
           silences.current += 1;
           if (silences.current >= SILENCES_BEFORE_HINT) setHint(NO_SOUND_HINT);
-          return listenAgain();
+          return startListeningRef.current();
         }
         setState("waiting");
         sendRef.current(text);
       },
       onError: (code) => {
+        // Passagère : la fin d'écoute qui suit relance le micro.
+        if (TRANSIENT.has(code) && retries.current < MAX_RETRIES) {
+          retries.current += 1;
+          return;
+        }
+        retries.current = 0;
         setError(VOICE_ERRORS[code] ?? `Le micro ne répond pas (${code}). Réessaie.`);
         stop();
       },
@@ -101,11 +120,31 @@ export function useVoiceConversation(onSend: (text: string) => void) {
     }
   }, [stop]);
 
+  const startListening = useCallback(() => {
+    stopSpeaking.current?.();
+    stopSpeaking.current = null;
+    const hadDictation = dictation.current !== null;
+    dictation.current?.cancel();
+    dictation.current = null;
+    setTranscript("");
+    setState("listening");
+    if (restartTimer.current) clearTimeout(restartTimer.current);
+    restartTimer.current = setTimeout(() => {
+      restartTimer.current = null;
+      if (active.current) begin();
+    }, hadDictation ? RESTART_DELAY_MS * 2 : RESTART_DELAY_MS);
+  }, [begin]);
+
+  useEffect(() => {
+    startListeningRef.current = startListening;
+  });
+
   /** Ouvre le mode vocal (au toucher : débloque aussi la lecture sur iPhone). */
   const start = useCallback(() => {
     setError(null);
     setHint(null);
     silences.current = 0;
+    retries.current = 0;
     setReply("");
     unlockSpeech();
     active.current = true;

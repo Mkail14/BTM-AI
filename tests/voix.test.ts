@@ -28,3 +28,35 @@ describe("voix compressée", () => {
     assert.equal(mp3[0], 0xff);
   });
 });
+
+describe("voix sans grésillement ni attente", () => {
+  it("coupe le petit bruit isolé de la fin et du début", async () => {
+    const { cleanSpeech } = await import("@/lib/ai/voice/gemini-tts");
+    const rate = 24_000;
+    const ms = (n: number) => Math.round((rate * n) / 1000);
+    const tone = (n: number) => Array.from({ length: ms(n) }, (_, i) => Math.round(6000 * Math.sin(i / 3)));
+    const silence = (n: number) => new Array(ms(n)).fill(0);
+    // Bruit 40 ms, silence 200 ms, parole 1 s, silence 400 ms, grésillement 150 ms.
+    const samples = Int16Array.from([...tone(40), ...silence(200), ...tone(1000), ...silence(400), ...tone(150)]);
+    const out = cleanSpeech(samples, rate);
+    // Reste : la parole et 80 ms d'air de chaque côté.
+    assert.ok(Math.abs(out.length - ms(1160)) <= ms(40), `durée ${Math.round((out.length / rate) * 1000)} ms`);
+    assert.equal(out[0], 0);
+  });
+
+  it("garde un vrai mot court à la fin quand il suit de près", async () => {
+    const { cleanSpeech } = await import("@/lib/ai/voice/gemini-tts");
+    const rate = 24_000;
+    const ms = (n: number) => Math.round((rate * n) / 1000);
+    const tone = (n: number) => Array.from({ length: ms(n) }, (_, i) => Math.round(6000 * Math.sin(i / 3)));
+    const samples = Int16Array.from([...tone(800), ...new Array(ms(100)).fill(0), ...tone(200)]);
+    assert.ok(cleanSpeech(samples, rate).length >= ms(1100));
+  });
+
+  it("découpe la réponse : la première phrase seule, puis des morceaux", async () => {
+    const { speechChunks } = await import("@/lib/chat/voice");
+    const chunks = speechChunks("Oui ! Bonjour, je suis Tamilya et je suis là. Il fait beau à Mamoudzou. La barge circule. Marahaba !");
+    assert.deepEqual(chunks, ["Oui ! Bonjour, je suis Tamilya et je suis là.", "Il fait beau à Mamoudzou. La barge circule. Marahaba !"]);
+    assert.deepEqual(speechChunks("Sans point final"), ["Sans point final"]);
+  });
+});

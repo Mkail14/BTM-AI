@@ -37,6 +37,57 @@ export function ttsModels(available: readonly string[]): string[] {
   return found.sort((a, b) => Number(/pro/.test(a)) - Number(/pro/.test(b)) || version(b) - version(a));
 }
 
+/** Morceaux de son de 20 ms : parole (true) ou silence (false). */
+function speechWindows(samples: Int16Array, size: number): boolean[] {
+  const windows: boolean[] = [];
+  for (let i = 0; i < samples.length; i += size) {
+    let sum = 0;
+    const end = Math.min(samples.length, i + size);
+    for (let j = i; j < end; j++) sum += samples[j] * samples[j];
+    windows.push(Math.sqrt(sum / (end - i)) > 400);
+  }
+  return windows;
+}
+
+/**
+ * Gemini laisse souvent un petit bruit isolé (grésillement) au tout début et à
+ * la toute fin du son, séparé de la parole par un silence. On le coupe, on
+ * retire les silences des bords (en gardant un peu d'air) et on fond l'entrée
+ * et la sortie pour éviter le « clic ».
+ */
+export function cleanSpeech(samples: Int16Array, rate: number): Int16Array {
+  const size = Math.round(rate / 50);
+  const windows = speechWindows(samples, size);
+  // Plages de parole [début, fin[ en fenêtres.
+  const runs: [number, number][] = [];
+  windows.forEach((on, i) => {
+    if (!on) return;
+    const last = runs.at(-1);
+    if (last && last[1] === i) last[1] = i + 1;
+    else runs.push([i, i + 1]);
+  });
+  if (!runs.length) return samples;
+  const ms = (n: number) => n * 20;
+  // Bruit du début : court (≤ 120 ms), suivi d'un silence d'au moins 100 ms.
+  while (runs.length > 1 && ms(runs[0][1] - runs[0][0]) <= 120 && ms(runs[1][0] - runs[0][1]) >= 100) runs.shift();
+  // Bruit de la fin : court (≤ 260 ms), après un silence d'au moins 200 ms.
+  while (runs.length > 1) {
+    const [last, before] = [runs.at(-1)!, runs.at(-2)!];
+    if (ms(last[1] - last[0]) > 260 || ms(last[0] - before[1]) < 200) break;
+    runs.pop();
+  }
+  const margin = 4; // 80 ms d'air autour de la parole
+  const start = Math.max(0, (runs[0][0] - margin) * size);
+  const end = Math.min(samples.length, (runs.at(-1)![1] + margin) * size);
+  const out = samples.slice(start, end);
+  const fade = Math.min(Math.round(rate * 0.03), Math.floor(out.length / 2));
+  for (let i = 0; i < fade; i++) {
+    out[i] = Math.round((out[i] * i) / fade);
+    out[out.length - 1 - i] = Math.round((out[out.length - 1 - i] * i) / fade);
+  }
+  return out;
+}
+
 /**
  * Son brut de Gemini (PCM 16 bits, mono) en MP3 48 kb/s : 8 fois plus léger que
  * le WAV. À Mayotte, le téléchargement depuis le serveur (Irlande) prenait plus
@@ -45,7 +96,7 @@ export function ttsModels(available: readonly string[]): string[] {
 export async function pcmToMp3(pcm: Uint8Array, sampleRate = 24_000): Promise<Uint8Array> {
   // Import dynamique : le paquet n'exporte l'encodeur que dans sa version ES (pas avec require).
   const { Mp3Encoder } = await import("@breezystack/lamejs");
-  const samples = new Int16Array(pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + (pcm.byteLength & ~1)));
+  const samples = cleanSpeech(new Int16Array(pcm.buffer.slice(pcm.byteOffset, pcm.byteOffset + (pcm.byteLength & ~1))), sampleRate);
   const encoder = new Mp3Encoder(1, sampleRate, 48);
   const chunks: Uint8Array[] = [];
   for (let i = 0; i < samples.length; i += 1152 * 20) chunks.push(encoder.encodeBuffer(samples.subarray(i, i + 1152 * 20)));
