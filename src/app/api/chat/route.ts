@@ -164,7 +164,12 @@ export async function POST(request: NextRequest) {
   flow.step("input", true);
 
   // 3. Identité et quotas.
-  const { supabase, user } = await authTask;
+  const { supabase, user, invalidBearer } = await authTask;
+  // Jeton Bearer refusé : jamais de bascule silencieuse en invité (l'app doit se reconnecter).
+  if (invalidBearer) {
+    flow.step("prompt", false, "jeton refusé");
+    return errorResponse(401, "unauthorized");
+  }
   let deviceId = request.cookies.get(DEVICE_COOKIE)?.value;
   const newDeviceId = !user && (!deviceId || !/^[0-9a-f-]{36}$/.test(deviceId));
   if (newDeviceId) deviceId = randomUUID();

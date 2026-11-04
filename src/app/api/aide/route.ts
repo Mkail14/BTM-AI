@@ -57,7 +57,8 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return fail(400, "Message incomplet ou trop long.");
   const body = parsed.data;
 
-  const { user } = await getAuthContext();
+  const { user, invalidBearer } = await getAuthContext();
+  if (invalidBearer) return fail(401, "Ta session a expiré. Reconnecte-toi.");
   const who = user ? user.id : hashIdentifier(`ip:${getClientIp(request.headers)}`);
   const limit = await consumeRateLimits([
     { key: `help-${body.kind}:${who}`, rules: body.kind === "chat" ? RATE_LIMIT_POLICIES.helpChat : RATE_LIMIT_POLICIES.helpEmail },

@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getAuthContext } from "@/lib/auth/session";
+import { bearerTokenOf } from "@/lib/supabase/bearer";
 import { describeDevice, describePlace, siteOrigin } from "@/lib/email/device";
 import { emailConfigured, sendEmail } from "@/lib/email/send";
 import { passwordChangedEmail, passwordCreatedEmail } from "@/lib/email/templates";
@@ -18,7 +19,8 @@ export async function POST(request: NextRequest) {
   if (!emailConfigured()) return NextResponse.json({ ok: false });
 
   const body = (await request.json().catch(() => ({}))) as { reason?: unknown };
-  const { data } = await supabase.auth.getUser();
+  // Client Bearer (mobile) : pas de session stockée, le jeton est passé explicitement.
+  const { data } = await supabase.auth.getUser(bearerTokenOf(supabase));
   const updatedAt = data.user?.updated_at ? Date.parse(data.user.updated_at) : 0;
   if (!updatedAt || Date.now() - updatedAt > RECENT_MS) return NextResponse.json({ ok: false });
 

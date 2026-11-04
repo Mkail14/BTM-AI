@@ -4,15 +4,9 @@ import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { authRequiredPath } from "./redirect";
-import { hasAdminRole, hasPrincipalAdminRole } from "./roles";
+import { resolveAuthContext, userFromClient, type SessionUser } from "./identity";
 
-export type SessionUser = {
-  id: string;
-  email: string | null;
-  isAdmin: boolean;
-  /** Administrateur principal (pas délégué) : seul à ouvrir le Profil de l'entreprise. */
-  isPrincipalAdmin: boolean;
-};
+export type { SessionUser };
 
 /**
  * Lit l'utilisateur à partir du jeton de session. getClaims() vérifie la
@@ -24,27 +18,14 @@ export async function getSessionUser(
   const client = supabase ?? (await createSupabaseServerClient());
   if (!client) return null;
 
-  const { data, error } = await client.auth.getClaims();
-  if (error || !data?.claims?.sub) return null;
-
-  const email = data.claims.email;
-  return {
-    id: data.claims.sub,
-    email: typeof email === "string" ? email : null,
-    isAdmin: hasAdminRole(data.claims),
-    isPrincipalAdmin: hasPrincipalAdminRole(data.claims),
-  };
+  return userFromClient(client);
 }
 
 /**
  * Client RLS + utilisateur, pour les routes serveur. Mémorisé le temps d'un
  * rendu : la mise en page et la page lisent la session une seule fois.
  */
-export const getAuthContext = cache(async () => {
-  const supabase = await createSupabaseServerClient();
-  const user = supabase ? await getSessionUser(supabase) : null;
-  return { supabase, user };
-});
+export const getAuthContext = cache(async () => resolveAuthContext(await createSupabaseServerClient()));
 
 /** À utiliser dans les pages privées : renvoie vers l'accueil avec la fenêtre de connexion. */
 export async function requireUser(currentPath: string) {
