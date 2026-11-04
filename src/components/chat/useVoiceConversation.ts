@@ -28,6 +28,8 @@ const MAX_RETRIES = 3;
  * juste après la précédente (ou juste après la voix de Tamilya).
  */
 const RESTART_DELAY_MS = 300;
+/** Écoute sans aucune nouvelle de Chrome au-delà de ce temps : micro rouvert. */
+const LISTEN_GUARD_MS = 15_000;
 
 /** Écoutes muettes d'affilée (environ 8 s chacune dans Chrome) avant de prévenir que le micro n'envoie rien. */
 const SILENCES_BEFORE_HINT = 2;
@@ -82,8 +84,21 @@ export function useVoiceConversation(onSend: (text: string) => void) {
   /** Ouvre le micro pour une phrase. */
   const begin = useCallback(() => {
     let heard = 0;
-    dictation.current = listen({
+    // Chrome reste parfois en écoute sans jamais rien renvoyer : sans nouvelle au bout de
+    // 15 s (il conclut normalement après ~8 s de silence), on rouvre le micro.
+    let guard: ReturnType<typeof setTimeout> | null = null;
+    const armGuard = () => {
+      if (guard) clearTimeout(guard);
+      guard = setTimeout(() => {
+        if (!active.current || dictation.current !== current) return;
+        current?.cancel();
+        dictation.current = null;
+        startListeningRef.current();
+      }, LISTEN_GUARD_MS);
+    };
+    const current: Dictation | null = listen({
       onText: (text) => {
+        armGuard();
         silences.current = 0;
         retries.current = 0;
         setHint(null);
@@ -94,6 +109,7 @@ export function useVoiceConversation(onSend: (text: string) => void) {
         heard = text.length;
       },
       onEnd: (text) => {
+        if (guard) clearTimeout(guard);
         voiceListenEnd();
         dictation.current = null;
         if (!active.current) return;
@@ -118,6 +134,8 @@ export function useVoiceConversation(onSend: (text: string) => void) {
         stop();
       },
     });
+    dictation.current = current;
+    if (current) armGuard();
     if (!dictation.current) {
       setError("Ce navigateur ne gère pas la dictée : ouvre la page dans Chrome ou Edge.");
       stop();

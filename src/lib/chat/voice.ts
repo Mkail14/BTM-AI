@@ -331,9 +331,39 @@ export function createSpeaker(options: SpeakOptions): Speaker {
         voiceWord(text, index);
         options.onWord?.();
       };
-      audio.onplaying = () => markVoice("audioStart");
-      audio.onended = () => resolve();
-      audio.onerror = () => reject(new Error("lecture"));
+      // Fin de lecture : l'évènement « ended » ne vient pas toujours avec un son en flux. On
+      // conclut aussi quand la lecture atteint la fin, ou au plus tard 2 s après la fin prévue.
+      let settled = false;
+      let streamDone = false;
+      let guard: ReturnType<typeof setTimeout> | null = null;
+      const done = () => {
+        if (settled) return;
+        settled = true;
+        if (guard) clearTimeout(guard);
+        resolve();
+      };
+      const fail = (error: unknown) => {
+        if (settled) return;
+        settled = true;
+        if (guard) clearTimeout(guard);
+        reject(error);
+      };
+      const armGuard = () => {
+        if (guard) clearTimeout(guard);
+        const left = Number.isFinite(audio.duration) ? Math.max(0, audio.duration - audio.currentTime) : 10;
+        guard = setTimeout(done, left * 1000 + 2000);
+      };
+      const watchEnd = audio.ontimeupdate;
+      audio.ontimeupdate = (event) => {
+        watchEnd?.call(audio, event);
+        if (streamDone && Number.isFinite(audio.duration) && audio.currentTime >= audio.duration - 0.15) done();
+      };
+      audio.onplaying = () => {
+        markVoice("audioStart");
+        if (streamDone) armGuard();
+      };
+      audio.onended = done;
+      audio.onerror = () => fail(new Error("lecture"));
       source.addEventListener(
         "sourceopen",
         () => {
@@ -357,13 +387,15 @@ export function createSpeaker(options: SpeakOptions): Speaker {
                 if (!started) {
                   started = true;
                   markVoice("audioReady");
-                  audio.play().catch(reject);
+                  audio.play().catch(fail);
                 }
               }
-              if (!started) return reject(new Error("son vide"));
+              if (!started) return fail(new Error("son vide"));
               if (source.readyState === "open") source.endOfStream();
+              streamDone = true;
+              armGuard();
             } catch (error) {
-              reject(error);
+              fail(error);
             }
           })();
         },

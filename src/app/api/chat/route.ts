@@ -523,6 +523,8 @@ export async function POST(request: NextRequest) {
         send({ type: "replace", text });
       };
 
+      // Chronométrage du vocal (journaux du serveur) : préparation avant l'appel au modèle.
+      const modelStartMs = Date.now() - startedAt;
       try {
         for await (const chunk of ai.provider.stream({
           system,
@@ -539,7 +541,10 @@ export async function POST(request: NextRequest) {
           if (chunk.type === "text") {
             if (firstTextMs === null) {
               firstTextMs = Date.now() - startedAt;
-              if (body.voice) send({ type: "timing", firstTokenMs: firstTextMs });
+              if (body.voice) {
+                send({ type: "timing", firstTokenMs: firstTextMs });
+                console.info(`[vocal] préparation ${modelStartMs} ms, premier mot ${firstTextMs} ms (modèle ${firstTextMs - modelStartMs} ms)`);
+              }
             }
             text += chunk.text;
             if (!master) {
