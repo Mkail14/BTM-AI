@@ -17,10 +17,11 @@ const TIMEOUT_MS = 30_000;
 const RESTING_MS = 10 * 60_000;
 const resting = new Map<string, number>();
 
-/** Consigne de lecture : dite avant le texte, elle n'est pas prononcée. */
-const STYLE =
-  "Lis le texte suivant d'une voix douce, naturelle et chaleureuse, comme une jeune femme de Mayotte qui parle à un ami. " +
-  "Les mots en shimaoré (langue de Mayotte, proche du swahili) se prononcent comme en swahili. Texte :";
+/**
+ * Consigne de lecture courte, collée au texte (« Dis … : ») : une consigne
+ * longue finit lue à voix haute. AI_VOICE_STYLE=0 l’enlève.
+ */
+const style = () => (process.env.AI_VOICE_STYLE?.trim() === "0" ? "" : "Dis d’une voix douce et chaleureuse : ");
 
 async function geminiKey(): Promise<{ apiKey: string; baseUrl: string | undefined }> {
   const chain = await loadAIChain();
@@ -77,7 +78,7 @@ export async function synthesizeSpeech(text: string, voice: GeminiVoiceId, signa
       method: "POST",
       headers: geminiHeaders(key.apiKey),
       body: JSON.stringify({
-        contents: [{ parts: [{ text: `${STYLE}\n\n${text}` }] }],
+        contents: [{ parts: [{ text: `${style()}${text}` }] }],
         generationConfig: {
           responseModalities: ["AUDIO"],
           speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } } },
