@@ -2827,8 +2827,7 @@ html:has(.ecran-fixe) body {
 }
 
 /*
- * Accueil, section Tamilya : photo d'eau rose (public/fond/eau-rose.webp) floutée,
- * sous un voile léger (clair ou sombre selon le thème) pour que le titre se lise.
+ * Accueil, section Tamilya : fond rose flouté (dégradés, sans image), sur tout l'écran.
  * Elle déborde un peu (inset négatif, coupé par la section) : le flou ne laisse pas de bord pâle.
  */
 .landing-eau {
@@ -2836,19 +2835,41 @@ html:has(.ecran-fixe) body {
   inset: -3rem;
   z-index: -1;
   pointer-events: none;
-  background: url("/fond/eau-rose.webp") center / cover no-repeat;
-  filter: blur(22px) saturate(1.1);
+  /* Grosses taches roses très floutées, qui bougent lentement. */
+  background:
+    radial-gradient(35% 45% at 12% 20%, #ff4f93, transparent 70%),
+    radial-gradient(40% 50% at 88% 25%, #ff9cc4, transparent 70%),
+    radial-gradient(45% 45% at 70% 85%, #e8337a, transparent 70%),
+    radial-gradient(40% 40% at 20% 85%, #ffc2d9, transparent 70%),
+    #ffd6e6;
+  background-size: 140% 140%;
+  filter: blur(70px) saturate(1.25);
+  animation: landing-eau 18s ease-in-out infinite alternate;
 }
 
-.landing-eau::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(90deg, rgb(255 255 255 / 0.55), rgb(255 255 255 / 0.2) 70%);
+[data-theme="dark"] .landing-eau {
+  background:
+    radial-gradient(35% 45% at 12% 20%, #b0255f, transparent 70%),
+    radial-gradient(40% 50% at 88% 25%, #7a1e48, transparent 70%),
+    radial-gradient(45% 45% at 70% 85%, #c22f6e, transparent 70%),
+    radial-gradient(40% 40% at 20% 85%, #5a1836, transparent 70%),
+    #1a0c13;
+  background-size: 140% 140%;
 }
 
-[data-theme="dark"] .landing-eau::after {
-  background: linear-gradient(90deg, rgb(12 12 14 / 0.6), rgb(12 12 14 / 0.25) 70%);
+@keyframes landing-eau {
+  from {
+    background-position: 0% 0%;
+  }
+  to {
+    background-position: 100% 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-eau {
+    animation: none;
+  }
 }
 
 .landing-eau ~ * .landing-h2 {
@@ -3332,7 +3353,7 @@ html[data-morph]::view-transition-new(root) {
   position: absolute;
   top: calc(2.75rem - 1px);
   left: 0;
-  right: -1.5rem;
+  right: -2.5rem;
   height: 2px;
   background: linear-gradient(90deg, #4285f4, #9b72cb, var(--persona, var(--accent)), #ea4335, #fbbc05, #34a853) fixed;
   opacity: 0.55;

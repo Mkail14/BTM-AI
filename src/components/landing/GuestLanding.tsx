@@ -279,7 +279,7 @@ export function GuestLanding({
 
         {/* Ce qu'il faut savoir sur Tamilya : fond d'eau rose floutée (.landing-eau), une conversation d'exemple et trois cartes. */}
         {/* Ordinateur : tout tient sur un écran sous la barre du haut (2,75 rem) ; la conversation prend la place qui reste. */}
-        <section id="shimaore" className="relative isolate flex min-h-[calc(100dvh-3rem)] scroll-mt-12 flex-col justify-center overflow-hidden border-t border-border md:h-[calc(100dvh-2.75rem)] md:min-h-[36rem] md:scroll-mt-11">
+        <section id="shimaore" className="relative isolate flex min-h-dvh flex-col justify-center overflow-hidden pt-12 md:h-dvh md:min-h-[36rem] md:pt-11">
           <div aria-hidden="true" className="landing-eau" />
           <div className="mx-auto flex w-full max-w-5xl flex-col px-5 py-12 md:h-full md:py-8">
             {/* Même grille que les cartes du dessous : la conversation tombe pile au-dessus de la troisième carte. */}

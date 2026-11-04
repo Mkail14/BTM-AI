@@ -116,7 +116,8 @@ export function AuthProvider({
         setUser((current) => {
           if (current?.id === sessionUser.id) return current;
           router.refresh();
-          const name = sessionUser.user_metadata?.display_name;
+          // Compte Google : pas de display_name, mais le prénom donné par Google.
+          const name = sessionUser.user_metadata?.display_name ?? sessionUser.user_metadata?.given_name;
           return {
             id: sessionUser.id,
             email: sessionUser.email ?? null,

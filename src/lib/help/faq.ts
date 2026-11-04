@@ -66,6 +66,20 @@ export const FAQ: FaqTopic[] = [
     ],
   },
   {
+    title: "Partenaires",
+    questions: [
+      {
+        q: "Qui sont les partenaires de Tamilya ?",
+        a: "Des entreprises de Mayotte dont les services sont disponibles directement dans Tamilya. Le premier est GROUPE BTM : Tamilya est intégrée à son site, btm.yt.",
+        link: { href: "/partenaires", label: "Voir les partenaires" },
+      },
+      {
+        q: "Comment obtenir un devis BTM ?",
+        a: "Demande-le simplement à Tamilya (« je voudrais un devis BTM »). Elle prépare ton devis directement dans la conversation, puis tu reçois ton code de retrait.",
+      },
+    ],
+  },
+  {
     title: "Portefeuille",
     questions: [
       {

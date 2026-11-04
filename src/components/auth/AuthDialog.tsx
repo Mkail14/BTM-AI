@@ -209,9 +209,9 @@ function AuthPanel({
             className="size-[clamp(60px,9vh,78px)] rounded-[clamp(18px,2.6vh,24px)] shadow-[0_14px_30px_rgba(17,17,17,0.25)]"
           />
           <h2 id={titleId} className="text-[clamp(2.2rem,6.2vh,3.2rem)] leading-[0.95] font-bold tracking-tight">
-            {isSignup ? "Rejoignez" : "Bienvenue sur"}
+            {isSignup ? "Rejoignez" : "Bienvenue chez"}
             <br />
-            Tamilya
+            BTM AI
           </h2>
         </div>
         <p className="mt-[clamp(16px,4vh,40px)] text-[15px] leading-relaxed text-fg-muted">
@@ -232,6 +232,7 @@ function AuthPanel({
           >
             {isSignup ? "S'inscrire avec l'e-mail" : "Continuer avec l'e-mail"}
           </button>
+          <GoogleButton next={next} isSignup={isSignup} />
         </div>
         <div className="mt-[clamp(12px,2.4vh,22px)]">{switchLine}</div>
         <p className="mt-2.5 max-w-[320px] text-xs leading-normal text-fg-muted/80">
@@ -321,6 +322,61 @@ function AuthPanel({
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * Connexion ou inscription avec Google : Google renvoie sur /auth/callback, qui
+ * ouvre la session. Le compte est créé à la première venue (prénom pris chez Google).
+ */
+function GoogleButton({ next, isSignup }: { next: string; isSignup: boolean }) {
+  const [pending, setPending] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function start() {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    setPending(true);
+    setFailed(false);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` },
+      });
+      // Sans erreur, le navigateur part chez Google : on laisse « patienter » affiché.
+      if (error) {
+        console.warn("[google] Supabase a refusé la demande :", error.code, error.message);
+        setFailed(true);
+        setPending(false);
+      }
+    } catch {
+      setFailed(true);
+      setPending(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={start}
+        disabled={pending}
+        className="mt-2.5 inline-flex h-11 w-full items-center justify-center gap-2.5 rounded-full border border-black/10 bg-white px-5 text-sm font-semibold text-[#1f1f1f] transition hover:bg-black/[0.03] disabled:opacity-70 dark:border-white/15 dark:bg-white/[0.06] dark:text-fg dark:hover:bg-white/[0.1]"
+      >
+        <svg aria-hidden="true" viewBox="0 0 48 48" width={18} height={18}>
+          <path fill="#FFC107" d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 13 4 4 13 4 24s9 20 20 20 20-9 20-20c0-1.3-.1-2.6-.4-3.9z" />
+          <path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z" />
+          <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
+          <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z" />
+        </svg>
+        {pending ? "Veuillez patienter…" : isSignup ? "S'inscrire avec Google" : "Continuer avec Google"}
+      </button>
+      {failed ? (
+        <p role="alert" className="mt-2 text-xs text-danger">
+          La connexion avec Google n&apos;est pas disponible pour le moment.
+        </p>
+      ) : null}
+    </>
   );
 }
 

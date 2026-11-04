@@ -10,12 +10,40 @@ export const metadata: Metadata = { title: "Nos partenaires" };
  * ils seront signés, dans l'ordre de leur arrivée.
  */
 const EXAMPLES: readonly Partner[] = [
-  { name: "Bus du Lagon", initials: "BL", colors: ["#1a73e8", "#14a89e"], since: "2025-09", pitch: "Horaires et trajets en bus." },
-  { name: "Saveurs de l'Île", initials: "SI", colors: ["#ea4335", "#fbbc05"], since: "2025-12", pitch: "Repas livrés à la maison." },
-  { name: "Traversée Express", initials: "TE", colors: ["#0b57d0", "#5ee7ff"], since: "2026-02", pitch: "Horaires de la barge." },
-  { name: "Auto-École Horizon", initials: "AH", colors: ["#9b72cb", "#e2367a"], since: "2026-04", pitch: "Le code de la route, expliqué." },
-  { name: "Panier Local", initials: "PL", colors: ["#188038", "#a8d23a"], since: "2026-07", pitch: "Les boutiques du coin." },
-  { name: "Santé Proche", initials: "SP", colors: ["#e2367a", "#ff8a65"], since: "2026-10", pitch: "Pharmacies de garde." },
+  {
+    name: "GROUPE BTM", initials: "BTM", colors: ["#f6ecdf", "#ead8c3"], since: "2025-09",
+    logo: "/brand/groupe-btm-b-encre.png",
+    pitch: "Bâtir la Technologie de Mayotte, le groupe qui a créé Tamilya.",
+    integration:
+      "Tamilya est intégrée au site btm.yt, et les services de BTM sont disponibles dans Tamilya : vous demandez votre devis directement dans la conversation, puis vous recevez votre code de retrait.",
+    example: "Je voudrais un devis BTM",
+    website: "https://btm.yt",
+  },
+  {
+    name: "Saveurs de l'Île", initials: "SI", colors: ["#ea4335", "#fbbc05"], since: "2025-12", pitch: "Repas livrés à la maison.",
+    integration: "Vous choisissez votre plat dans la conversation, Tamilya passe la commande et suit la livraison.",
+    example: "Je veux un mataba livré ce midi",
+  },
+  {
+    name: "Traversée Express", initials: "TE", colors: ["#0b57d0", "#5ee7ff"], since: "2026-02", pitch: "Horaires de la barge.",
+    integration: "Les départs de la barge et les retards sont donnés par Tamilya, sans chercher sur un autre site.",
+    example: "La prochaine barge pour Dzaoudzi ?",
+  },
+  {
+    name: "Auto-École Horizon", initials: "AH", colors: ["#9b72cb", "#e2367a"], since: "2026-04", pitch: "Le code de la route, expliqué.",
+    integration: "Tamilya vous fait réviser le code avec des questions et vous explique chaque réponse.",
+    example: "Fais-moi réviser le code",
+  },
+  {
+    name: "Panier Local", initials: "PL", colors: ["#188038", "#a8d23a"], since: "2026-07", pitch: "Les boutiques du coin.",
+    integration: "Tamilya trouve les boutiques proches de chez vous et ce qu'elles ont en rayon.",
+    example: "Où acheter du riz près de Kawéni ?",
+  },
+  {
+    name: "Santé Proche", initials: "SP", colors: ["#e2367a", "#ff8a65"], since: "2026-10", pitch: "Pharmacies de garde.",
+    integration: "Tamilya vous indique la pharmacie de garde la plus proche, avec l'adresse et le téléphone.",
+    example: "Pharmacie de garde ce soir ?",
+  },
 ];
 
 /** Nos partenaires : un seul écran fixe (la page ne défile pas), la frise glisse de gauche à droite. */
