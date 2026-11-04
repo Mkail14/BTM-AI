@@ -31,9 +31,9 @@ _L'environnement ne donne pas à l'orchestrateur la consommation exacte de chaqu
 
 | 2026-11-04 | 2 Flutter | sonnet | C2 squelette | 133 308 tokens (55 outils, 14 min 18) | ✅ |
 | 2026-11-04 | 3 UI/UX (repris) | sonnet | C2 revue | 103 709 tokens (9 outils, 2 min 23) | ✅ |
-| 2026-11-04 | 2 Flutter (repris) | sonnet | C2 corrections | en attente | 🔄 |
+| 2026-11-04 | 2 Flutter (repris) | sonnet | C2 corrections + identifiant | 162 900 tokens (26 outils, 7 min 39) | ✅ |
 
-**Total communiqué : 1 309 523 tokens** (A 418 596 + B 130 060 + C1 145 347 + revue C1 184 264 + corrections C1 194 239 + C2 133 308 + revue C2 103 709) (la part consommée avant l'interruption n'est pas connue).
+**Total communiqué : 1 472 423 tokens** (A 418 596 + B 130 060 + C1 145 347 + revue C1 184 264 + corrections C1 194 239 + C2 133 308 + revue C2 103 709 + corrections C2 162 900) (la part consommée avant l'interruption n'est pas connue).
 
 ## Incidents
 - 2026-11-04 : les 4 agents d'audit se sont arrêtés sur la limite d'usage de 5 h du compte (HTTP 429). Avant la reprise, aucun rapport n'était écrit. À 18 h, ils ont été repris avec leur contexte (SendMessage) plutôt que relancés à neuf, pour ne pas refaire les lectures déjà faites.

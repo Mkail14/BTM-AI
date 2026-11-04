@@ -24,7 +24,7 @@ _Tenu par l'orchestrateur. Dernière mise à jour : 2026-11-04._
 | # | Agent | Modèle | État |
 |---|---|---|---|
 | 1 | Architecte | opus | ✅ A1 terminé — à reprendre en phase B |
-| 2 | Flutter | sonnet | ✅ C2 terminé — corrections UI/UX puis C3 |
+| 2 | Flutter | sonnet | ✅ C2 validé — prochaine mission C3 |
 | 3 | UI/UX | sonnet | ✅ revue de C2 rendue |
 | 4 | Backend | sonnet | ✅ A4 + C1 terminés |
 | 5 | Sécurité | opus | ✅ revue de C1 rendue |
@@ -37,12 +37,11 @@ _Tenu par l'orchestrateur. Dernière mise à jour : 2026-11-04._
 - ✅ **C1 VALIDÉE par l'orchestrateur (2026-11-04)** : corrections post-revue c9cc767 (R-2, R-3), 2f546dc (R-6), ddba4a3 (R-4), 5448158 (R-1, web + mobile). Orchestrateur : diff relu (bearer.ts, identity.ts, server.ts, settings.ts), noms de colonnes du portefeuille vérifiés, expiration Stripe vérifiée ; lint OK, typecheck OK, **319/319 tests**. Branche NON fusionnée, NON poussée : intégration soumise à l'utilisateur. À tester à la main : retour sur `?rubrique=suppression` après reconnexion (web).
 - Terminée : **C1** — branche `feat/mobile-bearer` (worktree `..\.worktrees\tamilya-mobile-bearer`) : 1786ddb BUG-1, fd5c626 Bearer (getClaims), 1b89d7f /api/me. lint/typecheck OK, 298/298 tests. Pas poussée. Ouvert : JWT d'un compte supprimé valide jusqu'à son expiration. Rapport `docs/missions/C1-backend.md`.
 - Terminée : **B** — `docs/ARCHITECTURE.md` + `docs/API_CONTRACT_MOBILE.md` (Architecte), arbitrages A1-A5 ajoutés en fin d'ARCHITECTURE.md.
+- ✅ **C2 VALIDÉE et fusionnée dans main (dépôt mobile local)** : corrections UI/UX 67f3c0f, identifiant `yt.tamilya.app` + nom « Tamilya » c5474fc. Orchestrateur : analyze 0 problème, **8/8 tests**, aucune trace de l'ancien identifiant. Incident : 67f3c0f contient aussi PROJECT_CONTROL/TOKEN_BUDGET/revue UI/UX (git add -A de l'agent) ; contenu non altéré, historique laissé tel quel ; règle 6 ajoutée à TEAM_RULES.
 - ✅ **C2 terminée** (Flutter, sonnet) — branche `feat/c2-squelette` du dépôt mobile, 6 commits (d60b75e→9343567). Orchestrateur : `flutter analyze` sans problème, 4/4 tests, pas de build/ ni de secret suivi. riverpod 3.4.3, go_router 18.1.3. Geist non embarquée (police système). Icône 1024 PROVISOIRE. Android/iOS non compilés (pas de SDK Android). Rapport `docs/missions/C2-flutter.md`.
 - ✅ **Flutter 3.47.9** installé par l'utilisateur (zip, SHA-256 vérifié) dans `C:Usersaloaldevlutter`, ajouté au PATH du compte.
 - ✅ **C1 poussée** sur GitHub : branche `feat/mobile-bearer` (5448158), qui inclut le commit local `0b39a1e` (jamais poussé jusque-là). develop et main inchangés (acd099d). Fusion : après test de la préversion par l'utilisateur.
 - En cours :
-  - **C2 corrections post-revue** (Flutter repris). Revue UI/UX : APPROUVÉ AVEC RÉSERVES (`docs/missions/C2-revue-uiux.md`) : 17 couleurs conformes, contrastes AA OK. P0 SafeArea du composer + bouton 48 dp ; P1 compteur 4000, Réessayer branché, bulle sombre #27171e ; P2 divers.
-  - Identifiant d'app **`yt.tamilya.app`** (décision de l'utilisateur, 2026-11-04 ; définitif dès la publication) : appliqué par l'agent Flutter dans un commit séparé.
 - Valeurs par défaut retenues en attendant les réponses de l'utilisateur (réversibles, via les flags d'ARCHITECTURE §9) : mode invité **désactivé** en V1, connexion **e-mail uniquement** (Google et Apple désactivés : « Se connecter avec Apple » n'est donc pas exigée).
 - En attente : C2 (squelette Flutter, **SDK en cours de téléchargement**), C3, D, E.
 
