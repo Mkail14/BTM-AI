@@ -134,8 +134,9 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   const userId = user?.id ?? null;
 
   // Mode vocal du maître de Tamilya (administrateur) : il lui parle, elle répond à voix haute.
-  const sendRef = useRef<(text: string) => void>(() => {});
-  const voice = useVoiceConversation((text) => sendRef.current(text));
+  const sendRef = useRef<(text: string, spoken?: boolean) => void>(() => {});
+  // Message dicté : le serveur le sait, Tamilya répond court, pour être écoutée.
+  const voice = useVoiceConversation((text) => sendRef.current(text, true));
   const voiceEnabled = Boolean(user?.isAdmin) && voice.supported;
   const { replied: voiceReplied, stop: stopVoice } = voice;
 
@@ -268,7 +269,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   }, []);
 
   const send = useCallback(
-    async (text: string, base: UiMessage[] = messages) => {
+    async (text: string, base: UiMessage[] = messages, spoken = false) => {
       if (isStreaming) return;
       const generation = chatGeneration.current;
       const stale = () => chatGeneration.current !== generation;
@@ -351,9 +352,12 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       };
 
       try {
-        const body = userId
-          ? { message: text, ...(conversationId ? { conversationId } : {}) }
-          : { message: text, history: buildModelHistory(settledTurns(base), CHAT_LIMITS.anonymousMaxHistoryChars) };
+        const body = {
+          ...(userId
+            ? { message: text, ...(conversationId ? { conversationId } : {}) }
+            : { message: text, history: buildModelHistory(settledTurns(base), CHAT_LIMITS.anonymousMaxHistoryChars) }),
+          ...(spoken ? { voice: true } : {}),
+        };
 
         const res = await fetch("/api/chat", {
           method: "POST",
@@ -422,7 +426,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   );
 
   useEffect(() => {
-    sendRef.current = (text) => void send(text);
+    sendRef.current = (text, spoken) => void send(text, undefined, spoken);
   }, [send]);
 
   // Compteur d'essai relu sur l'appareil (localStorage, indisponible au rendu serveur).

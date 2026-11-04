@@ -59,6 +59,8 @@ const GUEST_TRIAL = [{ name: "anon-trial-30d", limit: CHAT_LIMITS.guestTrialMess
 const GUEST_TRIAL_IP = [{ name: "anon-trial-ip-30d", limit: 30, windowSeconds: 30 * 86_400 }];
 /** Attente maximale du relevé du shimaoré à la fin de la réponse, pour annoncer « ✓ Retenu ». */
 const LEARN_WAIT_MS = 6_000;
+/** Réponse dictée (mode vocal) : de quoi dire trois phrases, pas une page qui retarderait la voix. */
+const VOICE_MAX_OUTPUT_TOKENS = 500;
 
 function errorResponse(status: number, code: ChatErrorCode, headers?: HeadersInit) {
   return NextResponse.json(chatErrorBody(code), { status, headers });
@@ -513,7 +515,7 @@ export async function POST(request: NextRequest) {
           system,
           messages,
           persona: true,
-          maxOutputTokens: ai.config.maxOutputTokens,
+          maxOutputTokens: body.voice ? Math.min(ai.config.maxOutputTokens, VOICE_MAX_OUTPUT_TOKENS) : ai.config.maxOutputTokens,
           signal,
           onAttempt: (slotId, error) => {
             if (!error) answeredBy = slotId;
