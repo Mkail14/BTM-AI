@@ -26,7 +26,7 @@ const bodySchema = z.object({
   persona: z.boolean().optional(),
   fast: z.boolean().optional(),
   // Comparaison des modèles depuis un poste de l'équipe (demande signée).
-  model: z.string().regex(/^gemini-[w.-]{1,60}$/).optional(),
+  model: z.string().regex(/^gemini-[a-z0-9.-]{1,60}$/).optional(),
 });
 
 export async function POST(request: NextRequest) {
