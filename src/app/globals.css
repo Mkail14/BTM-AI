@@ -3408,3 +3408,8 @@ html[data-morph]::view-transition-new(root) {
     0 0 0 6px color-mix(in oklab, var(--persona, var(--accent)) 35%, transparent);
 }
 
+
+/* Pas de rond d'aide flottant pendant une conversation. */
+body:has([data-chat-view]) [data-help-bubble] {
+  display: none;
+}

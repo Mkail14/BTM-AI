@@ -130,6 +130,7 @@ export function HelpBubble() {
       ) : null}
       <button
         type="button"
+        data-help-bubble=""
         aria-label={open ? "Fermer l'aide" : "Aide : questions fréquentes, assistant, nous écrire"}
         aria-expanded={open}
         title="Aide — tu peux me déplacer"

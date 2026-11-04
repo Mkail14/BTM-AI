@@ -499,6 +499,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     // des messages débordent du document et font défiler toute la page.
     <div
       ref={scrollRef}
+      // Repère pour cacher le rond d'aide pendant la conversation (voir globals.css).
+      data-chat-view=""
       onScroll={(e) => {
         const el = e.currentTarget;
         distanceFromBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight;
