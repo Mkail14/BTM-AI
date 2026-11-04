@@ -13,8 +13,8 @@ describe("publicName", () => {
   });
 
   it("ne révèle rien sans nom (jamais l'e-mail)", () => {
-    assert.equal(publicName(null), "Membre de BTM IA");
-    assert.equal(publicName("   "), "Membre de BTM IA");
+    assert.equal(publicName(null), "Membre de BTM AI");
+    assert.equal(publicName("   "), "Membre de BTM AI");
   });
 });
 

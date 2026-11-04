@@ -17,7 +17,10 @@ const draftHours = ANONYMOUS_DRAFT_TTL_MS / 3_600_000;
 
 const SUMMARY = [
   { title: "Pas de publicité", text: "Vos données ne sont ni vendues, ni louées, ni utilisées pour vous montrer de la publicité." },
-  { title: "Sans compte, rien chez nous", text: "La conversation reste dans votre navigateur et s'efface d'elle-même." },
+  {
+    title: "Sans compte, presque rien chez nous",
+    text: "La conversation reste dans votre navigateur ; seuls des compteurs anti-abus anonymes sont gardés 2 jours.",
+  },
   { title: "Votre carte reste chez Stripe", text: "BTM ne voit et ne garde jamais votre numéro de carte." },
   { title: "Tout s'efface", text: "Conversations, souvenirs, compte : vous supprimez ce que vous voulez, quand vous voulez." },
 ];
@@ -28,6 +31,7 @@ const SECTIONS = [
   { id: "sans-compte", label: "Sans compte" },
   { id: "compte", label: "Avec un compte" },
   { id: "memoire", label: "La mémoire de Tamilya" },
+  { id: "coordonnees", label: "Adresses, téléphone et avis" },
   { id: "shimaore", label: "Le shimaoré" },
   { id: "voix", label: "La voix" },
   { id: "services", label: "Réservations et portefeuille" },
@@ -147,7 +151,7 @@ export default function PrivacyPage() {
             items={[
               <>Votre adresse e-mail et le nom que vous choisissez.</>,
               <>
-                Vos conversations (vos messages et les réponses d&apos;Tamilya), pour les retrouver sur tous vos appareils.
+                Vos conversations (vos messages et les réponses de Tamilya), pour les retrouver sur tous vos appareils.
                 Elles ne sont lisibles que par votre compte.
               </>,
               <>
@@ -178,9 +182,31 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
+        <Section id="coordonnees" title="Adresses, téléphone et avis">
+          <List
+            items={[
+              <>
+                <span className={strong}>Carnet d&apos;adresses.</span> Les adresses que vous enregistrez dans les Paramètres
+                (maison, bureau…) servent aux livraisons et aux trajets. Vous les modifiez ou les supprimez quand vous
+                voulez.
+              </>,
+              <>
+                <span className={strong}>Numéro de téléphone.</span> Si vous l&apos;ajoutez, il sert aux commandes et
+                aux réservations, par exemple pour qu&apos;un livreur puisse vous joindre. Il n&apos;est jamais affiché
+                publiquement.
+              </>,
+              <>
+                <span className={strong}>Votre avis.</span> Si vous publiez un avis, il est affiché sur la page
+                d&apos;accueil, signé « Prénom N. » (votre prénom et l&apos;initiale de votre nom). Vous pouvez le
+                retirer à tout moment.
+              </>,
+            ]}
+          />
+        </Section>
+
         <Section id="shimaore" title="Le shimaoré">
           <p>
-            La maîtrise du shimaoré d&apos;Tamilya est encore en construction : ses réponses dans cette langue peuvent
+            La maîtrise du shimaoré de Tamilya est encore en construction : ses réponses dans cette langue peuvent
             contenir des erreurs.
           </p>
           <p>
@@ -202,8 +228,8 @@ export default function PrivacyPage() {
           <p>
             <span className={strong}>Examen du code de la route.</span> Quand vous demandez une réservation, nous
             enregistrons les informations nécessaires (identité, date de naissance, commune, téléphone, e-mail, numéro
-            NEPH). Elles ne servent qu&apos;à réserver votre place et ne sont lisibles que par vous et l&apos;équipe de
-            GROUPE BTM qui traite la demande.
+            NEPH). Pour l&apos;instant, la réservation est un essai : aucune vraie place n&apos;est prise. Ces informations
+            ne sont lisibles que par vous et l&apos;équipe de GROUPE BTM.
           </p>
           <p>
             <span className={strong}>Portefeuille.</span> Les recharges sont payées sur la page sécurisée de{" "}
@@ -229,6 +255,9 @@ export default function PrivacyPage() {
               <>
                 <span className={strong}>Stripe</span> : paiements du portefeuille.
               </>,
+              <>
+                <span className={strong}>OpenStreetMap</span> : retrouver une adresse sur la carte et calculer un trajet.
+              </>,
             ]}
           />
           <p>Certains de ces services peuvent traiter des données hors de l&apos;Union européenne, dans le cadre prévu par le RGPD.</p>
@@ -252,10 +281,14 @@ export default function PrivacyPage() {
               Paramètres
             </Link>{" "}
             pour modifier votre nom ou supprimer votre compte ; la suppression efface vos conversations, la mémoire
-            d&apos;Tamilya et vos informations.
+            de Tamilya et vos informations.
           </p>
           <p>
-            Pour toute autre demande, contactez GROUPE BTM. Si vous estimez que vos droits ne sont pas respectés, vous
+            Pour toute autre demande, écrivez à GROUPE BTM :{" "}
+            <a href="mailto:contact@btm.yt" className="font-medium text-accent hover:underline">
+              contact@btm.yt
+            </a>
+            . Si vous estimez que vos droits ne sont pas respectés, vous
             pouvez saisir la CNIL (cnil.fr).
           </p>
         </Section>

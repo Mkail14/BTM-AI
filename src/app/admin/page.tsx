@@ -451,14 +451,13 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
   const admin = getSupabaseAdminClient();
   const hasSalt = Boolean(process.env.RATE_LIMIT_SALT?.trim());
   // Tout part en même temps : un seul temps d'attente au lieu de trois à la suite.
-  const [ai, codeExam, overviewResult, usersResult, progressResult, spendResult, pendingRequests] = await Promise.all([
+  const [ai, codeExam, overviewResult, usersResult, progressResult, spendResult] = await Promise.all([
     getAIProvider(),
     getCodeExamHealth({ waitMs: 1500 }),
     admin ? settle(getAdminOverview(admin)) : null,
     admin ? settle(listAdminUsers(admin, page)) : null,
     admin ? settle(getAwaProgress(admin)) : null,
     admin ? settle(getGeminiSpend(admin)) : null,
-    admin ? settle(admin.from("code_exam_requests").select("id", { count: "exact", head: true }).eq("status", "pending")) : null,
   ]);
 
   let overview: AdminOverview | null = null;
@@ -473,7 +472,6 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
   else if (usersResult) console.error("[admin] Liste des comptes indisponible", usersResult.reason);
 
   const wordsToTranslate = progress?.toTranslate ?? 0;
-  const codeExamRequests = pendingRequests?.status === "fulfilled" ? (pendingRequests.value.count ?? 0) : 0;
 
   const alerts = buildAdminAlerts({
     aiProblem: ai.ok ? null : ai.reason,
@@ -482,7 +480,6 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
     overview,
     wordsToTranslate,
     codeExamProblem: codeExam.ok ? null : codeExam.message,
-    codeExamRequests,
     supabaseLink,
   });
   const statsMissing = admin
@@ -491,7 +488,8 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
 
   return (
     // Un seul écran, téléphone compris : le graphique prend la place restante, seule la liste des comptes défile.
-    <div className="ecran-fixe flex flex-col overflow-hidden bg-bg-subtle">
+    // Écran trop bas (moins de 600 px, téléphone couché) : la page défile normalement (voir .ecran-fixe).
+    <div className="ecran-fixe flex min-h-dvh flex-col bg-bg-subtle [@media(min-height:600px)]:overflow-hidden">
       <AdminHeader />
 
       <main
@@ -550,7 +548,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
             id="activite"
             title="Questions des comptes connectés · 14 jours"
             aside={overview ? `${fmt(overview.questions7d)} sur 7 j · ${fmt(overview.questions30d)} sur 30 j` : undefined}
-            className="min-h-0 flex-1"
+            className="min-h-0 flex-1 [@media(max-height:599px)]:min-h-64"
           >
             {overview ? <ActivityChart daily={overview.daily} /> : <Unavailable>{statsMissing}</Unavailable>}
           </Card>
@@ -576,7 +574,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
             id="comptes"
             title={usersPage ? `Comptes (${fmt(usersPage.total)})` : "Comptes"}
             aside={overview ? `${fmt(overview.conversationsTotal)} conversations` : undefined}
-            className="min-h-0 flex-1"
+            className="min-h-0 flex-1 [@media(max-height:599px)]:min-h-64"
           >
             {usersPage ? (
               <>

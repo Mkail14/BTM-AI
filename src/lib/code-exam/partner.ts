@@ -2,8 +2,8 @@ import "server-only";
 
 /**
  * Réservation automatique de l'examen du code avec La Poste — EN ATTENTE DU
- * PARTENARIAT. Rien ici n'est encore branché : les demandes sont traitées à la
- * main depuis /admin/code.
+ * PARTENARIAT. Rien ici n'est encore branché : sans partenariat, une demande
+ * est une réservation d'essai (simulation), aucune vraie place n'est prise.
  *
  * Quand La Poste aura donné son accès partenaire :
  *   1. LAPOSTE_PARTNER_KEY (et l'adresse de leur API) sur le serveur ;
@@ -12,7 +12,8 @@ import "server-only";
  *   4. processBooking() fait alors tout, dans cet ordre : place réservée chez
  *      La Poste → portefeuille débité → convocation envoyée au candidat.
  *      Si le débit échoue, la place est relâchée ; si la convocation échoue,
- *      la demande reste « réservée » et l'envoi est retenté depuis /admin/code.
+ *      la demande reste « réservée » et l'envoi est à retenter (la page
+ *      d'administration du code a été retirée : à refaire avec le partenariat).
  */
 
 /** Prix de l'examen du code facturé par La Poste (30 € TTC), débité du portefeuille. */

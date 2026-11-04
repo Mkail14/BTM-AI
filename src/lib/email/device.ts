@@ -68,8 +68,18 @@ export function describePlace(headers: Headers): string | undefined {
   return place || undefined;
 }
 
-/** Adresse publique du site, pour les liens et le logo des e-mails. */
-export function siteOrigin(fallback: string) {
-  const configured = process.env.SITE_URL?.replace(/\/+$/, "");
-  return configured || fallback;
+/**
+ * Adresse publique du site, pour les liens et le logo des e-mails : SITE_URL,
+ * sinon l'adresse de production donnée par Vercel. En production, jamais
+ * l'en-tête Host de la requête (un tiers pourrait le choisir et glisser son
+ * propre site dans nos e-mails) : sans adresse connue, chaîne vide, et les
+ * e-mails partent sans lien vers le site (voir renderEmailHtml). L'adresse de
+ * la requête (fallback) ne sert qu'en développement.
+ */
+export function siteOrigin(fallback: string, env: Record<string, string | undefined> = process.env) {
+  const configured = env.SITE_URL?.trim().replace(/\/+$/, "");
+  if (configured) return configured;
+  const vercel = env.VERCEL_PROJECT_PRODUCTION_URL?.trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  if (vercel) return `https://${vercel}`;
+  return env.NODE_ENV === "production" ? "" : fallback;
 }

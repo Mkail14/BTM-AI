@@ -1,12 +1,16 @@
+import dynamic from "next/dynamic";
 import { isValidElement, memo, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { markUnknownWords } from "@/lib/language/unknown-words";
 import { BARGE_BLOCK } from "@/lib/barge/intent";
-import { BargeTickets } from "./BargeTickets";
-import { CodeExamSlots } from "./CodeExamSlots";
-import { FoodOrder } from "./FoodOrder";
 import { UnknownWord } from "./UnknownWord";
+
+// Tickets de barge, créneaux du code et commande de repas : chargés seulement
+// quand Tamilya écrit le bloc spécial (carte, QR code, formulaires…).
+const BargeTickets = dynamic(() => import("./BargeTickets").then((m) => m.BargeTickets));
+const CodeExamSlots = dynamic(() => import("./CodeExamSlots").then((m) => m.CodeExamSlots));
+const FoodOrder = dynamic(() => import("./FoodOrder").then((m) => m.FoodOrder));
 
 /** Texte brut d'un contenu Markdown rendu (le mot entre [[ ]]). */
 function textOf(node: ReactNode): string {
@@ -46,9 +50,20 @@ const components: Components = {
         {children}
       </a>
     ),
+  // Aucune image écrite par le modèle n'est chargée (elle pourrait renseigner un autre site
+  // sur la personne) : un simple lien texte, ouvert seulement si on clique.
+  img: ({ src, alt }) =>
+    typeof src === "string" && src ? (
+      <a href={src} target="_blank" rel="noopener noreferrer nofollow">
+        {alt?.trim() || "image"}
+      </a>
+    ) : (
+      <>{alt}</>
+    ),
 };
 
-const ALLOWED_PROTOCOLS = /^(https?:|mailto:|tel:|#|\/)/i;
+// « / » seul : lien du site ; « // » ou « /\ » (autre domaine) refusés.
+const ALLOWED_PROTOCOLS = /^(https?:|mailto:|tel:|#|\/(?![\/\\]))/i;
 
 function safeUrl(url: string) {
   return ALLOWED_PROTOCOLS.test(url.trim()) ? url : "";

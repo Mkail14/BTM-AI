@@ -4,15 +4,36 @@ import { describe, it } from "node:test";
 import { describeDevice } from "../src/lib/email/device";
 import { verifyHookSignature, verifyLink } from "../src/lib/email/hook";
 import { escapeHtml } from "../src/lib/email/layout";
-import { EMAIL_SAMPLES, renderSample } from "../src/lib/email/samples";
-import { formatWhen, passwordResetEmail } from "../src/lib/email/templates";
+import {
+  accountChangeEmail,
+  accountDeletedEmail,
+  formatWhen,
+  newDeviceEmail,
+  passwordChangedEmail,
+  passwordCreatedEmail,
+  passwordResetEmail,
+  welcomeEmail,
+} from "../src/lib/email/templates";
 
 const ORIGIN = "https://btm.example";
 
 describe("e-mails", () => {
-  it("rend les cinq modèles avec objet, HTML et texte, sans « undefined »", () => {
-    for (const sample of EMAIL_SAMPLES) {
-      const email = renderSample(sample.id, ORIGIN, "fatima@exemple.fr");
+  it("rend tous les modèles avec objet, HTML et texte, sans « undefined »", () => {
+    const ctx = { origin: ORIGIN, device: "Safari sur iPhone", place: "Mamoudzou, Mayotte", at: new Date() };
+    const to = "fatima@exemple.fr";
+    const link = `${ORIGIN}/auth/callback`;
+    const emails = {
+      bienvenue: welcomeEmail(link, ctx),
+      oubli: passwordResetEmail(link, to, ctx),
+      cree: passwordCreatedEmail(to, ctx),
+      modifie: passwordChangedEmail(to, ctx),
+      appareil: newDeviceEmail(to, ctx),
+      ajout: accountChangeEmail(to, { action: "ajout", what: "Une adresse de votre carnet", feminine: true, value: "Travail · Mamoudzou" }, ctx),
+      suppression: accountChangeEmail(to, { action: "suppression", what: "Votre avis sur BTM AI" }, ctx),
+      supprime: accountDeletedEmail(to, ctx),
+    };
+    for (const [id, email] of Object.entries(emails)) {
+      const sample = { id };
       assert.ok(email.subject.length > 10, sample.id);
       assert.match(email.html, /^<!DOCTYPE html>/);
       assert.match(email.html, /contact@btm\.yt/);

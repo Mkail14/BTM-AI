@@ -8,9 +8,12 @@ import { useBackToClose } from "@/components/layout/useBackToClose";
 import { IconCheck, IconClose, IconHelp, IconMail, IconSend } from "@/components/ui/icons";
 import { FAQ, HELP_TOPICS, type HelpTopic } from "@/lib/help/faq";
 
-/** Taille du rond et marge au bord de l'écran (px). */
+/** Taille du rond (ordinateur, puis téléphone sous 640 px de large) et marge au bord de l'écran (px). */
 const SIZE = 52;
+const SIZE_SMALL = 44;
 const EDGE = 16;
+/** Place par défaut : tout en bas (la position affichée est ensuite bornée à l'écran). */
+const BOTTOM = 100_000;
 /** Au-delà de ce déplacement (px), un appui devient un glisser, pas un clic. */
 const DRAG_THRESHOLD = 6;
 const STORAGE_KEY = "aide-rond";
@@ -19,7 +22,7 @@ type Spot = { side: "left" | "right"; y: number };
 type Tab = "faq" | "chat" | "email";
 type Turn = { role: "user" | "assistant"; content: string };
 
-const clampY = (y: number) => Math.min(Math.max(y, EDGE), window.innerHeight - SIZE - EDGE);
+const clampY = (y: number, size: number) => Math.min(Math.max(y, EDGE), window.innerHeight - size - EDGE);
 
 /**
  * Rond d'aide, sur toutes les pages (sauf l'administration) : on le fait
@@ -32,6 +35,7 @@ export function HelpBubble() {
   const [spot, setSpot] = useState<Spot | null>(null);
   const [drag, setDrag] = useState<{ x: number; y: number } | null>(null);
   const [open, setOpen] = useState(false);
+  const [small, setSmall] = useState(false);
   const gesture = useRef<{ startX: number; startY: number; offsetX: number; offsetY: number; moved: boolean } | null>(null);
   // Un glisser se termine par un « click » du navigateur : on l'ignore pour ne pas ouvrir l'aide.
   const dragged = useRef(false);
@@ -40,6 +44,9 @@ export function HelpBubble() {
   const dismiss = useBackToClose(open, close);
 
   // Position lue après le montage (la taille de l'écran n'est connue que dans le navigateur).
+  // On garde la hauteur voulue telle quelle : c'est l'affichage (CSS) qui la borne à
+  // l'écran. Ainsi, quand le clavier du téléphone réduit l'écran puis se ferme, le
+  // rond revient à sa place au lieu de rester remonté sur le bouton Envoyer.
   useEffect(() => {
     let saved: Spot | null = null;
     try {
@@ -48,12 +55,15 @@ export function HelpBubble() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSpot(
       saved && (saved.side === "left" || saved.side === "right") && Number.isFinite(saved.y)
-        ? { side: saved.side, y: clampY(saved.y) }
-        : { side: "right", y: clampY(window.innerHeight - SIZE - 120) },
+        ? { side: saved.side, y: saved.y }
+        : { side: "right", y: BOTTOM },
     );
-    const onResize = () => setSpot((s) => (s ? { ...s, y: clampY(s.y) } : s));
-    window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    // Téléphone : rond un peu plus petit.
+    const narrow = window.matchMedia("(max-width: 639px)");
+    const onChange = () => setSmall(narrow.matches);
+    onChange();
+    narrow.addEventListener("change", onChange);
+    return () => narrow.removeEventListener("change", onChange);
   }, []);
 
   useEffect(() => {
@@ -64,6 +74,7 @@ export function HelpBubble() {
   }, [open, dismiss]);
 
   if (!spot || pathname.startsWith("/admin")) return null;
+  const size = small ? SIZE_SMALL : SIZE;
 
   const onPointerDown = (e: ReactPointerEvent<HTMLButtonElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();
@@ -78,8 +89,8 @@ export function HelpBubble() {
     if (!g.moved && Math.hypot(e.clientX - g.startX, e.clientY - g.startY) < DRAG_THRESHOLD) return;
     g.moved = true;
     setDrag({
-      x: Math.min(Math.max(e.clientX - g.offsetX, 0), window.innerWidth - SIZE),
-      y: Math.min(Math.max(e.clientY - g.offsetY, 0), window.innerHeight - SIZE),
+      x: Math.min(Math.max(e.clientX - g.offsetX, 0), window.innerWidth - size),
+      y: Math.min(Math.max(e.clientY - g.offsetY, 0), window.innerHeight - size),
     });
   };
 
@@ -92,7 +103,7 @@ export function HelpBubble() {
     }
     dragged.current = true;
     // Lâché : il se range contre le bord le plus proche.
-    const next: Spot = { side: drag.x + SIZE / 2 < window.innerWidth / 2 ? "left" : "right", y: clampY(drag.y) };
+    const next: Spot = { side: drag.x + size / 2 < window.innerWidth / 2 ? "left" : "right", y: clampY(drag.y, size) };
     setSpot(next);
     setDrag(null);
     try {
@@ -100,11 +111,13 @@ export function HelpBubble() {
     } catch {}
   };
 
+  // Bornée à l'écran visible, au-dessus de la barre d'accueil de l'iPhone.
+  const top = `max(${EDGE}px, min(${spot.y}px, calc(100dvh - ${size + EDGE}px - env(safe-area-inset-bottom))))`;
   const style = drag
     ? { left: drag.x, top: drag.y }
     : spot.side === "left"
-      ? { left: EDGE, top: spot.y }
-      : { right: EDGE, top: spot.y };
+      ? { left: EDGE, top }
+      : { right: EDGE, top };
 
   return (
     <>
@@ -112,7 +125,7 @@ export function HelpBubble() {
         <>
           {/* Fond flouté et un peu assombri derrière l'aide ; un clic dessus la ferme. */}
           <div aria-hidden="true" onClick={dismiss} className="help-backdrop fixed inset-0 z-[57] bg-black/20 backdrop-blur-md" />
-          <HelpPanel side={spot.side} anchorY={spot.y} onClose={dismiss} onLeave={close} />
+          <HelpPanel side={spot.side} anchorY={clampY(spot.y, size)} size={size} onClose={dismiss} onLeave={close} />
         </>
       ) : null}
       <button
@@ -133,7 +146,7 @@ export function HelpBubble() {
           gesture.current = null;
           setDrag(null);
         }}
-        style={{ ...style, width: SIZE, height: SIZE }}
+        style={{ ...style, width: size, height: size }}
         data-dragging={drag ? "" : undefined}
         className={`help-bubble btn-rose btn-rose--icon btn-rose--lagon fixed z-[58] touch-none shadow-lg select-none ${open ? "max-sm:hidden" : ""}`}
       >
@@ -144,7 +157,19 @@ export function HelpBubble() {
 }
 
 /** `onClose` : croix, Échap, fond ; `onLeave` : lien suivi vers une autre page (garde l'historique de la navigation). */
-function HelpPanel({ side, anchorY, onClose, onLeave }: { side: "left" | "right"; anchorY: number; onClose: () => void; onLeave: () => void }) {
+function HelpPanel({
+  side,
+  anchorY,
+  size,
+  onClose,
+  onLeave,
+}: {
+  side: "left" | "right";
+  anchorY: number;
+  size: number;
+  onClose: () => void;
+  onLeave: () => void;
+}) {
   const [tab, setTab] = useState<Tab>("faq");
   const panel = useRef<HTMLDivElement>(null);
 
@@ -154,8 +179,8 @@ function HelpPanel({ side, anchorY, onClose, onLeave }: { side: "left" | "right"
 
   // Ordinateur : à côté du rond, à sa hauteur autant que possible. Téléphone : panneau qui monte du bas.
   const height = Math.min(600, window.innerHeight - 2 * EDGE);
-  const top = Math.min(Math.max(anchorY + SIZE - height, EDGE), window.innerHeight - height - EDGE);
-  const offset = EDGE + SIZE + 12;
+  const top = Math.min(Math.max(anchorY + size - height, EDGE), window.innerHeight - height - EDGE);
+  const offset = EDGE + size + 12;
 
   return (
     <div
@@ -192,7 +217,7 @@ function HelpPanel({ side, anchorY, onClose, onLeave }: { side: "left" | "right"
             role="tab"
             aria-selected={tab === id}
             onClick={() => setTab(id)}
-            className={`rounded-lg py-1.5 font-medium transition-colors ${tab === id ? "bg-bg-muted text-fg" : "text-fg-muted hover:text-fg"}`}
+            className={`rounded-lg py-2.5 font-medium transition-colors ${tab === id ? "bg-bg-muted text-fg" : "text-fg-muted hover:text-fg"}`}
           >
             {label}
           </button>
@@ -269,6 +294,9 @@ function FaqTab({ onClose, onAsk }: { onClose: () => void; onAsk: () => void }) 
   );
 }
 
+/** Longueur maximale de chaque tour envoyé à l'assistant d'aide. */
+const TURN_MAX = 1500;
+
 function ChatTab({ onWrite }: { onWrite: () => void }) {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [text, setText] = useState("");
@@ -284,7 +312,8 @@ function ChatTab({ onWrite }: { onWrite: () => void }) {
     e.preventDefault();
     const question = text.trim();
     if (!question || pending) return;
-    const next = [...turns, { role: "user" as const, content: question.slice(0, 1500) }].slice(-12);
+    const before = turns;
+    const next = [...turns, { role: "user" as const, content: question.slice(0, TURN_MAX) }].slice(-12);
     setTurns(next);
     setText("");
     setPending(true);
@@ -293,12 +322,16 @@ function ChatTab({ onWrite }: { onWrite: () => void }) {
       const res = await fetch("/api/aide", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "chat", messages: next }),
+        // Chaque tour est raccourci : une longue réponse de l'assistant ne doit pas faire refuser la question suivante.
+        body: JSON.stringify({ kind: "chat", messages: next.map((t) => ({ ...t, content: t.content.slice(0, TURN_MAX) })) }),
       });
       const data = (await res.json().catch(() => ({}))) as { answer?: string; error?: string };
       if (!res.ok || !data.answer) throw new Error(data.error ?? "L'assistant n'a pas pu répondre.");
       setTurns([...next, { role: "assistant", content: data.answer }]);
     } catch (err) {
+      // La question restée sans réponse quitte l'historique (sinon elle repartirait en double) et revient dans le champ.
+      setTurns(before);
+      setText((current) => current || question);
       setError(err instanceof Error ? err.message : "L'assistant n'a pas pu répondre.");
     } finally {
       setPending(false);
@@ -343,7 +376,7 @@ function ChatTab({ onWrite }: { onWrite: () => void }) {
           id="help-question"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          maxLength={1500}
+          maxLength={TURN_MAX}
           autoComplete="off"
           placeholder="Ta question…"
           className="min-w-0 flex-1 rounded-full border border-border bg-bg-subtle px-4 py-2 text-base outline-none focus:border-accent sm:text-sm"

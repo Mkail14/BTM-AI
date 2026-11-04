@@ -15,7 +15,8 @@ const fail = (status: number, message: string) => NextResponse.json({ error: mes
 /**
  * Paiement de la place : « demo » débite le portefeuille fictif, « partner »
  * le vrai (réservation automatique La Poste), « manual » ne débite rien :
- * GROUPE BTM réserve à la main puis recontacte le candidat.
+ * simulation (réservation d'essai), la demande passe « réservée » tout de suite
+ * sans qu'aucune vraie place soit prise.
  */
 export type BookingPayment = { mode: "demo" | "partner" | "manual"; feeCents: number; balanceCents: number };
 
@@ -52,6 +53,8 @@ export async function GET() {
     supabase
       .from("code_exam_requests")
       .select("civility, last_name, first_name, birth_date, city, phone, email, neph")
+      // Toujours la demande de CE compte (un administrateur lit toutes les demandes avec la RLS).
+      .eq("user_id", user.id)
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
@@ -77,13 +80,22 @@ export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return fail(403, "Requête refusée.");
   const { supabase, user } = await getAuthContext();
   if (!supabase || !user) return fail(401, "Connecte-toi pour réserver.");
+  // Les demandes ne s'écrivent qu'avec la clé secrète du serveur (jamais avec les droits du compte).
+  const admin = getSupabaseAdminClient();
+  if (!admin) return fail(503, "La réservation du code n'est pas disponible pour le moment.");
 
-  const limit = await consumeRateLimits([{ key: `code-exam:${user.id}`, rules: RATE_LIMIT_POLICIES.codeExamRequest }]);
-  if (!limit.allowed) return fail(429, "Trop de demandes d'un coup : réessaie dans une heure.");
-
+  // Informations vérifiées avant de compter un essai : une faute de saisie ne consomme pas le quota.
   const parsed = requestSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail(400, parsed.error.issues[0]?.message ?? "Informations invalides.");
   const body = parsed.data;
+
+  try {
+    const limit = await consumeRateLimits([{ key: `code-exam:${user.id}`, rules: RATE_LIMIT_POLICIES.codeExamRequest }]);
+    if (!limit.allowed) return fail(429, "Trop de demandes d'un coup : réessaie dans une heure.");
+  } catch (error) {
+    console.error("[code-exam] Limite de débit indisponible", error);
+    return fail(503, "Service momentanément indisponible : réessaie dans un instant.");
+  }
 
   // Le créneau existe-t-il encore, avec des places, et pour cette épreuve ?
   // Relu sur La Poste à l'instant : une place affichée il y a 5 minutes a pu partir.
@@ -106,7 +118,8 @@ export async function POST(request: NextRequest) {
 
   // Écrite par le serveur seul (clé secrète), après les vérifications ci-dessus : un compte
   // ne peut pas créer de demande « payée » ni pour un faux créneau en appelant la base.
-  const { data: saved, error } = await (getSupabaseAdminClient() ?? supabase).from("code_exam_requests").insert({
+  // Démonstration et simulation : la demande est enregistrée directement « réservée ».
+  const { data: saved, error } = await admin.from("code_exam_requests").insert({
     user_id: user.id,
     center_id: center.id,
     center_name: center.name,
@@ -121,6 +134,7 @@ export async function POST(request: NextRequest) {
     email: body.email,
     neph: body.neph,
     snu: body.snu,
+    status: payment.mode === "partner" ? "pending" : "booked",
   }).select("id").single();
   if (error || !saved) {
     console.error("[code-exam] Demande non enregistrée", error);
@@ -128,13 +142,22 @@ export async function POST(request: NextRequest) {
   }
 
   if (payment.mode === "demo") {
+    // Démonstration : aucune convocation n'est envoyée. Débit impossible : la demande est retirée,
+    // pour ne jamais laisser une réservation « confirmée » sans paiement.
     const paid = await recordDemoOperation(user.id, "payment", payment.feeCents, `Examen du code · ${center.name}`);
-    if (!paid) return fail(402, "Solde insuffisant.");
-    // Démonstration : la demande passe directement « réservée » (aucune convocation n'est envoyée).
-    await getSupabaseAdminClient()?.from("code_exam_requests").update({ status: "booked" }).eq("id", saved.id);
+    if (!paid) {
+      await admin.from("code_exam_requests").delete().eq("id", saved.id);
+      return fail(402, "Solde insuffisant.");
+    }
     return NextResponse.json({ ok: true, mode: payment.mode, paidCents: payment.feeCents, balanceCents: paid.balanceCents });
   }
+  if (payment.mode === "manual") {
+    // Simulation (pas encore de partenariat La Poste) : rien n'est débité, aucune vraie place
+    // n'est prise. La cloche et le dossier l'appellent « réservation d'essai (simulation) ».
+    return NextResponse.json({ ok: true, mode: payment.mode, paidCents: 0 });
+  }
   // payment.mode === "partner" : processBooking() (src/lib/code-exam/partner.ts) réservera, débitera
-  // et enverra la convocation ; tant qu'il n'est pas écrit, la demande reste à traiter dans /admin/code.
+  // et enverra la convocation ; tant qu'il n'est pas écrit, la demande reste « en attente » dans la
+  // table code_exam_requests (la page d'administration du code a été retirée).
   return NextResponse.json({ ok: true, mode: payment.mode, paidCents: 0 });
 }

@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { ChatView } from "@/components/chat/ChatView";
 import { loadAnonymousDraft } from "@/lib/chat/anonymous-draft";
 import type { PublicReview } from "@/lib/reviews/rules";
 import type { Announcement } from "@/lib/site/announcement-rules";
@@ -15,6 +14,27 @@ const MORPH_SETTLE_MS = 90;
 
 type Phase = "landing" | "leaving" | "chat";
 
+type ChatViewComponent = typeof import("@/components/chat/ChatView").ChatView;
+
+/**
+ * La conversation (Markdown, commandes, carte…) n'est pas envoyée avec la page
+ * d'accueil : elle est chargée à part, dès que le visiteur s'approche du champ
+ * (survol, toucher, clavier) ou quand le navigateur n'a plus rien à faire.
+ * Import à la main plutôt que next/dynamic : une fois chargée, la conversation
+ * s'affiche dans le même rendu (flushSync de la morphose), sans attente de Suspense.
+ */
+let chatModule: Promise<ChatViewComponent> | null = null;
+function loadChatView(): Promise<ChatViewComponent> {
+  if (!chatModule) {
+    chatModule = import("@/components/chat/ChatView").then((m) => m.ChatView);
+    // Échec (réseau) : on pourra réessayer au geste suivant.
+    chatModule.catch(() => {
+      chatModule = null;
+    });
+  }
+  return chatModule;
+}
+
 /**
  * Accueil des visiteurs sans compte : la page de présentation de Tamilya par-dessus
  * la conversation. Quand on lui parle, le message part tout de suite et la
@@ -24,7 +44,43 @@ export function GuestHome({ reviews, announcement }: { reviews: PublicReview[]; 
   const [phase, setPhase] = useState<Phase>("landing");
   const [prompt, setPrompt] = useState<string | null>(null);
   const [hasDraft, setHasDraft] = useState(false);
+  const [Chat, setChat] = useState<ChatViewComponent | null>(null);
   const timer = useRef<number | null>(null);
+  const starting = useRef(false);
+
+  // Chargement de la conversation : au premier geste vers le champ, sinon au repos du navigateur.
+  useEffect(() => {
+    let alive = true;
+    const events = ["focusin", "pointerdown", "keydown", "touchstart"] as const;
+    const stopListening = () => {
+      for (const name of events) document.removeEventListener(name, warm);
+      document.removeEventListener("pointerover", near);
+    };
+    function warm() {
+      stopListening();
+      void loadChatView().then(
+        (component) => {
+          if (alive) setChat(() => component);
+        },
+        () => {},
+      );
+    }
+    // Survol du champ (ou d'un bouton) : le visiteur va sans doute écrire.
+    function near(event: Event) {
+      if (event.target instanceof Element && event.target.closest(".landing-input, button, a")) warm();
+    }
+    for (const name of events) document.addEventListener(name, warm, { passive: true });
+    document.addEventListener("pointerover", near, { passive: true });
+    const idle = window.setTimeout(() => {
+      if ("requestIdleCallback" in window) window.requestIdleCallback(warm, { timeout: 3000 });
+      else warm();
+    }, 2500);
+    return () => {
+      alive = false;
+      stopListening();
+      window.clearTimeout(idle);
+    };
+  }, []);
 
   useEffect(() => {
     // Conversation d'essai déjà commencée sur cet appareil (localStorage) : proposée en reprise.
@@ -46,8 +102,25 @@ export function GuestHome({ reviews, announcement }: { reviews: PublicReview[]; 
   }, [phase]);
 
   const go = (message: string | null) => {
-    if (phase !== "landing") return;
+    if (phase !== "landing" || starting.current) return;
+    starting.current = true;
+    // Conversation déjà chargée (cas habituel) : on part tout de suite. Sinon on
+    // l'attend (le message est gardé) ; en cas d'échec, le visiteur peut renvoyer.
+    if (Chat) {
+      start(message, Chat);
+      return;
+    }
+    loadChatView().then(
+      (component) => start(message, component),
+      () => {
+        starting.current = false;
+      },
+    );
+  };
+
+  const start = (message: string | null, component: ChatViewComponent) => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setChat(() => component);
       setPrompt(message);
       setPhase("chat");
       return;
@@ -60,6 +133,7 @@ export function GuestHome({ reviews, announcement }: { reviews: PublicReview[]; 
       const transition = document.startViewTransition(async () => {
         html.dataset.morph = "arrivee";
         flushSync(() => {
+          setChat(() => component);
           setPrompt(message);
           setPhase("chat");
         });
@@ -69,6 +143,7 @@ export function GuestHome({ reviews, announcement }: { reviews: PublicReview[]; 
       void transition.finished.finally(() => delete html.dataset.morph);
       return;
     }
+    setChat(() => component);
     setPrompt(message);
     setPhase("leaving");
     timer.current = window.setTimeout(() => setPhase("chat"), LEAVE_MS);
@@ -76,7 +151,7 @@ export function GuestHome({ reviews, announcement }: { reviews: PublicReview[]; 
 
   return (
     <>
-      <ChatView key="accueil" conversationId={null} initialMessages={[]} startWith={prompt} />
+      {Chat ? <Chat key="accueil" conversationId={null} initialMessages={[]} startWith={prompt} /> : null}
       {phase !== "chat" ? (
         <GuestLanding
           reviews={reviews}

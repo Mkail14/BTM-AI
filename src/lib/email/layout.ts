@@ -99,8 +99,24 @@ function alertBox(alert: NonNullable<EmailContent["alert"]>) {
 </table>`;
 }
 
-export function renderEmailHtml(content: EmailContent, origin: string) {
+/** Lien complet (https://…) ? Sans adresse du site connue (siteOrigin vide), les liens relatifs sont retirés. */
+const isAbsolute = (url: string) => /^https?:[/][/]/i.test(url);
+
+/** Bouton et lien de l'encadré gardés seulement s'ils mènent quelque part. */
+function withAbsoluteLinks(content: EmailContent): EmailContent {
+  return {
+    ...content,
+    button: content.button && isAbsolute(content.button.url) ? content.button : undefined,
+    alert: content.alert && { ...content.alert, link: content.alert.link && isAbsolute(content.alert.link.url) ? content.alert.link : undefined },
+  };
+}
+
+export function renderEmailHtml(fullContent: EmailContent, origin: string) {
+  const content = withAbsoluteLinks(fullContent);
   const logo = `${origin}/brand/btm-ai-encre.png`;
+  const header = isAbsolute(origin)
+    ? `<a href="${escapeHtml(origin)}" target="_blank"><img src="${escapeHtml(logo)}" width="104" height="48" alt="BTM AI" style="display:block;border:0;width:104px;height:auto;"></a>`
+    : `<strong style="font:700 22px/1 ${FONT};color:${C.ink};">BTM AI</strong>`;
   const fallback = content.button
     ? paragraph(`Le bouton ne s'ouvre pas ? Copiez cette adresse dans votre navigateur :`, `font-size:13px;color:${C.muted};margin-bottom:4px;`) +
       `<p style="margin:0 0 24px;font:400 12px/1.5 ${FONT};word-break:break-all;"><a href="${escapeHtml(content.button.url)}" style="color:${C.accent};">${escapeHtml(content.button.url)}</a></p>`
@@ -123,7 +139,7 @@ export function renderEmailHtml(content: EmailContent, origin: string) {
       <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:560px;">
         <tr>
           <td style="padding:0 8px 22px;">
-            <a href="${escapeHtml(origin)}" target="_blank"><img src="${escapeHtml(logo)}" width="104" height="48" alt="BTM AI" style="display:block;border:0;width:104px;height:auto;"></a>
+            ${header}
           </td>
         </tr>
         <tr>
@@ -173,7 +189,8 @@ export function renderEmailHtml(content: EmailContent, origin: string) {
 }
 
 /** Version texte, pour les messageries sans HTML et les filtres anti-spam. */
-export function renderEmailText(content: EmailContent) {
+export function renderEmailText(fullContent: EmailContent) {
+  const content = withAbsoluteLinks(fullContent);
   const strip = (s: string) => s.replace(/\*\*(.+?)\*\*/g, "$1");
   const lines = [
     strip(content.title),

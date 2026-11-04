@@ -58,11 +58,11 @@ export function ProfileForm({ displayName }: { displayName: string | null }) {
           defaultValue={displayName ?? ""}
           maxLength={60}
           autoComplete="nickname"
-          placeholder="Votre prénom"
+          placeholder="Ton prénom"
           autoFocus
           className="mt-1.5 w-full rounded-xl border border-border bg-bg px-3 py-2.5 outline-none transition focus:border-accent focus:ring-4 focus:ring-accent-soft"
         />
-        <p className="mt-1.5 text-xs text-fg-muted">Visible uniquement par vous, dans le menu.</p>
+        <p className="mt-1.5 text-xs text-fg-muted">Affiché dans le menu, et sous la forme « Prénom N. » si tu publies un avis.</p>
       </div>
       <div className="flex items-center gap-3">
         <button

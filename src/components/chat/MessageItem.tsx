@@ -41,7 +41,7 @@ function Action({ label, onClick, children }: { label: string; onClick: () => vo
       onClick={onClick}
       aria-label={label}
       title={label}
-      className="grid size-8 place-items-center rounded-lg text-fg-muted transition hover:bg-bg-muted hover:text-fg"
+      className="grid size-8 place-items-center rounded-lg text-fg-muted transition pointer-coarse:size-10 hover:bg-bg-muted hover:text-fg"
     >
       {children}
     </button>
@@ -119,7 +119,7 @@ export const MessageItem = memo(function MessageItem({
   if (message.role === "user") {
     return (
       <article className="group relative flex flex-col items-end">
-        <h3 className="sr-only">Vous avez écrit :</h3>
+        <h3 className="sr-only">Tu as écrit :</h3>
         <div className="max-w-[88%] rounded-3xl rounded-br-lg bg-[var(--persona-soft,var(--bg-muted))] px-4 py-2.5 leading-relaxed whitespace-pre-wrap break-words sm:max-w-[75%]">
           {message.content}
         </div>

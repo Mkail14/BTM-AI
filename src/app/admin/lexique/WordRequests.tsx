@@ -82,7 +82,7 @@ export function WordRequests({ rows, unavailable }: { rows: WordRequestRow[]; un
         <h2 id="requests-title" className="font-semibold">
           À traduire {rows.length > 0 ? <span className="text-accent">({rows.length})</span> : null}
         </h2>
-        <span className="text-xs text-fg-muted">Mots qu&apos;Tamilya n&apos;a pas compris</span>
+        <span className="text-xs text-fg-muted">Mots que Tamilya n&apos;a pas compris</span>
       </div>
       {unavailable ? (
         <p className="mt-3 text-sm text-fg-muted">

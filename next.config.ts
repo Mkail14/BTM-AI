@@ -6,6 +6,8 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+  // HTTPS imposé au navigateur pendant 2 ans, sous-domaines compris (ignoré en http://localhost).
+  { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains" },
   {
     key: "Permissions-Policy",
     // microphone et geolocation=(self) : micro du chat et position GPS (adresse, livraison), pour le site lui-même uniquement.

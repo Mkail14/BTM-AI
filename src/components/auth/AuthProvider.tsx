@@ -4,7 +4,12 @@ import { useRouter } from "next/navigation";
 import { createContext, use, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { PersonalityId } from "@/lib/ai/personalities";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { AuthDialog, type AuthDialogOptions } from "./AuthDialog";
+import dynamic from "next/dynamic";
+import type { AuthDialogOptions } from "./AuthDialog";
+
+// Fenêtre de connexion / inscription : chargée à sa première ouverture
+// (formulaires, adresse, validation), pas sur chaque page.
+const AuthDialog = dynamic(() => import("./AuthDialog").then((m) => m.AuthDialog), { ssr: false });
 
 export type AuthUser = {
   id: string;
@@ -61,6 +66,9 @@ export function AuthProvider({
   const [user, setUser] = useState(initialUser);
   const [dialog, setDialog] = useState<AuthDialogOptions | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  // La fenêtre n'existe qu'après sa première ouverture, puis reste en place (fermeture normale).
+  const [dialogMounted, setDialogMounted] = useState(false);
+  if (dialog && !dialogMounted) setDialogMounted(true);
 
   // Retour d'un lien de confirmation (voir /auth/callback) : on informe
   // l'utilisateur, puis on retire le paramètre de l'adresse.
@@ -76,11 +84,11 @@ export function AuthProvider({
 
     /* eslint-disable react-hooks/set-state-in-effect -- lecture de l'URL après le rendu serveur */
     if (welcome) {
-      setNotice("Votre compte est activé. Bienvenue sur BTM AI !");
+      setNotice("Ton compte est activé. Bienvenue sur BTM AI !");
     } else {
       setDialog({
         mode: "signin",
-        reason: "Votre adresse e-mail est confirmée. Connectez-vous pour terminer.",
+        reason: "Ton adresse e-mail est confirmée. Connecte-toi pour terminer.",
       });
     }
     /* eslint-enable react-hooks/set-state-in-effect */
@@ -170,17 +178,19 @@ export function AuthProvider({
           </p>
         ) : null}
       </div>
-      <AuthDialog
-        options={dialog}
-        authAvailable={authAvailable}
-        onClose={() => setDialog(null)}
-        onSignedIn={(signedInUser, next) => {
-          setUser(signedInUser);
-          setDialog(null);
-          if (next) router.push(next);
-          router.refresh();
-        }}
-      />
+      {dialogMounted ? (
+        <AuthDialog
+          options={dialog}
+          authAvailable={authAvailable}
+          onClose={() => setDialog(null)}
+          onSignedIn={(signedInUser, next) => {
+            setUser(signedInUser);
+            setDialog(null);
+            if (next) router.push(next);
+            router.refresh();
+          }}
+        />
+      ) : null}
     </AuthContext>
   );
 }

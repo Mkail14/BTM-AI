@@ -51,7 +51,7 @@ const resetUrl = (origin: string) => `${origin}/auth/mot-de-passe-oublie`;
 /** 1. Inscription : bienvenue et confirmation de l'adresse. */
 export function welcomeEmail(confirmUrl: string, ctx: EmailContext) {
   return render(
-    "Bienvenue sur BTM AI, plus qu'un clic",
+    "Bienvenue sur BTM AI : plus qu'un clic pour commencer",
     {
       preheader: "Confirmez votre adresse et Tamilya est à vous.",
       eyebrow: "Bienvenue",
@@ -63,7 +63,7 @@ export function welcomeEmail(confirmUrl: string, ctx: EmailContext) {
       button: { label: "Confirmer mon adresse", url: confirmUrl },
       after: [
         "Ensuite, Tamilya vous attend. Démarches, vie quotidienne à Mayotte, une lettre à écrire ou une idée à creuser : posez-lui vos questions, en français ou en shimaoré. Vos conversations restent enregistrées et vous les retrouvez sur tous vos appareils.",
-        "Pour votre sécurité, ce lien ne sert qu'une fois et expire au bout de quelque temps. Vous n'avez pas créé de compte ? Ignorez ce message, rien ne sera activé.",
+        "Pour votre sécurité, ce lien est valable 1 heure et ne sert qu'une fois. Vous n'avez pas créé de compte ? Ignorez ce message, rien ne sera activé.",
       ],
       reason: "Vous recevez cet e-mail parce qu'un compte BTM AI vient d'être créé avec cette adresse.",
     },
@@ -168,6 +168,68 @@ export function newDeviceEmail(email: string, ctx: EmailContext) {
   );
 }
 
+/** Ce qui a changé sur le compte : ajout, modification ou suppression. */
+export type AccountChange = {
+  action: "ajout" | "modification" | "suppression";
+  /** « Votre numéro de téléphone », « Une adresse de votre carnet »… */
+  what: string;
+  /** Détail affiché (déjà masqué si sensible) : « 06 •• •• •• 56 », « Travail · Mamoudzou ». */
+  value?: string;
+  /** Accord au féminin (« une adresse a été ajoutée »). */
+  feminine?: boolean;
+};
+
+const CHANGE_VERB = { ajout: "a été ajouté", modification: "a été modifié", suppression: "a été supprimé" } as const;
+const CHANGE_TITLE = { ajout: "Ajout sur votre compte", modification: "Modification de votre compte", suppression: "Suppression sur votre compte" } as const;
+
+/** 6. Un changement dans les Paramètres (nom, téléphone, adresses, avis, souvenirs). */
+export function accountChangeEmail(email: string, change: AccountChange, ctx: EmailContext) {
+  const sentence = `${change.what} ${CHANGE_VERB[change.action]}${change.feminine ? "e" : ""}`;
+  return render(
+    `${CHANGE_TITLE[change.action]} : ${change.what.charAt(0).toLowerCase()}${change.what.slice(1)}`,
+    {
+      preheader: `${sentence}. Si c'est vous, tout est en ordre.`,
+      eyebrow: CHANGE_TITLE[change.action],
+      title: `${sentence}`,
+      paragraphs: ["Bonjour,", `Sur le compte **${email}**, ${sentence.charAt(0).toLowerCase()}${sentence.slice(1)}.`],
+      details: [...(change.value ? [{ label: "Détail", value: change.value }] : []), ...contextDetails(ctx)],
+      after: ["Si c'est vous, tout est en ordre : vous n'avez rien à faire."],
+      button: { label: "Voir mes paramètres", url: `${ctx.origin}/parametres` },
+      alert: {
+        title: "Ce n'était pas vous ?",
+        text: "Changez votre mot de passe sans attendre, puis écrivez-nous à **contact@btm.yt**.",
+        link: { label: "Changer mon mot de passe", url: resetUrl(ctx.origin) },
+      },
+      reason: "Vous recevez cet e-mail à chaque ajout, modification ou suppression sur votre compte BTM AI.",
+    },
+    ctx.origin,
+  );
+}
+
+/** 7. Compte supprimé : dernier message, sans bouton vers le site. */
+export function accountDeletedEmail(email: string, ctx: EmailContext) {
+  return render(
+    "Votre compte BTM AI a été supprimé",
+    {
+      preheader: "Vos conversations et vos données ont été effacées.",
+      eyebrow: "Compte supprimé",
+      title: "Au revoir, et merci",
+      paragraphs: [
+        "Bonjour,",
+        `Le compte **${email}** a été supprimé, comme demandé. Vos conversations, vos adresses et vos informations ont été effacées.`,
+      ],
+      details: contextDetails(ctx),
+      after: ["Vous pourrez toujours créer un nouveau compte plus tard : Tamilya sera là."],
+      alert: {
+        title: "Ce n'était pas vous ?",
+        text: "Écrivez-nous tout de suite à **contact@btm.yt**.",
+      },
+      reason: "Vous recevez cet e-mail parce que votre compte BTM AI vient d'être supprimé.",
+    },
+    ctx.origin,
+  );
+}
+
 /** Autres e-mails de Supabase (lien de connexion, changement d'adresse, code) : même habillage. */
 export function genericLinkEmail(kind: "magiclink" | "email_change" | "invite", link: string, ctx: EmailContext) {
   const copy = {
@@ -184,9 +246,9 @@ export function genericLinkEmail(kind: "magiclink" | "email_change" | "invite", 
       label: "Confirmer l'adresse",
     },
     invite: {
-      subject: "Vous êtes invité sur BTM AI",
+      subject: "Vous êtes invité(e) sur BTM AI",
       title: "Une place vous attend",
-      text: "Vous êtes invité à rejoindre BTM AI, l'assistante de GROUPE BTM pour Mayotte. Acceptez l'invitation pour créer votre compte.",
+      text: "Vous êtes invité(e) à rejoindre BTM AI, le site où l'on parle avec Tamilya, l'assistante de GROUPE BTM. Acceptez l'invitation pour créer votre compte.",
       label: "Accepter l'invitation",
     },
   }[kind];

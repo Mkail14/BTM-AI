@@ -74,4 +74,31 @@ describe("mots à apprendre remplacés par le shimaoré appris", () => {
     assert.equal(fillKnownWords("[[marche]]", table), "bazari");
     assert.equal(fillKnownWords("[[voiture]]", table), "[[voiture]]");
   });
+
+  // Phrases réellement corrigées par le maître, puis redites autrement par Tamilya.
+  const taught = translationTable([
+    { french: "Voici les tacos disponibles près de chez toi", shimaore: "Galiya au tacos zi liyo karibou na haho" },
+    { french: "De Trévani jusqu'à Mamoudzou", shimaore: "Trévani taa Mamoudzou" },
+    { french: "pôle emploi", shimaore: "France Travail" },
+    { french: "merci", shimaore: "marahaba" },
+  ]);
+
+  it("une phrase apprise redite avec un mot en plus", () => {
+    assert.equal(fillKnownWords("[[Voici les meilleurs tacos disponibles près de chez toi]] !", taught), "Galiya au tacos zi liyo karibou na haho !");
+    assert.equal(fillKnownWords("[[Voici les délicieux tacos disponibles près de chez toi]]", taught), "Galiya au tacos zi liyo karibou na haho");
+  });
+
+  it("un morceau appris au milieu d'une phrase plus longue", () => {
+    assert.equal(
+      fillKnownWords("[[De Trévani jusqu'à Mamoudzou, le taxi coûte 3 €]]", taught),
+      "Trévani taa Mamoudzou, [[le taxi coûte 3 €]]",
+    );
+    assert.equal(fillKnownWords("[[Va au pôle emploi]]", taught), "[[Va au]] France Travail");
+  });
+
+  it("une phrase trop différente reste à apprendre", () => {
+    assert.equal(fillKnownWords("[[Voici les pizzas]]", taught), "[[Voici les pizzas]]");
+    // Un mot seul ne remplace pas un bout de phrase.
+    assert.equal(fillKnownWords("[[merci pour tout]]", taught), "[[merci pour tout]]");
+  });
 });

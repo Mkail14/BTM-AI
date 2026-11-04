@@ -19,6 +19,17 @@ export function UnknownWord({ french, children }: { french: string; children: Re
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const rootRef = useRef<HTMLSpanElement>(null);
+  // Décalage horizontal de la case (px) pour qu'elle reste dans l'écran, même avec un mot tout à droite.
+  const [shift, setShift] = useState(0);
+
+  function toggle() {
+    if (!open) {
+      const start = rootRef.current?.getClientRects()[0]?.left ?? 0;
+      const width = Math.min(256, window.innerWidth - 32);
+      setShift(Math.min(Math.max(start, 16), window.innerWidth - width - 16) - start);
+    }
+    setOpen((o) => !o);
+  }
 
   // Clic en dehors : la case se ferme.
   useEffect(() => {
@@ -53,7 +64,7 @@ export function UnknownWord({ french, children }: { french: string; children: Re
     <span ref={rootRef} className="relative inline">
       <button
         type="button"
-        onClick={() => setOpen((o) => !o)}
+        onClick={toggle}
         aria-expanded={open}
         title="Donner la traduction en shimaoré"
         className={`${markClass} cursor-pointer underline decoration-amber-500/60 decoration-dotted underline-offset-4 hover:bg-amber-400/35`}
@@ -61,7 +72,10 @@ export function UnknownWord({ french, children }: { french: string; children: Re
         {children}
       </button>
       {open ? (
-        <span className="absolute top-full left-0 z-20 mt-1.5 block w-64 rounded-xl border border-border bg-bg p-2 shadow-xl">
+        <span
+          style={{ left: shift }}
+          className="absolute top-full z-20 mt-1.5 block w-[min(16rem,calc(100vw-2rem))] rounded-xl border border-border bg-bg p-2 shadow-xl"
+        >
           <span className="block px-1 pb-1.5 text-xs text-fg-muted">
             « {french} » en shimaoré :
           </span>
@@ -69,6 +83,7 @@ export function UnknownWord({ french, children }: { french: string; children: Re
           <span className="flex gap-1.5">
             <input
               autoFocus
+              aria-label={`Traduction de « ${french} » en shimaoré`}
               value={value}
               maxLength={200}
               disabled={saving}

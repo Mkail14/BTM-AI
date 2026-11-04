@@ -45,7 +45,7 @@ export default async function AdminPersonalitiesPage({ searchParams }: PageProps
               >
                 {current.emoji}
               </span>
-              <h1 className="mt-4 text-3xl font-semibold tracking-tight">Personnalités d&apos;Tamilya</h1>
+              <h1 className="mt-4 text-3xl font-semibold tracking-tight">Personnalités de Tamilya</h1>
               <p className="mt-2 text-sm text-fg-muted">
                 {record?.behavior
                   ? `${current.label} · personnalisée${record.updatedAt ? ` le ${dateFormat.format(new Date(record.updatedAt))}` : ""}`

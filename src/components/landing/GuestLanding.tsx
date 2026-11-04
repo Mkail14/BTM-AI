@@ -14,7 +14,7 @@ import { ChatDemo } from "./ChatDemo";
 import { LandingNav } from "./LandingNav";
 import { ReviewsWall } from "./ReviewsWall";
 
-const SIGNUP_REASON = "Crée ton compte gratuit pour parler à Tamilya sans limite.";
+const SIGNUP_REASON = "Crée ton compte gratuit pour continuer à parler avec Tamilya.";
 const REVIEW_REASON = "Crée ton compte gratuit pour donner ton avis sur Tamilya.";
 
 /*
@@ -28,8 +28,8 @@ const EXAMPLE = "Comment dit-on merci ?";
 
 const POINTS = [
   {
-    title: "Elle te répond en shimaoré",
-    text: "Écris-lui en français ou en shimaoré, comme tu parles. Sa réponse vient toujours en shimaoré.",
+    title: "Elle parle shimaoré avec toi",
+    text: "Écris-lui en français ou en shimaoré, comme tu parles. Demande-lui de répondre en shimaoré : elle le fait avec les mots qu'elle connaît.",
     tag: "maison → nyumba",
   },
   {
@@ -254,13 +254,13 @@ export function GuestLanding({
                   autoComplete="off"
                   enterKeyHint="send"
                   placeholder={EXAMPLE}
-                  className="h-11 text-ellipsis w-full rounded-full bg-white pr-12 pl-4 text-[15px] shadow-[0_0_0_1px_rgb(0_0_0/0.08),0_10px_28px_-14px_rgb(0_0_0/0.3)] outline-none transition-[background-color,box-shadow] duration-200 placeholder:text-fg-muted hover:shadow-[0_0_0_1px_rgb(0_0_0/0.13),0_10px_28px_-14px_rgb(0_0_0/0.35)] focus:shadow-[0_0_0_1px_color-mix(in_srgb,var(--persona,var(--accent))_45%,transparent),0_0_0_4px_color-mix(in_srgb,var(--persona,var(--accent))_14%,transparent)] dark:bg-white/[0.08] dark:shadow-none dark:hover:bg-white/[0.1] dark:hover:shadow-none dark:focus:bg-white/[0.1] dark:focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--persona,var(--accent))_18%,transparent)]"
+                  className="h-11 text-ellipsis w-full rounded-full bg-white pr-14 pl-4 text-[15px] shadow-[0_0_0_1px_rgb(0_0_0/0.08),0_10px_28px_-14px_rgb(0_0_0/0.3)] outline-none transition-[background-color,box-shadow] duration-200 placeholder:text-fg-muted hover:shadow-[0_0_0_1px_rgb(0_0_0/0.13),0_10px_28px_-14px_rgb(0_0_0/0.35)] focus:shadow-[0_0_0_1px_color-mix(in_srgb,var(--persona,var(--accent))_45%,transparent),0_0_0_4px_color-mix(in_srgb,var(--persona,var(--accent))_14%,transparent)] dark:bg-white/[0.08] dark:shadow-none dark:hover:bg-white/[0.1] dark:hover:shadow-none dark:focus:bg-white/[0.1] dark:focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--persona,var(--accent))_18%,transparent)]"
                 />
                 <button
                   type="submit"
                   disabled={!text.trim() || leaving}
                   aria-label="Parler à Tamilya"
-                  className="btn-rose btn-rose--icon absolute top-1/2 right-1.5 size-8 -translate-y-1/2"
+                  className="btn-rose btn-rose--icon absolute top-1/2 right-1 size-9 -translate-y-1/2"
                 >
                   <IconSend width={16} height={16} />
                 </button>
@@ -287,7 +287,7 @@ export function GuestLanding({
               <Reveal className="md:col-span-2 md:self-center md:pr-12">
                 <h2 className="landing-h2">Une IA qui apprend le shimaoré, pour de vrai</h2>
                 <p className="mt-5 max-w-sm leading-relaxed text-fg-muted">
-                  Tamilya est créée à Mayotte par GROUPE BTM. Pour l&apos;instant, elle se consacre à une seule chose : la langue de l&apos;île.
+                  Tamilya est créée à Mayotte par GROUPE BTM. Sa priorité : la langue de l&apos;île. Elle t&apos;aide aussi au quotidien à Mayotte.
                 </p>
               </Reveal>
               <Reveal delay={80} className="md:h-full md:min-h-0">
@@ -354,19 +354,19 @@ export function GuestLanding({
           </div>
           <div>
             <p className="text-sm font-semibold">Tamilya</p>
-            <ul className="mt-3 space-y-2 text-sm text-fg-muted">
+            <ul className="mt-1.5 text-sm text-fg-muted">
               <li>
-                <button type="button" onClick={talkAgain} className="transition hover:text-fg">
+                <button type="button" onClick={talkAgain} className="block py-2 transition hover:text-fg">
                   Lui parler
                 </button>
               </li>
               <li>
-                <button type="button" onClick={signUp} className="transition hover:text-fg">
+                <button type="button" onClick={signUp} className="block py-2 transition hover:text-fg">
                   Créer un compte
                 </button>
               </li>
               <li>
-                <button type="button" onClick={() => openAuthDialog({ mode: "signin" })} className="transition hover:text-fg">
+                <button type="button" onClick={() => openAuthDialog({ mode: "signin" })} className="block py-2 transition hover:text-fg">
                   Se connecter
                 </button>
               </li>
@@ -374,21 +374,36 @@ export function GuestLanding({
           </div>
           <div>
             <p className="text-sm font-semibold">Infos</p>
-            <ul className="mt-3 space-y-2 text-sm text-fg-muted">
+            <ul className="mt-1.5 text-sm text-fg-muted">
               <li>
-                <Link href="/aide" className="transition hover:text-fg">
+                <Link href="/aide" className="block py-2 transition hover:text-fg">
                   Aide
                 </Link>
               </li>
               <li>
-                <Link href="/confidentialite" className="transition hover:text-fg">
+                <Link href="/confidentialite" className="block py-2 transition hover:text-fg">
                   Données et confidentialité
                 </Link>
+              </li>
+              <li>
+                <Link href="/partenaires" className="block py-2 transition hover:text-fg">
+                  Nos partenaires
+                </Link>
+              </li>
+              <li>
+                <Link href="/developpeurs" className="block py-2 transition hover:text-fg">
+                  Développeurs
+                </Link>
+              </li>
+              <li>
+                <a href="mailto:contact@btm.yt" className="block py-2 transition hover:text-fg">
+                  Nous écrire
+                </a>
               </li>
             </ul>
           </div>
         </div>
-        <div className="mx-auto flex max-w-5xl flex-col gap-1 border-t border-border px-5 py-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] text-xs text-fg-muted sm:flex-row sm:justify-between">
+        <div className="mx-auto flex max-w-5xl flex-col gap-1 border-t border-border px-5 pt-5 pb-[calc(4.5rem+env(safe-area-inset-bottom))] text-xs text-fg-muted sm:flex-row sm:justify-between">
           <p>© {new Date().getFullYear()} GROUPE BTM · Bâtir la Technologie de Mayotte</p>
           <p>Tamilya peut se tromper. Vérifie les informations importantes.</p>
         </div>

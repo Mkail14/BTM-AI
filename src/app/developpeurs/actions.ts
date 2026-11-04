@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { getAuthContext } from "@/lib/auth/session";
 import { createDeveloperKey, MAX_ACTIVE_KEYS, revokeDeveloperKey } from "@/lib/developers/keys";
+import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 
 export type CreateKeyActionResult = { ok: true; key: string } | { ok: false; message: string };
 
@@ -14,6 +15,14 @@ export async function createDeveloperKeyAction(label: unknown): Promise<CreateKe
   if (!user) return { ok: false, message: "Connectez-vous pour créer un code." };
   const parsed = labelSchema.safeParse(label);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Nom invalide." };
+  // Créer puis supprimer des codes en boucle contournerait la limite de codes actifs (MAX_ACTIVE_KEYS).
+  try {
+    const limit = await consumeRateLimits([{ key: `dev-key-create:${user.id}`, rules: RATE_LIMIT_POLICIES.developerKeyCreate }]);
+    if (!limit.allowed) return { ok: false, message: "Trop de codes créés aujourd'hui : réessayez demain." };
+  } catch (error) {
+    console.error("[developpeurs] Limite de création indisponible", error);
+    return { ok: false, message: "La création a échoué. Réessayez plus tard." };
+  }
   const result = await createDeveloperKey(user.id, parsed.data);
   if (!result.ok) {
     return {

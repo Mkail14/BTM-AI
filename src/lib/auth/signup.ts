@@ -21,7 +21,7 @@ export function passwordChecks(password: string, email = ""): PasswordCheck[] {
     { id: "digit", label: "Au moins un chiffre", ok: /\d/.test(password) },
     {
       id: "email",
-      label: "Différent de votre adresse e-mail",
+      label: "Différent de ton adresse e-mail",
       ok: password.length > 0 && !(localPart.length >= 3 && password.toLowerCase().includes(localPart)),
     },
   ];

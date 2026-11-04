@@ -10,6 +10,8 @@ export const NEWS_SOURCES = [
 export type NewsItem = { source: string; title: string; link: string; date: string | null; summary: string };
 
 const CACHE_MS = 15 * 60_000;
+/** Même durée dans le cache de données de Next : partagé entre les instances du serveur, il survit aux redémarrages. */
+const REVALIDATE_SECONDS = 900;
 const FETCH_TIMEOUT_MS = 4_000;
 let cache: { at: number; items: NewsItem[] } | null = null;
 
@@ -52,7 +54,8 @@ async function readFeed(source: (typeof NEWS_SOURCES)[number]): Promise<NewsItem
   const response = await fetch(source.url, {
     headers: { "User-Agent": "BTM-AI/1.0 (+https://btm.yt)" },
     signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-    cache: "no-store",
+    // Seules les réponses 200 sont gardées : un journal en panne est réessayé au message suivant.
+    next: { revalidate: REVALIDATE_SECONDS },
   });
   if (!response.ok) throw new Error(`${source.name} : HTTP ${response.status}`);
   return parseRss(await response.text(), source.name);

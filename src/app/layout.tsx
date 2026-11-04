@@ -21,11 +21,13 @@ const geistSans = Geist({
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+  // Police du code seulement : pas préchargée, elle ne retarde pas l'affichage de la page.
+  preload: false,
 });
 
 export const metadata: Metadata = {
   title: { default: BRAND.name, template: `%s — ${BRAND.name}` },
-  description: `${BRAND.name}, l'assistant d'intelligence artificielle de ${BRAND.parent} pour Mayotte.`,
+  description: `${BRAND.name}, le site de ${BRAND.parent} où l'on parle avec Tamilya, l'assistante IA qui apprend le shimaoré.`,
 };
 
 export const viewport: Viewport = {

@@ -95,10 +95,10 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         refreshConversations();
         if (pathname === `/c/${id}`) router.push("/");
       } else {
-        void alertDialog({ title: "La suppression a échoué", message: "Réessayez dans un instant." });
+        void alertDialog({ title: "La suppression a échoué", message: "Réessaie dans un instant." });
       }
     } catch {
-      void alertDialog({ title: "La suppression a échoué", message: "Vérifiez votre connexion." });
+      void alertDialog({ title: "La suppression a échoué", message: "Vérifie ta connexion." });
     } finally {
       setDeletingId(null);
     }
@@ -204,7 +204,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
               </ul>
             ) : (
               <p className="px-2 text-sm text-fg-muted">
-                {conversationsLoading ? "Chargement…" : "Vos conversations enregistrées apparaîtront ici."}
+                {conversationsLoading ? "Chargement…" : "Tes conversations enregistrées apparaîtront ici."}
               </p>
             )
           ) : (
@@ -214,12 +214,12 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                 Historique réservé aux comptes
               </p>
               <p className="mt-1 text-fg-muted">
-                Créez un compte gratuit pour enregistrer vos conversations et les retrouver sur tous vos appareils.
+                Crée un compte gratuit pour enregistrer tes conversations et les retrouver sur tous tes appareils.
               </p>
               <button
                 type="button"
                 onClick={() =>
-                  requireAccount("Créez un compte pour enregistrer vos conversations et retrouver votre historique.")
+                  requireAccount("Crée un compte pour enregistrer tes conversations et retrouver ton historique.")
                 }
                 className="mt-3 text-sm font-medium text-accent hover:underline"
               >
@@ -249,7 +249,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
             <div className={wide}>
               <button
                 type="button"
-                onClick={() => requireAccount("Connectez-vous pour accéder à vos paramètres.", "/parametres")}
+                onClick={() => requireAccount("Connecte-toi pour accéder à tes paramètres.", "/parametres")}
                 className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left hover:bg-bg-muted"
               >
                 <IconSettings /> Paramètres

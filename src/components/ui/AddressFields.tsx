@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { geolocationErrorMessage, isInMayotte, MAX_GPS_ACCURACY_M, type GeoPoint } from "@/lib/address";
-import { MAYOTTE_COMMUNES } from "@/lib/code-exam/candidate";
+// Fichier sans zod : les champs d'adresse n'embarquent pas la bibliothèque de validation.
+import { geolocationErrorMessage, isInMayotte, MAX_GPS_ACCURACY_M, MAYOTTE_COMMUNES, type GeoPoint } from "@/lib/address-fields";
 
 export type AddressDraft = { commune: string; line: string; geo: GeoPoint | null };
 export const EMPTY_ADDRESS: AddressDraft = { commune: "", line: "", geo: null };

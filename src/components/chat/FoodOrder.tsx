@@ -4,9 +4,8 @@ import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { FoodResponse } from "@/app/api/food/route";
 import type { FoodCartLine, FoodItem, FoodRestaurant } from "@/lib/food/catalog";
-import type { GeoPoint } from "@/lib/address";
+import { MAYOTTE_COMMUNES, type GeoPoint } from "@/lib/address-fields";
 import { blockKey as keyOf, moveBlockValue, readBlockValue } from "@/lib/chat/block-key";
-import { MAYOTTE_COMMUNES } from "@/lib/code-exam/candidate";
 import { DISH_KINDS, dishKindOf, illustrationOf, matchFoodQuery, normalizeFood } from "@/lib/food/match";
 import { COMMUNE_CENTERS, distanceKm, locateMe, PETITE_TERRE } from "@/lib/geo/communes";
 import { formatEuros } from "@/lib/wallet/limits";
@@ -108,7 +107,7 @@ function Step({ label, onClick, children }: { label: string; onClick: () => void
       type="button"
       onClick={onClick}
       aria-label={label}
-      className="grid size-7 place-items-center rounded-full border border-border bg-bg text-base leading-none transition-colors hover:border-[var(--persona,var(--accent))] hover:text-[var(--persona,var(--accent))] active:scale-90"
+      className="grid size-7 place-items-center rounded-full border border-border bg-bg text-base leading-none pointer-coarse:size-10 transition-colors hover:border-[var(--persona,var(--accent))] hover:text-[var(--persona,var(--accent))] active:scale-90"
     >
       {children}
     </button>
@@ -122,7 +121,7 @@ function Quantity({ dish, quantity, change }: { dish: Dish; quantity: number; ch
         type="button"
         onClick={() => change(dish, 1)}
         aria-label={`Ajouter ${dish.item.name}`}
-        className="grid size-8 place-items-center rounded-full text-lg leading-none text-white shadow-md transition active:scale-90"
+        className="grid size-8 place-items-center rounded-full text-lg leading-none text-white shadow-md pointer-coarse:size-10 transition active:scale-90"
         style={{ background: PERSONA }}
       >
         +
@@ -226,6 +225,8 @@ export function FoodOrder({ query = "" }: { query?: string }) {
   const [fullMenu, setFullMenu] = useState(false);
   const [cart, setCart] = useState<{ restaurantId: string | null; items: Record<string, number> }>({ restaurantId: null, items: {} });
   const [checkout, setCheckout] = useState(false);
+  // Panier ouvert par « Programmer » : le paiement s'ouvre sur le choix de l'heure.
+  const [scheduleFirst, setScheduleFirst] = useState(false);
   const [placed, setPlaced] = useState<PlacedOrder | null>(null);
   // Recherche précise (« tacos ») : seulement les résultats. Parcourir : toute l'application.
   const [browse, setBrowse] = useState(false);
@@ -382,7 +383,7 @@ export function FoodOrder({ query = "" }: { query?: string }) {
           type="button"
           onClick={back}
           aria-label="Retour"
-          className="-ml-1.5 grid size-8 place-items-center rounded-full text-lg text-fg-muted hover:bg-bg-muted hover:text-fg"
+          className="-ml-1.5 grid size-8 place-items-center rounded-full text-lg text-fg-muted pointer-coarse:size-10 hover:bg-bg-muted hover:text-fg"
         >
           ‹
         </button>
@@ -634,6 +635,7 @@ export function FoodOrder({ query = "" }: { query?: string }) {
         onBack={() => setCheckout(false)}
         onChangeQuantity={changeLine}
         here={spot}
+        initialScheduled={scheduleFirst}
         onPlaced={(order) => {
           savedKey.current = blockKey(root.current, query);
           localStorage.setItem(savedKey.current, JSON.stringify(order));
@@ -657,17 +659,33 @@ export function FoodOrder({ query = "" }: { query?: string }) {
       {/* Panier : apparaît dès le premier plat */}
       {cartRestaurant && count > 0 ? (
         <div className="booking-step border-t border-border p-3">
-          <button
-            type="button"
-            onClick={() => setCheckout(true)}
-            className="flex w-full items-center justify-between gap-3 rounded-full px-4 py-3 font-medium text-white transition hover:brightness-110 active:scale-[0.99]"
-            style={{ background: PERSONA }}
-          >
-            <span className="truncate">
-              Commander · {count} article{count > 1 ? "s" : ""} · {cartRestaurant.name}
-            </span>
-            <span className="shrink-0 tabular-nums">{formatEuros(itemsCents)}</span>
-          </button>
+          <p className="mb-2 truncate px-1 text-xs text-fg-muted">
+            {count} article{count > 1 ? "s" : ""} · {cartRestaurant.name} ·{" "}
+            <span className="font-semibold text-fg tabular-nums">{formatEuros(itemsCents)}</span>
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setScheduleFirst(true);
+                setCheckout(true);
+              }}
+              className="flex items-center justify-center gap-1.5 rounded-full border border-border px-4 py-2.5 text-sm font-semibold transition hover:bg-bg-subtle active:scale-[0.99]"
+            >
+              <span aria-hidden="true">⏰</span> Programmer
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setScheduleFirst(false);
+                setCheckout(true);
+              }}
+              className="flex items-center justify-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.99]"
+              style={{ background: PERSONA }}
+            >
+              Payer maintenant
+            </button>
+          </div>
         </div>
       ) : null}
     </>,

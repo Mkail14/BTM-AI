@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { MigrationWarning, PageIntro } from "@/components/admin/form";
+import { listAllAuthUsers } from "@/lib/admin/stats";
 import { requireAdmin } from "@/lib/auth/session";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { MemoryList, type MemoryAccount } from "./MemoryList";
@@ -36,8 +37,13 @@ export default async function AdminMemoryPage() {
         byUser.get(row.user_id)!.facts.push({ id: row.id, kind: row.kind, content: row.content, updatedAt: row.updated_at });
       }
       accounts = [...byUser.values()];
-      const users = await Promise.all(accounts.map((a) => admin.auth.admin.getUserById(a.userId)));
-      users.forEach((result, index) => (accounts![index].email = result.data.user?.email ?? null));
+      // Adresses : une liste de comptes (au plus 2 pages de 1000) plutôt qu'une requête par compte ;
+      // seuls les comptes absents de cette liste sont lus un par un.
+      const emails = new Map((await listAllAuthUsers(admin, 2))?.map((u) => [u.id, u.email ?? null]) ?? []);
+      const missing = accounts.filter((a) => !emails.has(a.userId));
+      const found = await Promise.all(missing.map((a) => admin.auth.admin.getUserById(a.userId)));
+      found.forEach((result, index) => emails.set(missing[index].userId, result.data.user?.email ?? null));
+      for (const account of accounts) account.email = emails.get(account.userId) ?? null;
     }
   }
 

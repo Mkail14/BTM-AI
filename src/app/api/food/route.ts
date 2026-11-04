@@ -11,12 +11,12 @@ import { restaurantPoint } from "@/lib/food/route";
 import { geocodeAddress, geocodePlace } from "@/lib/geo/geocode";
 import type { Point } from "@/lib/geo/communes";
 import { orderCode } from "@/lib/food/order-code";
-import { FOOD_CATALOG, FOOD_DELIVERY_FEE_CENTS, FOOD_DEMO, FOOD_ZONES, priceOrder, type FoodRestaurant } from "@/lib/food/catalog";
+import { isSchedulable } from "@/lib/food/schedule";
+import { FOOD_CATALOG, FOOD_DELIVERY_FEE_CENTS, FOOD_ZONES, priceOrder, type FoodRestaurant } from "@/lib/food/catalog";
 import { getProfileContact, saveProfileAddress, saveProfilePhone } from "@/lib/profile-contact";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
-import { loadWallet, spendFromWallet } from "@/lib/wallet";
-import { readDemoWallet, recordDemoOperation } from "@/lib/wallet/demo";
+import { readDemoWallet, recordDemoOperation, usesDemoWallet } from "@/lib/wallet/demo";
 import { formatEuros } from "@/lib/wallet/limits";
 
 const fail = (status: number, message: string) => NextResponse.json({ error: message }, { status });
@@ -41,14 +41,16 @@ export async function GET() {
   const { supabase, user } = await getAuthContext();
   if (!supabase || !user) return fail(401, "Connecte-toi pour commander.");
   if (!(await canOrderFood(user))) return fail(403, "La commande de repas n'est pas encore disponible.");
+  // Aucun restaurant ne reçoit encore les commandes : seulement en démonstration (solde fictif).
+  if (!(await usesDemoWallet(user))) return fail(503, NOT_OPEN);
   const [wallet, contact, saved] = await Promise.all([
     // Démonstration : solde fictif (src/lib/wallet/demo.ts), le vrai portefeuille n'est pas touché.
-    FOOD_DEMO ? readDemoWallet(user.id) : loadWallet(supabase, user.id, 1),
+    readDemoWallet(user.id),
     getProfileContact(supabase, user.id),
     listSavedAddresses(supabase),
   ]);
   const body: FoodResponse = {
-    demo: FOOD_DEMO,
+    demo: true,
     restaurants: [...FOOD_CATALOG],
     zones: FOOD_ZONES,
     deliveryCents: FOOD_DELIVERY_FEE_CENTS,
@@ -74,6 +76,8 @@ const orderSchema = z.object({
     .transform((v) => normalizePhone(v)!)
     .optional(),
   note: z.string().trim().max(200).optional(),
+  /** Commande programmée : heure de livraison voulue. Absent : dès que possible. */
+  scheduledFor: z.iso.datetime().optional(),
 });
 
 /**
@@ -86,10 +90,10 @@ export async function POST(request: NextRequest) {
   const { supabase, user } = await getAuthContext();
   if (!supabase || !user) return fail(401, "Connecte-toi pour commander.");
   if (!(await canOrderFood(user))) return fail(403, "La commande de repas n'est pas encore disponible.");
+  // Sans partenaire, un vrai débit ne serait suivi d'aucune livraison : refusé hors démonstration.
+  if (!(await usesDemoWallet(user))) return fail(503, NOT_OPEN);
 
-  const limit = await consumeRateLimits([{ key: `food:${user.id}`, rules: RATE_LIMIT_POLICIES.foodOrder }]);
-  if (!limit.allowed) return fail(429, "Trop de commandes d'un coup : réessaie dans une heure.");
-
+  // Commande lue et vérifiée avant de compter un essai : une erreur de saisie ne consomme pas le quota.
   const parsed = orderSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail(400, parsed.error.issues[0]?.message ?? "Commande invalide.");
   const { address, saveAddress } = parsed.data;
@@ -98,6 +102,18 @@ export async function POST(request: NextRequest) {
   }
   const order = priceOrder(parsed.data.restaurantId, parsed.data.cart);
   if (!order) return fail(400, "Un plat de ta commande n'existe plus : recommence ton panier.");
+  const scheduledMs = parsed.data.scheduledFor ? Date.parse(parsed.data.scheduledFor) : null;
+  if (scheduledMs !== null && !isSchedulable(scheduledMs, Date.now() - 5 * 60_000, order.restaurant.etaMinutes[1])) {
+    return fail(400, "Cette heure de livraison n'est plus possible : choisis-en une autre.");
+  }
+
+  try {
+    const limit = await consumeRateLimits([{ key: `food:${user.id}`, rules: RATE_LIMIT_POLICIES.foodOrder }]);
+    if (!limit.allowed) return fail(429, "Trop de commandes d'un coup : réessaie dans une heure.");
+  } catch (error) {
+    console.error("[food] Limite de débit indisponible", error);
+    return fail(503, "Service momentanément indisponible : réessaie dans un instant.");
+  }
 
   // Carte du suivi : la vraie rue de l'adresse écrite (ou la position GPS donnée, exacte) et le restaurant,
   // cherchés pendant le paiement.
@@ -110,21 +126,16 @@ export async function POST(request: NextRequest) {
   const phone = parsed.data.phone ?? contact.phone;
   if (!phone) return fail(400, "Indique ton numéro : le livreur doit pouvoir t'appeler.");
 
-  const balanceCents = (FOOD_DEMO ? await readDemoWallet(user.id) : await loadWallet(supabase, user.id, 1)).balanceCents;
+  const balanceCents = (await readDemoWallet(user.id)).balanceCents;
   if (balanceCents < order.totalCents) {
     return fail(402, `Solde insuffisant : il te manque ${formatEuros(order.totalCents - balanceCents)}.`);
   }
 
   const label = `Repas ${order.restaurant.name}`.slice(0, 120);
-  if (FOOD_DEMO) {
-    // Démonstration : débit du solde fictif, visible dans le portefeuille.
-    if (!(await recordDemoOperation(user.id, "payment", order.totalCents, label))) return fail(402, "Solde insuffisant.");
-  } else {
-    // Avec un vrai partenaire : débit, puis envoi au restaurant de l'adresse, du lien GPS
-    // (mapLink), du téléphone et de la note (remboursement s'il refuse).
-    const paid = await spendFromWallet(user.id, order.totalCents, label);
-    if (!paid) return fail(402, "Solde insuffisant.");
-  }
+  // Démonstration : débit du solde fictif, visible dans le portefeuille. Avec un vrai partenaire, il
+  // faudra débiter (spendFromWallet) puis envoyer au restaurant l'adresse, le lien GPS, le téléphone
+  // et la note (remboursement s'il refuse) : d'ici là, cette route refuse hors démonstration.
+  if (!(await recordDemoOperation(user.id, "payment", order.totalCents, label))) return fail(402, "Solde insuffisant.");
 
   // Le profil garde l'adresse et le numéro pour la prochaine fois (sans bloquer la commande).
   await Promise.all([
@@ -133,14 +144,15 @@ export async function POST(request: NextRequest) {
   ]).catch((error: unknown) => console.error("[food] Adresse ou téléphone non enregistrés", error));
 
   // Suivi affiché dans la conversation : préparation, livraison, puis le code. Démonstration :
-  // en accéléré (2 minutes) pour le montrer en direct ; sinon, milieu de la fourchette annoncée.
-  const [min, max] = order.restaurant.etaMinutes;
-  const totalMs = FOOD_DEMO ? DEMO_TRACKING_MS : ((min + max) / 2) * 60_000;
-  const now = Date.now();
+  // en accéléré (2 minutes) pour le montrer en direct. Avec un partenaire : milieu de la
+  // fourchette annoncée (order.restaurant.etaMinutes).
+  const totalMs = DEMO_TRACKING_MS;
+  // Commande programmée : la préparation commence juste à temps pour arriver à l'heure choisie.
+  const now = scheduledMs !== null ? Math.max(Date.now(), scheduledMs - totalMs) : Date.now();
   const [delivery, restaurantAt] = await places;
   const body: FoodOrderPlaced = {
     ok: true,
-    demo: FOOD_DEMO,
+    demo: true,
     // Code à montrer (QR) ou dicter au livreur. Avec un vrai partenaire, il sera envoyé au restaurant avec la commande.
     code: orderCode(),
     totalCents: order.totalCents,
@@ -148,10 +160,11 @@ export async function POST(request: NextRequest) {
     readyAt: new Date(now + totalMs * 0.4).toISOString(),
     arrivesAt: new Date(now + totalMs).toISOString(),
     // Démonstration : un livreur fictif (numéro réservé à la fiction). Avec un partenaire, son vrai livreur.
-    courier: FOOD_DEMO ? demoCourier() : null,
+    courier: demoCourier(),
     from: restaurantAt,
     to: delivery.point,
     addressFound: delivery.found,
+    scheduled: scheduledMs !== null,
   };
   // Tamilya la retrouve pour répondre aux questions sur la livraison.
   await rememberOrder({
@@ -162,15 +175,17 @@ export async function POST(request: NextRequest) {
     lines: order.lines.map((l) => `${l.quantity}× ${l.item.name}`),
     totalCents: order.totalCents,
     note: parsed.data.note || null,
-    demo: FOOD_DEMO,
+    demo: true,
     placedAt: body.placedAt,
     readyAt: body.readyAt,
     arrivesAt: body.arrivesAt,
+    scheduled: body.scheduled,
   });
   return NextResponse.json(body);
 }
 
 const DEMO_TRACKING_MS = 2 * 60_000;
+const NOT_OPEN = "La commande de repas n'est pas encore ouverte : aucun restaurant ne reçoit encore les commandes.";
 
 /** Ce que renvoie POST : de quoi suivre la commande dans la conversation. */
 export type FoodOrderPlaced = {
@@ -189,4 +204,6 @@ export type FoodOrderPlaced = {
   to: Point;
   /** Faux : l'adresse écrite n'a pas été trouvée, le point est dans sa commune. */
   addressFound: boolean;
+  /** Vrai : commande programmée, la préparation commence à placedAt. */
+  scheduled: boolean;
 };

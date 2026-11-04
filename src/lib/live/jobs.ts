@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 
 /**
  * Offres d'emploi de Mayotte (département 976) via l'API « Offres d'emploi v2 »
@@ -74,24 +75,38 @@ function toOffer(raw: RawOffer): JobOffer {
   };
 }
 
+/** Recherche des 30 offres les plus récentes à Mayotte (une erreur est levée : rien n'est gardé). */
+async function searchOffers(): Promise<JobOffer[]> {
+  const keys = credentials();
+  if (!keys) return [];
+  const access = await getToken(keys.id, keys.secret);
+  const url = `${SEARCH_URL}?${new URLSearchParams({ departement: MAYOTTE, sort: "1", range: "0-29" })}`;
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${access}`, Accept: "application/json" },
+    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    cache: "no-store",
+  });
+  if (response.status === 401) token = null;
+  // 204 : aucune offre ; 206 : réponse partielle normale (pagination).
+  if (!response.ok) throw new Error(`recherche refusée (HTTP ${response.status})`);
+  const data = response.status === 204 ? {} : ((await response.json()) as { resultats?: RawOffer[] });
+  return (data.resultats ?? []).map(toOffer);
+}
+
+/**
+ * Offres gardées 30 min dans le cache de données de Next, partagé entre les
+ * instances du serveur. Le jeton d'accès change souvent : c'est le résultat
+ * qui est gardé, pas la réponse HTTP (dont la clé contiendrait le jeton).
+ */
+const cachedOffers = unstable_cache(searchOffers, ["france-travail-offres-976"], { revalidate: CACHE_MS / 1000 });
+
 /** Les 30 offres les plus récentes à Mayotte (cache 30 min). */
 export async function getMayotteJobs(): Promise<JobsResult> {
   const keys = credentials();
   if (!keys) return { configured: false };
   if (cache && Date.now() - cache.at < CACHE_MS) return { configured: true, offers: cache.offers };
   try {
-    const access = await getToken(keys.id, keys.secret);
-    const url = `${SEARCH_URL}?${new URLSearchParams({ departement: MAYOTTE, sort: "1", range: "0-29" })}`;
-    const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${access}`, Accept: "application/json" },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      cache: "no-store",
-    });
-    if (response.status === 401) token = null;
-    // 204 : aucune offre ; 206 : réponse partielle normale (pagination).
-    if (!response.ok) throw new Error(`recherche refusée (HTTP ${response.status})`);
-    const data = response.status === 204 ? {} : ((await response.json()) as { resultats?: RawOffer[] });
-    const offers = (data.resultats ?? []).map(toOffer);
+    const offers = await cachedOffers();
     cache = { at: Date.now(), offers };
     return { configured: true, offers };
   } catch (error) {

@@ -12,9 +12,8 @@ import {
   IconClose,
   IconDashboard,
   IconDatabase,
-  IconDocument,
+  IconGauge,
   IconLanguage,
-  IconMail,
   IconMegaphone,
   IconMenu,
   IconSettings,
@@ -61,6 +60,7 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
     items: [
       { label: "Connaissances", icon: IconBook, href: "/admin/connaissances" },
       { label: "Lexique shimaoré", tab: "Lexique", icon: IconLanguage, href: "/admin/lexique" },
+      { label: "Apprentissage du shimaoré", tab: "Apprentissage", icon: IconGauge, href: "/admin/apprentissage" },
       { label: "Mémoire", icon: IconDatabase, href: "/admin/memoire" },
     ],
   },
@@ -68,9 +68,7 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
     title: "Plateforme",
     items: [
       { label: "Utilisateurs", icon: IconUsers, href: "/admin/utilisateurs" },
-      { label: "Code de la route", tab: "Code", icon: IconDocument, href: "/admin/code" },
       { label: "Circuit de Tamilya", tab: "Circuit", icon: IconChip, href: "/admin/circuit" },
-      { label: "E-mails", icon: IconMail, href: "/admin/emails" },
       { label: "Bandeau d'accueil", tab: "Bandeau", icon: IconMegaphone, href: "/admin/bandeau" },
     ],
   },

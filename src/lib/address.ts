@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { MAYOTTE_COMMUNES } from "@/lib/code-exam/candidate";
+import { isInMayotte, MAX_GPS_ACCURACY_M, MAYOTTE_COMMUNES, type GeoPoint } from "@/lib/address-fields";
 
 /**
  * Adresse d'un compte : demandée à l'inscription, puis reconfirmée à chaque
@@ -7,18 +7,9 @@ import { MAYOTTE_COMMUNES } from "@/lib/code-exam/candidate";
  * facultative : elle aide le livreur quand l'adresse écrite ne suffit pas.
  */
 
-export type GeoPoint = { lat: number; lng: number; accuracy: number };
+// Constantes et vérifications simples, sans zod (lib/address-fields.ts, utilisable dans le navigateur).
+export { geolocationErrorMessage, isInMayotte, MAX_GPS_ACCURACY_M, type GeoPoint } from "@/lib/address-fields";
 export type Address = { commune: string; line: string; geo: GeoPoint | null };
-
-/** Rectangle qui contient Grande-Terre et Petite-Terre (et un peu de lagon). */
-const MAYOTTE_BOUNDS = { south: -13.05, north: -12.6, west: 44.95, east: 45.35 };
-
-export function isInMayotte(lat: number, lng: number): boolean {
-  return lat >= MAYOTTE_BOUNDS.south && lat <= MAYOTTE_BOUNDS.north && lng >= MAYOTTE_BOUNDS.west && lng <= MAYOTTE_BOUNDS.east;
-}
-
-/** Au-delà, la position ne désigne plus une maison (wifi ou antenne seule). */
-export const MAX_GPS_ACCURACY_M = 500;
 
 export const geoSchema = z
   .object({
@@ -65,13 +56,6 @@ export function addressFieldErrors(draft: { commune: string; line: string }): { 
 /** Lien de carte pour le livreur (OpenStreetMap, sans compte ni clé). */
 export function mapLink(geo: GeoPoint): string {
   return `https://www.openstreetmap.org/?mlat=${geo.lat}&mlon=${geo.lng}#map=18/${geo.lat}/${geo.lng}`;
-}
-
-/** Message d'erreur de la position GPS du navigateur, en clair. */
-export function geolocationErrorMessage(code: number): string {
-  if (code === 1) return "Tu as refusé la localisation. Autorise-la dans ton navigateur, ou écris ton adresse.";
-  if (code === 3) return "La localisation a pris trop de temps. Réessaie, ou écris ton adresse.";
-  return "Position introuvable pour le moment. Écris ton adresse.";
 }
 
 /**

@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { AIProviderError, buildSystemPrompt, createProvider } from "@/lib/ai";
 import { knowledgeFor, lexiconFor, loadAwaBrain, wordsFor } from "@/lib/ai/brain";
@@ -10,7 +10,7 @@ import { isGeminiUrl } from "@/lib/ai/providers/gemini";
 import { loadAIChain } from "@/lib/ai/registry";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
 import type { ChatTurn } from "@/lib/chat/types";
-import { findDeveloperKey } from "@/lib/developers/keys";
+import { findDeveloperKey, touchDeveloperKey } from "@/lib/developers/keys";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { getClientIp, hashIdentifier } from "@/lib/security/request";
 
@@ -66,6 +66,12 @@ function toModelTurns(messages: readonly ChatTurn[]): ChatTurn[] {
   while (start > 0 && total + turns[start - 1].content.length <= CHAT_LIMITS.modelContextMaxChars) {
     total += turns[--start].content.length;
   }
+  // Dernier message trop long à lui seul : gardé, coupé à sa fin (la partie la plus récente),
+  // plutôt qu'une liste vide refusée sans explication.
+  if (start === turns.length && turns.length > 0) {
+    const last = turns[turns.length - 1];
+    return [{ ...last, content: last.content.slice(-CHAT_LIMITS.modelContextMaxChars) }];
+  }
   while (turns[start]?.role === "assistant") start++;
   return turns.slice(start);
 }
@@ -83,6 +89,8 @@ export async function POST(request: NextRequest) {
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim() ?? "";
   const developerKey = token ? await findDeveloperKey(token) : null;
   if (!developerKey) return fail(401, "invalid_access_code");
+  // Date de dernière utilisation : enregistrée après la réponse, sans la retarder.
+  after(() => touchDeveloperKey(developerKey.id));
 
   const geminiKey = request.headers.get("x-gemini-key")?.trim() ?? "";
   if (!geminiKey) return fail(400, "missing_gemini_key");
@@ -91,6 +99,8 @@ export async function POST(request: NextRequest) {
   try {
     const limit = await consumeRateLimits([
       { key: `key:${developerKey.id}`, rules: RATE_LIMIT_POLICIES.developerKey },
+      // Quota du compte, tous ses codes confondus.
+      { key: `dev-account:${developerKey.userId}`, rules: RATE_LIMIT_POLICIES.developerAccount },
       { key: hashIdentifier(`ip:${getClientIp(request.headers)}`), rules: RATE_LIMIT_POLICIES.developerIp },
     ]);
     if (!limit.allowed) return fail(429, "rate_limited", { "Retry-After": String(limit.retryAfterSeconds) });
@@ -127,6 +137,7 @@ export async function POST(request: NextRequest) {
     identity: brain.identity,
     rules: brain.rules,
     lexicon: lexiconFor(brain, DEFAULT_PERSONALITY),
+    grammar: brain.grammar,
     words: wordsFor(brain, question.content),
     knowledge: knowledgeFor(brain, question.content),
     site: {

@@ -3,7 +3,7 @@
 import { createContext, use, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { guessFrenchAction } from "@/app/(chat)/actions";
-import { IconClose, IconPencil } from "@/components/ui/icons";
+import { IconCheck, IconClose, IconPencil } from "@/components/ui/icons";
 import type { ActionResult } from "@/lib/admin/action-auth";
 
 export type Correction = { wrote: string; shimaore: string; french: string; context: string };
@@ -29,10 +29,27 @@ type Anchor = { top: number; center: number };
 function anchorFor(rect: DOMRect): Anchor {
   return {
     top: Math.min(rect.bottom + 10, window.innerHeight - 56),
-    // Le bouton fait au plus ~17rem.
-    center: Math.max(152, Math.min(rect.left + rect.width / 2, window.innerWidth - 152)),
+    // Les deux boutons font au plus ~22rem.
+    center: Math.max(184, Math.min(rect.left + rect.width / 2, window.innerWidth - 184)),
   };
 }
+
+/**
+ * La réponse en texte simple, pour « C'est juste » sur toute la réponse : vide
+ * si elle est trop longue ou s'il y reste du français ([[…]]) ; le maître
+ * sélectionne alors la phrase juste.
+ */
+function plainReply(reply: string): string {
+  const text = reply
+    .replace(/```[\s\S]*?(?:```|$)/g, "")
+    .replace(/[*_#>`]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return text.includes("[[") || text.length > MAX ? "" : text;
+}
+
+/** Corriger un passage faux, ou garder comme modèle une phrase juste. */
+type Mode = "correct" | "approve";
 
 /**
  * Réponse de Tamilya que son maître peut corriger : il sélectionne un mot ou un
@@ -56,6 +73,7 @@ export function Correctable({
   const panelRef = useRef<HTMLDivElement>(null);
   const [selection, setSelection] = useState<{ text: string; anchor: Anchor } | null>(null);
   const [form, setForm] = useState<Correction | null>(null);
+  const [mode, setMode] = useState<Mode>("correct");
   const [status, setStatus] = useState<ActionResult | null>(null);
   const [saving, setSaving] = useState(false);
   // Ce que Tamilya voulait dire en français : montré avant de corriger.
@@ -103,7 +121,8 @@ export function Correctable({
 
   if (!correct) return <>{children}</>;
 
-  function open(text: string) {
+  function open(text: string, nextMode: Mode = "correct") {
+    setMode(nextMode);
     setForm({ wrote: text, shimaore: text, french: "", context: "" });
     setStatus(null);
     // Une traduction encore en route pour une fenêtre précédente est ignorée.
@@ -123,7 +142,7 @@ export function Correctable({
       wrote: text,
       message: reply.slice(0, 2000),
       question: (question ?? "").slice(0, 1000),
-    }).catch(() => ({ ok: false as const, message: "Sens introuvable : écris-le toi-même." }));
+    }).catch(() => ({ ok: false as const, message: "Sens introuvable : écrivez-le vous-même." }));
     if (request !== meaningRequest.current) return;
     if (!result.ok) {
       setMeaning({ state: "error", message: result.message });
@@ -136,7 +155,8 @@ export function Correctable({
   async function save() {
     if (!form || !correct || saving) return;
     setSaving(true);
-    const result = await correct(messageId, form);
+    // « C'est juste » : rien à remplacer dans la réponse affichée.
+    const result = await correct(messageId, mode === "approve" ? { ...form, wrote: "" } : form);
     setSaving(false);
     setStatus(result);
     if (result.ok) setTimeout(() => setForm(null), 1200);
@@ -151,32 +171,56 @@ export function Correctable({
     <div ref={rootRef} className="group/correct relative">
       {children}
 
-      {/* Sans sélection (téléphone, découverte) : le crayon ouvre la fenêtre, passage à recopier. */}
-      <button
-        type="button"
-        onClick={() => open("")}
-        title="Corriger un mot ou une phrase de cette réponse (ou sélectionnez le passage)"
-        className={`${glassClass} mt-2 inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium opacity-80 transition hover:-translate-y-px hover:bg-bg-muted hover:opacity-100 focus-visible:opacity-100 sm:opacity-0 sm:group-hover/correct:opacity-80`}
-      >
-        <IconPencil width={13} height={13} /> Corriger
-      </button>
-
-      {selection && !form ? (
+      {/* Sans sélection (téléphone, découverte) : « C'est juste » garde la réponse entière, le crayon ouvre la correction. */}
+      <div className="mt-2 flex flex-wrap gap-1.5 opacity-80 transition focus-within:opacity-100 sm:opacity-0 sm:group-hover/correct:opacity-80 sm:focus-within:opacity-100">
         <button
           type="button"
+          onClick={() => open(plainReply(reply), "approve")}
+          title="Tamilya a bien parlé : garder cette réponse (ou la phrase sélectionnée) comme modèle"
+          className={`${glassClass} inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition hover:-translate-y-px hover:bg-bg-muted`}
+        >
+          <IconCheck width={13} height={13} /> C&apos;est juste
+        </button>
+        <button
+          type="button"
+          onClick={() => open("")}
+          title="Corriger un mot ou une phrase de cette réponse (ou sélectionnez le passage)"
+          className={`${glassClass} inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition hover:-translate-y-px hover:bg-bg-muted`}
+        >
+          <IconPencil width={13} height={13} /> Corriger
+        </button>
+      </div>
+
+      {selection && !form ? (
+        <div
           // Garde la sélection au clic (sinon elle disparaît avant onClick).
           onPointerDown={(e) => e.preventDefault()}
-          onClick={() => open(selection.text)}
           style={{ top: selection.anchor.top, left: selection.anchor.center }}
-          className={`${glassClass} fixed z-30 inline-flex max-w-[17rem] -translate-x-1/2 animate-[correct-in_160ms_ease-out] items-center gap-2 rounded-full py-1.5 pr-4 pl-1.5 text-sm font-medium transition-colors hover:bg-bg-muted`}
+          className={`${glassClass} fixed z-30 flex max-w-[22rem] -translate-x-1/2 animate-[correct-in_160ms_ease-out] items-center gap-1 rounded-full p-1 text-sm font-medium`}
         >
-          <span className="grid size-7 shrink-0 place-items-center rounded-full bg-accent text-accent-fg">
-            <IconPencil width={14} height={14} />
-          </span>
-          <span className="truncate">
-            Corriger <span className="text-fg-muted">« {selection.text.length > 24 ? `${selection.text.slice(0, 24)}…` : selection.text} »</span>
-          </span>
-        </button>
+          <button
+            type="button"
+            onClick={() => open(selection.text, "approve")}
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-full py-1 pr-3 pl-1 transition-colors hover:bg-bg-muted"
+          >
+            <span className="grid size-7 place-items-center rounded-full bg-success text-white">
+              <IconCheck width={14} height={14} />
+            </span>
+            C&apos;est juste
+          </button>
+          <button
+            type="button"
+            onClick={() => open(selection.text)}
+            className="inline-flex min-w-0 items-center gap-1.5 rounded-full py-1 pr-3 pl-1 transition-colors hover:bg-bg-muted"
+          >
+            <span className="grid size-7 shrink-0 place-items-center rounded-full bg-accent text-accent-fg">
+              <IconPencil width={14} height={14} />
+            </span>
+            <span className="truncate">
+              Corriger <span className="text-fg-muted">« {selection.text.length > 16 ? `${selection.text.slice(0, 16)}…` : selection.text} »</span>
+            </span>
+          </button>
+        </div>
       ) : null}
 
       {/* Dans <body> : aucun parent (transform, flou…) ne peut décaler la fenêtre. */}
@@ -191,14 +235,20 @@ export function Correctable({
                 className="w-full max-w-md animate-[correct-in_220ms_cubic-bezier(0.2,0.9,0.3,1.2)] rounded-3xl border border-border bg-bg-subtle/85 p-6 text-fg shadow-[0_24px_80px_-12px_rgb(0,0,0,0.35)] backdrop-blur-2xl backdrop-saturate-150"
               >
                 <div className="flex items-start gap-3">
-                  <span className="grid size-10 shrink-0 place-items-center rounded-2xl bg-accent text-accent-fg shadow-sm">
-                    <IconPencil width={18} height={18} />
+                  <span
+                    className={`grid size-10 shrink-0 place-items-center rounded-2xl shadow-sm ${mode === "approve" ? "bg-success text-white" : "bg-accent text-accent-fg"}`}
+                  >
+                    {mode === "approve" ? <IconCheck width={18} height={18} /> : <IconPencil width={18} height={18} />}
                   </span>
                   <div className="min-w-0 flex-1">
                     <h2 id="correct-title" className="text-lg leading-tight font-semibold">
-                      Corriger Tamilya
+                      {mode === "approve" ? "C'est juste" : "Corriger Tamilya"}
                     </h2>
-                    <p className="mt-0.5 text-sm text-fg-muted">Apprenez-lui la bonne façon de le dire.</p>
+                    <p className="mt-0.5 text-sm text-fg-muted">
+                      {mode === "approve"
+                        ? "Tamilya gardera cette phrase comme modèle pour parler."
+                        : "Apprenez-lui la bonne façon de le dire."}
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -210,7 +260,7 @@ export function Correctable({
                   </button>
                 </div>
 
-                {meaning ? (
+                {meaning && mode === "correct" ? (
                   <div role="status" className="mt-5 rounded-2xl border border-accent/25 bg-accent-soft/60 px-4 py-3">
                     <p className={`${labelClass} text-accent`}>Tamilya voulait dire</p>
                     {meaning.state === "loading" ? (
@@ -229,10 +279,10 @@ export function Correctable({
                 ) : null}
 
                 <div className="mt-6 space-y-4">
-                  <div>
+                  <div hidden={mode === "approve"}>
                     <div className="flex items-center justify-between gap-2">
                       <label htmlFor="correct-wrote" className={labelClass}>
-                        Ce qu&apos;Tamilya a écrit
+                        Ce que Tamilya a écrit
                       </label>
                       {form.wrote.trim() && meaning?.state !== "loading" ? (
                         <button
@@ -259,9 +309,12 @@ export function Correctable({
                   </div>
 
                   <label className="block">
-                    <span className={`${labelClass} text-accent`}>Il fallait dire · shimaoré</span>
+                    <span className={`${labelClass} ${mode === "approve" ? "text-success" : "text-accent"}`}>
+                      {mode === "approve" ? "Phrase juste · shimaoré" : "Il fallait dire · shimaoré"}
+                    </span>
                     <input
-                      autoFocus={Boolean(form.wrote)}
+                      autoFocus={mode === "approve" ? !form.shimaore : Boolean(form.wrote)}
+                      placeholder={mode === "approve" ? "Collez la phrase juste (ou sélectionnez-la dans la réponse)" : undefined}
                       value={form.shimaore}
                       maxLength={MAX}
                       disabled={saving}
@@ -273,8 +326,20 @@ export function Correctable({
                   </label>
 
                   <label className="block">
-                    <span className={labelClass}>Ça veut dire · français</span>
+                    <span className="flex items-center justify-between gap-2">
+                      <span className={labelClass}>Ça veut dire · français</span>
+                      {mode === "approve" && form.shimaore.trim() && meaning?.state !== "loading" && !form.french.trim() ? (
+                        <button
+                          type="button"
+                          onClick={() => void explain(form.shimaore.trim())}
+                          className="rounded-full px-2 py-0.5 text-xs font-medium text-accent transition hover:bg-accent-soft"
+                        >
+                          Proposer le sens
+                        </button>
+                      ) : null}
+                    </span>
                     <input
+                      placeholder={mode === "approve" && meaning?.state === "loading" ? "Traduction en cours…" : undefined}
                       value={form.french}
                       maxLength={MAX}
                       disabled={saving}

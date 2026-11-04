@@ -5,11 +5,15 @@ import { createPortal } from "react-dom";
 import { FLY_MS, flyToBell, notify } from "@/lib/notifications";
 import { formatEuros } from "@/lib/wallet/limits";
 import type { Courier } from "@/lib/food/courier";
+import { dayLabel } from "@/lib/food/schedule";
 import { deliveryPoint, positionAt, remainingFrom, restaurantPoint, routeKm, routePath, travelledPart, type Point } from "@/lib/food/route";
+import dynamic from "next/dynamic";
 import { CourierChat, formatPhone, telLink, useCourierMessageCount } from "./CourierContact";
-import { CourierMap } from "./CourierMap";
 import { CleanQr, OrderTicket, StyledQr } from "./OrderTicket";
 import { useLiveRoute, useRoadRoutes } from "./useLiveRoute";
+
+// Carte du livreur (MapLibre et sa feuille de style) : chargée seulement quand le suivi s'ouvre.
+const CourierMap = dynamic(() => import("./CourierMap").then((m) => m.CourierMap), { ssr: false });
 
 const PERSONA = "var(--persona,var(--accent))";
 const time = new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit", timeZone: "Indian/Mayotte" });
@@ -36,6 +40,8 @@ export type PlacedOrder = {
   /** Adresse écrite et mot laissé, pour « Ma commande ». */
   address?: string;
   note?: string;
+  /** Commande programmée : en attente jusqu'à placedAt (début de la préparation). */
+  scheduled?: boolean;
 };
 
 /** Commandes payées, gardées sur l'appareil : « btm-food-order:<recherche> ». */
@@ -92,6 +98,10 @@ const THANKS_EVENT = "btm-food-thanks";
 /** « 3 min », « 40 s ». */
 function remaining(ms: number) {
   const s = Math.max(0, Math.round(ms / 1000));
+  if (s >= 3600) {
+    const m = Math.ceil(s / 60);
+    return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`;
+  }
   return s >= 60 ? `${Math.ceil(s / 60)} min` : `${s} s`;
 }
 
@@ -120,15 +130,20 @@ function useOrderClock(order: PlacedOrder) {
   }, [phase]);
 
   const accepted = now >= pickup;
+  // Commande programmée dont la préparation n'a pas encore commencé.
+  const waiting = Boolean(order.scheduled) && now < placed;
   // Cloche des notifications : commande passée, livreur parti, livreur arrivé (une fois chacune).
   useEffect(() => {
     const what = `${order.emoji} ${order.restaurant}`;
-    notify({ id: `${order.code}:placed`, emoji: "🧾", title: `Commande passée chez ${order.restaurant}`, subtitle: order.lines.join(" · "), at: order.placedAt });
+    if (order.scheduled)
+      notify({ id: `${order.code}:scheduled`, emoji: "⏰", title: `Commande programmée chez ${order.restaurant}`, subtitle: `Livraison vers ${time.format(new Date(order.arrivesAt))} · ${order.lines.join(" · ")}`, at: new Date().toISOString() });
+    if (!waiting)
+      notify({ id: `${order.code}:placed`, emoji: "🧾", title: `${order.restaurant} prépare ta commande`, subtitle: order.lines.join(" · "), at: order.placedAt });
     if (accepted)
       notify({ id: `${order.code}:pickup`, emoji: "🛵", title: `${order.courier?.name ?? "Ton livreur"} a récupéré ta commande`, subtitle: `${what} · en route vers ${order.commune}`, at: new Date(Math.min(pickup, Date.now())).toISOString() });
     if (accepted && phase === 2)
       notify({ id: `${order.code}:arrived`, emoji: "📍", title: "Ton livreur est arrivé", subtitle: `Montre ton code ${order.code}`, at: order.arrivesAt });
-  }, [accepted, phase, order, pickup]);
+  }, [accepted, phase, order, pickup, waiting]);
 
   const within = (from: number, to: number) => Math.min(1, Math.max(0, (now - from) / Math.max(1, to - from)));
   return {
@@ -141,6 +156,7 @@ function useOrderClock(order: PlacedOrder) {
     fills: [within(placed, ready), within(pickup, arrives), phase === 2 ? 1 : 0] as const,
     // Le code et le QR code n'apparaissent qu'après le clic du livreur : il a bien la commande en main.
     accepted,
+    waiting,
   };
 }
 
@@ -199,8 +215,8 @@ function ProgressRing({ fills, phase, size }: { fills: readonly number[]; phase:
   );
 }
 
-const titleOf = (phase: number, restaurant: string, pickedUp = true) =>
-  phase === 0 ? `${restaurant} prépare ta commande` : phase === 1 ? (pickedUp ? "Ton livreur est en route" : "Ta commande est prête") : "Ton livreur est arrivé";
+const titleOf = (phase: number, restaurant: string, pickedUp = true, waiting = false) =>
+  waiting ? "Commande programmée" : phase === 0 ?`${restaurant} prépare ta commande` : phase === 1 ? (pickedUp ? "Ton livreur est en route" : "Ta commande est prête") : "Ton livreur est arrivé";
 
 /**
  * Suivi d'une commande. Dans la conversation, une carte compacte ; un clic
@@ -209,7 +225,8 @@ const titleOf = (phase: number, restaurant: string, pickedUp = true) =>
  */
 export function OrderTracker({ order }: { order: PlacedOrder }) {
   const clock = useOrderClock(order);
-  const [open, setOpen] = useState(() => Date.now() - Date.parse(order.placedAt) < 5000);
+  // Ouvert de lui-même juste après le paiement (pas pour une commande programmée, qui attend son heure).
+  const [open, setOpen] = useState(() => !order.scheduled && Date.now() - Date.parse(order.placedAt) < 5000);
   const { phase, now, arrives } = clock;
   // Reçue (ici ou depuis la pastille) : la carte disparaît.
   const [received, setReceived] = useState(() => Boolean((order as StoredOrder).receivedAt));
@@ -227,9 +244,13 @@ export function OrderTracker({ order }: { order: PlacedOrder }) {
       <button type="button" onClick={() => setOpen(true)} className="booking-step flex w-full items-center gap-4 p-4 text-left transition hover:bg-bg-muted/50" aria-haspopup="dialog">
         <ProgressRing fills={clock.fills} phase={phase} size={56} />
         <span className="min-w-0 flex-1">
-          <span className="block font-semibold">{titleOf(phase, order.restaurant, clock.accepted)}</span>
+          <span className="block font-semibold">{titleOf(phase, order.restaurant, clock.accepted, clock.waiting)}</span>
           <span className="block text-xs text-fg-muted">
-            {phase === 2 ? "Montre-lui ton code" : `Arrivée vers ${time.format(new Date(arrives))} · dans ${remaining(arrives - now)}`}
+            {phase === 2
+              ? "Montre-lui ton code"
+              : clock.waiting
+                ? `Livraison ${dayLabel(arrives).toLowerCase()} vers ${time.format(new Date(arrives))}`
+                : `Arrivée vers ${time.format(new Date(arrives))} · dans ${remaining(arrives - now)}`}
           </span>
         </span>
         <span className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-accent-fg" style={{ background: PERSONA }}>
@@ -307,7 +328,7 @@ function SubSheet({ title, onClose, tall, children }: { title: string; onClose: 
         <span aria-hidden="true" className="mx-auto mb-3 h-1 w-10 shrink-0 rounded-full bg-border" />
         <div className="mb-3 flex shrink-0 items-center justify-between">
           <h3 className="text-base font-semibold">{title}</h3>
-          <button type="button" onClick={onClose} aria-label="Fermer" className="grid size-8 place-items-center rounded-full bg-bg-muted text-lg leading-none text-fg-muted hover:text-fg">
+          <button type="button" onClick={onClose} aria-label="Fermer" className="grid size-8 place-items-center rounded-full bg-bg-muted text-lg leading-none text-fg-muted pointer-coarse:size-10 hover:text-fg">
             ×
           </button>
         </div>
@@ -484,7 +505,7 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
           {/* État et heure d'arrivée */}
           <div className="order-rise flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <p className="text-lg leading-tight font-semibold">{titleOf(phase, order.restaurant, clock.accepted)}</p>
+              <p className="text-lg leading-tight font-semibold">{titleOf(phase, order.restaurant, clock.accepted, clock.waiting)}</p>
               <p className="mt-0.5 truncate text-xs text-fg-muted">
                 {order.emoji} {order.restaurant} · livraison à {order.commune}
               </p>
@@ -829,9 +850,11 @@ function OrderPill({ order }: { order: PlacedOrder }) {
           <ProgressRing fills={clock.fills} phase={phase} size={36} />
         </span>
         <span key={`text-${phase}`} className="order-swap relative leading-tight">
-          <span className="block text-xs font-semibold">{phase === 2 ? "Ton livreur est là" : phase === 0 ? "En préparation" : "En route"}</span>
+          <span className="block text-xs font-semibold">
+            {phase === 2 ? "Ton livreur est là" : clock.waiting ? "Programmée" : phase === 0 ? "En préparation" : "En route"}
+          </span>
           <span className="block text-[11px] text-fg-muted tabular-nums">
-            {phase === 2 ? "Montre ton code" : `Arrivée dans ${remaining(arrives - now)}`}
+            {phase === 2 ? "Montre ton code" : clock.waiting ? `Livraison vers ${time.format(new Date(arrives))}` : `Arrivée dans ${remaining(arrives - now)}`}
           </span>
         </span>
         {/* Petite scène : la poêle qui grésille, le scooter qui roule, la coche qui saute. */}
@@ -840,7 +863,7 @@ function OrderPill({ order }: { order: PlacedOrder }) {
           aria-hidden="true"
           className={`relative text-lg leading-none ${phase === 0 ? "order-sizzle" : phase === 1 ? "order-scooter-ride" : "order-hop"}`}
         >
-          {phase === 0 ? "🍳" : phase === 1 ? "🛵" : "✅"}
+          {clock.waiting ? "⏰" : phase === 0 ? "🍳" : phase === 1 ? "🛵" : "✅"}
         </span>
       </button>
       {open ? <OrderPanel order={order} clock={clock} onClose={() => setOpen(false)} /> : null}

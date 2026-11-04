@@ -58,6 +58,41 @@ async function count(
   return value ?? 0;
 }
 
+/** Lignes lues par page, et pages au plus avant de compter compte par compte. */
+const COUNT_PAGE = 1000;
+const COUNT_MAX_PAGES = 10;
+
+/**
+ * Nombre de lignes par compte, en une requête (ou quelques pages) pour toute
+ * la page de comptes, au lieu d'une requête par compte. Seule la colonne
+ * user_id est lue. Au-delà de COUNT_MAX_PAGES pages (comptes très actifs), on
+ * revient au comptage exact compte par compte, en parallèle.
+ */
+async function countByUser(
+  admin: SupabaseClient,
+  table: "conversations" | "messages",
+  ids: readonly string[],
+  onlyQuestions: boolean,
+): Promise<Map<string, number>> {
+  const counts = new Map<string, number>(ids.map((id) => [id, 0]));
+  for (let page = 0; page < COUNT_MAX_PAGES; page++) {
+    let query = admin.from(table).select("user_id").in("user_id", ids as string[]);
+    if (onlyQuestions) query = query.eq("role", "user");
+    const { data, error } = await query.order("id").range(page * COUNT_PAGE, (page + 1) * COUNT_PAGE - 1);
+    if (error) throw error;
+    for (const row of (data ?? []) as { user_id: string }[]) counts.set(row.user_id, (counts.get(row.user_id) ?? 0) + 1);
+    if ((data ?? []).length < COUNT_PAGE) return counts;
+  }
+  const head = { count: "exact", head: true } as const;
+  const exact = await Promise.all(
+    ids.map((id) => {
+      const query = admin.from(table).select("id", head).eq("user_id", id);
+      return count(onlyQuestions ? query.eq("role", "user") : query);
+    }),
+  );
+  return new Map(ids.map((id, index) => [id, exact[index]]));
+}
+
 /** Statistiques agrégées (fonction SQL public.admin_platform_stats). */
 export async function getAdminOverview(admin: SupabaseClient): Promise<AdminOverview> {
   const limits = await loadRateLimitSettings();
@@ -111,22 +146,11 @@ export async function listAdminUsers(
 
   const authUsers = [...data.users].sort((a, b) => b.created_at.localeCompare(a.created_at));
   const ids = authUsers.map((u) => u.id);
-  const head = { count: "exact", head: true } as const;
 
-  const conversationCounts = new Map<string, number>();
-  const messageCounts = new Map<string, number>();
-  if (ids.length > 0) {
-    const [conversations, messages] = await Promise.all([
-      Promise.all(ids.map((id) => count(admin.from("conversations").select("id", head).eq("user_id", id)))),
-      Promise.all(
-        ids.map((id) => count(admin.from("messages").select("id", head).eq("user_id", id).eq("role", "user"))),
-      ),
-    ]);
-    ids.forEach((id, index) => {
-      conversationCounts.set(id, conversations[index]);
-      messageCounts.set(id, messages[index]);
-    });
-  }
+  const [conversationCounts, messageCounts] =
+    ids.length > 0
+      ? await Promise.all([countByUser(admin, "conversations", ids, false), countByUser(admin, "messages", ids, true)])
+      : [new Map<string, number>(), new Map<string, number>()];
 
   return {
     users: authUsers.map((u) => ({
@@ -142,4 +166,34 @@ export async function listAdminUsers(
     total: data.total,
     hasNextPage: data.nextPage != null,
   };
+}
+
+type AuthUser = Awaited<ReturnType<SupabaseClient["auth"]["admin"]["listUsers"]>>["data"]["users"][number];
+
+/**
+ * Tous les comptes (jusqu'à `maxPages` pages de 1000) : la première page donne
+ * le nombre de pages, les suivantes sont lues en même temps au lieu de l'une
+ * après l'autre. null si la liste est illisible.
+ */
+export async function listAllAuthUsers(admin: SupabaseClient, maxPages = 10): Promise<AuthUser[] | null> {
+  const perPage = 1000;
+  const first = await admin.auth.admin.listUsers({ page: 1, perPage });
+  if (first.error) {
+    console.error("[admin] Comptes illisibles", first.error);
+    return null;
+  }
+  const users = [...first.data.users];
+  const lastPage = Math.min(maxPages, first.data.lastPage || Math.ceil((first.data.total ?? 0) / perPage) || 1);
+  if (first.data.users.length < perPage || lastPage <= 1) return users;
+  const rest = await Promise.all(
+    Array.from({ length: lastPage - 1 }, (_, i) => admin.auth.admin.listUsers({ page: i + 2, perPage })),
+  );
+  for (const page of rest) {
+    if (page.error) {
+      console.error("[admin] Comptes illisibles", page.error);
+      return null;
+    }
+    users.push(...page.data.users);
+  }
+  return users;
 }

@@ -17,8 +17,6 @@ type AlertInput = {
   wordsToTranslate?: number;
   /** Lecture des horaires du code sur le site de La Poste en échec (null : elle fonctionne). */
   codeExamProblem?: string | null;
-  /** Demandes de réservation du code en attente (0 si la table manque). */
-  codeExamRequests?: number;
   /** Construit un lien vers le tableau de bord Supabase (null si inconnu). */
   supabaseLink: (path: string) => string | null;
 };
@@ -36,7 +34,6 @@ export function buildAdminAlerts({
   overview,
   wordsToTranslate = 0,
   codeExamProblem = null,
-  codeExamRequests = 0,
   supabaseLink,
 }: AlertInput): AdminAlert[] {
   const alerts: AdminAlert[] = [];
@@ -111,15 +108,6 @@ export function buildAdminAlerts({
       title: "Horaires du code de la route illisibles",
       detail: `${codeExamProblem} Tamilya renvoie vers le site de La Poste en attendant : le site a sans doute changé, la lecture est à mettre à jour (src/lib/code-exam/laposte.ts).`,
       action: { label: "Voir le site de La Poste", href: "https://www.lecode.laposte.fr/recherche-salle" },
-    });
-  }
-
-  if (codeExamRequests > 0) {
-    alerts.push({
-      level: "warning",
-      title: `${codeExamRequests} demande${codeExamRequests > 1 ? "s" : ""} de réservation du code à traiter`,
-      detail: "Des candidats attendent la confirmation de leur place à l'examen du code.",
-      action: { label: "Traiter les demandes", href: "/admin/code" },
     });
   }
 

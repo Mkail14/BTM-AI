@@ -20,7 +20,7 @@ export type SiteDefinition = {
 const TRANSFER_TAG = "<<transferer_conseiller: ";
 const CANCEL_TAG = "<<annuler_conseiller>>";
 
-const BTM_BATIMENT = `Ton rôle ici : assistante du support client de BTM (Bâtiment & Travaux Mayotte), dans la discussion « Sur le site » de btm.yt.
+const BTM_BATIMENT = `Ton rôle ici : assistante du support client de BTM, la plateforme bâtiment de GROUPE BTM (Bâtir la Technologie de Mayotte), dans la discussion « Sur le site » de btm.yt.
 BTM est une plateforme gratuite de mise en relation : elle ne vend rien. Elle aide les particuliers et les professionnels
 de Mayotte à chiffrer leurs travaux (mur, dalle, fondation, terrasse) ou à acheter directement des matériaux,
 puis à les retirer chez un fournisseur partenaire au meilleur prix.
@@ -93,7 +93,7 @@ Si le client dit qu'il ne veut pas de conseiller, qu'il n'en a plus besoin ou qu
 export const SITES: Record<SiteId, SiteDefinition> = {
   "btm-batiment": {
     intro:
-      "Tu es {name}, l'assistante créée par GROUPE BTM. Tu es la même Tamilya que sur BTM AI ; ici, tu réponds aux clients du site btm.yt (BTM Bâtiment & Travaux Mayotte).",
+      "Tu es {name}, l'assistante créée par GROUPE BTM. Tu es la même Tamilya que sur BTM AI ; ici, tu réponds aux clients du site btm.yt (BTM, la plateforme bâtiment de GROUPE BTM).",
     instructions: BTM_BATIMENT,
   },
 };

@@ -49,11 +49,12 @@ const EXAMPLES: readonly Partner[] = [
 /** Nos partenaires : un seul écran fixe (la page ne défile pas), la frise glisse de gauche à droite. */
 export default function PartenairesPage() {
   return (
-    <div className="landing fixed inset-0 flex flex-col overflow-hidden bg-bg text-fg">
+    // Écran trop bas (téléphone couché, petit téléphone) : la page défile en hauteur pour que les cartes ne soient pas coupées.
+    <div className="landing fixed inset-0 flex flex-col overflow-x-hidden overflow-y-auto overscroll-contain bg-bg text-fg [@media(min-height:640px)]:overflow-hidden">
       <div aria-hidden="true" className="fond-lagon fond-lagon--page" />
       <LandingNav />
 
-      <main id="contenu" className="relative z-10 flex min-h-0 flex-1 flex-col pb-[max(1.5rem,env(safe-area-inset-bottom))]">
+      <main id="contenu" className="relative z-10 flex flex-1 flex-col pb-[max(1.5rem,env(safe-area-inset-bottom))] [@media(min-height:640px)]:min-h-0">
         <div aria-hidden="true" className="landing-aurora" />
 
         <div className="shrink-0 px-5 pt-[clamp(1.5rem,6vh,4rem)] text-center">

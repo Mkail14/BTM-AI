@@ -29,6 +29,15 @@ function keyOf(now: Date, days: number) {
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
 
+/**
+ * « AAAA-MM-JJ » si ce jour existe dans ce mois, sinon null : « 31/02 » ou « le 31 »
+ * en novembre ne glissent pas au mois suivant. Un mois 13 est janvier de l'année suivante.
+ */
+function validKey(year: number, month: number, day: number): string | null {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCDate() === day ? date.toISOString().slice(0, 10) : null;
+}
+
 const weekdayOf = (key: string) => new Date(`${key}T12:00:00Z`).getUTCDay();
 
 export function parseCodeExamWhen(message: string, now = new Date()): CodeExamWhen {
@@ -49,9 +58,10 @@ export function parseCodeExamWhen(message: string, now = new Date()): CodeExamWh
       const dayNumber = Number(dated[1]);
       const month = dated[2] ? MONTHS.indexOf(dated[2]) + 1 : dated[3] ? Number(dated[3]) : m;
       if (dayNumber >= 1 && dayNumber <= 31 && month >= 1 && month <= 12) {
-        let key = new Date(Date.UTC(y, month - 1, dayNumber)).toISOString().slice(0, 10);
+        let key = validKey(y, month, dayNumber);
         // Date déjà passée : l'an prochain (avec un mois donné) ou le mois prochain.
-        if (key < today) key = new Date(Date.UTC(dated[2] || dated[3] ? y + 1 : y, dated[2] || dated[3] ? month - 1 : month, dayNumber)).toISOString().slice(0, 10);
+        if (key && key < today) key = dated[2] || dated[3] ? validKey(y + 1, month, dayNumber) : validKey(y, month + 1, dayNumber);
+        // Jour qui n'existe pas (31 novembre, 30 février) : aucun jour choisi plutôt qu'un mauvais.
         day = key;
       }
     } else if (weekday >= 0) {

@@ -9,7 +9,7 @@ import { Feedback, PRIMARY, SECONDARY, useSave } from "./ContactForms";
 const LABELS = ["", "Décevante", "Moyenne", "Bien", "Très bien", "Excellente"];
 
 /**
- * Ton avis sur BTM IA : une note et quelques mots, affichés sur la page
+ * Ton avis sur BTM AI : une note et quelques mots, affichés sur la page
  * d'accueil avec ton prénom et l'initiale de ton nom. Un seul avis par
  * compte, modifiable ou supprimable à tout moment.
  */
@@ -42,7 +42,7 @@ export function ReviewForm({ review, publicName, defaultCommune }: { review: MyR
                 aria-label={`${n} étoile${n > 1 ? "s" : ""}`}
                 onClick={() => setRating(n)}
                 onMouseEnter={() => setHover(n)}
-                className={`text-3xl leading-none transition hover:scale-110 ${n <= shown ? "text-[#f59e0b]" : "text-border"}`}
+                className={`text-3xl leading-none transition hover:scale-110 ${n <= shown ? "text-warning" : "text-border"}`}
               >
                 ★
               </button>

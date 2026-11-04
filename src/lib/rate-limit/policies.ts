@@ -40,4 +40,18 @@ export const RATE_LIMIT_POLICIES = {
     { name: "dev-key-day", limit: 2_000, windowSeconds: 86_400 },
   ],
   developerIp: [{ name: "dev-ip-min", limit: 60, windowSeconds: 60 }],
+  // Tous les codes d'un même compte additionnés : créer 5 codes ne donne pas 5 fois plus de messages.
+  developerAccount: [{ name: "dev-account-day", limit: 2_000, windowSeconds: 86_400 }],
+  // Création de codes d'accès : assez pour se tromper, pas pour en fabriquer à la chaîne.
+  developerKeyCreate: [{ name: "dev-key-create-day", limit: 10, windowSeconds: 86_400 }],
+  // Sites partenaires (route /api/awa) : par site, leurs visiteurs sont déjà limités de leur côté.
+  partnerSite: [
+    { name: "site-min", limit: 60, windowSeconds: 60 },
+    { name: "site-day", limit: 5_000, windowSeconds: 86_400 },
+  ],
+  // Relais IA (seulement s'il est ouvert) : protège la clé de BTM contre un secret volé.
+  aiRelay: [
+    { name: "relay-min", limit: 120, windowSeconds: 60 },
+    { name: "relay-day", limit: 20_000, windowSeconds: 86_400 },
+  ],
 } satisfies Record<string, RateLimitRule[]>;

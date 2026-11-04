@@ -35,10 +35,10 @@ export function UpdatePasswordForm({ reason }: { reason: "oubli" | "modification
       if (updateError) {
         setError(
           updateError.code === "same_password"
-            ? "Choisissez un mot de passe différent de l'actuel."
+            ? "Choisis un mot de passe différent de l'actuel."
             : updateError.code === "weak_password"
               ? "Ce mot de passe est trop faible."
-              : "La mise à jour a échoué. Le lien a peut-être expiré : refaites une demande.",
+              : "La mise à jour a échoué. Le lien a peut-être expiré : refais une demande.",
         );
       } else {
         setDone(true);
@@ -50,7 +50,7 @@ export function UpdatePasswordForm({ reason }: { reason: "oubli" | "modification
         }).catch(() => {});
       }
     } catch {
-      setError("Connexion au service impossible. Vérifiez votre connexion internet.");
+      setError("Connexion au service impossible. Vérifie ta connexion internet.");
     } finally {
       setPending(false);
     }
@@ -59,7 +59,7 @@ export function UpdatePasswordForm({ reason }: { reason: "oubli" | "modification
   if (done) {
     return (
       <div role="status" className="rounded-xl border border-border bg-bg p-5 text-sm">
-        <p className="font-medium">Votre mot de passe a été modifié.</p>
+        <p className="font-medium">Ton mot de passe a été modifié.</p>
         <Link href="/" className="mt-3 inline-block font-medium text-accent hover:underline">
           Revenir à BTM AI
         </Link>

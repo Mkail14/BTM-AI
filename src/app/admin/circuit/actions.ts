@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/action-auth";
+import { NOT_ADMIN, NOT_PRINCIPAL, requireAdminAction, requirePrincipalAdminAction, type ActionResult } from "@/lib/admin/action-auth";
 import { createProvider, slotHealthId } from "@/lib/ai";
 import { AI_PROVIDERS } from "@/lib/ai/config";
 import { isCuttableBlock } from "@/lib/ai/flow-cuts";
@@ -12,6 +12,7 @@ import { invalidateAIChain, loadAIChain, loadRemovedApis, storedSlot } from "@/l
 import { canEncrypt, encryptSecret } from "@/lib/ai/secret-box";
 import { AIProviderError } from "@/lib/ai/types";
 import { invalidateRateLimits, rateLimitSettingsSchema } from "@/lib/rate-limit/settings";
+import { isPublicHttpsUrl } from "@/lib/security/public-url";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { API_LIMITS } from "./presets";
 
@@ -68,15 +69,19 @@ const newApiSchema = z.object({
     .string()
     .trim()
     .max(API_LIMITS.baseUrl)
-    .refine((v) => v === "" || /^https?:\/\/\S+$/.test(v), "Adresse invalide (https://…)."),
+    // https public seulement : jamais localhost ni le réseau interne (le serveur appellera cette adresse).
+    .refine((v) => v === "" || isPublicHttpsUrl(v), "Adresse invalide : une adresse https:// publique."),
   model: z.string().trim().min(1, "Indiquez le modèle.").max(API_LIMITS.model),
   apiKey: z.string().trim().min(8, "Collez la clé API.").max(API_LIMITS.apiKey),
 });
 
-/** Ajoute une API en fin de chaîne, après avoir vérifié sa clé auprès du fournisseur. */
+/**
+ * Ajoute une API en fin de chaîne, après avoir vérifié sa clé auprès du fournisseur.
+ * Administrateur principal seulement : cette adresse recevra les conversations.
+ */
 export async function addApiAction(input: unknown): Promise<ActionResult> {
-  const auth = await requireAdminAction();
-  if (!auth) return NOT_ADMIN;
+  const auth = await requirePrincipalAdminAction();
+  if (!auth) return NOT_PRINCIPAL;
   const admin = getSupabaseAdminClient();
   if (!admin || !canEncrypt()) return { ok: false, message: "SUPABASE_SECRET_KEY n'est pas définie sur le serveur." };
   const parsed = newApiSchema.safeParse(input);
@@ -133,11 +138,12 @@ const listSchema = z.object({
 export async function listModelsAction(
   input: unknown,
 ): Promise<{ ok: true; models: string[]; freeOnly: boolean } | { ok: false; message: string }> {
-  if (!(await requireAdminAction())) return { ok: false, message: NOT_ADMIN.message };
+  if (!(await requirePrincipalAdminAction())) return { ok: false, message: NOT_PRINCIPAL.message };
   const parsed = listSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Clé ou adresse invalide." };
   const { provider, baseUrl, apiKey } = parsed.data;
-  if (provider === "openai-compatible" && !/^https?:\/\/\S+$/.test(baseUrl)) return { ok: false, message: "Indiquez l'adresse de l'API." };
+  if (provider === "openai-compatible" && !baseUrl) return { ok: false, message: "Indiquez l'adresse de l'API." };
+  if (baseUrl && !isPublicHttpsUrl(baseUrl)) return { ok: false, message: "Adresse invalide : une adresse https:// publique." };
   const config = { provider, baseUrl: baseUrl || undefined, apiKey };
   // OpenRouter donne sa liste à tout le monde : la fiche de la clé dit si elle
   // est valide et si le compte a du crédit (sinon, seuls les modèles « :free » marchent).

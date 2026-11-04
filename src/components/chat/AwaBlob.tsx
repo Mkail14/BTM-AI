@@ -5,6 +5,9 @@ import { getVoiceMood, voiceLevel } from "@/lib/chat/voice-level";
 
 /** Durée de l'animation du clic avant d'ouvrir (voix ou zone de saisie). */
 const POP_MS = 520;
+/** Images par seconde de la goutte quand elle bouge (cœur, voix…), puis au repos. */
+const FPS_ACTIVE = 30;
+const FPS_IDLE = 20;
 
 /**
  * Place du globe au moment du clic : le mode vocal s'en sert pour faire
@@ -104,8 +107,14 @@ export function AwaBlob({
     // Dernière intensité des couleurs posée : on ne réécrit que si elle change (moins de calcul de style).
     let lastRainbow = "";
 
+    // Images par seconde : 30 quand elle bouge vraiment (cœur, voix, sursaut,
+    // réflexion), 20 au repos où tout glisse lentement. Assez pour l'œil, bien moins de calcul.
+    let lively = true;
     const loop = (now: number) => {
-      const dt = Math.min(0.05, (now - last) / 1000);
+      frame = requestAnimationFrame(loop);
+      // Petite marge : sur un écran à 60 Hz, l'image tombe sur la 2e (ou 3e) image de l'écran.
+      if (now - last < (lively ? 1000 / FPS_ACTIVE : 1000 / FPS_IDLE) - 4) return;
+      const dt = Math.min(0.1, (now - last) / 1000);
       last = now;
       const mood = getVoiceMood();
       const thinking = busyRef.current;
@@ -185,20 +194,28 @@ export function AwaBlob({
       }
       if (shine.current) shine.current.style.transform = `translate(${(noise(t * 0.25 + 900) * 8).toFixed(2)}%, ${(noise(t * 0.25 + 950) * 6).toFixed(2)}%)`;
 
-      frame = requestAnimationFrame(loop);
+      // Prochain battement tout proche : on repasse à 30 images juste avant, pour ne pas le rater.
+      lively = thinking || mood !== "idle" || voice > 0.01 || heart > 0.01 || joltAmount > 0.01 || nextBeat - now < 120 || beats.length > 0;
     };
-    // Hors de l'écran (page défilée plus bas) : l'animation s'arrête, et reprend au retour.
-    const observer = new IntersectionObserver(([entry]) => {
+    // L'animation tourne seulement si le globe est à l'écran (page pas défilée plus bas) et l'onglet visible.
+    let onScreen = !root.current;
+    const sync = () => {
       cancelAnimationFrame(frame);
       frame = 0;
-      if (!entry.isIntersecting) return;
+      if (!onScreen || document.visibilityState === "hidden") return;
       last = performance.now();
       frame = requestAnimationFrame(loop);
+    };
+    const observer = new IntersectionObserver(([entry]) => {
+      onScreen = entry.isIntersecting;
+      sync();
     });
     if (root.current) observer.observe(root.current);
-    else frame = requestAnimationFrame(loop);
+    else sync();
+    document.addEventListener("visibilitychange", sync);
     return () => {
       observer.disconnect();
+      document.removeEventListener("visibilitychange", sync);
       cancelAnimationFrame(frame);
     };
   }, []);

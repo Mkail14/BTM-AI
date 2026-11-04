@@ -56,7 +56,8 @@ async function translate(brain: AwaBrain): Promise<string[] | null> {
   const system = buildSystemPrompt(DEFAULT_PERSONALITY, {
     identity: brain.identity,
     rules: brain.rules,
-    lexicon: lexiconFor(brain, DEFAULT_PERSONALITY),
+    lexicon: lexiconFor(brain, DEFAULT_PERSONALITY, text),
+    grammar: brain.grammar,
     words: wordsFor(brain, text, true),
     gloss: glossFor(brain, text),
     teacher: true,

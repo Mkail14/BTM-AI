@@ -1,9 +1,12 @@
+import { GuestHomeCover } from "@/components/landing/GuestHomeCover";
 import { LoadingStatus, Skeleton } from "@/components/ui/Skeleton";
 
 /** Affiché instantanément au clic (accueil, conversation), la barre latérale reste en place. */
 export default function ChatLoading() {
   return (
     <div className="flex h-full min-h-0 flex-col">
+      {/* Visiteur sans compte sur l'accueil : fond de l'accueil par-dessus, pas la conversation. */}
+      <GuestHomeCover />
       <LoadingStatus />
       <div className="h-14 shrink-0" />
       <div className="mx-auto w-full max-w-3xl flex-1 space-y-6 px-4 py-6 sm:px-6">

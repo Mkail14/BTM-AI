@@ -4,8 +4,10 @@
  * Un ticket est valable toute la journée choisie.
  */
 
-/** Démonstration : rien n'est vendu pour de vrai, le solde fictif est débité. */
-export const BARGE_DEMO = true;
+import { DEMO_PAYMENTS } from "@/lib/wallet/demo-mode";
+
+/** Démonstration : rien n'est vendu pour de vrai, le solde fictif est débité (interrupteur commun : src/lib/wallet/demo-mode.ts). */
+export const BARGE_DEMO = DEMO_PAYMENTS;
 
 export const BARGE_ROUTE = { from: "Mamoudzou", fromSide: "Grande-Terre", to: "Dzaoudzi", toSide: "Petite-Terre" } as const;
 
@@ -45,12 +47,18 @@ export const bargeDays = () => Array.from({ length: BARGE_DAYS_AHEAD + 1 }, (_, 
 
 /** Prix calculé à partir du catalogue (jamais celui envoyé par le navigateur). null si un ticket n'existe pas. */
 export function priceBargeOrder(cart: readonly BargeCartLine[]) {
-  const lines: { ticket: BargeTicketType; quantity: number }[] = [];
+  // Un même ticket envoyé sur plusieurs lignes est additionné avant de vérifier la quantité maximale.
+  const merged = new Map<string, number>();
   for (const line of cart) {
+    if (!Number.isInteger(line.quantity)) return null;
     if (line.quantity <= 0) continue;
-    const ticket = BARGE_TICKETS.find((t) => t.id === line.ticketId);
-    if (!ticket || line.quantity > BARGE_MAX_QUANTITY) return null;
-    lines.push({ ticket, quantity: line.quantity });
+    merged.set(line.ticketId, (merged.get(line.ticketId) ?? 0) + line.quantity);
+  }
+  const lines: { ticket: BargeTicketType; quantity: number }[] = [];
+  for (const [ticketId, quantity] of merged) {
+    const ticket = BARGE_TICKETS.find((t) => t.id === ticketId);
+    if (!ticket || quantity > BARGE_MAX_QUANTITY) return null;
+    lines.push({ ticket, quantity });
   }
   if (lines.length === 0) return null;
   const totalCents = lines.reduce((sum, l) => sum + l.ticket.priceCents * l.quantity, 0);

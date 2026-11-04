@@ -16,7 +16,7 @@ export function SimplePage({
   const width = wide ? "max-w-5xl" : "max-w-2xl";
   return (
     <div className="min-h-dvh bg-bg-subtle">
-      <header className="border-b border-border bg-bg">
+      <header className="border-b border-border bg-bg pt-[env(safe-area-inset-top)]">
         <div className={`mx-auto flex h-14 ${width} items-center justify-between px-4`}>
           <Link href="/" aria-label="BTM AI — retour à la conversation" className="rounded">
             <BrandLogo size="md" />
@@ -26,7 +26,8 @@ export function SimplePage({
           </Link>
         </div>
       </header>
-      <main id="contenu" className={`mx-auto ${width} px-4 py-10`}>
+      <main id="contenu" className={`mx-auto ${width} px-4 pt-10 pb-28`}>
+        {/* Espace en bas : le rond d'aide ne cache pas la fin du texte. */}
         <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
         <div className="mt-6">{children}</div>
       </main>

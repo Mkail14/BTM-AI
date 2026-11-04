@@ -11,6 +11,7 @@ import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
 import { parseSiteReply, SITE_IDS, SITES, siteInstructions, type SiteId } from "@/lib/ai/sites";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
 import type { ChatTurn } from "@/lib/chat/types";
+import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -100,6 +101,17 @@ export async function POST(request: NextRequest) {
   const body = parsed.data;
   if (!(await authorized(request, body.site))) return fail(401, "unauthorized");
 
+  // Limite par site : un secret de site volé ne peut pas faire répondre Tamilya sans fin.
+  try {
+    const limit = await consumeRateLimits([{ key: `awa:${body.site}`, rules: RATE_LIMIT_POLICIES.partnerSite }]);
+    if (!limit.allowed) {
+      return NextResponse.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } });
+    }
+  } catch (error) {
+    console.error("[awa] Compteurs indisponibles", error);
+    return fail(503, "unavailable");
+  }
+
   const flow = startFlowTrace();
   // Lien coupé sur le schéma de /admin/circuit : le message s'arrête là.
   const cuts = await loadFlowCuts();
@@ -141,6 +153,7 @@ export async function POST(request: NextRequest) {
     identity: brain.identity,
     rules: brain.rules,
     lexicon: lexiconFor(brain, DEFAULT_PERSONALITY),
+    grammar: brain.grammar,
     words: wordsFor(brain, question.content),
     knowledge: knowledgeFor(brain, question.content),
     site: {

@@ -105,7 +105,7 @@ export default async function DeveloppeursPage() {
       </section>
 
       {/* Écran 3 : l'exemple d'appel. */}
-      <section id="exemple" className={`mx-auto flex max-w-5xl scroll-mt-12 flex-col justify-center px-5 py-8 ${screen}`}>
+      <section id="exemple" className={`mx-auto flex max-w-5xl scroll-mt-12 flex-col justify-center px-5 pt-8 pb-24 lg:pb-8 ${screen}`}>
         {/* Titre plus serré que les autres écrans : tout doit tenir dans un seul écran. */}
         <div className="text-center">
           <span aria-hidden="true" className="landing-index">
@@ -118,7 +118,8 @@ export default async function DeveloppeursPage() {
             Une seule adresse, à appeler depuis votre serveur. Jamais depuis le navigateur : votre code et votre clé seraient
             visibles par tous.
           </p>
-          <code className="mt-4 inline-block max-w-full truncate rounded-full border border-border bg-bg px-4 py-1.5 font-mono text-xs">
+          {/* Téléphone : l'adresse passe à la ligne au lieu d'être coupée. */}
+          <code className="mt-4 inline-block max-w-full rounded-2xl border border-border bg-bg px-4 py-1.5 font-mono text-xs break-all sm:truncate sm:rounded-full">
             <span className="font-semibold text-[var(--persona,var(--accent))]">POST</span> {endpoint}
           </code>
         </div>

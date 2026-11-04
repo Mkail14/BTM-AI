@@ -9,9 +9,11 @@
  * Aucune commande n'est transmise aux restaurants.
  */
 
+import { DEMO_PAYMENTS } from "@/lib/wallet/demo-mode";
 import { JEJE_RESTAURANTS } from "./jeje-catalog";
 
-export const FOOD_DEMO = true;
+/** Démonstration (interrupteur commun à tous les paiements : src/lib/wallet/demo-mode.ts). */
+export const FOOD_DEMO = DEMO_PAYMENTS;
 
 /** Solde fictif des administrateurs pendant la démonstration : de quoi commander sans recharger. */
 export const FOOD_DEMO_BALANCE_CENTS = 15_000;
@@ -63,10 +65,16 @@ export function priceOrder(restaurantId: string, cart: readonly FoodCartLine[]) 
   const restaurant = findRestaurant(restaurantId);
   if (!restaurant || cart.length === 0) return null;
   const items = new Map(restaurant.menu.flatMap((s) => s.items).map((i) => [i.id, i]));
-  const lines = [];
+  // Un même plat envoyé sur plusieurs lignes est additionné avant de vérifier la quantité maximale.
+  const merged = new Map<string, number>();
   for (const { itemId, quantity } of cart) {
+    if (!Number.isInteger(quantity) || quantity < 1) return null;
+    merged.set(itemId, (merged.get(itemId) ?? 0) + quantity);
+  }
+  const lines = [];
+  for (const [itemId, quantity] of merged) {
     const item = items.get(itemId);
-    if (!item || !Number.isInteger(quantity) || quantity < 1 || quantity > FOOD_MAX_QUANTITY) return null;
+    if (!item || quantity > FOOD_MAX_QUANTITY) return null;
     lines.push({ item, quantity, totalCents: item.priceCents * quantity });
   }
   const itemsCents = lines.reduce((sum, l) => sum + l.totalCents, 0);

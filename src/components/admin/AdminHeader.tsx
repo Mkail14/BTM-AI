@@ -22,7 +22,7 @@ export async function AdminHeader({ section }: { section?: string; email?: strin
   const ghost = "inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium text-fg-muted hover:bg-bg-muted hover:text-fg";
 
   return (
-    <header className="sticky top-0 z-30 shrink-0 border-b border-border bg-bg/90 backdrop-blur">
+    <header className="sticky top-0 z-30 shrink-0 border-b border-border bg-bg/90 pt-[env(safe-area-inset-top)] backdrop-blur">
       <div className="mx-auto max-w-[1600px] px-3 md:px-6">
         <div className="flex h-14 items-center gap-3">
           <AdminMenu principal={principal} />

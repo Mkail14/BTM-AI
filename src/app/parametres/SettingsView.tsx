@@ -17,8 +17,8 @@ const SECTIONS: Section[] = [
   { id: "apercu", label: "Vue d'ensemble", hint: "Ton compte en un coup d'œil", icon: IconDashboard },
   { id: "profil", label: "Profil", hint: "Ton nom et ton téléphone", icon: IconUser },
   { id: "adresse", label: "Adresses", hint: "Maison, travail, amis, famille", icon: IconMapPin },
-  { id: "awa", label: "Tamilya", hint: "Son caractère et ce qu'elle retient", icon: IconSparkle },
-  { id: "avis", label: "Mon avis", hint: "Ta note sur BTM IA, affichée sur l'accueil", icon: IconStar },
+  { id: "awa", label: "Tamilya", hint: "Sa personnalité et ce qu'elle retient", icon: IconSparkle },
+  { id: "avis", label: "Mon avis", hint: "Ta note sur Tamilya, affichée sur l'accueil", icon: IconStar },
   { id: "securite", label: "Sécurité", hint: "E-mail, mot de passe, session", icon: IconLock },
   { id: "suppression", label: "Supprimer le compte", hint: "Effacer ton compte et tes données", icon: IconTrash, danger: true },
 ];
@@ -91,7 +91,7 @@ export function SettingsView({
                       type="button"
                       onClick={() => open(s.id)}
                       aria-current={selected ? "page" : undefined}
-                      className={`relative flex w-full items-center gap-2 rounded-full border px-3.5 py-2 text-sm whitespace-nowrap transition md:gap-3 md:rounded-xl md:border-0 md:px-3 md:py-2 md:text-left ${
+                      className={`relative flex w-full items-center gap-2 rounded-full border px-3.5 py-2.5 text-sm whitespace-nowrap transition md:gap-3 md:rounded-xl md:border-0 md:px-3 md:py-2 md:text-left ${
                         selected
                           ? s.danger
                             ? "border-transparent bg-danger-soft font-medium text-danger"

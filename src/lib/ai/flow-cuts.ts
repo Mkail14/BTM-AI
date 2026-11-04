@@ -44,3 +44,23 @@ export async function loadFlowCuts(): Promise<Set<string>> {
   }
   return new Set(Array.isArray(data?.flow_cuts) ? data.flow_cuts.filter(isCuttableBlock) : []);
 }
+
+/**
+ * Liens coupés pour un message du chat : gardés 15 s en mémoire, au lieu d'une
+ * lecture de la base à chaque message. Un fil coupé depuis /admin/circuit
+ * arrête donc les messages au plus 15 s après. La page /admin/circuit, elle,
+ * relit toujours la base (loadFlowCuts) et montre l'état exact.
+ */
+const MESSAGE_CACHE_MS = 15_000;
+let messageCache: { cuts: Promise<Set<string>>; expiresAt: number } | null = null;
+
+export function loadFlowCutsForMessage(): Promise<Set<string>> {
+  if (messageCache && messageCache.expiresAt > Date.now()) return messageCache.cuts;
+  const cuts = loadFlowCuts();
+  messageCache = { cuts, expiresAt: Date.now() + MESSAGE_CACHE_MS };
+  // Une lecture en échec n'est pas gardée.
+  cuts.catch(() => {
+    if (messageCache?.cuts === cuts) messageCache = null;
+  });
+  return cuts;
+}

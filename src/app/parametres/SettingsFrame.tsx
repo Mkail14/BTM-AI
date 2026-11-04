@@ -18,7 +18,7 @@ export function SettingsFrame({
 }) {
   return (
     <div className="flex min-h-dvh flex-col bg-bg-subtle md:h-dvh md:overflow-hidden">
-      <header className="sticky top-0 z-20 shrink-0 border-b border-border bg-bg/95 backdrop-blur md:static md:bg-bg md:backdrop-blur-none">
+      <header className="sticky top-0 z-20 shrink-0 border-b border-border bg-bg/95 pt-[env(safe-area-inset-top)] backdrop-blur md:static md:bg-bg md:backdrop-blur-none">
         <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4">
           <Link href="/" aria-label="BTM AI — retour à la conversation" className="rounded">
             <BrandLogo size="md" />

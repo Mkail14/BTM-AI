@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth/session";
 import { EXAM_TYPES, type ExamType } from "@/lib/code-exam/candidate";
+import { codeExamPartnerReady } from "@/lib/code-exam/partner";
 import type { AppNotification } from "@/lib/notifications";
 import { loadWallet } from "@/lib/wallet";
 import { readDemoWallet, usesDemoWallet } from "@/lib/wallet/demo";
@@ -20,9 +21,17 @@ export async function GET() {
   const demo = await usesDemoWallet(user);
   const [wallet, code] = await Promise.all([
     demo ? readDemoWallet(user.id) : loadWallet(supabase, user.id, 30),
-    supabase.from("code_exam_requests").select("id, starts_at, created_at, exam_type, center_name, status").order("created_at", { ascending: false }).limit(20),
+    // Filtré sur ce compte : un administrateur lit toutes les demandes avec la RLS.
+    supabase
+      .from("code_exam_requests")
+      .select("id, starts_at, created_at, exam_type, center_name, status")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(20),
   ]);
 
+  // Sans partenariat La Poste (ou en démo), une place « réservée » n'est qu'une simulation.
+  const simulated = demo || !codeExamPartnerReady();
   const items: AppNotification[] = [
     ...wallet.transactions
       .filter((t) => t.status !== "failed")
@@ -43,7 +52,12 @@ export async function GET() {
       (r): AppNotification => ({
         id: `code:${r.id}`,
         emoji: r.status === "cancelled" ? "✖️" : "🚗",
-        title: r.status === "booked" ? "Place du code confirmée" : r.status === "cancelled" ? "Réservation du code annulée" : "Demande de réservation du code envoyée",
+        title:
+          r.status === "booked"
+            ? simulated
+              ? "Réservation d'essai du code (simulation)"
+              : "Place du code confirmée"
+            : r.status === "cancelled" ? "Réservation du code annulée" : "Demande de réservation du code envoyée",
         subtitle: `${EXAM_TYPES[r.exam_type] ?? r.exam_type} · ${day.format(new Date(r.starts_at))} · La Poste de ${r.center_name}`,
         at: r.created_at,
       }),

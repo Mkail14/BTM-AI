@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MAYOTTE_COMMUNES } from "@/lib/address-fields";
 import { DISPOSABLE_EMAIL_MESSAGE, isDisposableEmail } from "@/lib/auth/disposable-email";
 
 /**
@@ -18,26 +19,8 @@ export const EXAM_TYPES = {
 export type ExamType = keyof typeof EXAM_TYPES;
 export const EXAM_TYPE_IDS = Object.keys(EXAM_TYPES) as [ExamType, ...ExamType[]];
 
-/** Les 17 communes de Mayotte, proposées dans le champ « Ville de résidence ». */
-export const MAYOTTE_COMMUNES = [
-  "Acoua",
-  "Bandraboua",
-  "Bandrélé",
-  "Bouéni",
-  "Chiconi",
-  "Chirongui",
-  "Dembéni",
-  "Dzaoudzi",
-  "Kani-Kéli",
-  "Koungou",
-  "Mamoudzou",
-  "Mtsamboro",
-  "M'Tsangamouji",
-  "Ouangani",
-  "Pamandzi",
-  "Sada",
-  "Tsingoni",
-] as const;
+/** Les 17 communes de Mayotte (définies sans zod dans lib/address-fields.ts, pour le navigateur). */
+export { MAYOTTE_COMMUNES };
 
 /** Âge minimal pour passer le code (15 ans, conduite accompagnée). */
 export const MIN_AGE = 15;
@@ -68,11 +51,25 @@ export function maskPhone(phone: string): string {
 /** NEPH : 12 chiffres, espaces permis à la saisie. */
 export const normalizeNeph = (value: string) => value.replace(/\s/g, "");
 
+const mayotteDay = new Intl.DateTimeFormat("en-CA", { timeZone: "Indian/Mayotte" });
+
+/** Date du jour à Mayotte, « AAAA-MM-JJ » (date maximale du champ de naissance). */
+export const mayotteToday = (now = new Date()) => mayotteDay.format(now);
+
+/** Âge révolu à Mayotte (et non à l'heure du serveur, en UTC). */
 function age(birthDate: string, now = new Date()) {
   const [y, m, d] = birthDate.split("-").map(Number);
-  let years = now.getFullYear() - y;
-  if (now.getMonth() + 1 < m || (now.getMonth() + 1 === m && now.getDate() < d)) years--;
+  const [ty, tm, td] = mayotteToday(now).split("-").map(Number);
+  let years = ty - y;
+  if (tm < m || (tm === m && td < d)) years--;
   return years;
+}
+
+/** Jour qui existe vraiment (pas de 30 février). */
+function realDay(value: string) {
+  const [y, m, d] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(y, m - 1, d));
+  return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
 }
 
 const NAME = /^[\p{L}][\p{L}' -]*$/u;
@@ -91,7 +88,8 @@ export const candidateFields = {
   birthDate: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/, "Indique ta date de naissance.")
-    .refine((v) => !Number.isNaN(new Date(v).getTime()), "Date invalide.")
+    .refine((v) => realDay(v), "Date invalide.")
+    .refine((v) => v <= mayotteToday(), "Date invalide.")
     .refine((v) => age(v) >= MIN_AGE, `Il faut avoir au moins ${MIN_AGE} ans pour passer le code.`)
     .refine((v) => age(v) <= 100, "Vérifie l'année de naissance."),
   city: z.string().trim().min(2, "Indique ta ville de résidence.").max(60, "Nom de ville trop long."),
@@ -99,10 +97,12 @@ export const candidateFields = {
     .string()
     .refine((v) => normalizePhone(v) !== null, "Numéro invalide : 10 chiffres, par exemple 0639 12 34 56.")
     .transform((v) => normalizePhone(v)!),
+  // Espaces retirés AVANT de vérifier l'adresse (« ali@exemple.yt  » collé avec un espace).
   email: z
-    .email("Adresse e-mail invalide.")
+    .string()
     .trim()
-    .max(200)
+    .pipe(z.email("Adresse e-mail invalide."))
+    .pipe(z.string().max(200, "Adresse e-mail trop longue."))
     .refine((v) => !isDisposableEmail(v), DISPOSABLE_EMAIL_MESSAGE),
 };
 

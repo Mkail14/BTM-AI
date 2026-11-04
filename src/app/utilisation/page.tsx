@@ -137,7 +137,7 @@ export default async function UsagePage() {
               </div>
             </div>
             <p className="mt-3 text-xs text-fg-muted">
-              Tamilya répond avec le modèle Gemini de Google.{" "}
+              Tamilya s&apos;appuie sur des modèles d&apos;IA de Google (voir Données et confidentialité).{" "}
               <Link href="/aide" className="font-medium text-accent hover:underline">
                 Besoin d&apos;aide ?
               </Link>

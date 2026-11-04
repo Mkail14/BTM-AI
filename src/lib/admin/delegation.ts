@@ -5,8 +5,9 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 /**
  * Délégation de l'administration. Le rôle est dans app_metadata (modifiable
  * seulement avec la clé secrète) : role « admin », et admin_level « secondary »
- * pour un administrateur délégué. Le changement s'applique au prochain
- * rafraîchissement du jeton de la personne (au plus une heure).
+ * pour un administrateur délégué. Un retrait ferme aussi ses sessions, et les
+ * actions d'administration relisent le rôle à jour (requireAdminAction) : il
+ * n'attend pas la fin de son jeton (au plus une heure) pour perdre ses droits.
  */
 
 export type AdminAccount = { id: string; email: string | null; secondary: boolean };
@@ -28,6 +29,22 @@ async function allUsers(): Promise<User[] | null> {
     if (data.users.length < PER_PAGE) break;
   }
   return users;
+}
+
+/**
+ * Ferme toutes les sessions d'un compte (fonction SQL close_user_sessions).
+ * Faux si la fonction manque (migration 20261126000000 pas encore appliquée) :
+ * le rôle relu à chaque action d'administration suffit alors à couper ses droits.
+ */
+async function closeSessions(userId: string): Promise<boolean> {
+  const admin = getSupabaseAdminClient();
+  if (!admin) return false;
+  const { error } = await admin.rpc("close_user_sessions", { p_user_id: userId });
+  if (error) {
+    if (error.code !== "PGRST202") console.error("[admin] Sessions non fermées", error.message);
+    return false;
+  }
+  return true;
 }
 
 const toAccount = (u: User): AdminAccount => ({ id: u.id, email: u.email ?? null, secondary: u.app_metadata?.admin_level === "secondary" });
@@ -72,5 +89,11 @@ export async function revokeSecondaryAdmin(userId: string): Promise<DelegationRe
     console.error("[admin] Retrait de délégation impossible", updateError.message);
     return { ok: false, message: "Le retrait a échoué : réessaie." };
   }
-  return { ok: true, message: `${data.user.email} n'est plus administrateur (au plus tard dans une heure).` };
+  const closed = await closeSessions(userId);
+  return {
+    ok: true,
+    message: closed
+      ? `${data.user.email} n'est plus administrateur : ses sessions sont fermées.`
+      : `${data.user.email} n'est plus administrateur (ses actions sont refusées tout de suite, ses pages au plus tard dans une heure).`,
+  };
 }

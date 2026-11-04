@@ -126,7 +126,7 @@ function EntryDialog({ initial, onClose }: { initial: Draft; onClose: () => void
 
             <div>
               <label htmlFor="fiche-contenu" className={label}>
-                Ce qu&apos;Tamilya doit savoir
+                Ce que Tamilya doit savoir
               </label>
               <textarea
                 id="fiche-contenu"

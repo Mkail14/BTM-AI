@@ -1,9 +1,15 @@
 "use client";
 
 import { useState } from "react";
+import { CodeView, type CodeLang } from "./highlight";
 
 const TABS = ["curl", "JavaScript", "Python"] as const;
 type Tab = (typeof TABS)[number];
+
+const FILES: Record<Tab, string> = { curl: "appel.sh", JavaScript: "appel.js", Python: "appel.py" };
+const FILE_BADGES: Record<Tab, string> = { curl: "$", JavaScript: "JS", Python: "PY" };
+const FILE_COLORS: Record<Tab, string> = { curl: "#89e051", JavaScript: "#f1e05a", Python: "#3572a5" };
+const LANGS: Record<Tab, CodeLang> = { curl: "shell", JavaScript: "js", Python: "python" };
 
 function examples(endpoint: string): Record<Tab, string> {
   return {
@@ -66,35 +72,47 @@ export function CodeExamples({ endpoint, className = "" }: { endpoint: string; c
     }
   };
 
+  // Fenêtre façon VS Code : barre de titre, onglets « fichiers », code coloré.
   return (
-    <div className={`flex min-h-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#16161a] text-[#e8e8ed] shadow-[0_24px_48px_-28px_rgb(0_0_0/0.5)] ${className}`}>
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-white/10 px-2">
-        <div role="tablist" aria-label="Langage" className="flex">
-          {TABS.map((name) => (
-            <button
-              key={name}
-              type="button"
-              role="tab"
-              aria-selected={tab === name}
-              onClick={() => {
-                setTab(name);
-                setCopied(false);
-              }}
-              className={`border-b-2 px-3 py-2.5 text-xs font-medium transition ${
-                tab === name ? "border-[var(--persona,var(--accent))] text-white" : "border-transparent text-white/55 hover:text-white/85"
-              }`}
-            >
-              {name}
-            </button>
-          ))}
-        </div>
-        <button type="button" onClick={copy} className="rounded-md px-2.5 py-1.5 text-xs text-white/70 transition hover:bg-white/10 hover:text-white">
+    <div className={`flex min-h-0 flex-col overflow-hidden rounded-xl border border-[#2b2b2b] bg-[#1e1e1e] shadow-[0_24px_48px_-28px_rgb(0_0_0/0.6)] ${className}`}>
+      <div className="flex h-8 shrink-0 items-center gap-2 bg-[#323233] px-3">
+        <span aria-hidden="true" className="flex gap-1.5">
+          <span className="size-3 rounded-full bg-[#ff5f57]" />
+          <span className="size-3 rounded-full bg-[#febc2e]" />
+          <span className="size-3 rounded-full bg-[#28c840]" />
+        </span>
+        <span className="flex-1 text-center font-mono text-[11px] text-[#cccccc]/70">tamilya — {FILES[tab]}</span>
+        <button type="button" onClick={copy} className="-my-1 rounded px-3 py-2 text-[11px] text-[#cccccc] transition hover:bg-white/10">
           {copied ? "Copié ✓" : "Copier"}
         </button>
       </div>
-      <pre role="tabpanel" className="min-h-0 flex-1 overflow-auto p-4 font-mono text-[12.5px] leading-relaxed">
-        <code>{code}</code>
-      </pre>
+      <div role="tablist" aria-label="Langage" className="flex shrink-0 bg-[#252526]">
+        {TABS.map((name) => (
+          <button
+            key={name}
+            type="button"
+            role="tab"
+            aria-selected={tab === name}
+            onClick={() => {
+              setTab(name);
+              setCopied(false);
+            }}
+            className={`flex items-center gap-1.5 border-t-2 px-3.5 py-2 font-mono text-[12px] transition ${
+              tab === name
+                ? "border-[var(--persona,var(--accent))] bg-[#1e1e1e] text-white"
+                : "border-transparent bg-[#2d2d2d] text-[#969696] hover:text-[#cccccc]"
+            }`}
+          >
+            <span aria-hidden="true" className="text-[10px] font-bold" style={{ color: FILE_COLORS[name] }}>
+              {FILE_BADGES[name]}
+            </span>
+            {FILES[name]}
+          </button>
+        ))}
+      </div>
+      <div role="tabpanel" className="flex min-h-0 flex-1">
+        <CodeView code={code} lang={LANGS[tab]} className="min-h-0 flex-1" />
+      </div>
     </div>
   );
 }

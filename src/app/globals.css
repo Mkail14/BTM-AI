@@ -193,13 +193,14 @@ html[data-theme="dark"] {
   inset: -6rem -20vw 0;
   z-index: -1;
   pointer-events: none;
+  /* Sans filtre de flou (coûteux à chaque image) : des dégradés plus larges, qui
+     s'éteignent en douceur (palier à mi-chemin), donnent le même halo. */
   background:
-    radial-gradient(28% 32% at 50% 40%, color-mix(in oklab, var(--accent) 30%, transparent), transparent 70%),
-    radial-gradient(30% 30% at 20% 28%, rgb(66 133 244 / 0.22), transparent 70%),
-    radial-gradient(26% 28% at 82% 26%, rgb(251 188 5 / 0.22), transparent 70%),
-    radial-gradient(30% 28% at 78% 78%, rgb(52 168 83 / 0.16), transparent 70%),
-    radial-gradient(28% 28% at 24% 78%, rgb(234 67 53 / 0.14), transparent 70%);
-  filter: blur(48px);
+    radial-gradient(34% 39% at 50% 40%, color-mix(in oklab, var(--accent) 26%, transparent), color-mix(in oklab, var(--accent) 12%, transparent) 40%, transparent 88%),
+    radial-gradient(36% 37% at 20% 28%, rgb(66 133 244 / 0.19), rgb(66 133 244 / 0.09) 40%, transparent 88%),
+    radial-gradient(32% 35% at 82% 26%, rgb(251 188 5 / 0.19), rgb(251 188 5 / 0.09) 40%, transparent 88%),
+    radial-gradient(36% 35% at 78% 78%, rgb(52 168 83 / 0.14), rgb(52 168 83 / 0.065) 40%, transparent 88%),
+    radial-gradient(34% 35% at 24% 78%, rgb(234 67 53 / 0.12), rgb(234 67 53 / 0.055) 40%, transparent 88%);
   animation: landing-aurora 22s ease-in-out infinite alternate;
 }
 
@@ -213,7 +214,8 @@ html[data-theme="dark"] {
   display: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
+/* Téléphone (moins de 640 px) : halo immobile, pour ménager la batterie. */
+@media (prefers-reduced-motion: reduce), (max-width: 639px) {
   .landing-aurora {
     animation: none;
   }
@@ -1317,17 +1319,21 @@ html.chargement body {
  * défile pas du tout. Sur iPhone, overflow seul ne suffit pas (effet élastique,
  * « tirer pour rafraîchir ») : html et body sont bloqués, et le cadre est
  * épinglé à l'écran (.ecran-fixe en position fixed).
+ * Écran trop bas (moins de 600 px, téléphone couché) : la page défile, sinon
+ * le graphique n'aurait plus de place.
  */
-html:has(.ecran-fixe),
-html:has(.ecran-fixe) body {
-  height: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
-}
-.ecran-fixe {
-  position: fixed;
-  inset: 0;
-  overscroll-behavior: none;
+@media (min-height: 600px) {
+  html:has(.ecran-fixe),
+  html:has(.ecran-fixe) body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+  .ecran-fixe {
+    position: fixed;
+    inset: 0;
+    overscroll-behavior: none;
+  }
 }
 
 /*
@@ -2963,6 +2969,32 @@ html:has(.ecran-fixe) body {
 .help-bubble[data-dragging] {
   cursor: grabbing;
   transform: scale(1.08);
+}
+
+/* Le rond s'efface quand il gênerait : menu du téléphone ou fenêtre ouverte par-dessus la page, clavier ouvert. */
+/* (Une règle par cas : une liste dans :has() est retirée à la compilation.) */
+body:has(dialog[open]) .help-bubble:not([aria-expanded="true"]) {
+  display: none;
+}
+body:has([aria-modal="true"]) .help-bubble:not([aria-expanded="true"]) {
+  display: none;
+}
+body:has([data-keyboard]) .help-bubble:not([aria-expanded="true"]) {
+  display: none;
+}
+
+/* Écran tactile : un champ de saisie actif veut dire clavier ouvert (Android réduit l'écran sans le signaler autrement). */
+@media (pointer: coarse) {
+  body:has(textarea:focus) .help-bubble:not([aria-expanded="true"]) {
+    display: none;
+  }
+  body:has([contenteditable="true"]:focus) .help-bubble:not([aria-expanded="true"]) {
+    display: none;
+  }
+  body:has(input:focus:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="button"]):not([type="submit"]):not([type="file"]))
+    .help-bubble:not([aria-expanded="true"]) {
+    display: none;
+  }
 }
 
 .help-panel {

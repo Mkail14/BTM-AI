@@ -11,6 +11,7 @@ import {
   EXAM_TYPES,
   MAYOTTE_COMMUNES,
   fieldError,
+  mayotteToday,
   normalizeNeph,
   type CandidateField,
   type ExamType,
@@ -133,14 +134,14 @@ export function BookingDialog({ slot, onClose }: { slot: BookingSlot; onClose: (
         // La fenêtre se ferme et une notification animée annonce la bonne nouvelle.
         celebrate({
           emoji: "🚗",
-          title: paid ? "Place réservée !" : "Réservation enregistrée !",
+          title: "Place réservée !",
           amount: paid ? `${formatEuros(paid)} payés` : undefined,
           subtitle: `La Poste de ${slot.centerName} · ${slot.when}`,
           note: paid
             ? payment?.mode === "demo"
               ? "Démo : aucune vraie place prise, aucun e-mail envoyé."
               : "Ta convocation arrive par e-mail."
-            : "GROUPE BTM te recontacte pour confirmer ta place.",
+            : "Simulation : aucune vraie place prise, rien n'est payé.",
         });
         ref.current?.close();
       } else setServerError(answer.error ?? "Réservation impossible.");
@@ -331,7 +332,7 @@ export function BookingDialog({ slot, onClose }: { slot: BookingSlot; onClose: (
                 {input("lastName", { autoComplete: "family-name" })}
                 {input("firstName", { autoComplete: "given-name" })}
               </div>
-              {input("birthDate", { type: "date", autoComplete: "bday", max: new Date().toISOString().slice(0, 10) })}
+              {input("birthDate", { type: "date", autoComplete: "bday", max: mayotteToday() })}
               {input("city", { autoComplete: "address-level2", list: `${titleId}-communes` })}
               <datalist id={`${titleId}-communes`}>
                 {MAYOTTE_COMMUNES.map((c) => (
@@ -448,7 +449,7 @@ export function BookingDialog({ slot, onClose }: { slot: BookingSlot; onClose: (
                       </span>
                     </div>
                   ) : (
-                    <p className="mt-1 text-xs text-fg-muted">À régler une fois ta place confirmée par GROUPE BTM.</p>
+                    <p className="mt-1 text-xs text-fg-muted">Simulation : rien n&apos;est payé.</p>
                   )}
                 </div>
               ) : null}

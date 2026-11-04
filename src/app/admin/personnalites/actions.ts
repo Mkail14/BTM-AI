@@ -67,6 +67,7 @@ export async function testPersonalityAction(id: unknown, behavior: unknown, mess
     identity: brain.identity,
     rules: brain.rules,
     lexicon: lexiconFor(brain, id),
+    grammar: brain.grammar,
     words: wordsFor(brain, text),
     personalityInstructions: composePersonalityInstructions(id, parsed),
   });

@@ -282,7 +282,7 @@ export default async function AdminCircuitPage() {
     <div className="flex min-h-dvh flex-col bg-bg-subtle lg:h-dvh lg:overflow-hidden">
       <AdminHeader section="Circuit de Tamilya" email={user.email} />
       <main id="contenu" className="mx-auto flex w-full max-w-[1600px] min-h-[32rem] flex-1 flex-col p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
-        <h1 className="sr-only">Circuit d&apos;Tamilya</h1>
+        <h1 className="sr-only">Circuit de Tamilya</h1>
         <AIFlow nodes={nodes} edges={edges} canAddApi={Boolean(admin) && canEncrypt()} removedApis={removedApis} />
       </main>
     </div>

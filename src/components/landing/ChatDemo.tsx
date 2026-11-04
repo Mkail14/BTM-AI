@@ -118,7 +118,8 @@ export function ChatDemo() {
             >
               {m.shimaore ? <Shimaore text={m.shimaore} /> : m.fr}
             </p>
-            {m.shimaore ? <p className="mt-1 px-1 text-xs text-fg-muted">{m.fr}</p> : null}
+            {/* Traduction en français : plus foncée que le gris habituel, pour rester lisible sur le fond rose. */}
+            {m.shimaore ? <p className="mt-1 px-1 text-xs font-medium text-fg/80">{m.fr}</p> : null}
           </div>
         ))}
         {typing ? (

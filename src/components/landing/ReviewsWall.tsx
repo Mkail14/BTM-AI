@@ -14,9 +14,9 @@ const monthYear = new Intl.DateTimeFormat("fr-FR", { month: "long", year: "numer
 
 function Stars({ rating, className = "" }: { rating: number; className?: string }) {
   return (
-    <span className={`flex gap-px text-[13px] leading-none ${className}`} aria-label={`${rating} étoile${rating > 1 ? "s" : ""} sur 5`}>
+    <span role="img" className={`flex gap-px text-[13px] leading-none ${className}`} aria-label={`${rating} étoile${rating > 1 ? "s" : ""} sur 5`}>
       {[1, 2, 3, 4, 5].map((n) => (
-        <span key={n} aria-hidden="true" className={n <= rating ? "text-[#f59e0b]" : "text-fg/15"}>
+        <span key={n} aria-hidden="true" className={n <= rating ? "text-warning" : "text-fg/15"}>
           ★
         </span>
       ))}

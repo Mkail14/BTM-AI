@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { EXAM_TYPES, type ExamType } from "@/lib/code-exam/candidate";
+import { codeExamPartnerReady } from "@/lib/code-exam/partner";
 
 /**
  * Dossier de la personne pour Tamilya : ce qu'elle a fait sur le site, en dehors
@@ -16,12 +17,16 @@ const day = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", ye
 type CodeRow = { starts_at: string; created_at: string; exam_type: ExamType; status: "pending" | "booked" | "cancelled"; center_name: string };
 
 const STATUS = { pending: "demande en attente", booked: "place confirmée", cancelled: "annulée" } as const;
+/** Sans partenariat La Poste, une place « réservée » n'est qu'une simulation : aucune vraie place n'est prise. */
+const SIMULATED = { ...STATUS, booked: "réservation d'essai (simulation), aucune vraie place prise" } as const;
 
-/** Réservations du code, en quelques lignes (null : aucune, ou table indisponible). */
-async function codeExamLines(supabase: SupabaseClient, now: number): Promise<string[] | null> {
+/** Réservations du code de CE compte, en quelques lignes (null : aucune, ou table indisponible). */
+async function codeExamLines(supabase: SupabaseClient, userId: string, now: number): Promise<string[] | null> {
   const { data, error } = await supabase
     .from("code_exam_requests")
     .select("starts_at, created_at, exam_type, status, center_name")
+    // Un administrateur lit toutes les demandes avec la RLS : filtre obligatoire sur le compte.
+    .eq("user_id", userId)
     .order("starts_at", { ascending: false })
     .limit(20);
   if (error || !data?.length) return null;
@@ -29,6 +34,7 @@ async function codeExamLines(supabase: SupabaseClient, now: number): Promise<str
   const kept = rows.filter((r) => r.status !== "cancelled");
   const past = kept.filter((r) => Date.parse(r.starts_at) < now);
   const coming = kept.filter((r) => Date.parse(r.starts_at) >= now);
+  const labels = codeExamPartnerReady() ? STATUS : SIMULATED;
   const first = rows.reduce((min, r) => (r.created_at < min ? r.created_at : min), rows[0].created_at);
 
   const lines = [
@@ -41,7 +47,7 @@ async function codeExamLines(supabase: SupabaseClient, now: number): Promise<str
       .map(
         (r) =>
           `  - ${day.format(new Date(r.starts_at))} : ${EXAM_TYPES[r.exam_type] ?? r.exam_type}, La Poste de ${r.center_name} (${
-            Date.parse(r.starts_at) < now && r.status !== "cancelled" ? "date passée" : STATUS[r.status]
+            Date.parse(r.starts_at) < now && r.status !== "cancelled" ? "date passée" : labels[r.status]
           })`,
       ),
     "  Le site ne connaît pas les résultats : il ne sait pas si elle a réussi ou échoué, ni si elle s'est présentée.",
@@ -50,8 +56,8 @@ async function codeExamLines(supabase: SupabaseClient, now: number): Promise<str
 }
 
 /** Dossier complet, ou null s'il n'y a rien à dire. */
-export async function buildDossier(supabase: SupabaseClient, now = Date.now()): Promise<string | null> {
-  const parts = await Promise.all([codeExamLines(supabase, now).catch(() => null)]);
+export async function buildDossier(supabase: SupabaseClient, userId: string, now = Date.now()): Promise<string | null> {
+  const parts = await Promise.all([codeExamLines(supabase, userId, now).catch(() => null)]);
   const lines = parts.flatMap((p) => p ?? []);
   return lines.length ? lines.join("\n") : null;
 }

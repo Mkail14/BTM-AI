@@ -8,7 +8,7 @@ import { BrandLogo } from "@/components/brand/BrandLogo";
 import { alertDialog } from "@/components/ui/ConfirmDialog";
 import { useChatShell } from "@/components/layout/ChatShell";
 import { PersonalitySwitcher } from "@/components/personality/PersonalitySwitcher";
-import { IconArrowDown, IconMenu, IconMic, IconNewChat, IconOffline, IconSave } from "@/components/ui/icons";
+import { IconArrowDown, IconMenu, IconMic, IconOffline, IconPlus, IconSave } from "@/components/ui/icons";
 import {
   clearAnonymousDraft,
   loadAnonymousDraft,
@@ -102,7 +102,7 @@ async function readErrorMessage(res: Response): Promise<{ code: string; message:
   } catch {
     // Corps non JSON.
   }
-  return { code: "internal", message: "Le service ne répond pas correctement. Réessayez." };
+  return { code: "internal", message: "Le service ne répond pas correctement. Réessaie." };
 }
 
 export function ChatView({ conversationId: initialConversationId, initialMessages, authPrompt, startWith = null }: ChatViewProps) {
@@ -123,6 +123,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   const [liveStatus, setLiveStatus] = useState("");
 
   const abortRef = useRef<AbortController | null>(null);
+  // Augmente à chaque « Nouvelle conversation » : une réponse lancée avant ne touche plus ni l'adresse ni la conversation en cours.
+  const chatGeneration = useRef(0);
   const composerRef = useRef<ComposerHandle>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -184,7 +186,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   useEffect(() => {
     if (!authPrompt) return;
     window.history.replaceState(null, "", "/");
-    openAuthDialog({ reason: "Connectez-vous pour accéder à cette page.", next: authPrompt.next });
+    openAuthDialog({ reason: "Connecte-toi pour accéder à cette page.", next: authPrompt.next });
   }, [authPrompt, openAuthDialog]);
 
   // « Nouvelle conversation » depuis la barre latérale ou le raccourci clavier.
@@ -192,6 +194,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   useEffect(() => {
     if (lastSignal.current === newChatSignal) return;
     lastSignal.current = newChatSignal;
+    chatGeneration.current += 1;
     abortRef.current?.abort();
     setMessages([]);
     setConversationId(initialConversationId);
@@ -267,11 +270,19 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   const send = useCallback(
     async (text: string, base: UiMessage[] = messages) => {
       if (isStreaming) return;
-      if (!userId) {
+      const generation = chatGeneration.current;
+      const stale = () => chatGeneration.current !== generation;
+      // Essai sans compte : le message ne compte qu'une fois la réponse vraiment commencée (pas sur une erreur 503).
+      let counted = Boolean(userId);
+      const countGuestMessage = () => {
+        if (counted) return;
+        counted = true;
         const sent = readGuestSent() + 1;
-        localStorage.setItem(GUEST_SENT_KEY, String(sent));
+        try {
+          localStorage.setItem(GUEST_SENT_KEY, String(sent));
+        } catch {}
         setGuestSent(sent);
-      }
+      };
       const userMessage: UiMessage = { id: newId(), role: "user", content: text, status: "complete" };
       const assistantId = newId();
       setMessages([...base, userMessage, { id: assistantId, role: "assistant", content: "", status: "streaming" }]);
@@ -289,10 +300,13 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       const handleEvent = (event: ChatStreamEvent) => {
         switch (event.type) {
           case "meta":
+            countGuestMessage();
+            if (stale()) break;
             if (!conversationId) createdConversationId = event.conversationId;
             setConversationId(event.conversationId);
             break;
           case "delta":
+            countGuestMessage();
             reply += event.text;
             updateMessage(assistantId, (m) => ({ ...m, content: m.content + event.text }));
             break;
@@ -355,7 +369,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
           if (error.code === "conversation_too_long") setLimitReached(true);
           if (error.code === "signup_required") {
             setTrialOver(true);
-            openAuthDialog({ mode: "signup", reason: "Tes 5 messages d'essai sont utilisés : crée ton compte gratuit pour continuer avec Tamilya." });
+            openAuthDialog({ mode: "signup", reason: `Tes ${CHAT_LIMITS.guestTrialMessages} messages d'essai sont utilisés : crée ton compte gratuit pour continuer avec Tamilya.` });
           }
           updateMessage(assistantId, (m) => ({ ...m, status: "error", notice: error.message }));
           return;
@@ -377,7 +391,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             status: m.content ? "interrupted" : "error",
             notice: navigator.onLine
               ? "La connexion avec le serveur a été interrompue."
-              : "Vous êtes hors ligne. Vérifiez votre connexion internet.",
+              : "Tu es hors ligne. Vérifie ta connexion internet.",
           }));
         }
       } finally {
@@ -400,7 +414,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
         if (userId && createdConversationId) setTimeout(refreshConversations, 5000);
         // Nouvelle conversation : l'adresse devient /c/<id> sans changer de page (pas de router.replace, qui
         // rechargeait l'écran, faisait clignoter le chargement et remettait à zéro la commande ou le tableau ouverts).
-        if (createdConversationId) window.history.replaceState(null, "", `/c/${createdConversationId}`);
+        // Sauf si l'on est passé entre-temps à une nouvelle conversation : l'adresse reste alors celle de la nouvelle.
+        if (createdConversationId && !stale()) window.history.replaceState(null, "", `/c/${createdConversationId}`);
       }
     },
     [conversationId, isStreaming, messages, refreshConversations, updateMessage, userId, voiceReplied, stopVoice, openAuthDialog],
@@ -449,7 +464,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       refreshConversations();
       router.push(`/c/${data.conversation.id}`);
     } catch {
-      void alertDialog({ title: "L'enregistrement a échoué", message: "Vérifiez votre connexion." });
+      void alertDialog({ title: "L'enregistrement a échoué", message: "Vérifie ta connexion." });
     } finally {
       setImporting(false);
     }
@@ -495,7 +510,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       className={`relative flex h-full min-h-0 flex-col overscroll-contain ${messages.length === 0 ? "overflow-hidden" : "overflow-y-auto"}`}
     >
       {/* z-20 : au-dessus des boutons des messages (copier, écouter : z-10) qui défilent dessous. */}
-      <header className="sticky top-0 z-20 flex h-14 shrink-0 items-center gap-2 persona-backdrop border-b border-border px-3 md:border-transparent md:px-5">
+      <header className="sticky top-0 z-20 flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-2 persona-backdrop border-b border-border px-3 pt-[env(safe-area-inset-top)] md:border-transparent md:px-5">
         <button
           type="button"
           onClick={openSidebar}
@@ -515,7 +530,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
                 openAuthDialog({
                   mode: "signup",
                   reason:
-                    "Créez un compte ou connectez-vous pour enregistrer cette conversation. Nous vous demanderons confirmation avant de l'enregistrer.",
+                    "Crée un compte ou connecte-toi pour enregistrer cette conversation. On te demandera confirmation avant de l'enregistrer.",
                 })
               }
               className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-bg-muted"
@@ -532,7 +547,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
               aria-label="Nouvelle conversation"
               className="rounded-lg p-2 text-fg-muted hover:bg-bg-muted hover:text-fg md:hidden"
             >
-              <IconNewChat width={22} height={22} />
+              <IconPlus width={22} height={22} />
             </button>
           ) : null}
           {/* Notifications : livraisons, paiements, réservations (compte connecté). */}
@@ -629,15 +644,15 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
           {!online ? (
             <p role="status" className="flex items-center gap-2 rounded-lg bg-warning-soft px-3 py-2 text-sm">
               <IconOffline width={16} height={16} />
-              Vous êtes hors ligne. Les messages pourront être envoyés au retour de la connexion.
+              Tu es hors ligne. Tes messages pourront être envoyés au retour de la connexion.
             </p>
           ) : null}
 
           {importCandidate ? (
             <div role="region" aria-label="Enregistrer la conversation" className="rounded-xl border border-border bg-accent-soft p-4 text-sm">
-              <p className="font-medium">Enregistrer la conversation commencée avant votre connexion ?</p>
+              <p className="font-medium">Enregistrer la conversation commencée avant ta connexion ?</p>
               <p className="mt-1 text-fg-muted">
-                Elle sera ajoutée à votre compte et vous pourrez la poursuivre. Si vous refusez, elle sera effacée de
+                Elle sera ajoutée à ton compte et tu pourras la poursuivre. Si tu refuses, elle sera effacée de
                 cet appareil.
               </p>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -691,7 +706,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
           ) : limitReached ? (
             <div role="status" className="rounded-xl border border-border bg-bg-subtle p-4 text-sm">
               <p className="font-medium">Cette conversation a atteint sa longueur maximale.</p>
-              <p className="mt-1 text-fg-muted">Démarrez une nouvelle conversation pour continuer.</p>
+              <p className="mt-1 text-fg-muted">Démarre une nouvelle conversation pour continuer.</p>
             </div>
           ) : null}
 
@@ -704,7 +719,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             ref={composerRef}
             isStreaming={isStreaming}
             disabled={blocked || !online}
-            disabledReason={!online ? "Hors ligne" : importCandidate ? "Choisissez d'abord ci-dessus" : "Conversation terminée"}
+            disabledReason={!online ? "Hors ligne" : importCandidate ? "Choisis d'abord ci-dessus" : "Conversation terminée"}
             onSend={(text) => void send(text)}
             onStop={() => abortRef.current?.abort()}
             placeholder="Demande-moi ce que tu veux…"
@@ -719,7 +734,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
                   disabled={blocked || !online || isStreaming}
                   aria-label="Parler à Tamilya"
                   title="Parler à Tamilya"
-                  className="grid size-9 shrink-0 place-items-center rounded-full text-fg-muted transition sm:pointer-coarse:size-10 hover:bg-bg-muted hover:text-fg disabled:opacity-45"
+                  className="grid size-9 shrink-0 place-items-center rounded-full text-fg-muted transition pointer-coarse:size-10 hover:bg-bg-muted hover:text-fg disabled:opacity-45"
                 >
                   <IconMic />
                 </button>
@@ -731,7 +746,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
               Encore {guestLeft} message{guestLeft > 1 ? "s" : ""} sans compte ·{" "}
               <button
                 type="button"
-                onClick={() => openAuthDialog({ mode: "signup", reason: "Crée ton compte gratuit pour parler à Tamilya sans limite." })}
+                onClick={() => openAuthDialog({ mode: "signup", reason: "Crée ton compte gratuit pour continuer à parler avec Tamilya." })}
                 className="font-semibold text-[var(--persona,var(--accent))] hover:underline"
               >
                 Créer mon compte gratuit

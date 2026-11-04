@@ -108,7 +108,7 @@ export function WalletView({
   balanceCents: number;
   transactions: WalletTransaction[];
   paymentsOpen: boolean;
-  /** Mode démo : solde fictif, « Ajouter » crédite tout de suite, sans carte. */
+  /** Mode démo : solde fictif, « Recharger » crédite tout de suite, sans carte. */
   demo?: boolean;
   notice: Notice;
 }) {
@@ -220,7 +220,7 @@ export function WalletView({
                 disabled={room < WALLET_MIN_TOPUP}
                 className="flex items-center justify-center gap-2 rounded-xl bg-fg px-4 py-3 text-sm font-semibold text-bg transition hover:opacity-90 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-40"
               >
-                <IconPlus width={16} height={16} /> Ajouter de l&apos;argent
+                <IconPlus width={16} height={16} /> Recharger mon portefeuille
               </button>
               <Link
                 href="/"
@@ -267,7 +267,7 @@ export function WalletView({
                   Activité
                 </h2>
                 <p className="text-xs text-fg-muted">
-                  Ce mois-ci : <span className="font-medium text-success">+{formatEuros(addedCents)}</span> ajoutés ·{" "}
+                  Ce mois-ci : <span className="font-medium text-success">+{formatEuros(addedCents)}</span> rechargés ·{" "}
                   <span className="font-medium text-fg">−{formatEuros(spentCents)}</span> dépensés
                 </p>
               </div>
@@ -276,7 +276,7 @@ export function WalletView({
                 {(
                   [
                     ["all", "Tout"],
-                    ["topup", "Ajouts"],
+                    ["topup", "Recharges"],
                     ["spent", "Dépenses"],
                   ] as const
                 ).map(([id, text]) => (
@@ -349,7 +349,7 @@ export function WalletView({
                   <IconWallet />
                 </span>
                 <p className="mt-3 font-medium">{filter === "all" ? "Aucune opération pour l'instant" : "Rien dans cette catégorie"}</p>
-                <p className="mx-auto mt-1 max-w-xs text-sm text-fg-muted">Tes ajouts d&apos;argent et tes paiements apparaîtront ici.</p>
+                <p className="mx-auto mt-1 max-w-xs text-sm text-fg-muted">Tes recharges et tes paiements apparaîtront ici.</p>
               </div>
             )}
           </section>
@@ -358,7 +358,7 @@ export function WalletView({
 
       {/* Recharge : montant en grand, montants rapides, paiement */}
       {topup ? (
-        <Sheet title="Ajouter de l'argent" onClose={() => setTopup(false)}>
+        <Sheet title="Recharger mon portefeuille" onClose={() => setTopup(false)}>
           <p className="mt-6 text-center">
             {chosen !== null && chosen > 0 ? <BigAmount cents={chosen} /> : <span className="text-[2.75rem] font-semibold text-fg-muted">0 €</span>}
           </p>
@@ -413,10 +413,10 @@ export function WalletView({
             {demo ? <IconPlus width={16} height={16} /> : <IconLock width={16} height={16} />}
             {demo
               ? pending
-                ? "Ajout…"
+                ? "Recharge…"
                 : chosen && !problem
-                  ? `Ajouter ${formatEuros(chosen)}`
-                  : "Ajouter"
+                  ? `Recharger ${formatEuros(chosen)}`
+                  : "Recharger"
               : pending
                 ? "Ouverture du paiement…"
                 : chosen && !problem

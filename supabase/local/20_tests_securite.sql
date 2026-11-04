@@ -81,6 +81,10 @@ rollback;
 
 select tests.check('Visiteur : ne peut pas appeler handle_new_user', not has_function_privilege('anon', 'public.handle_new_user()', 'execute'), 'S13');
 select tests.check('Visiteur : ne peut pas appeler saved_addresses_limit', not has_function_privilege('anon', 'public.saved_addresses_limit()', 'execute'), 'S13');
+select tests.check('Visiteur : ne réserve pas de recharge', not has_function_privilege('anon', 'public.wallet_reserve_topup(uuid, integer, text, integer)', 'execute'));
+select tests.check('Compte connecté : ne réserve pas de recharge', not has_function_privilege('authenticated', 'public.wallet_reserve_topup(uuid, integer, text, integer)', 'execute'));
+select tests.check('Visiteur : ne ferme pas les sessions d''un compte', not has_function_privilege('anon', 'public.close_user_sessions(uuid)', 'execute'));
+select tests.check('Compte connecté : ne ferme pas les sessions d''un autre', not has_function_privilege('authenticated', 'public.close_user_sessions(uuid)', 'execute'));
 
 -- ===========================================================================
 -- 2. Alice (compte connecté) face aux données de Bruno
@@ -125,6 +129,9 @@ select tests.check('Alice : ne lit pas les réglages de Tamilya', tests.visible(
 select tests.denied('Alice : modifie le caractère de Tamilya', $$update public.awa_settings set identity = 'x'$$);
 select tests.denied('Alice : ajoute un mot au dictionnaire', $$insert into public.awa_words (french, shimaore) values ('x', 'y')$$);
 select tests.denied('Alice : ajoute une connaissance', $$insert into public.awa_knowledge (title, content) values ('x', 'y')$$);
+select tests.check('Alice : ne lit pas la grammaire de Tamilya', tests.visible('select * from public.awa_grammar') <= 0);
+select tests.denied('Alice : ajoute une règle de grammaire', $$insert into public.awa_grammar (title, rule) values ('x', 'y')$$);
+select tests.denied('Alice : masque une remarque du nettoyage', $$insert into public.awa_cleanup_ignored (ref, kind) values ('words:x', 'copie')$$);
 rollback;
 
 -- ===========================================================================
@@ -236,4 +243,7 @@ select tests.check('Paiement refusé si le solde ne suffit pas', public.wallet_s
 select tests.check('Solde inchangé après un refus', (select balance_cents from public.wallets where user_id = tests.alice()) = 2000);
 select tests.check('Recharge non créditée deux fois', not public.wallet_complete_topup('cs_test_fictif_alice', 'x'));
 select tests.check('Solde jamais négatif (contrainte)', (select count(*) from pg_constraint where conname = 'wallets_balance_cents_check') = 1);
+select tests.check('Recharge refusée au-delà du plafond de 150 €', public.wallet_reserve_topup(tests.alice(), 14000, 'test', 15000) is null);
+select tests.check('Recharge permise sous le plafond', public.wallet_reserve_topup(tests.alice(), 1000, 'test', 15000) is not null);
+select tests.check('Deuxième recharge en cours comptée dans le plafond', public.wallet_reserve_topup(tests.alice(), 12500, 'test', 15000) is null);
 rollback;

@@ -16,6 +16,17 @@ import { AIProviderError, type AIErrorCode, type AIProvider, type AIStreamChunk 
 
 const MAX_SKEW_MS = 5 * 60_000;
 
+/** Plafonds d'une demande relayée (plus bas que ceux d'une conversation stockée). */
+export const RELAY_LIMITS = { systemChars: 50_000, maxOutputTokens: 8_000, bodyBytes: 400_000 } as const;
+
+/**
+ * Route du relais ouverte sur ce serveur ? Fermée par défaut : il faut
+ * RELAY_ENABLED=1 sur le site en ligne pour que les postes de l'équipe s'en servent.
+ */
+export function relayEnabled(env: Record<string, string | undefined> = process.env): boolean {
+  return env.RELAY_ENABLED?.trim() === "1";
+}
+
 /** Adresse du site en ligne, seulement en développement local (AI_RELAY_URL). */
 export function relayUrl(env: Record<string, string | undefined> = process.env): string | null {
   if (env.NODE_ENV !== "development") return null;
@@ -73,8 +84,11 @@ export function createRelayProvider(url: string, secret: string): AIProvider {
         throw new AIProviderError("unavailable", `Site en ligne injoignable (${url})`, { cause: error });
       });
       if (response.status === 401) throw new AIProviderError("auth", "Relais refusé : AI_KEYS_SECRET différente du site en ligne.");
-      // 404 ou 405 : le site en ligne n'a pas encore cette route.
-      if (response.status === 404 || response.status === 405) throw new AIProviderError("unavailable", "Relais absent du site en ligne : mettez le site à jour.");
+      // 404 ou 405 : relais fermé (RELAY_ENABLED absente) ou site en ligne sans cette route.
+      if (response.status === 404 || response.status === 405) {
+        throw new AIProviderError("unavailable", "Relais fermé sur le site en ligne : mettez RELAY_ENABLED=1 dans ses variables (ou mettez le site à jour).");
+      }
+      if (response.status === 413) throw new AIProviderError("bad_request", "Relais : demande trop longue (consignes de plus de 50 000 caractères).");
       if (!response.ok || !response.body) throw new AIProviderError("unavailable", `Relais : erreur ${response.status}`);
 
       // Une ligne JSON par morceau de réponse.

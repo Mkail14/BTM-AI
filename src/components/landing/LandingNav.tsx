@@ -12,13 +12,18 @@ import { ThemeToggle } from "@/components/ui/Theme";
 const NAV_LINKS = [
   { href: "/#shimaore", label: "Tamilya" },
   { href: "/partenaires", label: "Nos partenaires" },
-  { href: "/groupe-btm", label: "Groupe BTM" },
   { href: "/developpeurs", label: "Développeurs" },
 ] as const;
 
-/** Ancre de la page (« #… ») en lien simple, sinon lien Next. */
-function NavLink({ href, ...props }: { href: string; className: string; onClick?: () => void; children: ReactNode }) {
-  return href.startsWith("#") ? <a href={href} {...props} /> : <Link href={href} {...props} />;
+/**
+ * Accueil (« / », « /#… ») et ancres en lien simple : la page se charge en entier,
+ * sans passer par l'écran de chargement de la conversation (sinon on voyait la
+ * conversation 2 s avant l'accueil). Les autres pages restent en lien Next.
+ */
+const goesHome = (href: string) => href.startsWith("#") || href === "/" || href.startsWith("/#");
+
+function NavLink({ href, ...props }: { href: string; className: string; onClick?: () => void; "aria-label"?: string; children: ReactNode }) {
+  return goesHome(href) ? <a href={href} {...props} /> : <Link href={href} {...props} />;
 }
 
 /**
@@ -60,13 +65,13 @@ export function LandingNav({ scrolled = false, onHome }: { scrolled?: boolean; o
             {logo}
           </button>
         ) : (
-          <Link href="/" aria-label="BTM AI — accueil" className="-mx-1 rounded px-1 opacity-90 transition hover:opacity-100">
+          <NavLink href="/" aria-label="BTM AI — accueil" className="-mx-1 rounded px-1 opacity-90 transition hover:opacity-100">
             {logo}
-          </Link>
+          </NavLink>
         )}
         <nav aria-label="Navigation" className="hidden flex-1 items-center justify-evenly md:flex">
           {NAV_LINKS.map(({ href, label }) => (
-            <NavLink key={href} href={linkHref(href)} className="px-2 py-1 tracking-[0.01em] opacity-80 transition hover:opacity-100">
+            <NavLink key={href} href={linkHref(href)} className="px-2 py-1 tracking-[0.01em] opacity-80 transition pointer-coarse:py-3 hover:opacity-100">
               {label}
             </NavLink>
           ))}
@@ -74,13 +79,13 @@ export function LandingNav({ scrolled = false, onHome }: { scrolled?: boolean; o
         <div className="flex items-center gap-1 sm:gap-3">
           {/* Thème à part des actions du compte, séparé par un filet ; au téléphone, il est dans le menu déroulant. */}
           <div className="hidden items-center gap-3 sm:flex">
-            <ThemeToggle className="grid size-8 place-items-center rounded-full opacity-80 transition hover:bg-black/[0.05] hover:opacity-100 dark:hover:bg-white/[0.08]" />
+            <ThemeToggle className="grid size-8 place-items-center rounded-full opacity-80 pointer-coarse:size-10 transition hover:bg-black/[0.05] hover:opacity-100 dark:hover:bg-white/[0.08]" />
             <span aria-hidden="true" className="h-4 w-px bg-black/15 dark:bg-white/15" />
           </div>
           <button
             type="button"
             onClick={() => openAuthDialog({ mode: "signin" })}
-            className={user ? "hidden" : "hidden px-2 py-2 whitespace-nowrap opacity-80 transition hover:opacity-100 sm:block"}
+            className={user ? "hidden" : "hidden px-2 py-2 whitespace-nowrap opacity-80 transition pointer-coarse:py-3 hover:opacity-100 sm:block"}
           >
             Se connecter
           </button>
@@ -90,9 +95,9 @@ export function LandingNav({ scrolled = false, onHome }: { scrolled?: boolean; o
               Essayer Tamilya
             </button>
           ) : (
-            <Link href="/" className={tryClass}>
+            <NavLink href="/" className={tryClass}>
               Essayer Tamilya
-            </Link>
+            </NavLink>
           )}
           <button
             type="button"

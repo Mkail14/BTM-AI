@@ -226,7 +226,7 @@ export function NotificationBell() {
         {unread ? (
           <span
             key={`b${unread}`}
-            className="notif-badge absolute top-1 right-1 grid min-w-[1.1rem] place-items-center rounded-full px-1 text-[10px] leading-[1.1rem] font-bold text-white ring-2 ring-bg"
+            className="notif-badge absolute top-1 right-1 grid min-w-[1.1rem] place-items-center rounded-full px-1 text-[10px] leading-[1.1rem] font-bold text-white"
             style={{ background: "var(--persona,var(--accent))" }}
           >
             {unread > 9 ? "9+" : unread}

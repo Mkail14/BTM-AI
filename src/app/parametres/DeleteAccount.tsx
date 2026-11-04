@@ -7,9 +7,11 @@ import { deleteAccountAction } from "./actions";
 import { DELETE_CONFIRMATION } from "./confirmation";
 
 const LOST = [
-  "Toutes vos conversations avec Tamilya et leurs messages",
-  "Votre profil, votre nom affiché et la personnalité choisie",
-  "Votre accès : il faudra créer un nouveau compte pour revenir",
+  "Toutes tes conversations avec Tamilya et leurs messages",
+  "Ton profil, ton nom affiché et la personnalité choisie",
+  "Ce que Tamilya a retenu de toi, tes adresses et ton avis",
+  "Le solde de ton portefeuille",
+  "Ton accès : il faudra créer un nouveau compte pour revenir",
 ];
 
 /** Suppression définitive : il faut recopier le mot de confirmation. */
@@ -56,14 +58,14 @@ export function DeleteAccount({ email, isAdmin }: { email: string | null; isAdmi
 
       {isAdmin ? (
         <p className="rounded-xl border border-border bg-bg-subtle p-3 text-sm text-fg-muted">
-          Compte administrateur : vous perdrez l&apos;accès au tableau de bord. Le compte administrateur principal de
+          Compte administrateur : tu perdras l&apos;accès au tableau de bord. Le compte administrateur principal de
           GROUPE BTM est protégé et ne peut pas être supprimé.
         </p>
       ) : null}
 
       <div>
         <label htmlFor={inputId} className="block text-sm font-medium">
-          Pour confirmer, écrivez <span className="font-mono text-danger">{DELETE_CONFIRMATION}</span>
+          Pour confirmer, écris <span className="font-mono text-danger">{DELETE_CONFIRMATION}</span>
         </label>
         <input
           id={inputId}

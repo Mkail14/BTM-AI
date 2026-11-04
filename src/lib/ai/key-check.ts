@@ -6,6 +6,15 @@ import { errorFromStatus } from "./providers/openai-compatible";
 
 const CHECK_TIMEOUT_MS = 6_000;
 
+/**
+ * Erreur du fournisseur sans son texte brut : la réponse d'une adresse saisie
+ * dans l'admin n'est jamais renvoyée telle quelle (elle peut venir de n'importe où).
+ */
+async function remoteError(response: Response) {
+  const error = errorFromStatus(response.status, await response.text().catch(() => ""));
+  return { code: error.code, message: error.code === "quota" ? `Crédit ou quota épuisé chez le fournisseur (${response.status}).` : error.message };
+}
+
 type OpenRouterKey = {
   data?: {
     usage?: number;
@@ -40,13 +49,14 @@ export async function checkKey(config: AIConfig): Promise<KeyCheck> {
 
   let response: Response;
   try {
-    response = await fetch(url, { headers, signal: AbortSignal.timeout(CHECK_TIMEOUT_MS), cache: "no-store" });
+    // Pas de redirection suivie : une adresse publique ne peut pas renvoyer vers le réseau interne.
+    response = await fetch(url, { headers, signal: AbortSignal.timeout(CHECK_TIMEOUT_MS), cache: "no-store", redirect: "error" });
   } catch {
     return { ok: false, code: "unavailable", message: "Le fournisseur ne répond pas à la vérification." };
   }
 
   if (!response.ok) {
-    const error = errorFromStatus(response.status, await response.text().catch(() => ""));
+    const error = await remoteError(response);
     return { ok: false, code: error.code, message: error.message };
   }
 
@@ -96,12 +106,13 @@ export async function listModels(config: Pick<AIConfig, "provider" | "baseUrl" |
 
   let response: Response;
   try {
-    response = await fetch(url, { headers, signal: AbortSignal.timeout(CHECK_TIMEOUT_MS), cache: "no-store" });
+    // Pas de redirection suivie : une adresse publique ne peut pas renvoyer vers le réseau interne.
+    response = await fetch(url, { headers, signal: AbortSignal.timeout(CHECK_TIMEOUT_MS), cache: "no-store", redirect: "error" });
   } catch {
     return { ok: false, message: "Le fournisseur ne répond pas." };
   }
   if (!response.ok) {
-    const error = errorFromStatus(response.status, await response.text().catch(() => ""));
+    const error = await remoteError(response);
     return { ok: false, message: error.code === "auth" ? "Clé refusée par le fournisseur." : error.message };
   }
   const json = (await response.json().catch(() => ({}))) as {

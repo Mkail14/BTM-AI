@@ -121,17 +121,132 @@ const key = (french: string) =>
 /** Même clé, au singulier (« marchés » → « marche »). */
 const singular = (k: string) => k.replace(/(?<=\p{L}{3})[sx]$/u, "");
 
+const wordsOf = (k: string) => k.match(/[\p{L}\p{N}€'$]+/gu) ?? [];
+
+/** Plus longue suite de mots communs, dans l'ordre (« Voici les tacos… » / « Voici les meilleurs tacos… »). */
+function commonWords(a: readonly string[], b: readonly string[]): number {
+  let previous = new Array<number>(b.length + 1).fill(0);
+  for (const wordA of a) {
+    const current = [0];
+    for (let j = 0; j < b.length; j++) current.push(wordA === b[j] ? previous[j] + 1 : Math.max(previous[j + 1], current[j]));
+    previous = current;
+  }
+  return previous[b.length];
+}
+
+/**
+ * Phrase apprise que Tamilya a redite à peine autrement : un ou deux mots
+ * ajoutés ou retirés (« Voici les meilleurs tacos disponibles près de chez
+ * toi » pour « Voici les tacos disponibles près de chez toi »).
+ */
+function closePhrase(k: string, phrases: readonly Learned[]): string | undefined {
+  const words = wordsOf(k);
+  if (words.length < 3) return undefined;
+  let best: { score: number; shimaore: string } | undefined;
+  for (const phrase of phrases) {
+    if (phrase.words.length < 3) continue;
+    // Tri rapide avant le calcul complet : les mots communs ne dépassent jamais
+    // ceux du texte présents dans la phrase apprise (même résultat, bien plus vite).
+    const slackMax = Math.max(1, Math.floor(phrase.words.length / 4));
+    if (Math.abs(phrase.words.length - words.length) > slackMax) continue;
+    let possible = 0;
+    for (const word of words) if (phrase.wordSet.has(word)) possible++;
+    possible = Math.min(possible, phrase.words.length);
+    if (phrase.words.length - possible > slackMax || words.length - possible > slackMax) continue;
+    const common = commonWords(words, phrase.words);
+    const slack = Math.max(1, Math.floor(phrase.words.length / 4));
+    if (phrase.words.length - common > slack || words.length - common > slack) continue;
+    const score = common / Math.max(words.length, phrase.words.length);
+    if (!best || score > best.score) best = { score, shimaore: phrase.shimaore };
+  }
+  return best?.shimaore;
+}
+
+/** Minuscules, sans accents, caractère par caractère : les positions restent celles du texte d'origine. */
+const fold = (text: string) =>
+  Array.from(text, (c) => {
+    const f = c.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/[’]/g, "'");
+    return f.length === c.length ? f : c;
+  }).join("");
+
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * Morceaux appris (deux mots ou plus) au milieu d'une phrase restée en
+ * français : « [[De Trévani jusqu'à Mamoudzou, le taxi coûte 3 €]] » devient
+ * « Trévani taa Mamoudzou, [[le taxi coûte 3 €]] ».
+ */
+function fillPieces(french: string, phrases: readonly Learned[]): string | undefined {
+  const folded = fold(french);
+  const taken: { start: number; end: number; shimaore: string }[] = [];
+  for (const phrase of phrases) {
+    // Un morceau dont un mot manque au texte ne peut pas s'y trouver : pas d'expression régulière à essayer.
+    if (!phrase.words.every((word) => folded.includes(word))) continue;
+    const pattern = (phrase.pattern ??= new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegExp(phrase.k).replace(/\s+/g, "\\s+")}(?![\\p{L}\\p{N}])`, "gu"));
+    for (const match of folded.matchAll(pattern)) {
+      const start = match.index;
+      const end = start + match[0].length;
+      if (taken.some((t) => start < t.end && end > t.start)) continue;
+      taken.push({ start, end, shimaore: phrase.shimaore });
+    }
+  }
+  if (taken.length === 0) return undefined;
+  taken.sort((a, b) => a.start - b.start);
+  let out = "";
+  let last = 0;
+  const rest = (piece: string) => {
+    // Ce qui reste en français repart entre crochets ; la ponctuation seule, non.
+    const [, lead = "", words = "", trail = ""] = piece.match(/^([\s,;:.!?…—–-]*)([\s\S]*?)([\s,;:.!?…—–-]*)$/) ?? [];
+    return /\p{L}/u.test(words) ? `${lead}[[${words}]]${trail}` : piece;
+  };
+  for (const t of taken) {
+    out += rest(french.slice(last, t.start)) + t.shimaore;
+    last = t.end;
+  }
+  return out + rest(french.slice(last));
+}
+
+/** Traduction apprise, découpée une fois par table (mots, et l'expression régulière quand elle sert). */
+type Learned = { k: string; shimaore: string; words: string[]; wordSet: Set<string>; pattern?: RegExp };
+
+/**
+ * Phrases (trois mots ou plus) et morceaux (deux mots ou plus, les plus longs
+ * d'abord) d'une table, calculés une seule fois : fillKnownWords est appelé sur
+ * tout l'historique avant chaque réponse, avec des milliers de traductions.
+ */
+const prepared = new WeakMap<ReadonlyMap<string, string>, { size: number; phrases: Learned[]; pieces: Learned[] }>();
+
+function prepareTable(translations: ReadonlyMap<string, string>) {
+  const known = prepared.get(translations);
+  if (known && known.size === translations.size) return known;
+  const entries: Learned[] = [...translations].map(([k, shimaore]) => {
+    const words = wordsOf(k);
+    return { k, shimaore, words, wordSet: new Set(words) };
+  });
+  const result = {
+    size: translations.size,
+    phrases: entries.filter((e) => e.words.length >= 3),
+    // Les plus longs d'abord : « merci beaucoup » passe avant « merci ».
+    pieces: entries.filter((e) => e.words.length >= 2).sort((a, b) => b.k.length - a.k.length),
+  };
+  prepared.set(translations, result);
+  return result;
+}
+
 /**
  * Remplace chaque [[mot]] dont le maître a donné la traduction par le
- * shimaoré appris (même avec un article, une majuscule ou au pluriel). Les
- * messages enregistrés ne changent pas : la correction s'applique à
- * l'affichage et à ce que le modèle relit, pour toujours.
+ * shimaoré appris (même avec un article, une majuscule ou au pluriel). Une
+ * phrase apprise redite à peine autrement est reconnue aussi, et les morceaux
+ * appris au milieu d'une phrase plus longue sont remplacés. Les messages
+ * enregistrés ne changent pas : la correction s'applique à l'affichage et à
+ * ce que le modèle relit, pour toujours.
  */
 export function fillKnownWords(text: string, translations: ReadonlyMap<string, string>): string {
   if (translations.size === 0 || !text.includes("[[")) return text;
+  const { phrases, pieces } = prepareTable(translations);
   return text.replace(UNKNOWN, (match, french: string) => {
     const k = key(french);
-    return translations.get(k) ?? translations.get(singular(k)) ?? match;
+    return translations.get(k) ?? translations.get(singular(k)) ?? closePhrase(k, phrases) ?? fillPieces(french, pieces) ?? match;
   });
 }
 

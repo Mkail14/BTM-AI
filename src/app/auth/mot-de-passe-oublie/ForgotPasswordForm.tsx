@@ -21,13 +21,13 @@ export function ForgotPasswordForm() {
         redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/auth/nouveau-mot-de-passe?origine=oubli")}`,
       });
       if (resetError?.code === "over_email_send_rate_limit" || resetError?.code === "over_request_rate_limit") {
-        setError("L'envoi d'e-mails est momentanément saturé. Réessayez un peu plus tard.");
+        setError("L'envoi d'e-mails est momentanément saturé. Réessaie un peu plus tard.");
       } else {
         // Même message que l'adresse existe ou non (pas d'énumération des comptes).
         setSent(true);
       }
     } catch {
-      setError("Connexion au service impossible. Vérifiez votre connexion internet.");
+      setError("Connexion au service impossible. Vérifie ta connexion internet.");
     } finally {
       setPending(false);
     }
@@ -49,7 +49,7 @@ export function ForgotPasswordForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4 rounded-xl border border-border bg-bg p-5">
       <p className="text-sm text-fg-muted">
-        Indiquez l&apos;adresse e-mail de votre compte. Nous vous enverrons un lien pour choisir un nouveau mot de passe.
+        Indique l&apos;adresse e-mail de ton compte. On t&apos;enverra un lien pour choisir un nouveau mot de passe.
       </p>
       <div>
         <label htmlFor="reset-email" className="block text-sm font-medium">

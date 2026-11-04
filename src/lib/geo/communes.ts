@@ -1,4 +1,4 @@
-import { geolocationErrorMessage, isInMayotte, MAX_GPS_ACCURACY_M, type GeoPoint } from "@/lib/address";
+import { geolocationErrorMessage, isInMayotte, MAX_GPS_ACCURACY_M, type GeoPoint } from "@/lib/address-fields";
 
 /**
  * Centre de chaque commune de Mayotte (positions approximatives, mairie ou

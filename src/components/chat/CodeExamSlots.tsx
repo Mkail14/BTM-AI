@@ -190,7 +190,7 @@ export function CodeExamSlots({ office: block = "" }: { office?: string }) {
             type="button"
             onClick={back}
             aria-label="Retour"
-            className="-ml-1.5 grid size-7 place-items-center rounded-full text-fg-muted hover:bg-bg-muted hover:text-fg"
+            className="-ml-1.5 grid size-7 place-items-center rounded-full text-fg-muted pointer-coarse:size-10 hover:bg-bg-muted hover:text-fg"
           >
             ‹
           </button>

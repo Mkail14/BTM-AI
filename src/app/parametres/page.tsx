@@ -44,7 +44,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/paramet
     getMyReview(user.id),
   ]);
   const balanceCents = demo ? (await readDemoWallet(user.id)).balanceCents : (await loadWallet(supabase, user.id, 1)).balanceCents;
-  const name = profile.displayName || user.email?.split("@")[0] || "Vous";
+  const name = profile.displayName || user.email?.split("@")[0] || "Toi";
   const personality = profile.personality ? PERSONALITIES[profile.personality] : null;
   // ?rubrique=adresse : ouvre directement une rubrique (lien depuis la commande, Tamilya…).
   const initial = TABS.find((t) => t === params.rubrique);
@@ -59,7 +59,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/paramet
     { key: "name", label: "Ton prénom", tab: "profil" },
     { key: "phone", label: "Ton téléphone", tab: "profil" },
     { key: "home", label: "L'adresse de ta maison", tab: "adresse" },
-    { key: "awa", label: "Le caractère de Tamilya", tab: "awa" },
+    { key: "awa", label: "La personnalité de Tamilya", tab: "awa" },
   ];
   const completed = checklist.filter((c) => done[c.key]).length;
   const addressCount = (contact.address ? 1 : 0) + (saved?.length ?? 0);
@@ -179,7 +179,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/paramet
                   <span>
                     <span className="block font-medium">Tamilya</span>
                     <span className="block text-sm text-fg-muted">
-                      {personality ? `Caractère ${personality.label.toLowerCase()}` : "Choisis son caractère"} · {memories.length} souvenir
+                      {personality ? `Personnalité ${personality.label.toLowerCase()}` : "Choisis sa personnalité"} · {memories.length} souvenir
                       {memories.length > 1 ? "s" : ""}
                     </span>
                   </span>
@@ -220,7 +220,7 @@ export default async function SettingsPage({ searchParams }: PageProps<"/paramet
               {profile.personality !== undefined ? (
                 <section className="space-y-3">
                   <div>
-                    <h3 className="font-medium">Son caractère</h3>
+                    <h3 className="font-medium">Sa personnalité</h3>
                     <p className="text-sm text-fg-muted">La façon dont Tamilya te parle. Tu peux en changer quand tu veux.</p>
                   </div>
                   <PersonalityPicker cards={cards} current={profile.personality} />

@@ -14,7 +14,13 @@ import { getClientIp, hashIdentifier, isSameOrigin } from "@/lib/security/reques
  *   email : un message envoyé à l'équipe (contact@btm.yt), réponse à l'adresse donnée.
  * Ouvert sans compte, donc limité par compte ou par adresse IP.
  */
-const turnSchema = z.object({ role: z.enum(["user", "assistant"]), content: z.string().trim().min(1).max(1500) });
+const TURN_MAX_CHARS = 1500;
+// Les questions restent limitées à 1 500 caractères ; une réponse de l'assistant plus longue
+// (renvoyée par le panneau dans l'historique) est coupée ici au lieu de refuser toute la demande.
+const turnSchema = z
+  .object({ role: z.enum(["user", "assistant"]), content: z.string().trim().min(1).max(8000) })
+  .refine((t) => t.role === "assistant" || t.content.length <= TURN_MAX_CHARS, "Question trop longue.")
+  .transform((t) => ({ role: t.role, content: t.content.slice(0, TURN_MAX_CHARS) }));
 
 const bodySchema = z.discriminatedUnion("kind", [
   z.object({

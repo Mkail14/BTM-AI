@@ -16,8 +16,7 @@ function authorized(request: NextRequest): boolean {
 /**
  * Surveillance du site de La Poste, appelée toutes les heures par GitHub
  * (.github/workflows/surveillance-laposte.yml). Relit les horaires maintenant,
- * étape par étape (même vérification que « Vérifier maintenant » dans
- * /admin/code) : 200 si tout va bien, 503 sinon — GitHub envoie alors un
+ * étape par étape (checkLaPosteNow, src/lib/code-exam/laposte.ts) : 200 si tout va bien, 503 sinon — GitHub envoie alors un
  * e-mail, avec l'étape qui casse dans le journal. Protégée par CRON_SECRET.
  */
 export async function GET(request: NextRequest) {

@@ -18,15 +18,15 @@ export const FAQ: FaqTopic[] = [
       },
       {
         q: "Comment lui parler en shimaoré ?",
-        a: "Écris-lui simplement en shimaoré, elle répond dans la même langue. Son shimaoré progresse chaque jour : l'équipe de GROUPE BTM lui apprend les mots qu'elle ne connaît pas encore.",
+        a: "Écris-lui en shimaoré ou demande-lui de répondre en shimaoré : elle utilise les mots qu'elle connaît. Son shimaoré progresse chaque jour : l'équipe de GROUPE BTM lui apprend les mots qu'elle ne connaît pas encore.",
       },
       {
         q: "Comment lui parler à voix haute ?",
-        a: "Appuie sur le micro dans la barre de message. Il faut autoriser le micro dans ton navigateur ; Chrome, Edge et Safari fonctionnent le mieux.",
+        a: "Appuie sur le micro dans la barre de message. Il faut autoriser le micro dans ton navigateur ; Chrome et Edge fonctionnent le mieux.",
       },
       {
-        q: "C'est quoi « Normale » à côté du message ?",
-        a: "Le caractère de Tamilya. Clique dessus pour en choisir un autre : elle change sa façon de te parler, pas ce qu'elle sait.",
+        q: "C'est quoi le bouton « Normale » (ou son émoji) à gauche de la zone de message ?",
+        a: "La personnalité de Tamilya. Clique dessus pour en choisir un autre : elle change sa façon de te parler, pas ce qu'elle sait.",
       },
       {
         q: "Comment commencer une nouvelle conversation ?",
@@ -35,7 +35,7 @@ export const FAQ: FaqTopic[] = [
     ],
   },
   {
-    title: "Quotas",
+    title: "Limites de messages",
     questions: [
       {
         q: "Pourquoi Tamilya ne répond plus ?",
@@ -53,7 +53,7 @@ export const FAQ: FaqTopic[] = [
     questions: [
       {
         q: "Comment réserver mon examen du code ?",
-        a: "Demande-le à Tamilya (« je veux passer mon code »). Elle te montre les places libres dans les bureaux La Poste de Mayotte ; choisis ta ville, ton jour et ton heure, puis remplis tes informations. GROUPE BTM te recontacte pour confirmer.",
+        a: "Demande-le à Tamilya (« je veux passer mon code »). Elle te montre les places libres dans les bureaux La Poste de Mayotte ; choisis ta ville, ton jour et ton heure, puis remplis tes informations. Pour l'instant, la réservation est un essai : aucune vraie place n'est prise.",
       },
       {
         q: "C'est quoi le NEPH ?",

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { CodeView } from "./highlight";
 
 const TABS = ["Réponse", "À envoyer", "Erreurs"] as const;
 type Tab = (typeof TABS)[number];
@@ -19,6 +20,9 @@ const ERRORS: [string, string][] = [
   ["429 gemini_quota", "Votre clé Gemini n'a plus de quota."],
   ["429 rate_limited", "Trop de questions : attendez (Retry-After)."],
   ["400 invalid_request", "La requête n'a pas le bon format."],
+  ["413 invalid_request", "Requête trop lourde : 64 Ko au maximum."],
+  ["499 aborted", "La requête a été annulée avant la réponse."],
+  ["502 provider_error", "Gemini a renvoyé une erreur ou une réponse vide : réessayez."],
   ["503 unavailable", "Tamilya est momentanément arrêtée."],
 ];
 
@@ -49,9 +53,7 @@ export function ApiReference({ className = "" }: { className?: string }) {
         {tab === "Réponse" ? (
           <div className="flex flex-col gap-3">
             <p className="text-fg-muted">Tamilya répond en JSON, avec un seul champ :</p>
-            <pre className="overflow-x-auto rounded-xl bg-bg-subtle p-4 font-mono text-[12.5px] leading-relaxed">
-              {`{\n  "reply": "Merci se dit « Marahaba » !"\n}`}
-            </pre>
+            <CodeView code={`{\n  "reply": "Merci se dit « Marahaba » !"\n}`} lang="json" className="rounded-xl" />
             <p className="text-fg-muted">
               En cas de problème, vous recevez <code className="font-mono text-xs text-fg">{`{ "error": "…" }`}</code> : voir
               l&apos;onglet Erreurs.

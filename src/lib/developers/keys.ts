@@ -83,20 +83,24 @@ export async function revokeDeveloperKey(userId: string, id: string): Promise<bo
   return !error;
 }
 
-/** Code reçu par l'API : identifiant du code s'il est valide et actif, sinon null. */
-export async function findDeveloperKey(token: string): Promise<{ id: string } | null> {
+/** Code reçu par l'API : identifiant du code et compte qui l'a créé s'il est valide et actif, sinon null. */
+export async function findDeveloperKey(token: string): Promise<{ id: string; userId: string } | null> {
   if (!KEY_PATTERN.test(token)) return null;
   const admin = getSupabaseAdminClient();
   if (!admin) return null;
   const { data, error } = await admin
     .from("developer_keys")
-    .select("id")
+    .select("id, user_id")
     .eq("key_hash", hashKey(token))
     .is("revoked_at", null)
     .maybeSingle();
   if (error) console.error("[developpeurs] Vérification du code impossible", error);
   if (!data) return null;
-  // Date de dernière utilisation : affichée sur /developpeurs, sans retarder la réponse.
-  void admin.from("developer_keys").update({ last_used_at: new Date().toISOString() }).eq("id", data.id).then(() => undefined);
-  return { id: data.id };
+  return { id: data.id, userId: data.user_id };
+}
+
+/** Date de dernière utilisation, affichée sur /developpeurs (appelée après la réponse, avec after()). */
+export async function touchDeveloperKey(id: string): Promise<void> {
+  const { error } = (await getSupabaseAdminClient()?.from("developer_keys").update({ last_used_at: new Date().toISOString() }).eq("id", id)) ?? {};
+  if (error) console.error("[developpeurs] Date d'utilisation non enregistrée", error);
 }

@@ -2,7 +2,6 @@ import { randomUUID } from "node:crypto";
 import { after, NextResponse, type NextRequest } from "next/server";
 import { AIProviderError, buildSystemPrompt, getAIProvider } from "@/lib/ai";
 import { getAuthContext } from "@/lib/auth/session";
-import { nearestOfficesLine } from "@/lib/code-exam/offices";
 import { canOrderFood } from "@/lib/food/access";
 import { canBuyBargeTickets } from "@/lib/barge/access";
 import { BARGE_BLOCK, bargeBlockFor, bargeSpec, detectBargeTicket } from "@/lib/barge/intent";
@@ -11,6 +10,8 @@ import { detectFoodOrder, foodBlock } from "@/lib/food/intent";
 import { addWhenToBlock, formatWhenDay, parseCodeExamWhen } from "@/lib/code-exam/when";
 import { describeOrder, readLastOrder } from "@/lib/food/last-order";
 import { chatErrorBody } from "@/lib/chat/errors";
+import { mergeMemories } from "@/lib/chat/memories";
+import { readChatProfile } from "@/lib/chat/profile";
 import { buildModelHistory } from "@/lib/chat/history";
 import { quickTitle } from "@/lib/chat/title";
 import { nameConversation } from "@/lib/ai/title";
@@ -22,7 +23,6 @@ import {
   countMessages,
   createConversation,
   getConversation,
-  getProfile,
   getRecentMessages,
   insertMessage,
 } from "@/lib/conversations/repository";
@@ -30,7 +30,7 @@ import { liveContextFor } from "@/lib/live";
 import { glossFor, invalidateAwaBrain, knownTranslations, knowledgeFor, lexiconFor, loadAwaBrain, wordsFor } from "@/lib/ai/brain";
 import { AI_ERROR_LABELS } from "@/lib/ai/flow-events";
 import { startFlowTrace } from "@/lib/ai/flow-trace";
-import { ALL_APIS_CUT, flowCutStop, loadFlowCuts } from "@/lib/ai/flow-cuts";
+import { ALL_APIS_CUT, flowCutStop, loadFlowCutsForMessage } from "@/lib/ai/flow-cuts";
 import { buildDossier } from "@/lib/ai/dossier";
 import { extractMemories, type MemoryFact } from "@/lib/ai/memory";
 import { getMemories, learnFromMessage, saveMemories } from "@/lib/ai/memory-store";
@@ -39,11 +39,10 @@ import { learnWordsFromMessage, teachWords } from "@/lib/ai/words-store";
 import { createUnknownTagFilter } from "@/lib/language/unknown-tag";
 import { parseTeaching, type TaughtWord, type WordList } from "@/lib/language/teaching";
 import { enforceShimaore, fillKnownWords } from "@/lib/language/unknown-words";
-import { DEFAULT_PERSONALITY, type PersonalityId } from "@/lib/ai/personalities";
+import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
 import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
 import { consumeRateLimits, type RateLimitSubject } from "@/lib/rate-limit";
 import { loadRateLimitPolicies } from "@/lib/rate-limit/settings";
-import { getProfileContact } from "@/lib/profile-contact";
 import { getClientIp, hashIdentifier, isSameOrigin } from "@/lib/security/request";
 
 export const maxDuration = 120;
@@ -52,6 +51,11 @@ const DEVICE_COOKIE = "btm_device";
 const MAX_BODY_BYTES = 128 * 1024;
 /** Messages d'essai d'un visiteur sans compte (même compteur pour toutes ses conversations). */
 const GUEST_TRIAL = [{ name: "anon-trial-30d", limit: CHAT_LIMITS.guestTrialMessages, windowSeconds: 30 * 86_400 }];
+/**
+ * Essai compté aussi par adresse IP : effacer le cookie ne redonne pas d'essai à l'infini.
+ * Large (plusieurs personnes derrière la même box ou le même opérateur mobile).
+ */
+const GUEST_TRIAL_IP = [{ name: "anon-trial-ip-30d", limit: 30, windowSeconds: 30 * 86_400 }];
 /** Attente maximale du relevé du shimaoré à la fin de la réponse, pour annoncer « ✓ Retenu ». */
 const LEARN_WAIT_MS = 6_000;
 
@@ -108,11 +112,16 @@ export async function POST(request: NextRequest) {
   // Liens coupés, session et chaîne d'API ne dépendent pas les uns des autres :
   // lus en même temps (chaque lecture est un aller-retour réseau).
   const authTask = getAuthContext();
-  const cutsTask = loadFlowCuts();
+  const cutsTask = loadFlowCutsForMessage();
   const aiTask = cutsTask.then((cuts) => getAIProvider(cuts));
+  // Quotas en vigueur et cerveau de Tamilya (en cache) : lus pendant le reste.
+  const policiesTask = loadRateLimitPolicies();
+  const brainTask = loadAwaBrain();
   // Attendues plus bas : pas de rejet non géré si on répond avant.
   authTask.catch(() => {});
   aiTask.catch(() => {});
+  policiesTask.catch(() => {});
+  brainTask.catch(() => {});
 
   // 1. Lien coupé sur le schéma de /admin/circuit : le message s'arrête là, Tamilya ne répond pas.
   const cuts = await cutsTask;
@@ -160,8 +169,9 @@ export async function POST(request: NextRequest) {
   const newDeviceId = !user && (!deviceId || !/^[0-9a-f-]{36}$/.test(deviceId));
   if (newDeviceId) deviceId = randomUUID();
 
-  // Historique de la conversation : simple lecture (RLS), lancée pendant la
-  // vérification des quotas plutôt qu'après.
+  // Lectures du contexte : simples lectures (RLS), toutes lancées en même temps dès que la
+  // personne est connue, pendant la vérification des quotas. Leurs résultats ne servent
+  // qu'une fois le message accepté ; les écritures (conversation, message, mémoire) attendent les quotas.
   const conversationTask =
     user && supabase && body.conversationId
       ? Promise.all([
@@ -171,27 +181,53 @@ export async function POST(request: NextRequest) {
         ])
       : null;
   conversationTask?.catch(() => {});
-  // Cerveau de Tamilya (Supabase, en cache) : nom, caractère, règles, connaissances, lexique.
-  const brainTask = loadAwaBrain();
-  brainTask.catch(() => {});
+  // Profil lu une seule fois : personnalité de Tamilya (jamais fournie par le client) et adresse
+  // du compte (« près de chez moi » : bureau du code le plus proche…).
+  const noProfile: Awaited<ReturnType<typeof readChatProfile>> = { personality: undefined, home: null };
+  const profileTask =
+    user && supabase ? readChatProfile(supabase, user.id).catch(() => noProfile) : Promise.resolve(noProfile);
+  // Comportement de la personnalité réécrit depuis /admin (sinon texte du code), en cache.
+  const personalityInstructionsTask = profileTask.then(({ personality }) =>
+    loadPersonalityInstructions(personality ?? DEFAULT_PERSONALITY),
+  );
+  personalityInstructionsTask.catch(() => {});
+  // Mémoire de Tamilya déjà enregistrée (les faits de ce message s'y ajoutent plus bas).
+  const storedMemoriesTask =
+    user && supabase
+      ? getMemories(supabase).catch((error: unknown) => {
+          console.error("[chat] Mémoire indisponible (migration awa_brain appliquée ?)", error);
+          return [] as MemoryFact[];
+        })
+      : Promise.resolve([] as MemoryFact[]);
+  // Dossier : ce que la personne a fait sur le site (réservations du code…), pour que Tamilya le remarque d'elle-même.
+  const dossierTask =
+    user && supabase
+      ? buildDossier(supabase, user.id).catch((error: unknown) => {
+          console.error("[chat] Dossier indisponible", error);
+          return null;
+        })
+      : Promise.resolve(null);
+  // Offres d'emploi et actu de Mayotte, seulement si le message en parle (pas en mode maître : shimaoré seul).
+  const liveTask = user?.isAdmin ? Promise.resolve(null) : liveContextFor(body.message).catch(() => null);
+  // Commande de repas et tickets de barge ouverts à ce compte ? Dernière commande (cookie signé).
+  const foodTask = canOrderFood(user).catch(() => false);
+  const bargeTask = canBuyBargeTickets(user).catch(() => false);
+  const lastOrderTask = user
+    ? readLastOrder(user.id)
+        .then((order) => (order ? describeOrder(order) : null))
+        .catch(() => null)
+    : Promise.resolve(null);
 
   // Le maître de Tamilya (administrateur) lui parle sans quota.
   if (!user?.isAdmin) {
     try {
-      // Essai sans compte : 5 messages par appareil (30 jours), toutes conversations confondues, puis compte obligatoire.
-      if (!user) {
-        const trial = await consumeRateLimits([{ key: hashIdentifier(`trial:${deviceId}`), rules: GUEST_TRIAL }]);
-        if (!trial.allowed) {
-          flow.step("guard", false, "essai sans compte terminé");
-          return errorResponse(403, "signup_required");
-        }
-      }
-      const policies = await loadRateLimitPolicies();
+      const clientIp = getClientIp(request.headers);
+      const policies = await policiesTask;
       const subjects: RateLimitSubject[] = user
         ? [{ key: user.id, rules: policies.user }]
         : [
             { key: hashIdentifier(`device:${deviceId}`), rules: policies.anonymousDevice },
-            { key: hashIdentifier(`ip:${getClientIp(request.headers)}`), rules: policies.anonymousIp },
+            { key: hashIdentifier(`ip:${clientIp}`), rules: policies.anonymousIp },
           ];
       const decision = await consumeRateLimits(subjects);
       if (!decision.allowed) {
@@ -199,6 +235,20 @@ export async function POST(request: NextRequest) {
         return errorResponse(429, "rate_limited", {
           "Retry-After": String(decision.retryAfterSeconds),
         });
+      }
+      // Essai sans compte : 5 messages par appareil (30 jours), toutes conversations confondues, et
+      // au plus 30 par adresse IP, puis compte obligatoire. Compté après les autres limites : un
+      // message refusé pour « trop vite » ne coûte pas un message d'essai. (Pas en même temps : un
+      // compteur consommé ne se rend pas, l'essai serait perdu sur un refus.)
+      if (!user) {
+        const trial = await consumeRateLimits([
+          { key: hashIdentifier(`trial:${deviceId}`), rules: GUEST_TRIAL },
+          { key: hashIdentifier(`trial-ip:${clientIp}`), rules: GUEST_TRIAL_IP },
+        ]);
+        if (!trial.allowed) {
+          flow.step("guard", false, "essai sans compte terminé");
+          return errorResponse(403, "signup_required");
+        }
       }
     } catch (error) {
       console.error("[chat] Limitation de débit indisponible", error);
@@ -209,56 +259,25 @@ export async function POST(request: NextRequest) {
   flow.step("guard", true);
 
   // 4. Construction du contexte.
-  // Chaque requête Supabase coûte un aller-retour réseau : les lectures
-  // indépendantes partent en même temps pour que la réponse démarre plus vite.
   let history: ChatTurn[];
   let conversationId: string | null = null;
   // Nouvelle conversation : son titre (le sujet en quelques mots) est donné par l'IA après la première réponse.
   let newConversation = false;
-  let personality: PersonalityId | null | undefined;
   let memories: MemoryFact[] = [];
   // Message de la personne : enregistré pendant que le modèle répond (attendu
   // avant d'enregistrer la réponse, pour garder l'ordre).
   let userMessageSaved: Promise<unknown> = Promise.resolve();
-  // Offres d'emploi et actu de Mayotte, seulement si le message en parle (pas en mode maître : shimaoré seul).
-  const liveTask = user?.isAdmin ? Promise.resolve(null) : liveContextFor(body.message);
-  // Adresse du compte : Tamilya sait ce qui est « près de chez moi » (bureau du code le plus proche…).
-  const homeTask =
-    user && supabase
-      ? getProfileContact(supabase, user.id)
-          .then(({ address }) =>
-            address ? { commune: address.commune, nearestOffices: nearestOfficesLine(address.commune, address.geo) } : null,
-          )
-          .catch(() => null)
-      : Promise.resolve(null);
-
-  // Dossier : ce que la personne a fait sur le site (réservations du code…), pour que Tamilya le remarque d'elle-même.
-  const dossierTask =
-    user && supabase
-      ? buildDossier(supabase).catch((error: unknown) => {
-          console.error("[chat] Dossier indisponible", error);
-          return null;
-        })
-      : Promise.resolve(null);
 
   if (user && supabase) {
-    // Personnalité de Tamilya : relue en base, jamais fournie par le client.
-    const personalityTask = getProfile(supabase, user.id).then(
-      (profile) => profile.personality,
-      (error: unknown) => {
-        console.error("[chat] Personnalité indisponible, valeur par défaut", error);
-        return undefined;
-      },
-    );
-    // Mémoire de Tamilya : ce que la personne dit d'elle (prénom, lieu…) est retenu
-    // avant de relire la mémoire, pour être utilisé dès cette réponse.
-    const memoriesTask = (async () => {
-      await saveMemories(supabase, user.id, extractMemories(body.message));
-      return getMemories(supabase);
-    })().catch((error: unknown) => {
-      console.error("[chat] Mémoire indisponible (migration awa_brain appliquée ?)", error);
-      return [] as MemoryFact[];
-    });
+    // Mémoire de Tamilya : ce que la personne dit d'elle (prénom, lieu…) est enregistré sans
+    // attendre, et ajouté tout de suite à la mémoire lue : il sert dès cette réponse.
+    const facts = extractMemories(body.message);
+    if (facts.length > 0) {
+      const saved = saveMemories(supabase, user.id, facts).catch((error: unknown) =>
+        console.error("[chat] Mémoire non enregistrée (migration awa_brain appliquée ?)", error),
+      );
+      after(() => saved);
+    }
 
     try {
       if (body.conversationId) {
@@ -310,7 +329,7 @@ export async function POST(request: NextRequest) {
         flow.step("output", true);
       } catch (error) {
         console.error("[chat] Leçon non enregistrée", error);
-        reply = "Je n'ai pas réussi à enregistrer ces mots 😕 Vérifie que la migration du dictionnaire (awa_words) est appliquée, puis réessaie.";
+        reply = "Je n'ai pas réussi à enregistrer ces mots 😕 Le dictionnaire est indisponible : réessaie plus tard.";
         flow.step("prompt", false, "leçon non enregistrée");
       }
       try {
@@ -322,7 +341,7 @@ export async function POST(request: NextRequest) {
       return fixedReply(conversationId, reply);
     }
 
-    [personality, memories] = await Promise.all([personalityTask, memoriesTask]);
+    memories = mergeMemories(facts, await storedMemoriesTask);
   } else {
     if (body.conversationId) {
       flow.step("prompt", false, "session expirée");
@@ -335,14 +354,17 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Comportement de la personnalité réécrit depuis /admin (sinon texte du code), en cache.
-  const [brain, personalityInstructions, live, home, dossier] = await Promise.all([
-    brainTask,
-    loadPersonalityInstructions(personality ?? DEFAULT_PERSONALITY),
-    liveTask,
-    homeTask,
-    dossierTask,
-  ]);
+  const [brain, { personality, home }, personalityInstructions, live, dossier, foodOrdering, bargeTickets, foodOrder] =
+    await Promise.all([
+      brainTask,
+      profileTask,
+      personalityInstructionsTask,
+      liveTask,
+      dossierTask,
+      foodTask,
+      bargeTask,
+      lastOrderTask,
+    ]);
 
   // Mode maître (administrateur) : Tamilya ne parle que shimaoré. Ses anciennes
   // réponses sont nettoyées elles aussi, pour que le modèle ne recopie pas son
@@ -358,7 +380,6 @@ export async function POST(request: NextRequest) {
     { role: "user", content: body.message },
   ];
   // Demande de repas reconnue ici, sans attendre le modèle : la commande s'ouvre à coup sûr.
-  const foodOrdering = await canOrderFood(user);
   const foodQuery =
     foodOrdering && !body.voice
       ? detectFoodOrder(
@@ -368,7 +389,6 @@ export async function POST(request: NextRequest) {
         )
       : null;
   // Demande de ticket de barge reconnue ici : l'achat s'ouvre à coup sûr.
-  const bargeTickets = await canBuyBargeTickets(user);
   const bargeIntent = bargeTickets && !body.voice ? detectBargeTicket(body.message) : null;
   // Jour voulu pour le code (« demain », « vendredi matin ») : calculé ici, les modèles se trompent de date.
   const codeWhen = parseCodeExamWhen(body.message);
@@ -376,7 +396,8 @@ export async function POST(request: NextRequest) {
     personalityInstructions,
     identity: brain.identity,
     rules: brain.rules,
-    lexicon: lexiconFor(brain, personality ?? DEFAULT_PERSONALITY),
+    lexicon: lexiconFor(brain, personality ?? DEFAULT_PERSONALITY, body.message),
+    grammar: brain.grammar,
     words: wordsFor(brain, body.message, master),
     gloss: glossFor(brain, body.message),
     knowledge: knowledgeFor(brain, body.message),
@@ -393,7 +414,7 @@ export async function POST(request: NextRequest) {
     bargeIntent,
     bargeSpec: bargeIntent === "buy" ? bargeSpec(body.message) : undefined,
     codeExamDay: codeWhen.day ? formatWhenDay(codeWhen.day) : null,
-    foodOrder: user ? await readLastOrder(user.id).then((order) => (order ? describeOrder(order) : null)) : null,
+    foodOrder,
   });
   flow.step("prompt", true);
   // Mesures de vitesse, écrites dans les journaux du serveur en fin de réponse.

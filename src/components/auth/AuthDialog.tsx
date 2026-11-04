@@ -45,24 +45,24 @@ function describeAuthError(error: AuthError): string {
     case "invalid_credentials":
       return "E-mail ou mot de passe incorrect.";
     case "email_not_confirmed":
-      return "Votre adresse e-mail n'est pas encore confirmée. Cliquez sur le lien reçu par e-mail.";
+      return "Ton adresse e-mail n'est pas encore confirmée. Clique sur le lien reçu par e-mail.";
     case "user_already_exists":
     case "email_exists":
-      return "Un compte existe déjà avec cette adresse. Connectez-vous ou réinitialisez votre mot de passe.";
+      return "Un compte existe déjà avec cette adresse. Connecte-toi ou réinitialise ton mot de passe.";
     case "weak_password":
-      return "Ce mot de passe est trop faible. Choisissez-en un plus long ou plus varié.";
+      return "Ce mot de passe est trop faible. Choisis-en un plus long ou plus varié.";
     case "email_address_invalid":
       return "Cette adresse e-mail n'est pas valide.";
     // Limite globale du service d'e-mails de Supabase (tous utilisateurs
     // confondus), pas une faute de la personne.
     case "over_email_send_rate_limit":
-      return "L'envoi d'e-mails est momentanément saturé. Réessayez un peu plus tard.";
+      return "L'envoi d'e-mails est momentanément saturé. Réessaie un peu plus tard.";
     case "over_request_rate_limit":
-      return "Trop de tentatives depuis cette connexion. Patientez quelques minutes avant de réessayer.";
+      return "Trop de tentatives depuis cette connexion. Patiente quelques minutes avant de réessayer.";
     case "signup_disabled":
       return "Les inscriptions sont momentanément fermées.";
     default:
-      return "La demande n'a pas abouti. Vérifiez vos informations et réessayez.";
+      return "La demande n'a pas abouti. Vérifie tes informations et réessaie.";
   }
 }
 
@@ -163,7 +163,7 @@ function AuthPanel({
   const titles: Record<View, string> = {
     signin: "Connexion",
     signup: "Créer un compte",
-    confirm: "Confirmez votre adresse e-mail",
+    confirm: "Confirme ton adresse e-mail",
   };
 
   const closeButton = (
@@ -209,15 +209,15 @@ function AuthPanel({
             className="size-[clamp(60px,9vh,78px)] rounded-[clamp(18px,2.6vh,24px)] shadow-[0_14px_30px_rgba(17,17,17,0.25)]"
           />
           <h2 id={titleId} className="text-[clamp(2.2rem,6.2vh,3.2rem)] leading-[0.95] font-bold tracking-tight">
-            {isSignup ? "Rejoignez" : "Bienvenue chez"}
+            {isSignup ? "Rejoins" : "Bienvenue chez"}
             <br />
             BTM AI
           </h2>
         </div>
         <p className="mt-[clamp(16px,4vh,40px)] text-[15px] leading-relaxed text-fg-muted">
-          Posez vos questions à Tamilya.
+          Pose tes questions à Tamilya.
           <br />
-          Retrouvez vos conversations partout.
+          Retrouve tes conversations partout.
         </p>
         {options.reason ? (
           <p className="mt-4 w-full rounded-xl border border-border bg-accent-soft px-3.5 py-2.5 text-left text-sm font-medium">
@@ -236,7 +236,7 @@ function AuthPanel({
         </div>
         <div className="mt-[clamp(12px,2.4vh,22px)]">{switchLine}</div>
         <p className="mt-2.5 max-w-[320px] text-xs leading-normal text-fg-muted/80">
-          En continuant, vous acceptez les{" "}
+          En continuant, tu acceptes les{" "}
           <Link href="/confidentialite" target="_blank" className="underline underline-offset-2">
             règles de confidentialité
           </Link>{" "}
@@ -270,7 +270,7 @@ function AuthPanel({
       {view !== "confirm" ? (
         <p className="mt-1 text-sm leading-snug text-fg-muted">
           {options.reason ??
-            (isSignup ? "Gratuit. Retrouvez vos conversations sur tous vos appareils." : "Retrouvez vos conversations avec Tamilya.")}
+            (isSignup ? "Gratuit. Retrouve tes conversations sur tous tes appareils." : "Retrouve tes conversations avec Tamilya.")}
         </p>
       ) : null}
 
@@ -369,7 +369,7 @@ function GoogleButton({ next, isSignup }: { next: string; isSignup: boolean }) {
           <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-8l-6.5 5C9.5 39.6 16.2 44 24 44z" />
           <path fill="#1976D2" d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.6-.4-3.9z" />
         </svg>
-        {pending ? "Veuillez patienter…" : isSignup ? "S'inscrire avec Google" : "Continuer avec Google"}
+        {pending ? "Patiente…" : isSignup ? "S'inscrire avec Google" : "Continuer avec Google"}
       </button>
       {failed ? (
         <p role="alert" className="mt-2 text-xs text-danger">
@@ -470,7 +470,7 @@ function SubmitButton({ pending, label }: { pending: boolean; label: string }) {
       disabled={pending}
       className="btn-rose mt-1 h-12 w-full rounded-full px-5 text-sm font-semibold"
     >
-      {pending ? "Veuillez patienter…" : label}
+      {pending ? "Patiente…" : label}
     </button>
   );
 }
@@ -565,7 +565,7 @@ function SignInForm({
       {error ? (
         <ErrorMessage>
           {error === "network"
-            ? "Connexion au service impossible. Vérifiez votre connexion internet."
+            ? "Connexion au service impossible. Vérifie ta connexion internet."
             : describeAuthError(error)}
           {error !== "network" && error.code === "email_not_confirmed" ? (
             <div className="mt-2">
@@ -623,7 +623,7 @@ function SignUpForm({
     setError(null);
     const name = normalizeDisplayName(displayName);
     if (!name) {
-      setError({ message: "Indiquez comment vous souhaitez qu'on vous appelle." });
+      setError({ message: "Indique comment tu veux qu'on t'appelle." });
       return;
     }
     if (disposable) {
@@ -639,7 +639,7 @@ function SignUpForm({
       return;
     }
     if (!consent) {
-      setError({ message: "Veuillez accepter les règles de confidentialité pour créer un compte." });
+      setError({ message: "Accepte les règles de confidentialité pour créer ton compte." });
       return;
     }
     const supabase = getSupabaseBrowserClient();
@@ -671,7 +671,7 @@ function SignUpForm({
         onConfirmationSent();
       }
     } catch {
-      setError({ message: "Connexion au service impossible. Vérifiez votre connexion internet." });
+      setError({ message: "Connexion au service impossible. Vérifie ta connexion internet." });
     } finally {
       setPending(false);
     }
@@ -685,7 +685,7 @@ function SignUpForm({
       className="mt-4 space-y-3 sm:grid sm:grid-cols-2 sm:gap-x-3 sm:gap-y-3 sm:space-y-0 [@media(max-height:700px)]:mt-3 [@media(max-height:700px)]:space-y-2"
       noValidate
     >
-      <Field id="signup-name" label="Votre prénom">
+      <Field id="signup-name" label="Ton prénom">
         <input
           id="signup-name"
           data-autofocus
@@ -718,7 +718,7 @@ function SignUpForm({
           </p>
         ) : suggestion ? (
           <p id="signup-email-suggestion" className="mt-1 pl-1 text-xs text-fg-muted" aria-live="polite">
-            Vouliez-vous dire{" "}
+            Tu voulais dire{" "}
             <button
               type="button"
               onClick={() => onEmailChange(suggestion)}
@@ -734,7 +734,7 @@ function SignUpForm({
       {/* Commune et adresse côte à côte, même sur téléphone. Elle sert aux services BTM (livraisons…)
           et sera redemandée, corrigeable, à chaque livraison. */}
       <fieldset className="sm:col-span-2 [&>div]:grid [&>div]:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] [&>div]:gap-3 [&>div]:space-y-0">
-        <legend className="sr-only">Votre adresse, pour les livraisons BTM</legend>
+        <legend className="sr-only">Ton adresse, pour les livraisons BTM</legend>
         <AddressFields
           id="signup-address"
           value={address}
@@ -846,9 +846,9 @@ function ConfirmationSent({
   return (
     <div className="mt-3 text-sm" role="status">
       <p>
-        Cliquez sur le lien envoyé à <strong className="break-all">{normalizeEmail(email)}</strong>.
+        Clique sur le lien envoyé à <strong className="break-all">{normalizeEmail(email)}</strong>.
       </p>
-      <p className="mt-1 text-fg-muted">Pensez à regarder dans vos spams.</p>
+      <p className="mt-1 text-fg-muted">Pense à regarder dans tes spams.</p>
       <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border pt-4">
         <ResendConfirmation email={email} next={next} initialCooldown={RESEND_COOLDOWN_SECONDS} variant="link" />
         <button type="button" onClick={onChangeEmail} className="font-medium text-fg-muted hover:text-fg">
@@ -906,7 +906,7 @@ function ResendConfirmation({
       : status === "sent" && cooldown > 0
         ? "E-mail renvoyé ✓"
         : status === "error" && cooldown > 0
-          ? "Échec, réessayez plus tard"
+          ? "Échec, réessaie plus tard"
           : cooldown > 0
             ? `Renvoyer (${cooldown} s)`
             : "Renvoyer l'e-mail";

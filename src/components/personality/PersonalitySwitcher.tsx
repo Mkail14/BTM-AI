@@ -57,7 +57,7 @@ export function PersonalitySwitcher() {
 
   function toggle() {
     if (!user) {
-      openAuthDialog({ mode: "signup", reason: "Créez un compte pour choisir la personnalité de Tamilya." });
+      openAuthDialog({ mode: "signup", reason: "Crée un compte pour choisir la personnalité de Tamilya." });
       return;
     }
     setOpen((v) => !v);
@@ -99,7 +99,7 @@ export function PersonalitySwitcher() {
             className="absolute bottom-full left-0 z-40 mb-3 w-72 overflow-hidden rounded-3xl border border-white/10 bg-[color-mix(in_srgb,var(--bg)_75%,transparent)] p-1.5 shadow-2xl backdrop-blur-2xl"
           >
             <p className="px-3 pt-2.5 pb-2 text-[11px] font-semibold tracking-wider text-fg-muted uppercase">
-              Le ton d&apos;Tamilya
+              La personnalité de Tamilya
             </p>
             {PERSONALITY_IDS.map((id) => {
               const item = PERSONALITIES[id];

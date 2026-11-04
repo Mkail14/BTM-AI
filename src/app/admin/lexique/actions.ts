@@ -188,7 +188,7 @@ export async function suggestBranchAction(avoid: unknown): Promise<{ ok: true; s
   if (!auth) return { ok: false, message: NOT_ADMIN.message };
   const skip = Array.isArray(avoid) ? avoid.filter((a): a is string => typeof a === "string").slice(0, 10).map((a) => a.slice(0, 30)) : [];
   const suggestion = await suggestBranch(auth.supabase, skip);
-  return suggestion ? { ok: true, suggestion } : { ok: false, message: "Tamilya n'a pas trouvé d'idée cette fois. Réessaie dans un instant." };
+  return suggestion ? { ok: true, suggestion } : { ok: false, message: "Tamilya n'a pas trouvé de sujet dans les conversations cette fois. Réessaie dans un instant." };
 }
 
 const branchSchema = z.object({

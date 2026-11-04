@@ -153,4 +153,4 @@ export function isDisposableEmail(email: string): boolean {
 }
 
 export const DISPOSABLE_EMAIL_MESSAGE =
-  "Les adresses e-mail temporaires ne sont pas acceptées : utilisez votre adresse habituelle (Gmail, Outlook, Orange…).";
+  "Les adresses e-mail temporaires ne sont pas acceptées : utilise ton adresse habituelle (Gmail, Outlook, Orange…).";

@@ -104,13 +104,13 @@ export function PartnerFrise({ partners }: { partners: readonly Partner[] }) {
     "landing-glass grid size-11 place-items-center rounded-full text-fg transition hover:scale-105 disabled:pointer-events-none disabled:opacity-30";
 
   return (
-    <div className="relative flex min-h-0 flex-1 flex-col justify-center">
+    <div className="relative flex flex-1 flex-col justify-center py-4 [@media(min-height:640px)]:min-h-0 [@media(min-height:640px)]:py-0">
       <ol
         ref={track}
         aria-label="Frise des partenaires"
         data-start={edges.start || undefined}
         data-end={edges.end || undefined}
-        className="frise flex gap-10 overflow-x-auto overflow-y-hidden overscroll-x-contain px-[max(1.25rem,calc((100vw-64rem)/2))] py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="frise flex shrink-0 gap-10 overflow-x-auto [@media(min-height:640px)]:shrink overflow-y-hidden overscroll-x-contain px-[max(1.25rem,calc((100vw-64rem)/2))] py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {partners.map((partner, i) => (
           <li key={partner.name} className="frise-jalon landing-rise flex w-[min(74vw,16.5rem)] shrink-0 flex-col" style={{ animationDelay: `${200 + i * 90}ms` }}>
@@ -123,7 +123,6 @@ export function PartnerFrise({ partners }: { partners: readonly Partner[] }) {
             <button
               type="button"
               onClick={() => setOpen(partner)}
-              aria-label={`Voir la fiche de ${partner.name}`}
               className="landing-glass mt-7 flex flex-1 cursor-pointer flex-col items-start rounded-3xl p-6 text-left transition hover:-translate-y-1 hover:shadow-xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]"
             >
               <span
@@ -177,17 +176,18 @@ function PartnerSheet({ partner, onClose }: { partner: Partner; onClose: () => v
   const gradient = `linear-gradient(135deg, ${partner.colors[0]}, ${partner.colors[1]})`;
 
   return createPortal(
-    <div className="landing fixed inset-0 z-[100] grid place-items-center p-4 text-fg" role="dialog" aria-modal="true" aria-labelledby="fiche-partenaire">
-      <div aria-hidden="true" className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={dismiss} />
-      <article className="landing-rise relative border border-[color-mix(in_oklab,var(--fg)_10%,transparent)] bg-bg shadow-2xl max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-3xl">
+    <div className="landing fixed inset-0 z-[100] grid place-items-center overscroll-none p-4 text-fg" role="dialog" aria-modal="true" aria-labelledby="fiche-partenaire">
+      <div aria-hidden="true" className="absolute inset-0 touch-none bg-black/40 backdrop-blur-sm" onClick={dismiss} />
+      {/* Écran trop petit (téléphone couché) : la fiche défile à l'intérieur ; sur un téléphone normal, elle tient sans défiler. */}
+      <article className="landing-rise relative max-h-[calc(100dvh-2rem)] w-full max-w-md overflow-x-hidden overflow-y-auto overscroll-contain rounded-3xl border border-[color-mix(in_oklab,var(--fg)_10%,transparent)] bg-bg shadow-2xl">
         {/* Photo, ou bandeau aux couleurs du logo */}
-        <div className="relative h-44 overflow-hidden rounded-t-3xl" style={{ background: gradient }}>
+        <div className="relative h-[clamp(5.5rem,20dvh,11rem)] overflow-hidden" style={{ background: gradient }}>
           {partner.photo ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={partner.photo} alt={`Photo de ${partner.name}`} className="size-full object-cover" />
           ) : partner.logo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={partner.logo} alt={`Logo de ${partner.name}`} className="mx-auto h-full w-auto max-w-[70%] object-contain py-8" />
+            <img src={partner.logo} alt={`Logo de ${partner.name}`} className="mx-auto h-full w-auto max-w-[70%] object-contain py-[clamp(0.75rem,3dvh,2rem)]" />
           ) : (
             <span aria-hidden="true" className="grid size-full place-items-center text-5xl font-bold tracking-tight text-white/90">
               {partner.initials}
@@ -206,17 +206,17 @@ function PartnerSheet({ partner, onClose }: { partner: Partner; onClose: () => v
           </button>
         </div>
 
-        <div className="p-6">
+        <div className="p-5 sm:p-6">
           <p className="text-sm font-semibold text-fg-muted">Partenaire depuis {sinceLabel(partner.since)}</p>
-          <h2 id="fiche-partenaire" className="mt-1 text-2xl font-semibold tracking-tight">
+          <h2 id="fiche-partenaire" className="mt-0.5 text-2xl font-semibold tracking-tight">
             {partner.name}
           </h2>
-          <p className="mt-2 text-[15px] leading-relaxed text-fg-muted">{partner.pitch}</p>
+          <p className="mt-1.5 text-[15px] leading-snug text-fg-muted">{partner.pitch}</p>
 
-          <h3 className="mt-6 text-sm font-semibold">Comment c&apos;est intégré à Tamilya</h3>
-          <p className="mt-1.5 text-[15px] leading-relaxed">{partner.integration}</p>
+          <h3 className="mt-4 text-sm font-semibold">Comment c&apos;est intégré à Tamilya</h3>
+          <p className="mt-1 text-[15px] leading-snug">{partner.integration}</p>
 
-          <div className="mt-5 rounded-2xl border border-[color-mix(in_oklab,var(--accent)_30%,transparent)] bg-[color-mix(in_oklab,var(--accent)_8%,transparent)] p-4">
+          <div className="mt-4 rounded-2xl border border-[color-mix(in_oklab,var(--accent)_30%,transparent)] bg-[color-mix(in_oklab,var(--accent)_8%,transparent)] px-4 py-3">
             <p className="text-xs font-semibold tracking-wide text-fg-muted uppercase">Essayez de demander</p>
             <p className="mt-1 text-[15px] font-medium">« {partner.example} »</p>
           </div>
@@ -226,7 +226,7 @@ function PartnerSheet({ partner, onClose }: { partner: Partner; onClose: () => v
               href={partner.website}
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-5 inline-flex text-[15px] font-semibold text-fg underline decoration-[color-mix(in_oklab,var(--accent)_60%,transparent)] underline-offset-4 hover:decoration-[var(--accent)]"
+              className="mt-4 inline-flex text-[15px] font-semibold text-fg underline decoration-[color-mix(in_oklab,var(--accent)_60%,transparent)] underline-offset-4 hover:decoration-[var(--accent)]"
             >
               Visiter {partner.website.replace(/^https?:\/\//, "")} ↗
             </a>

@@ -1,4 +1,4 @@
-import { ChatView } from "@/components/chat/ChatView";
+import { ChatViewLazy as ChatView } from "@/components/chat/ChatViewLazy";
 import { GuestHome } from "@/components/landing/GuestHome";
 import { getAuthContext } from "@/lib/auth/session";
 import { safeNextPath } from "@/lib/auth/redirect";

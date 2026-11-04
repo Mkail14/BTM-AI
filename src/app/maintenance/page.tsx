@@ -40,7 +40,7 @@ export default async function MaintenancePage() {
                 Tamilya revient très vite
               </h1>
               <p className="mt-3 text-[15px] leading-relaxed text-fg-muted">
-                Nous améliorons le service. Tamilya est temporairement indisponible : vos conversations et vos informations
+                Nous améliorons le service. Tamilya est temporairement indisponible : tes conversations et tes informations
                 sont conservées, rien n&apos;est perdu.
               </p>
               {maintenanceMessage ? (
@@ -57,7 +57,7 @@ export default async function MaintenancePage() {
                 Service disponible
               </p>
               <h1 className="mt-4 text-[1.65rem] leading-tight font-semibold tracking-tight text-balance">Tamilya est de retour</h1>
-              <p className="mt-3 text-[15px] leading-relaxed text-fg-muted">La maintenance est terminée, vous pouvez reprendre.</p>
+              <p className="mt-3 text-[15px] leading-relaxed text-fg-muted">La maintenance est terminée, tu peux reprendre.</p>
             </>
           )}
 

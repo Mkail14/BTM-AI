@@ -37,7 +37,7 @@ export type ReviewInput = z.infer<typeof reviewSchema>;
 /** « Fatima Mohamed Ali » → « Fatima A. » ; jamais l'e-mail. */
 export function publicName(displayName: string | null | undefined): string {
   const words = (displayName ?? "").replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
-  if (!words.length) return "Membre de BTM IA";
+  if (!words.length) return "Membre de BTM AI";
   const first = words[0].slice(0, 30);
   const last = words.length > 1 ? ` ${words.at(-1)!.charAt(0).toLocaleUpperCase("fr")}.` : "";
   return `${first.charAt(0).toLocaleUpperCase("fr")}${first.slice(1)}${last}`;

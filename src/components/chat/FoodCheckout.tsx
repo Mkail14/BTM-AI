@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { FoodOrderPlaced, FoodResponse } from "@/app/api/food/route";
 import { AddressFields, EMPTY_ADDRESS, type AddressDraft } from "@/components/ui/AddressFields";
 import { IconClose } from "@/components/ui/icons";
@@ -11,7 +11,9 @@ import { kindOf, type GeoPoint } from "@/lib/address";
 import type { FoodCartLine, FoodRestaurant } from "@/lib/food/catalog";
 import { locateMe } from "@/lib/geo/communes";
 import { deliveryPoint, restaurantPoint } from "@/lib/food/route";
+import { dayLabel, deliverySlots, slotDay, slotTime } from "@/lib/food/schedule";
 import { formatEuros } from "@/lib/wallet/limits";
+import { speak } from "@/lib/chat/voice";
 import type { PlacedOrder } from "./OrderTracker";
 
 const INPUT_CLASS =
@@ -129,6 +131,7 @@ export function FoodCheckout({
   onChangeQuantity,
   onPlaced,
   here = null,
+  initialScheduled = false,
 }: {
   data: FoodResponse;
   restaurant: FoodRestaurant;
@@ -139,8 +142,33 @@ export function FoodCheckout({
   onPlaced: (order: PlacedOrder) => void;
   /** Position donnée plus tôt dans la carte (« près de moi ») : proposée pour livrer là où on est. */
   here?: { commune: string; geo: GeoPoint | null } | null;
+  /** Ouvert par « Programmer » : l'heure de livraison est à choisir. */
+  initialScheduled?: boolean;
 }) {
   const id = useId();
+  // Quand livrer : dès que possible, ou à une heure choisie (créneaux de 30 min).
+  const [slots, setSlots] = useState(() => deliverySlots(Date.now(), restaurant.etaMinutes[1]));
+  const [scheduled, setScheduled] = useState(initialScheduled && slots.length > 0);
+  const [slot, setSlot] = useState<number | null>(slots[0] ?? null);
+  const days = [...new Set(slots.map(slotDay))];
+  const [day, setDay] = useState(days[0] ?? "");
+
+  // Les créneaux sont recalculés chaque minute (et au moment de payer) : un créneau
+  // passé pendant qu'on remplit le formulaire disparaît. Renvoie faux si le créneau choisi n'est plus possible.
+  const refreshSlots = useCallback(() => {
+    const fresh = deliverySlots(Date.now(), restaurant.etaMinutes[1]);
+    setSlots(fresh);
+    if (slot !== null && fresh.includes(slot)) return true;
+    const next = fresh.find((s) => slotDay(s) === day) ?? fresh[0] ?? null;
+    setSlot(next);
+    if (next !== null) setDay(slotDay(next));
+    else setScheduled(false);
+    return false;
+  }, [restaurant.etaMinutes, slot, day]);
+  useEffect(() => {
+    const timer = window.setInterval(refreshSlots, 60_000);
+    return () => window.clearInterval(timer);
+  }, [refreshSlots]);
   const [address, setAddress] = useState<AddressDraft>(data.address ?? EMPTY_ADDRESS);
   const [saveAddress, setSaveAddress] = useState(!data.address);
   const [editingAddress, setEditingAddress] = useState(false);
@@ -158,6 +186,22 @@ export function FoodCheckout({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => localStorage.removeItem(LEGACY_STORAGE_KEY), []);
+
+  // Solde insuffisant : Tamilya prend la parole d'elle-même et explique quoi faire.
+  const [explained, setExplained] = useState<string | null>(null);
+  const stopVoice = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopVoice.current?.(), []);
+  function explainNoMoney(missing: number) {
+    const text =
+      data.balanceCents <= 0
+        ? `Ton portefeuille est vide : ton solde est à zéro, donc je ne peux pas payer ta commande de ${formatEuros(totalCents)}. Recharge ton portefeuille, puis reviens ici : ta commande t'attend.`
+        : `Il te manque ${formatEuros(missing)} pour payer ta commande de ${formatEuros(totalCents)}. Ton solde est de ${formatEuros(data.balanceCents)}. Recharge ton portefeuille, puis reviens ici : ta commande t'attend.`;
+    setExplained(text);
+    stopVoice.current?.();
+    if (typeof window !== "undefined" && "speechSynthesis" in window) {
+      stopVoice.current = speak(text, { onDone: () => (stopVoice.current = null) });
+    }
+  }
 
   const items = new Map(restaurant.menu.flatMap((s) => s.items).map((i) => [i.id, i]));
   const totalCents = itemsCents + data.deliveryCents;
@@ -186,6 +230,10 @@ export function FoodCheckout({
     if (where === "here" && !spot) return void locate();
     if (!delivery || !hasAddress || zoneError) return where === "home" ? setEditingAddress(true) : undefined;
     if (phoneError) return;
+    if (scheduled && !refreshSlots()) {
+      setError("Ce créneau est passé : choisis une autre heure.");
+      return;
+    }
     setPaying(true);
     setError(null);
     try {
@@ -200,9 +248,14 @@ export function FoodCheckout({
           saveAddress: where === "home" && saveAddress,
           phone: editingPhone ? phone : undefined,
           note: note || undefined,
+          scheduledFor: scheduled && slot ? new Date(slot).toISOString() : undefined,
         }),
       });
       const body = (await res.json().catch(() => ({}))) as Partial<FoodOrderPlaced> & { error?: string };
+      if (res.status === 402) {
+        explainNoMoney(Math.max(missingCents, 1));
+        return;
+      }
       if (!res.ok || !body.code || !body.placedAt || !body.readyAt || !body.arrivesAt) {
         setError(body.error ?? "Paiement impossible.");
         return;
@@ -226,6 +279,7 @@ export function FoodCheckout({
         to: body.to ?? deliveryPoint(body.code, delivery.commune, delivery.geo, from),
         address: where === "here" ? "Position GPS" : delivery.line,
         note: note || undefined,
+        scheduled: Boolean(body.scheduled),
       });
     } catch {
       setError("Pas de connexion : réessaie.");
@@ -241,7 +295,7 @@ export function FoodCheckout({
           type="button"
           onClick={onBack}
           aria-label="Retour aux plats"
-          className="-ml-1.5 grid size-8 place-items-center rounded-full text-lg text-fg-muted hover:bg-bg-muted hover:text-fg"
+          className="-ml-1.5 grid size-8 place-items-center rounded-full text-lg text-fg-muted pointer-coarse:size-10 hover:bg-bg-muted hover:text-fg"
         >
           ‹
         </button>
@@ -269,7 +323,7 @@ export function FoodCheckout({
                     type="button"
                     onClick={() => onChangeQuantity(l.itemId, -1)}
                     aria-label={`Retirer un ${item.name}`}
-                    className="grid size-6 place-items-center rounded-full border border-border text-sm leading-none hover:bg-bg-muted"
+                    className="grid size-9 place-items-center rounded-full border border-border text-sm leading-none pointer-coarse:size-10 hover:bg-bg-muted"
                   >
                     −
                   </button>
@@ -278,7 +332,7 @@ export function FoodCheckout({
                     type="button"
                     onClick={() => onChangeQuantity(l.itemId, 1)}
                     aria-label={`Ajouter un ${item.name}`}
-                    className="grid size-6 place-items-center rounded-full border border-border text-sm leading-none hover:bg-bg-muted"
+                    className="grid size-9 place-items-center rounded-full border border-border text-sm leading-none pointer-coarse:size-10 hover:bg-bg-muted"
                   >
                     +
                   </button>
@@ -296,6 +350,83 @@ export function FoodCheckout({
             <span className="tabular-nums">{formatEuros(totalCents)}</span>
           </li>
         </ul>
+
+        {/* Quand livrer : dès que possible, ou programmé à une heure */}
+        <fieldset>
+          <legend className="mb-1.5 text-xs font-medium">Quand ?</legend>
+          <div className="grid grid-cols-2 gap-2">
+            {[
+              { value: false, emoji: "⚡", label: "Dès que possible", hint: `${restaurant.etaMinutes[0]}–${restaurant.etaMinutes[1]} min` },
+              { value: true, emoji: "⏰", label: "Programmer", hint: slots.length ? "Choisis l'heure" : "Plus de créneau" },
+            ].map((o) => (
+              <label
+                key={o.label}
+                className={`flex items-center gap-2.5 rounded-2xl border px-3 py-2.5 transition ${
+                  scheduled === o.value ? "border-[var(--persona,var(--accent))] bg-bg-subtle" : "border-border hover:bg-bg-subtle"
+                } ${o.value && !slots.length ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+              >
+                <input
+                  type="radio"
+                  name={`${id}-when`}
+                  checked={scheduled === o.value}
+                  disabled={o.value && !slots.length}
+                  onChange={() => setScheduled(o.value)}
+                  className="sr-only"
+                />
+                <span aria-hidden="true" className="text-lg">
+                  {o.emoji}
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-medium">{o.label}</span>
+                  <span className="block truncate text-xs text-fg-muted">{o.hint}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          {scheduled ? (
+            <div className="booking-step mt-2 space-y-2">
+              <div className="flex gap-1.5 overflow-x-auto scrollbar-none">
+                {days.map((d) => {
+                  const first = slots.find((s) => slotDay(s) === d)!;
+                  return (
+                    <button
+                      key={d}
+                      type="button"
+                      onClick={() => {
+                        setDay(d);
+                        setSlot(first);
+                      }}
+                      className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                        day === d ? "border-transparent text-white" : "border-border hover:bg-bg-subtle"
+                      }`}
+                      style={day === d ? { background: PERSONA } : undefined}
+                    >
+                      {dayLabel(first)}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label="Heure de livraison">
+                {slots
+                  .filter((s) => slotDay(s) === day)
+                  .map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      role="radio"
+                      aria-checked={slot === s}
+                      onClick={() => setSlot(s)}
+                      className={`rounded-xl border px-2.5 py-1.5 text-sm tabular-nums transition ${
+                        slot === s ? "border-[var(--persona,var(--accent))] bg-bg-subtle font-semibold" : "border-border hover:bg-bg-subtle"
+                      }`}
+                    >
+                      {slotTime(s)}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          ) : null}
+        </fieldset>
 
         {/* Où livrer : chez moi (adresse du compte) ou là où je suis (GPS) */}
         <fieldset className="grid gap-2 sm:grid-cols-2">
@@ -443,13 +574,33 @@ export function FoodCheckout({
           </p>
         ) : null}
 
-        {missingCents > 0 ? (
+        {explained ? (
+          <div role="alert" className="booking-step flex gap-2.5 rounded-2xl border border-border bg-bg-subtle px-3 py-2.5 text-sm">
+            <span aria-hidden="true" className="mt-0.5 size-5 shrink-0 rounded-full" style={{ background: PERSONA }} />
+            <p>
+              <span className="block text-xs font-semibold" style={{ color: PERSONA }}>
+                Tamilya
+              </span>
+              {explained}
+            </p>
+          </div>
+        ) : null}
+
+        {explained ? (
           <Link href="/portefeuille" className={`${PRIMARY} block text-center`} style={{ background: PERSONA }}>
-            Il manque {formatEuros(missingCents)} · recharger
+            Recharger mon portefeuille
           </Link>
+        ) : missingCents > 0 ? (
+          <button type="button" onClick={() => explainNoMoney(missingCents)} className={PRIMARY} style={{ background: PERSONA }}>
+            Payer {formatEuros(totalCents)}
+          </button>
         ) : (
           <button type="button" onClick={() => void pay()} disabled={paying} className={PRIMARY} style={{ background: PERSONA }}>
-            {paying ? "Paiement…" : `Payer ${formatEuros(totalCents)}`}
+            {paying
+              ? "Paiement…"
+              : scheduled && slot
+                ? `Payer ${formatEuros(totalCents)} · livré ${dayLabel(slot).toLowerCase()} à ${slotTime(slot)}`
+                : `Payer ${formatEuros(totalCents)}`}
           </button>
         )}
       </div>
