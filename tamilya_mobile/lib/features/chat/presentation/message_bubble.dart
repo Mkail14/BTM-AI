@@ -32,7 +32,7 @@ class _UserBubble extends StatelessWidget {
       alignment: Alignment.centerRight,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: MediaQuery.sizeOf(context).width * 0.85,
+          maxWidth: MediaQuery.sizeOf(context).width * 0.88,
         ),
         child: Semantics(
           container: true,
@@ -74,50 +74,85 @@ class _AssistantMessage extends StatelessWidget {
         ? "La réponse n'a pas pu être générée."
         : message.text;
 
-    return Semantics(
-      container: true,
-      label: 'Tamilya a répondu :',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (isError)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(Gaps.md),
-              decoration: BoxDecoration(
-                color: p.dangerSoft,
-                borderRadius: BorderRadius.circular(Radii.field),
+    return AssistantRow(
+      child: Semantics(
+        container: true,
+        label: 'Tamilya a répondu :',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (isError)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(Gaps.md),
+                decoration: BoxDecoration(
+                  color: p.dangerSoft,
+                  borderRadius: BorderRadius.circular(Radii.field),
+                ),
+                child: Text(
+                  text,
+                  style: theme.textTheme.bodyLarge?.copyWith(color: p.danger),
+                ),
+              )
+            else if (message.status != MessageStatus.streaming)
+              SelectableText(text, style: theme.textTheme.bodyLarge)
+            else
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(text: text),
+                    // Curseur décoratif, exclu de la lecture d'écran.
+                    const WidgetSpan(child: ExcludeSemantics(child: Text('▍'))),
+                  ],
+                ),
+                style: theme.textTheme.bodyLarge,
               ),
-              child: Text(
-                text,
-                style: theme.textTheme.bodyLarge?.copyWith(color: p.danger),
+            if (message.status == MessageStatus.interrupted)
+              Padding(
+                padding: const EdgeInsets.only(top: Gaps.xs),
+                child: Text(
+                  'Réponse interrompue.',
+                  style: theme.textTheme.bodySmall,
+                ),
               ),
-            )
-          else if (message.status != MessageStatus.streaming)
-            SelectableText(text, style: theme.textTheme.bodyLarge)
-          else
-            Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(text: text),
-                  // Curseur décoratif, exclu de la lecture d'écran.
-                  const WidgetSpan(child: ExcludeSemantics(child: Text('▍'))),
-                ],
-              ),
-              style: theme.textTheme.bodyLarge,
-            ),
-          if (message.status == MessageStatus.interrupted)
-            Padding(
-              padding: const EdgeInsets.only(top: Gaps.xs),
-              child: Text(
-                'Réponse interrompue.',
-                style: theme.textTheme.bodySmall,
-              ),
-            ),
-          if (isError && onRetry != null)
-            TextButton(onPressed: onRetry, child: const Text('Réessayer')),
-        ],
+            if (isError && onRetry != null)
+              TextButton(onPressed: onRetry, child: const Text('Réessayer')),
+          ],
+        ),
       ),
+    );
+  }
+}
+
+/// Ligne d'un message de Tamilya : avatar rond 32 dp (fond persona-soft,
+/// anneau persona-border, emoji de la personnalité) puis le contenu.
+class AssistantRow extends StatelessWidget {
+  const AssistantRow({super.key, required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: p.userBubble,
+            shape: BoxShape.circle,
+            border: Border.all(color: p.composerBorder),
+          ),
+          child: const Text('🙂', style: TextStyle(fontSize: 16)),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Padding(padding: const EdgeInsets.only(top: 4), child: child),
+        ),
+      ],
     );
   }
 }
