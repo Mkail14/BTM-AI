@@ -1,0 +1,21 @@
+# Toutes les 10 minutes, fait relire les journaux de Mayotte au site,
+# pour que Tamilya ait l'actu prête sans attendre (les journaux sont lents).
+# Utilise les mêmes secrets que la surveillance La Poste : SITE_URL et CRON_SECRET.
+name: Actu de Mayotte
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  relire:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Relire les journaux
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -sS -m 60 -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/cron/actu"; echo

@@ -5,6 +5,8 @@ import { matchNews } from "./match";
 import { getMayotteNews, type NewsItem } from "./news";
 
 const MAX_WAIT_MS = 3_500;
+/** Question sur l'actu : on attend les journaux plus longtemps (ils sont lents). */
+const NEWS_WAIT_MS = 8_500;
 const NEWS_IN_PROMPT = 12;
 const MATCHED_NEWS = 5;
 const JOBS_IN_PROMPT = 12;
@@ -54,7 +56,8 @@ export async function liveContextFor(message: string): Promise<string | null> {
     (task): task is Promise<string | null> => task !== null,
   );
   if (!tasks.length) return null;
-  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), MAX_WAIT_MS));
+  const wait = intent.news ? NEWS_WAIT_MS : MAX_WAIT_MS;
+  const timeout = new Promise<null>((resolve) => setTimeout(() => resolve(null), wait));
   const blocks = await Promise.all(
     tasks.map((task) =>
       Promise.race([task, timeout]).catch((error: unknown) => {
