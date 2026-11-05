@@ -26,6 +26,7 @@ import { ReviewForm } from "./ReviewForm";
 import { SettingsFrame } from "./SettingsFrame";
 import { GoToTab, SettingsView, type SettingsTab } from "./SettingsView";
 import { SignOutButton } from "./SignOutButton";
+import { PaymentPin } from "./PaymentPin";
 import { VoiceTalkMode } from "./VoiceTalkMode";
 
 export const metadata: Metadata = { title: "Paramètres" };
@@ -235,6 +236,15 @@ export default async function SettingsPage({ searchParams }: PageProps<"/paramet
                     <p className="text-sm text-fg-muted">Comment tu lui parles. Ce choix est gardé sur cet appareil.</p>
                   </div>
                   <VoiceTalkMode />
+                </section>
+              ) : null}
+              {user.isAdmin ? (
+                <section className="space-y-3">
+                  <div>
+                    <h3 className="font-medium">Payer à la voix</h3>
+                    <p className="text-sm text-fg-muted">Ton code à 4 chiffres, obligatoire pour que Tamilya paie à ta place.</p>
+                  </div>
+                  <PaymentPin />
                 </section>
               ) : null}
               <section className="space-y-3">

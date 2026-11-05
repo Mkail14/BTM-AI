@@ -1,13 +1,18 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { boardCount, describeBoard, touchBoard, waitForBoard, writeBoard } from "@/lib/voice-live/board";
+import { boardCount, describeBoard, scrollConversation, touchBoard, waitForBoard, writeBoard } from "@/lib/voice-live/board";
+import { acceptPayment, cancelPayment, enterPin, takePinTurn } from "@/lib/voice-live/voice-pay";
 import { voiceHeard, voiceListenEnd, voiceSpeakEnd, voiceSpeakStart, voiceWord } from "@/lib/chat/voice-level";
 import { isLiveVoiceSupported, openLiveSession, type LiveSession } from "@/lib/voice-live/session";
 import { readTalkMode, saveTalkMode, type TalkMode } from "@/lib/voice-live/talk-mode";
 import type { VoiceConversation, VoiceState } from "./useVoiceConversation";
 
 const noSubscribe = () => () => {};
+
+/** Échange où un code de paiement a pu être dit : rien de ce qui a été dit n'est enregistré. */
+const PIN_HIDDEN = "(code de paiement : non enregistré)";
+const hidePin = (user: string, tamilya: string): [string, string] => (takePinTurn() ? [user && PIN_HIDDEN, tamilya.replace(/d/g, "•")] : [user, tamilya]);
 
 /**
  * Mode vocal en direct (Gemini Live), avec la même interface que l'ancien mode
@@ -33,6 +38,8 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
   /** Numéro de la conversation en cours d'ouverture : fermée avant d'être prête, elle est refermée dès qu'elle l'est. */
   const generation = useRef(0);
   const opening = useRef(false);
+  /** Bouton déjà appuyé pendant que le micro s'ouvre : l'appui compte dès qu'il est prêt. */
+  const held = useRef(false);
   const userText = useRef("");
   const tamilyaText = useRef("");
   /** Message écrit qui attend le choix du mode, puis ce qu'il faut faire s'il reste sans réponse vocale. */
@@ -59,6 +66,7 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
   const stop = useCallback(() => {
     generation.current++;
     opening.current = false;
+    cancelPayment();
     session.current?.stop();
     session.current = null;
     voiceSpeakEnd();
@@ -111,7 +119,7 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
         setBeat((n) => n + 1);
       },
       onTurnComplete: () => {
-        const [user, tamilya] = [userText.current.trim(), tamilyaText.current.trim()];
+        const [user, tamilya] = hidePin(userText.current.trim(), tamilyaText.current.trim());
         if (user || tamilya) turnRef.current(user, tamilya);
         userText.current = "";
         tamilyaText.current = "";
@@ -121,6 +129,10 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
         if (name === "lire_tableau") return describeBoard();
         if (name === "toucher_tableau") return touchBoard(String(args.bouton ?? ""));
         if (name === "remplir_tableau") return writeBoard(String(args.champ ?? ""), String(args.valeur ?? ""));
+        if (name === "defiler_conversation") return scrollConversation(String(args.vers ?? ""));
+        if (name === "autoriser_paiement") return acceptPayment();
+        if (name === "saisir_code") return enterPin(String(args.chiffres ?? ""));
+        if (name === "annuler_paiement") return cancelPayment();
         const response = await fetch("/api/voice/live/tool", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -130,7 +142,7 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
         if (!data?.block) return data?.error ?? "Ce bouton n'est pas disponible : dis-le à la personne.";
         // Le tableau s'affiche dans la conversation, juste après ce que la personne vient de dire.
         const before = boardCount();
-        turnRef.current(userText.current.trim(), data.block, true);
+        turnRef.current(hidePin(userText.current.trim(), "")[0], data.block, true);
         userText.current = "";
         setBoard(true);
         await waitForBoard(before);
@@ -150,6 +162,15 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
       opening.current = false;
       if (mine !== generation.current) return opened?.stop();
       session.current = opened;
+      if (held.current) opened?.press();
+    }).catch((problem: unknown) => {
+      // Sans ça, une ouverture ratée laisserait le vocal bloqué, sans rien dire.
+      console.error("[voix] Ouverture du direct impossible", problem);
+      opening.current = false;
+      if (mine !== generation.current) return;
+      setError("Le vocal n'a pas pu démarrer sur cet appareil. Réessaie.");
+      setState("off");
+      giveBackTyped();
     });
   }, [giveBackTyped, note]);
 
@@ -185,9 +206,13 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
   /** Talkie-walkie : appui = Tamilya se tait et t'écoute ; relâcher = elle répond tout de suite. */
   const press = useCallback(() => {
     voiceSpeakEnd();
+    held.current = true;
     session.current?.press();
   }, []);
-  const release = useCallback(() => session.current?.release(), []);
+  const release = useCallback(() => {
+    held.current = false;
+    session.current?.release();
+  }, []);
 
   /** Toucher du globe pendant qu'elle parle : elle se tait et écoute. */
   const interrupt = useCallback(() => {

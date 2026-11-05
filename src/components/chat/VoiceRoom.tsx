@@ -96,7 +96,7 @@ export function VoiceRoom() {
   return (
     <>
       {boards.length ? (
-        <main className="mx-auto h-dvh max-w-xl space-y-4 overflow-y-auto px-4 pt-36 pb-40">
+        <main data-chat-scroll className="mx-auto h-dvh max-w-xl space-y-4 overflow-y-auto px-4 pt-36 pb-40">
           {boards.map((block, index) => (
             <Markdown key={index} text={block} />
           ))}

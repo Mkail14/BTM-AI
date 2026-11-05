@@ -20,7 +20,8 @@ export async function POST(request: NextRequest) {
   const limit = await consumeRateLimits([{ key: `voice-live:${user.id}`, rules: RATE_LIMIT_POLICIES.voiceSpeak }]).catch(() => null);
   if (limit && !limit.allowed) return NextResponse.json({ error: "Trop de conversations, réessaie dans un instant." }, { status: 429 });
 
-  const ticket = signLiveTicket(user, secret);
+  const body = (await request.json().catch(() => null)) as { manual?: unknown } | null;
+  const ticket = signLiveTicket(user, secret, Date.now(), body?.manual === true);
   const url = `${relay.replace(/^http/, "ws")}/live?ticket=${encodeURIComponent(ticket)}`;
   return NextResponse.json({ url }, { headers: { "Cache-Control": "no-store" } });
 }

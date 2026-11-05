@@ -7,3 +7,12 @@ compatibility_date = "2026-10-01"
 
 [vars]
 SITE_URL = "https://tamilya.yt"
+
+# Une conversation = un Durable Object (voir src/index.ts).
+[[durable_objects.bindings]]
+name = "LIVE_RELAY"
+class_name = "LiveRelay"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["LiveRelay"]

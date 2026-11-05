@@ -27,6 +27,8 @@ export const RATE_LIMIT_POLICIES = {
   btmDevis: [{ name: "btm-devis-hour", limit: 15, windowSeconds: 3_600 }],
   // Mot de passe redemandé avant de modifier le Profil de l'entreprise : quelques essais, pas plus.
   profileUnlock: [{ name: "profile-unlock-15min", limit: 5, windowSeconds: 900 }],
+  // Code de paiement (paiement à la voix) : de quoi se tromper deux ou trois fois, pas de quoi deviner.
+  walletPin: [{ name: "wallet-pin-15min", limit: 12, windowSeconds: 900 }],
   codeExamRequest: [{ name: "code-exam-request-hour", limit: 5, windowSeconds: 3_600 }],
   // Avis sur l'application : de quoi corriger une faute, pas de quoi inonder la page d'accueil.
   review: [{ name: "review-hour", limit: 10, windowSeconds: 3_600 }],

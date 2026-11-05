@@ -11,6 +11,11 @@
  * Pourquoi un relais : Vercel ne garde pas de connexion ouverte, et Google
  * refuse les connexions qui viennent de Mayotte.
  *
+ * Pourquoi un Durable Object : dans un Worker gratuit, toute la connexion n'a
+ * droit qu'à 10 ms de calcul ; Cloudflare la tuait après 5 à 9 s de son
+ * (outcome « exceededCpu », code 1006 côté téléphone). Dans un Durable Object,
+ * chaque message reçu remet le compteur à zéro, toujours sans abonnement.
+ *
  * Secrets (wrangler secret put) : GEMINI_API_KEY, LIVE_TICKET_SECRET.
  * Variable (wrangler.toml) : SITE_URL.
  */
@@ -21,6 +26,7 @@ export interface Env {
   /** Essais de l'équipe sans passer par le site (ticket signé avec ce secret, consignes courtes). */
   LIVE_TEST_SECRET?: string;
   SITE_URL: string;
+  LIVE_RELAY: DurableObjectNamespace;
 }
 
 const GEMINI_LIVE_URL =
@@ -63,13 +69,31 @@ async function signTicket(data: object, secret: string): Promise<string> {
   return `${payload}.${bytesToBase64Url(signature)}`;
 }
 
+/** Porte d'entrée : refuse sans rien créer, puis une conversation = un Durable Object, près de la personne. */
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
     if (url.pathname === "/") return new Response("Relais vocal de Tamilya", { status: 200 });
     if (url.pathname !== "/live") return new Response("Introuvable", { status: 404 });
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") return new Response("WebSocket attendu", { status: 426 });
+    const testTicket = url.searchParams.get("test") ?? "";
+    const allowed =
+      (testTicket && env.LIVE_TEST_SECRET && (await readTicket(testTicket, env.LIVE_TEST_SECRET))) ||
+      (await readTicket(url.searchParams.get("ticket") ?? "", env.LIVE_TICKET_SECRET));
+    if (!allowed) return new Response("Ticket refusé", { status: 401 });
+    return env.LIVE_RELAY.get(env.LIVE_RELAY.newUniqueId()).fetch(request);
+  },
+};
 
+export class LiveRelay {
+  constructor(
+    _state: DurableObjectState,
+    private env: Env,
+  ) {}
+
+  async fetch(request: Request): Promise<Response> {
+    const env = this.env;
+    const url = new URL(request.url);
     const ticket = url.searchParams.get("ticket") ?? "";
     const testTicket = url.searchParams.get("test") ?? "";
     let setup: { setup: { model?: string } };
@@ -121,17 +145,18 @@ export default {
       const config = ((setup.setup as Record<string, unknown>).generationConfig ??= {}) as Record<string, unknown>;
       config.thinkingConfig = { thinkingBudget: Number(think) };
     }
-    // Essai : détection de fin de parole réglée (silence=ms, sens=high|low).
-    // 0,4 s de silence suffit (mesuré : ~0,3 s de gagné sur 0,6 s, sans couper les petites pauses).
-    const silence = (isTest ? url.searchParams.get("silence") : null) ?? "400";
-    const sensitivity = isTest ? url.searchParams.get("sens") : null;
-    if (silence || sensitivity) {
-      (setup.setup as Record<string, unknown>).realtimeInputConfig = {
-        automaticActivityDetection: {
-          ...(silence ? { silenceDurationMs: Number(silence) } : {}),
-          ...(sensitivity ? { endOfSpeechSensitivity: sensitivity === "high" ? "END_SENSITIVITY_HIGH" : "END_SENSITIVITY_LOW" } : {}),
-        },
+    // Détection de parole : c'est le site qui la choisit (selon le mode, maintenir ou sans bouton).
+    // Essai : vad=off, silence=ms, start=low|high, sens=low|high, pad=ms.
+    if (isTest) {
+      const q = url.searchParams;
+      const detection = {
+        ...(q.get("vad") === "off" ? { disabled: true } : {}),
+        ...(q.get("silence") ? { silenceDurationMs: Number(q.get("silence")) } : {}),
+        ...(q.get("pad") ? { prefixPaddingMs: Number(q.get("pad")) } : {}),
+        ...(q.get("start") ? { startOfSpeechSensitivity: q.get("start") === "high" ? "START_SENSITIVITY_HIGH" : "START_SENSITIVITY_LOW" } : {}),
+        ...(q.get("sens") ? { endOfSpeechSensitivity: q.get("sens") === "high" ? "END_SENSITIVITY_HIGH" : "END_SENSITIVITY_LOW" } : {}),
       };
+      if (Object.keys(detection).length) (setup.setup as Record<string, unknown>).realtimeInputConfig = { automaticActivityDetection: detection };
     }
     // Reprise après une coupure réseau : Google reprend la même conversation avec la poignée
     // reçue plus tôt (sessionResumptionUpdate). Fenêtre glissante : conversations longues sans limite.
@@ -225,5 +250,5 @@ export default {
     });
 
     return new Response(null, { status: 101, webSocket: client });
-  },
-};
+  }
+}

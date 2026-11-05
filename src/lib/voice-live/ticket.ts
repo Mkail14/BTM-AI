@@ -8,7 +8,14 @@ import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
  * Format « charge.signature » en base64url, valable 60 secondes.
  */
 
-export type LiveTicket = { sid: string; uid: string; admin: boolean; exp: number };
+export type LiveTicket = {
+  sid: string;
+  uid: string;
+  admin: boolean;
+  exp: number;
+  /** Maintenir pour parler : c'est le bouton qui dit à Gemini quand on parle. */
+  manual?: boolean;
+};
 
 const TICKET_MS = 60_000;
 
@@ -17,8 +24,8 @@ export const liveRelayUrl = () => process.env.LIVE_RELAY_URL?.trim().replace(/\/
 
 const sign = (payload: string, secret: string) => createHmac("sha256", secret).update(payload).digest("base64url");
 
-export function signLiveTicket(user: { id: string; isAdmin: boolean }, secret: string, now = Date.now()): string {
-  const ticket: LiveTicket = { sid: randomUUID(), uid: user.id, admin: user.isAdmin, exp: now + TICKET_MS };
+export function signLiveTicket(user: { id: string; isAdmin: boolean }, secret: string, now = Date.now(), manual = false): string {
+  const ticket: LiveTicket = { sid: randomUUID(), uid: user.id, admin: user.isAdmin, exp: now + TICKET_MS, manual };
   const payload = Buffer.from(JSON.stringify(ticket)).toString("base64url");
   return `${payload}.${sign(payload, secret)}`;
 }

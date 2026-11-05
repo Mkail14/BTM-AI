@@ -7,6 +7,7 @@ import { speakableText } from "@/lib/chat/voice";
 import { splitUnknownWords } from "@/lib/language/unknown-words";
 import { TALK_MODES } from "@/lib/voice-live/talk-mode";
 import type { VoiceConversation } from "./useVoiceConversation";
+import { VoicePay } from "./VoicePay";
 
 const LABELS = {
   off: "Touche le globe pour me parler",
@@ -192,6 +193,8 @@ export function VoiceOverlay({
         )}
       </div>
 
+      {/* Paiement par Tamilya : avertissement puis code, au-dessus des boutons. */}
+      <VoicePay />
       <div className="voice-controls voice-morph-in flex items-center gap-6 [animation-delay:480ms]">
         {choosing || (live && handsFree) ? null : live ? (
           // Talkie-walkie : maintenir pour parler, relâcher pour que Tamilya réponde tout de suite.
@@ -199,7 +202,7 @@ export function VoiceOverlay({
             type="button"
             aria-label="Maintenir pour parler (talkie-walkie)"
             aria-pressed={holding}
-            disabled={state === "off" || state === "waiting"}
+            disabled={state === "off"}
             onPointerDown={(event) => {
               event.currentTarget.setPointerCapture(event.pointerId);
               holdStart();

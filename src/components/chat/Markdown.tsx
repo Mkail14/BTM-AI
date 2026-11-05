@@ -5,12 +5,14 @@ import remarkGfm from "remark-gfm";
 import { markUnknownWords } from "@/lib/language/unknown-words";
 import { BARGE_BLOCK } from "@/lib/barge/intent";
 import { BTM_DEVIS_BLOCK } from "@/lib/btm/intent";
+import { COMBINED_BLOCK } from "@/lib/voice-live/combined";
 import { UnknownWord } from "./UnknownWord";
 
 // Tickets de barge, créneaux du code et commande de repas : chargés seulement
 // quand Tamilya écrit le bloc spécial (carte, QR code, formulaires…).
 const BargeTickets = dynamic(() => import("./BargeTickets").then((m) => m.BargeTickets));
 const BtmDevis = dynamic(() => import("./BtmDevis").then((m) => m.BtmDevis));
+const CombinedBoard = dynamic(() => import("./CombinedBoard").then((m) => m.CombinedBoard));
 const CodeExamSlots = dynamic(() => import("./CodeExamSlots").then((m) => m.CodeExamSlots));
 const FoodOrder = dynamic(() => import("./FoodOrder").then((m) => m.FoodOrder));
 
@@ -66,6 +68,15 @@ const components: Components = {
       return (
         <Board>
           <BtmDevis key={block} query={block} />
+        </Board>
+      );
+    }
+    // Bloc ```tableau-combine``` : plusieurs services en un tableau, créé par Tamilya sur demande.
+    if (code === `language-${COMBINED_BLOCK}`) {
+      const block = textOf(children).trim();
+      return (
+        <Board>
+          <CombinedBoard key={block} text={block} />
         </Board>
       );
     }

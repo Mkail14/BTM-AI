@@ -4,6 +4,7 @@ import { btmDevisBlockFor } from "@/lib/btm/intent";
 import { addWhenToBlock, parseCodeExamWhen } from "@/lib/code-exam/when";
 import { FOOD_CATALOG } from "@/lib/food/catalog";
 import { detectFoodOrder, foodBlock } from "@/lib/food/intent";
+import { blockContent, combinedBlock, type CombinedPart } from "./combined";
 
 /**
  * « Boutons » du vocal en direct (fonctions de la Live API) : Tamilya les
@@ -14,7 +15,7 @@ import { detectFoodOrder, foodBlock } from "@/lib/food/intent";
  * rien n'est payé ni réservé à la voix.
  */
 
-export type LiveToolName = "reserver_code" | "commander_repas" | "ticket_barge" | "devis_btm";
+export type LiveToolName = "reserver_code" | "commander_repas" | "ticket_barge" | "devis_btm" | "tableau_combine";
 
 export type LiveAccess = { food: boolean; barge: boolean };
 
@@ -59,6 +60,51 @@ export function liveToolDeclarations(access: LiveAccess) {
       parameters: { type: "OBJECT", properties: { demande: text("Ses travaux ou matériaux, dans ses mots (ex. « un mur de 10 m »).") }, required: ["demande"] },
     },
     {
+      name: "tableau_combine",
+      description:
+        "Crée à l'écran UN seul tableau qui réunit plusieurs services demandés ensemble (ex. un tacos et deux tickets de barge). À utiliser dès que la personne veut au moins deux services en même temps, à la place des boutons séparés.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          parties: {
+            type: "ARRAY",
+            description: "Les services, dans l'ordre de la demande (4 au plus).",
+            items: {
+              type: "OBJECT",
+              properties: {
+                service: { type: "STRING", enum: ["code", "devis", ...(access.food ? ["repas"] : []), ...(access.barge ? ["barge"] : [])], description: "Le service." },
+                demande: text("Ce qu'elle veut pour ce service, dans ses mots (plat, nombre de tickets, travaux…)."),
+                bureau: text("Pour le code seulement : bureau La Poste voulu, sinon vide."),
+                jour: text("Pour le code seulement : jour ou moment voulu, sinon vide."),
+              },
+              required: ["service"],
+            },
+          },
+        },
+        required: ["parties"],
+      },
+    },
+    {
+      name: "defiler_conversation",
+      description: "Fait défiler la discussion à l'écran : tout en haut, tout en bas, jusqu'au dernier tableau, ou jusqu'au message qui contient des mots précis. À utiliser quand la personne veut revoir un passage.",
+      parameters: { type: "OBJECT", properties: { vers: text("« haut », « bas », « tableau », ou des mots du message à retrouver (ex. « tacos »).") }, required: ["vers"] },
+    },
+    {
+      name: "autoriser_paiement",
+      description: "La personne vient de dire qu'elle t'autorise à payer à sa place, après l'avertissement affiché. Ouvre la saisie de son code.",
+      parameters: { type: "OBJECT", properties: {} },
+    },
+    {
+      name: "saisir_code",
+      description: "Saisit le code de paiement à 4 chiffres que la personne vient de dire. Ne répète jamais ce code.",
+      parameters: { type: "OBJECT", properties: { chiffres: text("Les 4 chiffres, sans espace (ex. 4821).") }, required: ["chiffres"] },
+    },
+    {
+      name: "annuler_paiement",
+      description: "Annule le paiement en attente (la personne ne veut plus, ou refuse l'avertissement).",
+      parameters: { type: "OBJECT", properties: {} },
+    },
+    {
       name: "lire_tableau",
       description: "Relit le tableau affiché à l'écran : son texte, les boutons et les champs disponibles. À utiliser si la personne a touché l'écran, ou pour lui dire ce qui est affiché (prix, horaires).",
       parameters: { type: "OBJECT", properties: {} },
@@ -98,6 +144,18 @@ export function liveToolBlock(name: string, args: Record<string, unknown>, acces
       return access.barge ? bargeBlockFor(arg(args, "demande") || "ticket de barge").trim() : null;
     case "devis_btm":
       return btmDevisBlockFor(arg(args, "demande") || "devis").trim();
+    case "tableau_combine": {
+      const tools: Record<string, string> = { repas: "commander_repas", barge: "ticket_barge", code: "reserver_code", devis: "devis_btm" };
+      const parties = Array.isArray(args.parties) ? args.parties.slice(0, 4) : [];
+      const parts = parties.flatMap((part) => {
+        const values = (part && typeof part === "object" ? part : {}) as Record<string, unknown>;
+        const tool = tools[arg(values, "service")];
+        const block = tool ? liveToolBlock(tool, values, access) : null;
+        const content = block ? blockContent(block) : null;
+        return content ? [content] : ([] as CombinedPart[]);
+      });
+      return parts.length ? combinedBlock(parts) : null;
+    }
     default:
       return null;
   }

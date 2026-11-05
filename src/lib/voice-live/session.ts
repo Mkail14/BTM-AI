@@ -5,6 +5,8 @@
  * /voix et la page d'essai /voix-direct.
  */
 
+import { createNoiseGate } from "./noise-gate";
+
 export type LiveState = "connexion" | "écoute" | "parle";
 
 export type LiveCallbacks = {
@@ -47,6 +49,9 @@ export type LiveSession = {
  * ramenée ici à 16 kHz en faisant la moyenne des échantillons de chaque
  * tranche (filtre simple : pas de sifflement ni de voix déformée). Paquets de 100 ms.
  */
+/** Paquets de 100 ms gardés pendant la connexion : 6 s de parole au plus. */
+const MAX_BACKLOG = 60;
+
 const WORKLET = `
 class Capture extends AudioWorkletProcessor {
   constructor() { super(); this.buffer = []; this.ratio = sampleRate / 16000; this.pos = 0; this.sum = 0; this.count = 0; }
@@ -144,6 +149,13 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
   /** Talkie-walkie : le micro n'envoie que pendant l'appui sur le bouton (choix de l'écran vocal). */
   let pushToTalk = callbacks.pushToTalk ?? false;
   let holding = false;
+  /** Maintenir pour parler dès l'ouverture : le bouton dit à Gemini quand on parle, le bruit ne compte plus. */
+  const manual = callbacks.pushToTalk ?? false;
+  let activityOpen = false;
+  /** Sans bouton : le bruit de fond devient du vrai silence, sinon Gemini attend sans fin la fin de la phrase. */
+  const gate = createNoiseGate();
+  /** Son capté pendant la connexion : gardé et envoyé dès que Gemini est prêt, pour ne pas perdre les premiers mots. */
+  let backlog: Float32Array[] = [];
   let firstMessage = callbacks.firstMessage;
   let socket: WebSocket | null = null;
   /** Reprise de la conversation chez Google après une coupure réseau (même contexte). */
@@ -175,6 +187,17 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
   const send = (message: object) => {
     if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
   };
+  const openActivity = () => {
+    if (!manual || !ready || activityOpen) return;
+    activityOpen = true;
+    send({ realtimeInput: { activityStart: {} } });
+  };
+  const closeActivity = () => {
+    if (!activityOpen) return;
+    activityOpen = false;
+    send({ realtimeInput: { activityEnd: {} } });
+  };
+  const sendAudio = (audio: Float32Array) => send({ realtimeInput: { audio: { data: toBase64Pcm(audio), mimeType: "audio/pcm;rate=16000" } } });
 
   // Micro → Gemini. Filtre « passe-haut » : coupe les bruits graves (travaux, moteurs, vent)
   // avant l'envoi, en plus de la réduction de bruit du téléphone.
@@ -202,7 +225,27 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
         speechEndedAt = quietSince;
       }
     }
-    if (ready && (!pushToTalk || holding)) send({ realtimeInput: { audio: { data: toBase64Pcm(samples), mimeType: "audio/pcm;rate=16000" } } });
+    // La porte tourne dès l'ouverture du micro : elle apprend le bruit ambiant pendant la connexion.
+    const outgoing = !pushToTalk ? gate(samples) : holding ? [samples] : [];
+    if (!ready) {
+      // Le silence d'avant la première parole ne sert à rien : on ne garde que la parole et ce qui suit.
+      backlog.push(...outgoing.filter((packet) => backlog.length || packet.some(Boolean)));
+      backlog = backlog.slice(-MAX_BACKLOG);
+      return;
+    }
+    // Après une reconnexion en plein appui, Gemini doit réapprendre qu'on parle.
+    if (holding) openActivity();
+    outgoing.forEach(sendAudio);
+  };
+
+  /** Gemini est prêt : ce qui a été dit pendant la connexion part d'un coup, dans l'ordre. */
+  const flushBacklog = () => {
+    if (!backlog.length) return;
+    openActivity();
+    backlog.forEach(sendAudio);
+    backlog = [];
+    // Bouton déjà relâché pendant la connexion : la phrase est complète.
+    if (!holding) closeActivity();
   };
 
   const onMessage = async (event: MessageEvent) => {
@@ -215,6 +258,7 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
     }
     if (message.setupComplete) {
       ready = true;
+      activityOpen = false;
       reconnects = 0;
       note("Gemini prêt");
       callbacks.onState(firstMessage ? "connexion" : "écoute");
@@ -223,6 +267,7 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
         send({ realtimeInput: { text: firstMessage } });
         firstMessage = undefined;
       }
+      flushBacklog();
     }
     if (message.sessionResumptionUpdate?.resumable && message.sessionResumptionUpdate.newHandle) {
       resumeHandle = message.sessionResumptionUpdate.newHandle;
@@ -279,7 +324,11 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
    * conversation (poignée de reprise), sans rien perdre.
    */
   const connect = async (): Promise<boolean> => {
-    const session = (await fetch("/api/voice/live/session", { method: "POST" })
+    const session = (await fetch("/api/voice/live/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ manual }),
+    })
       .then((r) => r.json())
       .catch(() => null)) as { url?: string; error?: string } | null;
     if (!session?.url) {
@@ -312,11 +361,13 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
     };
     return true;
   };
-  if (!(await connect())) return null;
+  // Sans attendre : le bouton doit marcher et le son être gardé pendant que la connexion s'ouvre.
+  void connect();
 
   const press = () => {
     pushToTalk = true;
     holding = true;
+    openActivity();
     cut();
     callbacks.onState("écoute");
   };
@@ -325,7 +376,8 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
     holding = false;
     // Fin de parole tout de suite : speechEndedAt sert au chronométrage.
     speechEndedAt = performance.now();
-    send({ realtimeInput: { audioStreamEnd: true } });
+    if (!manual) send({ realtimeInput: { audioStreamEnd: true } });
+    else closeActivity();
   };
 
   return { stop: () => finish(null), cut, press, release };
