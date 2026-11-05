@@ -1,22 +1,65 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../core/theme/tokens.dart';
+import 'awa_orb_sim.dart';
 
-/// Orbe vivant de Tamilya (inspiré de `AwaBlob.tsx` du site) : goutte à
-/// bords mouvants, reflet, halo, battement de cœur et arc-en-ciel qui
-/// s'allume à chaque battement. Un seul `CustomPainter`, sans widgets empilés.
-/// Forme fixe si les animations sont désactivées.
+export 'awa_orb_sim.dart' show OrbVoiceState;
+
+/// Globe de Tamilya, fidèle à `AwaBlob.tsx` + `.awa-blob*` (globals.css:2108-2412).
+///
+/// Au repos : une goutte sobre (rose de la personnalité, reflet, halo). Les
+/// couleurs vives (violet, bleu, vert, jaune, rouge) ne s'allument qu'à
+/// chaque battement du cœur, puis s'effacent. Forme, dérive, gouttelettes
+/// fusionnées par le filtre « goo » : voir `awa_orb_sim.dart` pour la boucle.
+///
+/// Un seul `Ticker` (pas d'animation par widget) et un seul `CustomPainter`
+/// repeint à 20 ou 30 images/s comme le site. Le ticker s'arrête tout seul
+/// quand la route est masquée (`TickerMode`) et n'est pas lancé si le système
+/// demande de réduire les animations (pose fixe, comme le site).
 class AwaOrb extends StatefulWidget {
-  const AwaOrb({super.key, required this.size, this.busy = false});
+  const AwaOrb({
+    super.key,
+    required this.size,
+    this.busy = false,
+    this.voiceState = OrbVoiceState.off,
+    this.voiceLevel,
+    this.color,
+    this.goo = 7,
+    this.float = false,
+    this.random,
+  });
 
+  /// Côté du globe (le halo et la goutte débordent comme sur le site).
   final double size;
 
-  /// Tamilya réfléchit : battement plus rapide.
+  /// Tamilya réfléchit (`busy` du site) : plus vif, battement plus rapide.
   final bool busy;
+
+  /// État du mode vocal (cf. `VoiceOverlay.tsx`). `waiting` équivaut à `busy`.
+  final OrbVoiceState voiceState;
+
+  /// Niveau de voix 0..1 fourni par la mission voix (`voiceLevel()` du site),
+  /// lu à chaque image. Sans valeur : 0.
+  final ValueListenable<double>? voiceLevel;
+
+  /// Couleur de personnalité (`--persona`). Par défaut celle du site.
+  final Color? color;
+
+  /// Flou du filtre « goo » en px pour un globe de 136 dp (AwaBlob.tsx:60) ;
+  /// mis à l'échelle de [size].
+  final double goo;
+
+  /// `awa-float` (6 s, -8 px) : le site ne l'applique qu'au globe central du
+  /// mode vocal (globals.css:3228).
+  final bool float;
+
+  /// Graine pour les tests.
+  final math.Random? random;
 
   @override
   State<AwaOrb> createState() => _AwaOrbState();
@@ -24,39 +67,65 @@ class AwaOrb extends StatefulWidget {
 
 class _AwaOrbState extends State<AwaOrb> with SingleTickerProviderStateMixin {
   late final Ticker _ticker;
-  final ValueNotifier<double> _time = ValueNotifier<double>(0);
-  bool _running = false;
+  late final OrbSim _sim = OrbSim(random: widget.random);
+  final ValueNotifier<int> _frame = ValueNotifier<int>(0);
+  bool _animate = false;
+  double _now = 0;
+  double _lastElapsed = 0;
+  double _lastDraw = 0;
 
   @override
   void initState() {
     super.initState();
-    _ticker = createTicker((d) => _time.value = d.inMicroseconds / 1e6);
+    _lastDraw = -1e9;
+    _ticker = createTicker(_onTick);
+  }
+
+  void _onTick(Duration elapsed) {
+    final e = elapsed.inMicroseconds / 1000;
+    _now += e - _lastElapsed;
+    _lastElapsed = e;
+    if (_now - _lastDraw < _sim.minFrameMs) return;
+    final dt = math.min(0.1, (_now - _lastDraw) / 1000);
+    _lastDraw = _now;
+    _sim.step(
+      _now,
+      dt,
+      thinking: widget.busy || widget.voiceState == OrbVoiceState.waiting,
+      state: widget.voiceState,
+      voiceTarget: widget.voiceLevel?.value ?? 0,
+      float: widget.float,
+    );
+    _frame.value++;
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     final animate = !MediaQuery.disableAnimationsOf(context);
-    if (animate && !_running) {
-      _ticker.start();
-      _running = true;
-    } else if (!animate && _running) {
-      _ticker.stop();
-      _running = false;
+    if (animate == _animate && (_ticker.isActive == animate)) return;
+    _animate = animate;
+    if (animate) {
+      _lastElapsed = 0;
+      _lastDraw = _now - 1000;
+      if (!_ticker.isActive) _ticker.start();
+    } else {
+      if (_ticker.isActive) _ticker.stop();
+      _sim.resetToRest();
+      _frame.value++;
     }
   }
 
   @override
   void dispose() {
     _ticker.dispose();
-    _time.dispose();
+    _frame.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final s = widget.size;
-    // Marge pour le halo (18 % de chaque côté) et le flottement.
     return Semantics(
       label: 'Tamilya',
       child: RepaintBoundary(
@@ -64,7 +133,12 @@ class _AwaOrbState extends State<AwaOrb> with SingleTickerProviderStateMixin {
           width: s,
           height: s,
           child: CustomPaint(
-            painter: _OrbPainter(_time, widget.busy),
+            painter: OrbPainter(
+              sim: _sim,
+              repaint: _frame,
+              color: widget.color ?? TamilyaPalette.persona,
+              gooSigma: widget.goo * s / 136,
+            ),
             isComplex: true,
           ),
         ),
@@ -73,136 +147,218 @@ class _AwaOrbState extends State<AwaOrb> with SingleTickerProviderStateMixin {
   }
 }
 
-class _OrbPainter extends CustomPainter {
-  _OrbPainter(this.time, this.busy) : super(repaint: time);
+/// Peintre du globe. Lit la simulation à chaque repeinture ; ne crée aucun
+/// widget. Les commentaires donnent la règle CSS du site reproduite.
+class OrbPainter extends CustomPainter {
+  OrbPainter({
+    required this.sim,
+    required Listenable repaint,
+    required this.color,
+    required this.gooSigma,
+  }) : super(repaint: repaint);
 
-  final ValueNotifier<double> time;
-  final bool busy;
+  final OrbSim sim;
+  final Color color;
+  final double gooSigma;
 
-  static const Color _light = Color(0xFFFFB0CF);
-  static const Color _deep = Color(0xFF6A1535);
+  /// `#9b72cb, #4285f4, #34a853, #fbbc05, #ea4335` (globals.css:2210).
+  static const List<Color> _rainbowTail = [
+    Color(0xFF9B72CB),
+    Color(0xFF4285F4),
+    Color(0xFF34A853),
+    Color(0xFFFBBC05),
+    Color(0xFFEA4335),
+  ];
 
-  /// Bruit lisse déterministe à deux octaves (équivalent de `makeNoise`).
-  static double _noise(double x, double seed) {
-    double octave(double v) =>
-        math.sin(v * 1.0 + seed) * 0.6 + math.sin(v * 2.1 + seed * 1.7) * 0.4;
-    return octave(x) * 0.72 + octave(x * 2.3 + 91.7) * 0.28;
-  }
+  /// Tailles des gouttelettes en % de la boîte « goo » (globals.css:2178,
+  /// 2191, 2197).
+  static const List<double> _dropSize = [0.26, 0.20, 0.16];
+
+  /// Matrice du filtre goo : `0 0 0 24 -10` (AwaBlob.tsx:251). Le décalage
+  /// de Flutter est en unités 0..255.
+  static const ColorFilter _gooMatrix = ColorFilter.matrix(<double>[
+    1, 0, 0, 0, 0, //
+    0, 1, 0, 0, 0, //
+    0, 0, 1, 0, 0, //
+    0, 0, 0, 24, -2550,
+  ]);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final t = time.value;
     final s = size.width;
+    final blob = color;
+    // --blob-light / --blob-deep (globals.css:2117-2118).
+    final light = Color.lerp(const Color(0xFFFFE3EF), blob, 0.55)!;
+    final deep = Color.lerp(const Color(0xFF2A0614), blob, 0.70)!;
     final c = size.center(Offset.zero);
 
-    // Cœur : « boum-boum » toutes les ~1,15 s, extinction exponentielle.
-    final period = busy ? 0.7 : 1.15;
-    final phase = t % period;
-    final beat = math.exp(-phase / 0.18) * (phase < 0.09 ? phase / 0.09 : 1);
-    final second = phase > 0.28 ? math.exp(-(phase - 0.28) / 0.18) * 0.6 : 0.0;
-    final heart = (beat + second).clamp(0.0, 1.0);
+    canvas.save();
+    canvas.translate(c.dx, c.dy + sim.floatY);
 
-    // Flottement : 0 -> -8 dp sur 6 s.
-    final float = -4 * (1 - math.cos(2 * math.pi * t / 6));
-    canvas.translate(0, float * (s / 128));
+    _glow(canvas, s, blob);
 
-    final r = s * 0.37 * (1 + 0.07 * heart);
+    // .awa-blob__beat : translate(%), rotate, scale.
+    canvas.save();
+    canvas.translate(sim.tx / 100 * s, sim.ty / 100 * s);
+    canvas.rotate(sim.tilt * math.pi / 180);
+    canvas.scale(sim.sx, sim.sy);
 
-    // Halo.
-    final haloR = s * 0.5;
+    _goo(canvas, s, blob, light, deep);
+    _shine(canvas, s);
+
+    canvas.restore();
+    canvas.restore();
+  }
+
+  /// `.awa-blob__glow` : inset -18 %, radial-gradient(blob 55 %, transparent
+  /// 65 %), opacité et échelle posées par la boucle (globals.css:2137-2144).
+  void _glow(Canvas canvas, double s, Color blob) {
+    // Cercle de 1,36 s ; « farthest-corner » : rayon 0,9617 s, arrêt à 65 %.
+    final r = 0.9617 * s * 0.65;
+    canvas.save();
+    canvas.scale(sim.glowScale);
     canvas.drawCircle(
-      c,
-      haloR,
+      Offset.zero,
+      r,
       Paint()
         ..shader = ui.Gradient.radial(
-          c,
-          haloR,
+          Offset.zero,
+          r,
           [
-            TamilyaPalette.persona.withValues(
-              alpha: (0.5 + 0.35 * heart) * 0.55,
-            ),
-            TamilyaPalette.persona.withValues(alpha: 0),
+            blob.withValues(alpha: 0.55 * sim.glowOpacity),
+            blob.withValues(alpha: 0),
           ],
           const [0.0, 1.0],
         ),
     );
+    canvas.restore();
+  }
 
-    // Corps : 8 points dont le rayon suit le bruit, reliés en douceur.
-    final rot = t * 0.35;
-    final pts = <Offset>[];
-    for (var i = 0; i < 8; i++) {
-      final a = rot + i * math.pi / 4;
-      final n = _noise(t * 0.6 + i * 3.1, i * 1.3);
-      final rr = r * (1 + 0.14 * n);
-      pts.add(c + Offset(math.cos(a), math.sin(a)) * rr);
+  /// `.awa-blob__goo` (inset -12 %, filtre goo) contenant corps + 3 gouttes.
+  void _goo(Canvas canvas, double s, Color blob, Color light, Color deep) {
+    final gw = s * 1.24;
+    final bounds = Rect.fromCenter(
+      center: Offset.zero,
+      width: gw,
+      height: gw,
+    ).inflate(gw * 0.1);
+    canvas.saveLayer(
+      bounds,
+      Paint()
+        ..imageFilter = ui.ImageFilter.compose(
+          outer: _gooMatrix,
+          inner: ui.ImageFilter.blur(
+            sigmaX: gooSigma,
+            sigmaY: gooSigma,
+            tileMode: ui.TileMode.decal,
+          ),
+        ),
+    );
+
+    // .awa-blob__body : inset 20 % de la boîte goo, rayons à 8 valeurs.
+    final bw = gw * 0.6;
+    final rect = Rect.fromCenter(center: Offset.zero, width: bw, height: bw);
+    final r = sim.radii;
+    final rrect = RRect.fromRectAndCorners(
+      rect,
+      topLeft: Radius.elliptical(r[0] / 100 * bw, r[4] / 100 * bw),
+      topRight: Radius.elliptical(r[1] / 100 * bw, r[5] / 100 * bw),
+      bottomRight: Radius.elliptical(r[2] / 100 * bw, r[6] / 100 * bw),
+      bottomLeft: Radius.elliptical(r[3] / 100 * bw, r[7] / 100 * bw),
+    );
+    canvas.save();
+    canvas.rotate(sim.bodyRotation * math.pi / 180);
+    // Couches CSS, de la plus basse à la plus haute : blob, deep 70 % 75 %
+    // (transparent à 60 %), light 32 % 28 % (transparent à 45 %). Rayon
+    // « farthest-corner » : 0,9904 w et 1,0259 w.
+    canvas.drawRRect(rrect, Paint()..color = blob);
+    canvas.drawRRect(
+      rrect,
+      Paint()
+        ..shader = ui.Gradient.radial(
+          Offset(rect.left + bw * 0.70, rect.top + bw * 0.75),
+          bw * 1.0259 * 0.60,
+          [deep, deep.withValues(alpha: 0)],
+        ),
+    );
+    canvas.drawRRect(
+      rrect,
+      Paint()
+        ..shader = ui.Gradient.radial(
+          Offset(rect.left + bw * 0.32, rect.top + bw * 0.28),
+          bw * 0.9904 * 0.45,
+          [light, light.withValues(alpha: 0)],
+        ),
+    );
+    if (sim.rainbow > 0) {
+      canvas.drawRRect(rrect, _rainbowPaint(rect, blob));
     }
-    final body = _closedSpline(pts);
-
-    canvas.saveLayer(Offset.zero & size, Paint());
-    canvas.drawPath(body, Paint()..color = TamilyaPalette.persona);
-    final bounds = body.getBounds();
-    canvas.drawPath(
-      body,
-      Paint()
-        ..shader = ui.Gradient.radial(
-          Offset(
-            bounds.left + bounds.width * 0.32,
-            bounds.top + bounds.height * 0.28,
-          ),
-          bounds.width * 0.55,
-          [_light, _light.withValues(alpha: 0)],
-        ),
-    );
-    canvas.drawPath(
-      body,
-      Paint()
-        ..shader = ui.Gradient.radial(
-          Offset(
-            bounds.left + bounds.width * 0.70,
-            bounds.top + bounds.height * 0.75,
-          ),
-          bounds.width * 0.6,
-          [_deep, _deep.withValues(alpha: 0)],
-        ),
-    );
-    // Arc-en-ciel conique, allumé par le battement (et un peu en continu).
-    final ra = (0.5 + heart * 0.5).clamp(0.0, 1.0);
-    const rainbow = [
-      Color(0xFFFBBC05),
-      Color(0xFF34A853),
-      Color(0xFF9B72CB),
-      TamilyaPalette.persona,
-      TamilyaPalette.persona,
-      Color(0xFF4285F4),
-    ];
-    const stops = [0.0, 0.2, 0.42, 0.6, 0.78, 1.0];
-    // Dégradé qui tourne lentement : le rose domine, comme sur le site.
-    final rotation = -2.2 + math.sin(t * 0.5) * 0.7 + t * 0.15;
-    final axis = Offset(math.cos(rotation), math.sin(rotation)) * r;
-    canvas.drawPath(
-      body,
-      Paint()
-        ..shader = ui.Gradient.linear(c - axis, c + axis, [
-          for (final col in rainbow) col.withValues(alpha: ra),
-        ], stops),
-    );
     canvas.restore();
 
-    // Reflet en haut à gauche.
+    // Gouttelettes : rotate(angle) translateX(dist % de sa largeur) scale(s).
+    for (var i = 0; i < 3; i++) {
+      final wd = gw * _dropSize[i];
+      canvas.save();
+      canvas.rotate(sim.dropAngle[i] * math.pi / 180);
+      canvas.translate(sim.dropDistance[i] / 100 * wd, 0);
+      canvas.scale(sim.dropScale[i]);
+      final box = Rect.fromCenter(center: Offset.zero, width: wd, height: wd);
+      // radial-gradient(circle at 35 % 30 %, light, blob 70 %) ; rayon
+      // « farthest-corner » 0,9552 wd, arrêt à 70 %.
+      canvas.drawCircle(
+        Offset.zero,
+        wd / 2,
+        Paint()
+          ..shader = ui.Gradient.radial(
+            Offset(box.left + wd * 0.35, box.top + wd * 0.30),
+            wd * 0.9552 * 0.70,
+            [light, blob],
+          ),
+      );
+      if (sim.rainbow > 0) {
+        canvas.drawCircle(Offset.zero, wd / 2, _rainbowPaint(box, blob));
+      }
+      canvas.restore();
+    }
+
+    canvas.restore();
+  }
+
+  /// `::after` : conic-gradient(from --rainbow-turn, blob, #9b72cb, #4285f4,
+  /// #34a853, #fbbc05, #ea4335, blob) à l'opacité `--rainbow` (globals.css:2204-2213).
+  Paint _rainbowPaint(Rect box, Color blob) {
+    final a = sim.rainbow;
+    final colors = [blob, ..._rainbowTail, blob];
+    final start = sim.rainbowTurn * math.pi / 180 - math.pi / 2;
+    return Paint()
+      ..shader = ui.Gradient.sweep(
+        box.center,
+        [for (final c in colors) c.withValues(alpha: a)],
+        [for (var i = 0; i < colors.length; i++) i / (colors.length - 1)],
+        ui.TileMode.clamp,
+        // CSS démarre à midi, Flutter à trois heures.
+        start,
+        start + 2 * math.pi,
+      );
+  }
+
+  /// `.awa-blob__shine` : 26 x 18 % à (27 %, 24 %), ellipse blanche .85 -> 0
+  /// à 70 %, rotate -30deg, translate en % (globals.css:2216-2227).
+  void _shine(Canvas canvas, double s) {
+    final w = s * 0.26, h = s * 0.18;
     canvas.save();
-    final rc = c + Offset(-r * 0.45, -r * 0.5);
-    canvas.translate(rc.dx, rc.dy);
+    canvas.translate(s * (0.27 - 0.5) + w / 2, s * (0.24 - 0.5) + h / 2);
     canvas.rotate(-30 * math.pi / 180);
-    final oval = Rect.fromCenter(
-      center: Offset.zero,
-      width: s * 0.26,
-      height: s * 0.18,
-    );
-    canvas.drawOval(
-      oval,
+    canvas.translate(sim.shineTx / 100 * w, sim.shineTy / 100 * h);
+    // Ellipse « farthest-corner » : rx = w/2 * sqrt2, arrêt à 70 %.
+    final rx = w / 2 * math.sqrt2 * 0.70;
+    canvas.scale(1, h / w);
+    canvas.drawCircle(
+      Offset.zero,
+      w / 2,
       Paint()
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, s * 0.012)
-        ..shader = ui.Gradient.radial(Offset.zero, oval.width / 2, const [
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, 1.5 * s / 136)
+        ..shader = ui.Gradient.radial(Offset.zero, rx, const [
           Color(0xD9FFFFFF),
           Color(0x00FFFFFF),
         ]),
@@ -210,22 +366,7 @@ class _OrbPainter extends CustomPainter {
     canvas.restore();
   }
 
-  /// Courbe fermée passant par [p] (Catmull-Rom converti en Bézier).
-  static Path _closedSpline(List<Offset> p) {
-    final n = p.length;
-    final path = Path()..moveTo(p[0].dx, p[0].dy);
-    for (var i = 0; i < n; i++) {
-      final p0 = p[(i - 1 + n) % n];
-      final p1 = p[i];
-      final p2 = p[(i + 1) % n];
-      final p3 = p[(i + 2) % n];
-      final c1 = p1 + (p2 - p0) / 6;
-      final c2 = p2 - (p3 - p1) / 6;
-      path.cubicTo(c1.dx, c1.dy, c2.dx, c2.dy, p2.dx, p2.dy);
-    }
-    return path..close();
-  }
-
   @override
-  bool shouldRepaint(_OrbPainter old) => old.busy != busy;
+  bool shouldRepaint(OrbPainter old) =>
+      old.color != color || old.gooSigma != gooSigma || old.sim != sim;
 }
