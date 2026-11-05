@@ -4,6 +4,8 @@
 //   /api/*  -> serveur Next.js local (branche feat/mobile-bearer), port API_PORT
 //   le reste -> serveur Flutter web (`flutter run -d web-server --web-port 8091`)
 // L'en-tête Host d'origine est conservé : l'API voit Origin == Host et accepte la requête.
+// Lancer le Next local lui aussi sur la boucle locale seulement :
+//   npx next dev --webpack -H 127.0.0.1 -p 3100
 const http = require("http");
 
 const PORT = Number(process.env.PROXY_PORT || 8090);
@@ -26,4 +28,6 @@ http
     });
     req.pipe(upstream);
   })
-  .listen(PORT, () => console.log(`proxy prêt sur http://localhost:${PORT} (api:${API_PORT}, app:${APP_PORT})`));
+  // 127.0.0.1 uniquement : le Next local tourne avec les secrets de production (clé IA),
+  // il ne doit jamais être joignable depuis le réseau (revue sécurité C3a, M-1).
+  .listen(PORT, "127.0.0.1", () => console.log(`proxy prêt sur http://localhost:${PORT} (api:${API_PORT}, app:${APP_PORT})`));
