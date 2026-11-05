@@ -139,6 +139,12 @@ export default {
     const base = setup.setup as Record<string, unknown>;
     base.sessionResumption = resume && /^[\w.=+/-]{1,2000}$/.test(resume) ? { handle: resume } : {};
     base.contextWindowCompression = { slidingWindow: {} };
+    // Essai : recherche Google en plus (search=1).
+    if (isTest && url.searchParams.get("search")) {
+      base.tools = [{ googleSearch: {} }, ...((base.tools as unknown[]) ?? [])];
+      const instruction = (base.systemInstruction ??= { parts: [] }) as { parts: { text: string }[] };
+      instruction.parts.push({ text: "Recherche Google : tu as la recherche Google. Ceci remplace la règle « pas d'accès à internet ». Pour un événement passé, une date, une personne, un chiffre ou une actualité que tu ne connais pas, cherche avant de répondre, puis réponds simplement à l'oral." });
+    }
     const setupText = JSON.stringify({ setup: setup.setup });
     console.log(`consignes : ${setupText.length} caractères`);
     gemini.send(setupText);

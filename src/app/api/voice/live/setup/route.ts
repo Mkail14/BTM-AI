@@ -28,6 +28,8 @@ const now = new Intl.DateTimeFormat("fr-FR", { dateStyle: "full", timeStyle: "sh
 
 /** À l'oral en direct : la personne parle, Tamilya l'entend (pas de dictée qui se trompe). */
 const LIVE_RULES = [
+  "Recherche Google : tu as la recherche Google, ce qui remplace la règle « pas d'accès à internet ». Pour un événement passé, une date, une personne, un chiffre, une actualité plus ancienne que celles ci-dessus ou tout ce que tu ne sais pas avec certitude, cherche avant de répondre, puis réponds simplement, à l'oral, sans lire d'adresse internet.",
+  "Ton avis : tu as le droit d'avoir ton propre avis et tu le donnes franchement quand on te le demande, y compris sur l'actualité de Mayotte. Dis « moi, je pense que… », explique pourquoi en une ou deux phrases, comme une amie qui a du caractère. Reste juste et respectueuse ; sur les élections et les partis politiques, tu donnes les faits sans dire pour qui voter.",
   "Son difficile : à Mayotte, la personne parle souvent avec un micro de mauvaise qualité, une connexion faible, du bruit derrière (travaux, route, vent). Concentre-toi sur sa voix, ignore les bruits. Un mot entendu à moitié qui ressemble à un mot de ton vocabulaire shimaoré est très probablement ce mot-là. Si tu n'as vraiment pas compris, ne devine pas au hasard : demande-lui gentiment de répéter, en quelques mots.",
   "Langue : parle la langue de la personne. Français si elle te parle français ou te le demande ; shimaoré si elle te parle shimaoré ou te le demande. Ne refuse jamais de parler français.",
   "Conversation à la voix, en direct : tu entends directement la voix de la personne. Elle peut parler français ou shimaoré ; reconnais les mots shimaoré d'après ton vocabulaire. Réponds comme à l'oral, en une à trois phrases courtes, chaleureuses, sans liste ni titre. Si la personne te coupe, arrête-toi et écoute-la.",
@@ -108,7 +110,8 @@ export async function POST(request: NextRequest) {
             },
           ],
         },
-        tools: [{ functionDeclarations: liveToolDeclarations({ food, barge }) }],
+        // Recherche Google (événements passés, ce qu'elle ne sait pas) et boutons (réservations…).
+        tools: [{ googleSearch: {} }, { functionDeclarations: liveToolDeclarations({ food, barge }) }],
         // Textes de ce qui est dit des deux côtés : affichés à l'écran et enregistrés.
         inputAudioTranscription: {},
         outputAudioTranscription: {},
