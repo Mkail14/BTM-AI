@@ -1,4 +1,5 @@
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// Stockage de la session Supabase dans le Keychain (iOS) / le Keystore
@@ -56,4 +57,22 @@ class SecureGotrueAsyncStorage extends GotrueAsyncStorage {
   @override
   Future<void> removeItem({required String key}) =>
       _storage.delete(key: 'tamilya.pkce.$key');
+}
+
+const String kInstalledFlag = 'tamilya.installed';
+
+/// Au premier lancement après une (ré)installation, efface le coffre : le
+/// Keychain iOS survit à la désinstallation, et l'utilisateur ne doit pas être
+/// reconnecté malgré lui (revue sécurité F-2). Les SharedPreferences, elles,
+/// disparaissent avec l'app : leur indicateur sert de témoin. À appeler avant
+/// `Supabase.initialize`. Renvoie vrai si le coffre a été effacé.
+Future<bool> purgeSecureStorageOnFreshInstall({
+  FlutterSecureStorage? storage,
+  SharedPreferences? prefs,
+}) async {
+  final p = prefs ?? await SharedPreferences.getInstance();
+  if (p.getBool(kInstalledFlag) ?? false) return false;
+  await (storage ?? SecureLocalStorage._defaultStorage).deleteAll();
+  await p.setBool(kInstalledFlag, true);
+  return true;
 }

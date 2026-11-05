@@ -32,6 +32,8 @@ Future<Bootstrap> bootstrap() async {
   final error = Env.validate();
   if (error != null) return Bootstrap(configError: error);
 
+  if (!kIsWeb) await purgeSecureStorageOnFreshInstall();
+
   await Supabase.initialize(
     url: Env.supabaseUrl,
     publishableKey: Env.supabasePublishableKey,
