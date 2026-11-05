@@ -5,6 +5,7 @@ export const NEWS_SOURCES = [
   { name: "Le Journal de Mayotte", url: "https://lejournaldemayotte.yt/feed/" },
   { name: "Mayotte Hebdo", url: "https://www.mayottehebdo.com/feed/" },
   { name: "L'info Kwézi", url: "https://www.linfokwezi.fr/feed/" },
+  { name: "Mayotte la 1ère", url: "https://la1ere.franceinfo.fr/mayotte/actu/rss" },
 ] as const;
 
 export type NewsItem = {
