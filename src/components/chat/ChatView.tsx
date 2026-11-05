@@ -617,7 +617,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
               type="button"
               onClick={startNewChat}
               aria-label="Nouvelle conversation"
-              className="rounded-lg p-2 text-fg-muted hover:bg-bg-muted hover:text-fg md:hidden"
+              className="app-hide rounded-lg p-2 text-fg-muted hover:bg-bg-muted hover:text-fg md:hidden"
             >
               <IconPlus width={22} height={22} />
             </button>

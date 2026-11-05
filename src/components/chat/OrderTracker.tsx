@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { FLY_MS, flyToBell, notify } from "@/lib/notifications";
+import { hangUpVoice } from "@/lib/voice-live/hang-up";
 import { formatEuros } from "@/lib/wallet/limits";
 import type { Courier } from "@/lib/food/courier";
 import { dayLabel } from "@/lib/food/schedule";
@@ -374,6 +375,8 @@ function RoundAction({ icon, label, href, onClick, badge }: { icon: string; labe
 function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: ReturnType<typeof useOrderClock>; onClose: () => void }) {
   const { phase, now, placed, ready, arrives, accepted } = clock;
   const arrived = phase === 2 && accepted;
+  // Ce panneau recouvre les boutons du vocal : on ne laisse pas le micro ouvert derrière lui.
+  useEffect(hangUpVoice, []);
   // La carte reste le temps de s'effacer derrière le billet, puis elle est retirée.
   const [mapGone, setMapGone] = useState(false);
   useEffect(() => {

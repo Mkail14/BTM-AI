@@ -43,6 +43,41 @@ export function preloadGoogle() {
   loadScript().catch(() => {});
 }
 
+declare global {
+  interface Window {
+    /** Pont de l'application Android (MainActivity) ; absent dans un navigateur. */
+    TamilyaGoogle?: { googleSignIn?: (request: string, hashedNonce: string) => void };
+    __tamilyaGoogle?: (request: string, token: string, error: string) => void;
+  }
+}
+
+/** Application Android : la connexion Google passe par le sélecteur de compte du téléphone. */
+export const hasNativeGoogle = () => typeof window !== "undefined" && typeof window.TamilyaGoogle?.googleSignIn === "function";
+
+/**
+ * Demande un compte au téléphone : le panneau de Google s'ouvre par-dessus l'app,
+ * on ne la quitte pas. Même contrat que le bouton web : jeton d'identité et nonce
+ * en clair. « cancelled » : la personne a fermé le panneau, rien à signaler.
+ */
+export async function nativeGoogleSignIn(): Promise<{ token: string; nonce: string } | "cancelled"> {
+  const bridge = window.TamilyaGoogle;
+  if (!bridge?.googleSignIn) throw new Error("Google indisponible.");
+  const nonce = crypto.randomUUID();
+  const request = crypto.randomUUID();
+  const hashed = await sha256(nonce);
+  return new Promise((resolve, reject) => {
+    const previous = window.__tamilyaGoogle;
+    window.__tamilyaGoogle = (id, token, error) => {
+      if (id !== request) return previous?.(id, token, error);
+      window.__tamilyaGoogle = previous;
+      if (token) resolve({ token, nonce });
+      else if (error === "cancelled") resolve("cancelled");
+      else reject(new Error(error || "Google indisponible."));
+    };
+    bridge.googleSignIn?.(request, hashed);
+  });
+}
+
 async function sha256(text: string) {
   const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, "0")).join("");

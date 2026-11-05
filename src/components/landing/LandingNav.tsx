@@ -10,9 +10,16 @@ import { ThemeToggle } from "@/components/ui/Theme";
 
 /** Rubriques de la barre du haut (ordinateur : en ligne ; téléphone : menu ☰). */
 const NAV_LINKS = [
-  { href: "/#shimaore", label: "Tamilya" },
-  { href: "/partenaires", label: "Nos partenaires" },
-  { href: "/developpeurs", label: "Développeurs" },
+  // L'application n'a pas la section de présentation : ce lien n'y mènerait nulle part.
+  { href: "/#shimaore", label: "Tamilya", hide: "app-hide" },
+  { href: "/partenaires", label: "Nos partenaires", hide: "" },
+  { href: "/developpeurs", label: "Développeurs", hide: "" },
+] as const;
+
+/** Sur le site, ces liens sont dans le pied de page ; l'application n'en a pas. */
+const APP_LINKS = [
+  { href: "/aide", label: "Aide" },
+  { href: "/confidentialite", label: "Confidentialité" },
 ] as const;
 
 /**
@@ -52,7 +59,7 @@ export function LandingNav({ scrolled = false, onHome }: { scrolled?: boolean; o
   // Sur l'accueil, « Tamilya » descend à sa section sans recharger la page.
   const linkHref = (href: string) => (onHome && href.startsWith("/#") ? href.slice(1) : href);
   const logo = <BrandLogo size="sm" className="text-[#1d1d1f]! dark:text-[#f5f5f7]!" />;
-  const tryClass = "btn-rose btn-rose--lagon h-8 rounded-full px-3.5 font-medium whitespace-nowrap md:h-7";
+  const tryClass = "app-hide btn-rose btn-rose--lagon h-8 rounded-full px-3.5 font-medium whitespace-nowrap md:h-7";
 
   return (
     <header
@@ -70,8 +77,13 @@ export function LandingNav({ scrolled = false, onHome }: { scrolled?: boolean; o
           </NavLink>
         )}
         <nav aria-label="Navigation" className="hidden flex-1 items-center justify-evenly md:flex">
-          {NAV_LINKS.map(({ href, label }) => (
-            <NavLink key={href} href={linkHref(href)} className="px-2 py-1 tracking-[0.01em] opacity-80 transition pointer-coarse:py-3 hover:opacity-100">
+          {NAV_LINKS.map(({ href, label, hide }) => (
+            <NavLink key={href} href={linkHref(href)} className={`${hide} px-2 py-1 tracking-[0.01em] opacity-80 transition pointer-coarse:py-3 hover:opacity-100`}>
+              {label}
+            </NavLink>
+          ))}
+          {APP_LINKS.map(({ href, label }) => (
+            <NavLink key={href} href={href} data-app-link="" className="app-only px-2 py-1 tracking-[0.01em] opacity-80 transition pointer-coarse:py-3 hover:opacity-100">
               {label}
             </NavLink>
           ))}
@@ -116,9 +128,16 @@ export function LandingNav({ scrolled = false, onHome }: { scrolled?: boolean; o
       {menuOpen ? (
         <nav id="landing-menu" aria-label="Navigation" className="border-t border-black/10 px-4 pb-4 md:hidden dark:border-white/10">
           <ul className="mx-auto max-w-[1024px]">
-            {NAV_LINKS.map(({ href, label }) => (
-              <li key={href} className="border-b border-black/10 dark:border-white/10">
+            {NAV_LINKS.map(({ href, label, hide }) => (
+              <li key={href} className={`${hide} border-b border-black/10 dark:border-white/10`}>
                 <NavLink href={linkHref(href)} onClick={() => setMenuOpen(false)} className="block py-3.5 text-[17px] font-medium">
+                  {label}
+                </NavLink>
+              </li>
+            ))}
+            {APP_LINKS.map(({ href, label }) => (
+              <li key={href} className="app-only border-b border-black/10 dark:border-white/10">
+                <NavLink href={href} data-app-link="" onClick={() => setMenuOpen(false)} className="block py-3.5 text-[17px] font-medium">
                   {label}
                 </NavLink>
               </li>

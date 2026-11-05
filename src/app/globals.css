@@ -3569,3 +3569,33 @@ html[data-morph]::view-transition-new(root) {
 body:has([data-chat-view]) [data-help-bubble] {
   display: none;
 }
+
+/*
+ * Application Android (<html data-app>, voir ThemeScript) : app-hide retire ce qui
+ * fait « site web », app-only ajoute ce que l'application affiche seule.
+ */
+.app-only {
+  display: none !important;
+}
+
+html[data-app] .app-only {
+  display: revert !important;
+}
+
+html[data-app] .app-hide {
+  display: none !important;
+}
+
+html[data-app],
+html[data-app] body {
+  overscroll-behavior: none;
+}
+
+html[data-app] * {
+  scrollbar-width: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html[data-app] *::-webkit-scrollbar {
+  display: none;
+}

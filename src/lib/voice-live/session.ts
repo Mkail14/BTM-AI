@@ -22,7 +22,7 @@ export type LiveCallbacks = {
   /** Journal (diagnostic). */
   onNote?: (text: string) => void;
   /** Tamilya actionne un bouton (réservation, repas…) : renvoie ce qu'il faut lui dire en retour. */
-  onToolCall?: (name: string, args: Record<string, unknown>) => Promise<string>;
+  onToolCall?: (name: string, args: Record<string, unknown>, signal: AbortSignal) => Promise<string>;
   /** Talkie-walkie dès l'ouverture : Tamilya n'écoute que pendant l'appui sur le bouton. */
   pushToTalk?: boolean;
   /** Message écrit à envoyer dès l'ouverture : Tamilya y répond tout de suite à voix haute. */
@@ -109,6 +109,8 @@ type GeminiMessage = {
   };
   sessionResumptionUpdate?: { newHandle?: string; resumable?: boolean };
   toolCall?: { functionCalls?: { id?: string; name?: string; args?: Record<string, unknown> }[] };
+  /** La personne a repris la parole : Gemini renonce à ces actions. */
+  toolCallCancellation?: { ids?: string[] };
   error?: { message?: string };
 };
 
@@ -161,6 +163,8 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
   /** Reprise de la conversation chez Google après une coupure réseau (même contexte). */
   let resumeHandle: string | null = null;
   let reconnects = 0;
+  /** Actions en cours, par identifiant Gemini : annulables. */
+  const running = new Map<string, AbortController>();
 
   const cut = () => {
     sources.forEach((s) => {
@@ -273,14 +277,28 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
       resumeHandle = message.sessionResumptionUpdate.newHandle;
     }
     if (message.error) note(`Gemini : ${message.error.message ?? "erreur"}`);
+    // Annulation : elle arrive pendant que l'action attend (flash, chargement), qui s'arrête avant de cliquer.
+    for (const id of message.toolCallCancellation?.ids ?? []) {
+      running.get(id)?.abort();
+      note("action annulée");
+    }
     // Boutons actionnés par Tamilya : la page agit, puis répond à Gemini pour qu'il continue.
     for (const call of message.toolCall?.functionCalls ?? []) {
       if (!call.name) continue;
       note(`bouton ${call.name}`);
-      const result = await (callbacks.onToolCall?.(call.name, call.args ?? {}) ?? Promise.resolve("Bouton indisponible.")).catch(
-        () => "Le bouton n'a pas marché : dis-le à la personne.",
-      );
-      send({ toolResponse: { functionResponses: [{ id: call.id, name: call.name, response: { result } }] } });
+      const control = new AbortController();
+      if (call.id) running.set(call.id, control);
+      const result = await (
+        callbacks.onToolCall?.(call.name, call.args ?? {}, control.signal) ?? Promise.resolve("Bouton indisponible.")
+      )
+        .catch(() => "Le bouton n'a pas marché : dis-le à la personne.")
+        .finally(() => {
+          if (call.id) running.delete(call.id);
+        });
+      // Gemini n'attend plus de réponse pour une action annulée.
+      if (!control.signal.aborted) {
+        send({ toolResponse: { functionResponses: [{ id: call.id, name: call.name, response: { result } }] } });
+      }
     }
     const content = message.serverContent;
     if (!content) return;

@@ -2,7 +2,7 @@
 
 import type { AuthError } from "@supabase/supabase-js";
 import Link from "next/link";
-import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { IconClose } from "@/components/ui/icons";
 import { AddressFields, EMPTY_ADDRESS, type AddressDraft } from "@/components/ui/AddressFields";
 import { PasswordInput } from "@/components/ui/PasswordInput";
@@ -16,9 +16,11 @@ import {
   passwordChecks,
   suggestEmailCorrection,
 } from "@/lib/auth/signup";
-import { renderGoogleButton } from "@/lib/auth/google-identity";
+import { hasNativeGoogle, nativeGoogleSignIn, renderGoogleButton } from "@/lib/auth/google-identity";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { AuthUser } from "./AuthProvider";
+
+const noSubscribe = () => () => {};
 
 export type AuthDialogOptions = {
   /** Explique pourquoi un compte est nécessaire (affiché en tête). */
@@ -344,9 +346,12 @@ function GoogleButton({ next, isSignup, onSignedIn }: { next: string; isSignup: 
     handler.current = onSignedIn;
   });
 
+  // Application Android : notre bouton seul, qui ouvre le sélecteur de compte du téléphone (on ne quitte pas l'app).
+  const native = useSyncExternalStore(noSubscribe, hasNativeGoogle, () => false);
+
   useEffect(() => {
     const element = slot.current;
-    if (!element) return;
+    if (!element || native) return;
     let cancelled = false;
     renderGoogleButton(element, {
       signup: isSignup,
@@ -382,9 +387,35 @@ function GoogleButton({ next, isSignup, onSignedIn }: { next: string; isSignup: 
     return () => {
       cancelled = true;
     };
-  }, [isSignup, next]);
+  }, [isSignup, next, native]);
+
+  async function startNative() {
+    const supabase = getSupabaseBrowserClient();
+    if (!supabase) return;
+    setPending(true);
+    setFailed(false);
+    try {
+      const picked = await nativeGoogleSignIn();
+      if (picked === "cancelled") return;
+      const { data, error } = await supabase.auth.signInWithIdToken({ provider: "google", token: picked.token, nonce: picked.nonce });
+      if (error || !data.user) {
+        console.warn("[google] Supabase a refusé le jeton :", error?.code, error?.message);
+        setFailed(true);
+        return;
+      }
+      const meta = data.user.user_metadata ?? {};
+      const name = meta.display_name ?? meta.given_name;
+      handler.current({ id: data.user.id, email: data.user.email ?? null, displayName: typeof name === "string" ? name : null }, next);
+    } catch (error) {
+      console.warn("[google] sélecteur de compte :", error instanceof Error ? error.message : error);
+      setFailed(true);
+    } finally {
+      setPending(false);
+    }
+  }
 
   async function start() {
+    if (native) return startNative();
     const supabase = getSupabaseBrowserClient();
     if (!supabase) return;
     setPending(true);

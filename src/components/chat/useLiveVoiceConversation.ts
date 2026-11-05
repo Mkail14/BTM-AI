@@ -1,9 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { boardCount, describeBoard, scrollConversation, touchBoard, waitForBoard, writeBoard } from "@/lib/voice-live/board";
+import { boardCount, CANCELLED, describeBoard, scrollConversation, touchBoard, waitForBoard, writeBoard } from "@/lib/voice-live/board";
 import { acceptPayment, cancelPayment, enterPin, takePinTurn } from "@/lib/voice-live/voice-pay";
 import { voiceHeard, voiceListenEnd, voiceSpeakEnd, voiceSpeakStart, voiceWord } from "@/lib/chat/voice-level";
+import { isVoiceIdle, VOICE_HANG_UP_EVENT, VOICE_IDLE_CHECK_MS } from "@/lib/voice-live/hang-up";
 import { isLiveVoiceSupported, openLiveSession, type LiveSession } from "@/lib/voice-live/session";
 import { readTalkMode, saveTalkMode, type TalkMode } from "@/lib/voice-live/talk-mode";
 import type { VoiceConversation, VoiceState } from "./useVoiceConversation";
@@ -124,11 +125,11 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
         userText.current = "";
         tamilyaText.current = "";
       },
-      onToolCall: async (name, args) => {
+      onToolCall: async (name, args, signal) => {
         // Tableau déjà à l'écran : Tamilya agit directement dessus, sans passer par le serveur.
         if (name === "lire_tableau") return describeBoard();
-        if (name === "toucher_tableau") return touchBoard(String(args.bouton ?? ""));
-        if (name === "remplir_tableau") return writeBoard(String(args.champ ?? ""), String(args.valeur ?? ""));
+        if (name === "toucher_tableau") return touchBoard(String(args.bouton ?? ""), signal);
+        if (name === "remplir_tableau") return writeBoard(String(args.champ ?? ""), String(args.valeur ?? ""), signal);
         if (name === "defiler_conversation") return scrollConversation(String(args.vers ?? ""));
         if (name === "autoriser_paiement") return acceptPayment();
         if (name === "saisir_code") return enterPin(String(args.chiffres ?? ""));
@@ -137,8 +138,11 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name, args }),
+          signal,
         });
         const data = (await response.json().catch(() => null)) as { block?: string; error?: string } | null;
+        // Annulée pendant le chargement : pas de nouveau tableau, la personne a changé d'avis.
+        if (signal.aborted) return CANCELLED;
         if (!data?.block) return data?.error ?? "Ce bouton n'est pas disponible : dis-le à la personne.";
         // Le tableau s'affiche dans la conversation, juste après ce que la personne vient de dire.
         const before = boardCount();
@@ -173,6 +177,31 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
       giveBackTyped();
     });
   }, [giveBackTyped, note]);
+
+  /** Le micro ne reste jamais ouvert à l'insu de la personne (hang-up.ts). */
+  const lastActivity = useRef(0);
+  useEffect(() => {
+    lastActivity.current = Date.now();
+  }, [state, transcript, reply]);
+  useEffect(() => {
+    if (state === "off") return;
+    const seen = () => {
+      lastActivity.current = Date.now();
+    };
+    const timer = setInterval(() => {
+      if (state === "speaking") seen();
+      else if (isVoiceIdle(lastActivity.current, Date.now())) stop();
+    }, VOICE_IDLE_CHECK_MS);
+    window.addEventListener("pointerdown", seen, { passive: true });
+    window.addEventListener("keydown", seen);
+    window.addEventListener(VOICE_HANG_UP_EVENT, stop);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("pointerdown", seen);
+      window.removeEventListener("keydown", seen);
+      window.removeEventListener(VOICE_HANG_UP_EVENT, stop);
+    };
+  }, [state, stop]);
 
   const start = useCallback(() => {
     const mode = readTalkMode();
