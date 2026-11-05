@@ -54,7 +54,7 @@ async function readPage(url: string): Promise<{ title: string; text: string }> {
 /** Ajoute un document depuis une adresse ou un texte collé : découpé, empreint, et mis « à valider ». */
 export async function addDocument(
   input: { url?: string; title?: string; text?: string; sourceName?: string; publishedAt?: string | null },
-  userId: string,
+  userId: string | null,
 ): Promise<{ id: string; chunks: number }> {
   const admin = getSupabaseAdminClient();
   if (!admin) throw new Error("Base indisponible.");
