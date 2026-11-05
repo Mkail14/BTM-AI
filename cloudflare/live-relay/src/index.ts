@@ -29,8 +29,8 @@ const GEMINI_LIVE_URL =
 /** Une conversation vocale dure au plus ce temps (garde-fou de consommation). */
 const MAX_SESSION_MS = 15 * 60_000;
 
-/** Messages du téléphone autorisés vers Gemini : la voix, et rien d'autre (pas de nouvelles consignes). */
-const ALLOWED_FROM_PHONE = new Set(["realtimeInput"]);
+/** Messages du téléphone autorisés vers Gemini : la voix et les réponses des boutons (pas de nouvelles consignes). */
+const ALLOWED_FROM_PHONE = new Set(["realtimeInput", "toolResponse"]);
 
 const base64UrlToBytes = (value: string) => {
   const base64 = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");

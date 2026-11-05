@@ -89,6 +89,19 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string)
         userText.current = "";
         tamilyaText.current = "";
       },
+      onToolCall: async (name, args) => {
+        const response = await fetch("/api/voice/live/tool", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name, args }),
+        });
+        const data = (await response.json().catch(() => null)) as { block?: string; error?: string } | null;
+        if (!data?.block) return data?.error ?? "Ce bouton n'est pas disponible : dis-le à la personne.";
+        // Le tableau s'affiche dans la conversation, juste après ce que la personne vient de dire.
+        turnRef.current(userText.current.trim(), data.block);
+        userText.current = "";
+        return "C'est affiché sur l'écran de la personne : dis-lui en une phrase de choisir et valider au doigt. N'invente aucun horaire ni prix.";
+      },
       onLatency: (ms) => note(`réponse en ${(ms / 1000).toFixed(1)} s`),
       onNote: note,
       onClose: (problem) => {

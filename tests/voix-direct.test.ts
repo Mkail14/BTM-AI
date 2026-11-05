@@ -26,3 +26,18 @@ describe("vocal en direct", () => {
     assert.deepEqual(ranked, ["gemini-3.5-flash-native-audio", "gemini-3.0-flash-live", "gemini-omni-flash-preview"]);
   });
 });
+
+describe("boutons du vocal en direct", () => {
+  it("affiche le même tableau qu'à l'écrit, selon les droits du compte", async () => {
+    const { liveToolBlock, liveToolDeclarations } = await import("@/lib/voice-live/tools");
+    const code = liveToolBlock("reserver_code", { bureau: "Mamoudzou", jour: "" }, { food: false, barge: false });
+    assert.ok(code?.startsWith("```creneaux-code\nMamoudzou"));
+    assert.ok(liveToolBlock("devis_btm", { demande: "un mur" }, { food: false, barge: false })?.includes("```"));
+    // Repas et barge : seulement si le compte y a droit.
+    assert.equal(liveToolBlock("commander_repas", { demande: "un mabawa" }, { food: false, barge: false }), null);
+    assert.ok(liveToolBlock("commander_repas", { demande: "un mabawa" }, { food: true, barge: false })?.startsWith("```commande-repas"));
+    assert.equal(liveToolBlock("inconnu", {}, { food: true, barge: true }), null);
+    const names = liveToolDeclarations({ food: false, barge: false }).map((d) => d.name);
+    assert.deepEqual(names, ["reserver_code", "devis_btm"]);
+  });
+});

@@ -19,6 +19,8 @@ export type LiveCallbacks = {
   onLatency?: (ms: number) => void;
   /** Journal (diagnostic). */
   onNote?: (text: string) => void;
+  /** Tamilya actionne un bouton (réservation, repas…) : renvoie ce qu'il faut lui dire en retour. */
+  onToolCall?: (name: string, args: Record<string, unknown>) => Promise<string>;
   /** Conversation fermée (normalement ou sur erreur, avec la raison). */
   onClose: (error: string | null) => void;
 };
@@ -78,6 +80,7 @@ type GeminiMessage = {
     interrupted?: boolean;
     turnComplete?: boolean;
   };
+  toolCall?: { functionCalls?: { id?: string; name?: string; args?: Record<string, unknown> }[] };
   error?: { message?: string };
 };
 
@@ -199,6 +202,15 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
       callbacks.onState("écoute");
     }
     if (message.error) note(`Gemini : ${message.error.message ?? "erreur"}`);
+    // Boutons actionnés par Tamilya : la page agit, puis répond à Gemini pour qu'il continue.
+    for (const call of message.toolCall?.functionCalls ?? []) {
+      if (!call.name) continue;
+      note(`bouton ${call.name}`);
+      const result = await (callbacks.onToolCall?.(call.name, call.args ?? {}) ?? Promise.resolve("Bouton indisponible.")).catch(() => "Le bouton n'a pas marché : dis-le à la personne.");
+      if (socket.readyState === WebSocket.OPEN) {
+        socket.send(JSON.stringify({ toolResponse: { functionResponses: [{ id: call.id, name: call.name, response: { result } }] } }));
+      }
+    }
     const content = message.serverContent;
     if (!content) return;
     if (content.interrupted) {

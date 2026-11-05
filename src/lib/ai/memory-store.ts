@@ -26,6 +26,21 @@ export async function getMemories(supabase: SupabaseClient): Promise<MemoryFact[
   return (data ?? []).filter((fact) => isMemoryAllowed(fact.content));
 }
 
+/**
+ * Souvenirs d'un compte précis, avec le client du serveur (sans session : vocal
+ * en direct, appelé par le relais). Toujours filtré sur ce compte.
+ */
+export async function getMemoriesFor(admin: SupabaseClient, userId: string): Promise<MemoryFact[]> {
+  const { data, error } = await admin
+    .from("awa_memories")
+    .select("kind, content")
+    .eq("user_id", userId)
+    .order("updated_at", { ascending: false })
+    .limit(MAX_MEMORIES);
+  if (error) throw error;
+  return (data ?? []).filter((fact) => isMemoryAllowed(fact.content));
+}
+
 /** Client d'écriture : la clé secrète si elle est là, sinon celui de la session (développement). */
 const writer = (supabase: SupabaseClient) => getSupabaseAdminClient() ?? supabase;
 
