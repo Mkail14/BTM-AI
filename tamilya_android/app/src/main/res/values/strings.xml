@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tamilya</string>
+    <string name="offline_title">Pas de connexion</string>
+    <string name="offline_retry">Réessayer</string>
+    <color name="ink">#111111</color>
+    <color name="cream">#F5F0E6</color>
+</resources>

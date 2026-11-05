@@ -1,0 +1,31 @@
+// Maven Central bloque l'IP de ce poste (« open proxy »). Miroir officiel de Google, pour cette compilation seulement.
+def MIRROR = 'https://maven-central.storage-download.googleapis.com/maven2/'
+
+def rewrite = { repos, where ->
+    repos.configureEach { r ->
+        if (r instanceof MavenArtifactRepository) {
+            def u = r.url.toString()
+            if (u.contains('repo.maven.apache.org') || u.contains('repo1.maven.org')) {
+                r.url = MIRROR
+                println "[miroir] ${where} : ${r.name} -> miroir Google"
+            }
+        }
+    }
+}
+
+beforeSettings { settings ->
+    settings.pluginManagement.repositories.maven { url = MIRROR; name = 'CentralMirror' }
+    // Déclarer un dépôt retire le portail implicite : on le remet, après le miroir.
+    settings.pluginManagement.repositories.gradlePluginPortal()
+    settings.pluginManagement.repositories.google()
+    rewrite(settings.pluginManagement.repositories, "plugins(${settings.rootDir.name})")
+    rewrite(settings.buildscript.repositories, "settings-buildscript(${settings.rootDir.name})")
+    settings.dependencyResolutionManagement.repositories.configureEach { r -> }
+    rewrite(settings.dependencyResolutionManagement.repositories, "drm(${settings.rootDir.name})")
+}
+
+// S'applique à chaque build, y compris les builds inclus (flutter_tools/gradle).
+gradle.beforeProject { p ->
+    rewrite(p.buildscript.repositories, "buildscript(${p.path})")
+    rewrite(p.repositories, "projet(${p.path})")
+}

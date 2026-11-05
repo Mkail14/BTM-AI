@@ -1,0 +1,7 @@
+.gradle/
+build/
+app/build/
+local.properties
+# Clé de signature et son mot de passe : jamais dans Git.
+keys/
+keystore.properties
