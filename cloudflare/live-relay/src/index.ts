@@ -68,7 +68,8 @@ export default {
       body: JSON.stringify({ ticket }),
     });
     if (!setupResponse.ok) return new Response("Consignes indisponibles", { status: 502 });
-    const setup = (await setupResponse.json()) as { setup: unknown };
+    const setup = (await setupResponse.json()) as { setup: { model?: string } };
+    console.log(`session : modèle ${setup.setup?.model}`);
 
     // Connexion à Gemini (Live API) depuis Cloudflare.
     const upstreamResponse = await fetch(`${GEMINI_LIVE_URL}?key=${encodeURIComponent(env.GEMINI_API_KEY)}`, {
@@ -77,7 +78,9 @@ export default {
     const gemini = upstreamResponse.webSocket;
     if (!gemini) return new Response(`Gemini injoignable (${upstreamResponse.status})`, { status: 502 });
     gemini.accept();
-    gemini.send(JSON.stringify({ setup: setup.setup }));
+    const setupText = JSON.stringify({ setup: setup.setup });
+    console.log(`consignes : ${setupText.length} caractères`);
+    gemini.send(setupText);
 
     const pair = new WebSocketPair();
     const [client, phone] = [pair[0], pair[1]];
@@ -101,25 +104,49 @@ export default {
       if (typeof event.data !== "string") return;
       try {
         const message = JSON.parse(event.data) as Record<string, unknown>;
-        if (Object.keys(message).every((key) => ALLOWED_FROM_PHONE.has(key))) gemini.send(event.data);
+        if (Object.keys(message).every((key) => ALLOWED_FROM_PHONE.has(key))) {
+          if (fromPhone++ === 0) console.log("téléphone → premier son reçu");
+          gemini.send(event.data);
+        }
       } catch {}
     });
     // Gemini → téléphone : tout (voix, transcriptions, coupures), tel quel.
+    let fromGemini = 0;
+    let fromPhone = 0;
+    // Gemini envoie ses messages en binaire (Blob ou ArrayBuffer) : convertis en texte, dans l'ordre
+    // d'arrivée (une file de promesses), pour que les morceaux de voix ne se mélangent pas.
+    const toText = async (data: unknown): Promise<string> => {
+      if (typeof data === "string") return data;
+      if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) return new TextDecoder().decode(data as ArrayBuffer);
+      if (data && typeof (data as Blob).text === "function") return (data as Blob).text();
+      return String(data);
+    };
+    let queue: Promise<void> = Promise.resolve();
     gemini.addEventListener("message", (event) => {
+      queue = queue.then(async () => {
+      const text = await toText(event.data);
+      // Journal : les premiers messages de Gemini (sans le son), pour comprendre un blocage.
+      if (fromGemini++ < 5) console.log(`gemini → ${text.replace(/"data":"[^"]{40,}"/g, "\"data\":\"…\"").slice(0, 300)}`);
       try {
-        phone.send(typeof event.data === "string" ? event.data : new TextDecoder().decode(event.data as ArrayBuffer));
+        phone.send(text);
       } catch {}
+      }).catch((error) => console.log(`relais : message illisible (${error})`));
     });
     phone.addEventListener("close", () => {
       clearTimeout(timer);
       closeBoth();
     });
     gemini.addEventListener("close", (event) => {
+      console.log(`gemini fermé : ${event.code} ${event.reason} (reçus ${fromGemini}, envoyés ${fromPhone})`);
       clearTimeout(timer);
       closeBoth(event.code === 1000 ? 1000 : 1011, event.reason || "Gemini a fermé");
     });
     phone.addEventListener("error", () => closeBoth(1011, "erreur téléphone"));
-    gemini.addEventListener("error", () => closeBoth(1011, "erreur Gemini"));
+    // Erreur : on attend la fermeture, qui donne la raison de Google (transmise au téléphone).
+    gemini.addEventListener("error", (event) => {
+      console.log(`gemini erreur : ${(event as ErrorEvent).message ?? "?"}`);
+      setTimeout(() => closeBoth(1011, "erreur Gemini"), 2_000);
+    });
 
     return new Response(null, { status: 101, webSocket: client });
   },
