@@ -53,6 +53,16 @@ async function readTicket(ticket: string, secret: string): Promise<{ sid: string
   }
 }
 
+const bytesToBase64Url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+
+/** Même format que le site (src/lib/voice-live/ticket.ts). */
+async function signTicket(data: object, secret: string): Promise<string> {
+  const payload = bytesToBase64Url(new TextEncoder().encode(JSON.stringify(data)));
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  const signature = new Uint8Array(await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload)));
+  return `${payload}.${bytesToBase64Url(signature)}`;
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -63,7 +73,14 @@ export default {
     const ticket = url.searchParams.get("ticket") ?? "";
     const testTicket = url.searchParams.get("test") ?? "";
     let setup: { setup: { model?: string } };
-    if (testTicket && env.LIVE_TEST_SECRET && (await readTicket(testTicket, env.LIVE_TEST_SECRET))) {
+    const isTest = Boolean(testTicket && env.LIVE_TEST_SECRET && (await readTicket(testTicket, env.LIVE_TEST_SECRET)));
+    if (isTest && url.searchParams.get("real")) {
+      // Essai avec les vraies consignes du site (compte fictif « essai », mode maître).
+      const siteTicket = await signTicket({ sid: crypto.randomUUID(), uid: "essai", admin: true, exp: Date.now() + 60_000 }, env.LIVE_TICKET_SECRET);
+      const response = await fetch(`${env.SITE_URL}/api/voice/live/setup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticket: siteTicket }) });
+      if (!response.ok) return new Response(`Consignes indisponibles (${response.status})`, { status: 502 });
+      setup = (await response.json()) as { setup: { model?: string } };
+    } else if (isTest) {
       // Essai de l'équipe : consignes courtes, modèle au choix.
       setup = {
         setup: {
@@ -72,6 +89,9 @@ export default {
           systemInstruction: { parts: [{ text: "Tu es Tamilya, une jeune femme de Mayotte. Réponds en français, en une ou deux phrases courtes." }] },
           inputAudioTranscription: {},
           outputAudioTranscription: {},
+          ...(url.searchParams.get("silence")
+            ? { realtimeInputConfig: { automaticActivityDetection: { silenceDurationMs: Number(url.searchParams.get("silence")) } } }
+            : {}),
         } as { model?: string },
       };
     } else {
@@ -94,6 +114,13 @@ export default {
     const gemini = upstreamResponse.webSocket;
     if (!gemini) return new Response(`Gemini injoignable (${upstreamResponse.status})`, { status: 502 });
     gemini.accept();
+    // Réflexion du modèle coupée : avec les longues consignes de Tamilya, il « pensait » 5 s ou
+    // plus avant de parler (parfois jamais) ; coupée, il répond en 2 à 2,5 s (mesuré). Essai : think=N.
+    const think = (isTest ? url.searchParams.get("think") : null) ?? "0";
+    {
+      const config = ((setup.setup as Record<string, unknown>).generationConfig ??= {}) as Record<string, unknown>;
+      config.thinkingConfig = { thinkingBudget: Number(think) };
+    }
     const setupText = JSON.stringify({ setup: setup.setup });
     console.log(`consignes : ${setupText.length} caractères`);
     gemini.send(setupText);
