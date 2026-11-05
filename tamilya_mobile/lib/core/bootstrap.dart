@@ -11,6 +11,8 @@ import '../features/conversations/data/supabase_conversations_repository.dart';
 import '../features/conversations/presentation/conversations_providers.dart';
 import '../features/settings/data/api_account_repository.dart';
 import '../features/settings/presentation/settings_providers.dart';
+import '../features/wallet/data/api_wallet_repository.dart';
+import '../features/wallet/presentation/wallet_providers.dart';
 import 'config/env.dart';
 import 'network/api_client.dart';
 import 'supabase/secure_local_storage.dart';
@@ -61,6 +63,14 @@ Future<Bootstrap> bootstrap() async {
         ApiChatRepository(
           dio: dio,
           readMessages: supabaseMessagesReader(Supabase.instance.client),
+        ),
+      ),
+      walletRepositoryProvider.overrideWithValue(
+        ApiWalletRepository(
+          dio: dio,
+          readTransactions: ApiWalletRepository.supabaseReader(
+            Supabase.instance.client,
+          ),
         ),
       ),
       conversationsRepositoryProvider.overrideWithValue(

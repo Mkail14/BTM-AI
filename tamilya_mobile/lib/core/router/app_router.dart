@@ -15,6 +15,8 @@ import '../../features/conversations/presentation/conversations_providers.dart';
 import '../../features/legal/presentation/legal_screen.dart';
 import '../../features/settings/presentation/settings_providers.dart';
 import '../../features/settings/presentation/settings_screen.dart';
+import '../../features/wallet/presentation/wallet_providers.dart';
+import '../../features/wallet/presentation/wallet_screen.dart';
 
 /// Routes : /splash -> / (accueil visiteur ou chat selon la session) ;
 /// /c/:id ; /settings ; /legal/:page.
@@ -49,6 +51,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           closeDrawer();
           router.go('/c/$convId');
         },
+        onWallet: () {
+          closeDrawer();
+          router.push('/wallet');
+        },
         onSettings: () {
           closeDrawer();
           router.push('/settings');
@@ -61,6 +67,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   ref.listen<bool>(sessionProvider, (previous, signedIn) {
     // Changement de compte ou déconnexion : plus rien de l'ancien utilisateur.
     ref.invalidate(conversationsListProvider);
+    ref.invalidate(walletProvider);
     ref.invalidate(chatControllerProvider);
     if (!signedIn) ref.invalidate(accountProvider);
     refresh.value++;
@@ -117,11 +124,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/settings',
         builder: (context, state) => SettingsScreen(
           onOpenLegal: (page) => router.push('/legal/$page'),
+          onOpenWallet: () => router.push('/wallet'),
           onSignOut: () async {
             await ref.read(authRepositoryProvider).signOut();
             router.go('/');
           },
         ),
+      ),
+      GoRoute(
+        path: '/wallet',
+        builder: (context, state) =>
+            WalletScreen(onPayWithTamilya: () => router.go('/')),
       ),
       GoRoute(
         path: '/legal/:page',

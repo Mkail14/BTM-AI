@@ -14,10 +14,12 @@ class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({
     super.key,
     required this.onOpenLegal,
+    required this.onOpenWallet,
     required this.onSignOut,
   });
 
   final ValueChanged<String> onOpenLegal;
+  final VoidCallback onOpenWallet;
   final VoidCallback onSignOut;
 
   void _soon(BuildContext context) {
@@ -196,6 +198,12 @@ class SettingsScreen extends ConsumerWidget {
               'Tamilya',
               "Sa personnalité et ce qu'elle retient",
               onTap: () => _pickPersonality(context, ref),
+            ),
+            tile(
+              Icons.account_balance_wallet_outlined,
+              'Portefeuille',
+              'Ton solde et ton historique',
+              onTap: onOpenWallet,
             ),
             tile(
               Icons.lock_outline_rounded,

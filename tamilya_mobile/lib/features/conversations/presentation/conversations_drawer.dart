@@ -16,12 +16,14 @@ class ConversationsDrawer extends ConsumerWidget {
     required this.onNewConversation,
     required this.onSelect,
     required this.onSettings,
+    this.onWallet,
   });
 
   final String? selectedId;
   final VoidCallback onNewConversation;
   final ValueChanged<String> onSelect;
   final VoidCallback onSettings;
+  final VoidCallback? onWallet;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -112,6 +114,12 @@ class ConversationsDrawer extends ConsumerWidget {
               ),
             ),
             const Divider(),
+            if (onWallet != null)
+              ListTile(
+                leading: const Icon(Icons.account_balance_wallet_outlined),
+                title: const Text('Portefeuille'),
+                onTap: onWallet,
+              ),
             ListTile(
               leading: const Icon(Icons.settings_outlined),
               title: const Text('Paramètres'),
