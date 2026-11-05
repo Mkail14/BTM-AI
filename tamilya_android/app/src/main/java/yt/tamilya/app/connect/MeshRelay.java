@@ -3,54 +3,27 @@ package yt.tamilya.app.connect;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
 import android.util.Log;
-
-import com.google.android.gms.common.api.ApiException;
-import com.google.android.gms.nearby.Nearby;
-import com.google.android.gms.nearby.connection.AdvertisingOptions;
-import com.google.android.gms.nearby.connection.ConnectionInfo;
-import com.google.android.gms.nearby.connection.ConnectionLifecycleCallback;
-import com.google.android.gms.nearby.connection.ConnectionResolution;
-import com.google.android.gms.nearby.connection.ConnectionsClient;
-import com.google.android.gms.nearby.connection.ConnectionsStatusCodes;
-import com.google.android.gms.nearby.connection.DiscoveredEndpointInfo;
-import com.google.android.gms.nearby.connection.DiscoveryOptions;
-import com.google.android.gms.nearby.connection.EndpointDiscoveryCallback;
-import com.google.android.gms.nearby.connection.Payload;
-import com.google.android.gms.nearby.connection.PayloadCallback;
-import com.google.android.gms.nearby.connection.PayloadTransferUpdate;
-import com.google.android.gms.nearby.connection.Strategy;
 
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
-import java.util.Random;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
- * Réseau entre téléphones (Google Nearby Connections, P2P_CLUSTER). Chaque téléphone
- * avec l'app ouverte relaie : sans internet il passe les demandes aux voisins (5 sauts
+ * Réseau entre téléphones, sur les liens Bluetooth de BleMesh. Une seule instance par
+ * application : elle survit à l'écran, et RelayService la garde active en arrière-plan.
+ * Chaque téléphone relaie : sans internet il passe les demandes aux voisins (5 sauts
  * au plus), avec internet il les poste au serveur et renvoie la réponse par le même chemin.
  * Les relais ne lisent rien : tout est chiffré pour le serveur et signé par l'appareil d'origine.
  */
-final class MeshRelay {
-    static final String SERVICE_ID = "yt.tamilya.connect";
-    private static final String TAG = "TamilyaConnect";
-    /** Si l'autre téléphone n'a pas lancé la connexion, celui-ci la lance après ce délai. */
-    private static final long FALLBACK_MS = 8000;
-    /**
-     * Nouvel essai : vite pour celui qui commence, bien plus tard pour l'autre, avec un peu de hasard.
-     * Deux téléphones qui s'appellent en même temps se coupent mutuellement, et recommencent sans fin.
-     */
-    private static final long RETRY_FIRST_MS = 3000;
-    private static final long RETRY_SECOND_MS = 15000;
-    private static final int RETRY_SPREAD_MS = 3000;
-    private static final String RADIO_HELP = "Active le Bluetooth et la localisation pour trouver des relais.";
-
+final class MeshRelay implements BleMesh.Events {
     interface Listener {
         void onPeers(int count);
         /** Une demande écrite ici a été passée à un voisin ou au serveur. */
@@ -62,84 +35,73 @@ final class MeshRelay {
         void onProblem(String message);
     }
 
-    private final ConnectionsClient client;
-    private final Listener listener;
-    private final ExecutorService io;
+    private static final String TAG = "TamilyaConnect";
+    private static final String RADIO_HELP = "Active le Bluetooth pour trouver des relais.";
+    private static final Listener NOBODY = new Listener() {
+        @Override public void onPeers(int count) { }
+        @Override public void onRelayed(String id) { }
+        @Override public void onReply(String id, JSONObject reply) { }
+        @Override public void onRefused(String id, String code) { }
+        @Override public void onProblem(String message) { }
+    };
+    /** Le temps d'un envoi au serveur, écran éteint. */
+    private static final long POST_WAKE_MS = 30_000;
+    /** Sans réponse, on redonne sa demande au voisin (il garde la réponse s'il l'a déjà). */
+    private static final long RESEND_MS = 20_000;
+    private static final int MAX_SENDS = 5;
+    private static MeshRelay shared;
+
+    private Listener listener = NOBODY;
+    private final ExecutorService io = Executors.newSingleThreadExecutor();
+    private final PowerManager.WakeLock wake;
+    private final BleMesh ble;
     private final Handler main = new Handler(Looper.getMainLooper());
     private final RelayTable table = new RelayTable();
     private final Set<String> peers = new HashSet<>();
-    private final Set<String> found = new HashSet<>();
-    private final Set<String> connecting = new HashSet<>();
-    /** Voisins à qui c'est à ce téléphone de demander la connexion. */
-    private final Set<String> leading = new HashSet<>();
-    private final Random random = new Random();
-    /** Nom annoncé aux voisins : au hasard, sans rien sur la personne. */
-    private final String name = UUID.randomUUID().toString().substring(0, 8);
     private boolean running;
     private boolean online;
 
-    MeshRelay(Context context, Listener listener, ExecutorService io) {
-        this.client = Nearby.getConnectionsClient(context);
+    private MeshRelay(Context context) {
+        PowerManager power = context.getSystemService(PowerManager.class);
+        this.wake = power.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "tamilya:relais");
+        this.wake.setReferenceCounted(false);
+        // Nom donné aux voisins : au hasard à chaque lancement, sans rien sur la personne.
+        this.ble = new BleMesh(context, UUID.randomUUID().toString().substring(0, 8), this);
+    }
+
+    static synchronized MeshRelay shared(Context context) {
+        if (shared == null) shared = new MeshRelay(context.getApplicationContext());
+        return shared;
+    }
+
+    /** L'écran de Connect qui reçoit les nouvelles. */
+    void setListener(Listener listener) {
         this.listener = listener;
-        this.io = io;
+        listener.onPeers(peers.size());
+    }
+
+    /** L'écran disparaît ; un nouvel écran a pu prendre sa place entre-temps. */
+    void clearListener(Listener listener) {
+        if (this.listener == listener) this.listener = NOBODY;
     }
 
     void start() {
         if (running) return;
         running = true;
         listener.onPeers(peers.size());
-        Strategy strategy = Strategy.P2P_CLUSTER;
-        client.startAdvertising(name, SERVICE_ID, lifecycle, new AdvertisingOptions.Builder().setStrategy(strategy).build())
-                .addOnSuccessListener(ignored -> Log.i(TAG, "Annonce active"))
-                .addOnFailureListener(e -> startFailed("Annonce", e));
-        client.startDiscovery(SERVICE_ID, discovery, new DiscoveryOptions.Builder().setStrategy(strategy).build())
-                .addOnSuccessListener(ignored -> Log.i(TAG, "Recherche active"))
-                .addOnFailureListener(e -> startFailed("Recherche", e));
-    }
-
-    private static int code(Exception e) {
-        return e instanceof ApiException ? ((ApiException) e).getStatusCode() : -1;
-    }
-
-    private void startFailed(String what, Exception e) {
-        int code = code(e);
-        Log.w(TAG, what + " refusée : " + code);
-        // Déjà en route (reprise rapide de l'app) : rien à signaler.
-        if (code == ConnectionsStatusCodes.STATUS_ALREADY_ADVERTISING
-                || code == ConnectionsStatusCodes.STATUS_ALREADY_DISCOVERING) return;
-        // On repart de zéro au prochain retour dans l'app (Bluetooth rallumé entre-temps, par exemple).
-        stop();
-        listener.onProblem(RADIO_HELP);
-    }
-
-    /** Demande la connexion à un voisin trouvé ; en cas d'échec, on réessaie tant qu'il est là. */
-    private void connect(String endpointId) {
-        if (!running || !found.contains(endpointId) || peers.contains(endpointId) || connecting.contains(endpointId)) return;
-        connecting.add(endpointId);
-        client.requestConnection(name, endpointId, lifecycle).addOnFailureListener(e -> {
-            connecting.remove(endpointId);
-            int code = code(e);
-            Log.w(TAG, "Connexion refusée : " + code);
-            if (code != ConnectionsStatusCodes.STATUS_ALREADY_CONNECTED_TO_ENDPOINT) retry(endpointId);
-        });
-    }
-
-    private void retry(String endpointId) {
-        long delay = (leading.contains(endpointId) ? RETRY_FIRST_MS : RETRY_SECOND_MS) + random.nextInt(RETRY_SPREAD_MS);
-        main.postDelayed(() -> connect(endpointId), delay);
+        ble.start();
     }
 
     void stop() {
         if (!running) return;
         running = false;
-        client.stopAdvertising();
-        client.stopDiscovery();
-        client.stopAllEndpoints();
+        ble.stop();
         peers.clear();
-        found.clear();
-        connecting.clear();
-        leading.clear();
         listener.onPeers(0);
+    }
+
+    void setOnScreen(boolean value) {
+        ble.setOnScreen(value);
     }
 
     boolean running() {
@@ -165,6 +127,8 @@ final class MeshRelay {
 
     /** Demande écrite avant un redémarrage de l'app, encore sans réponse. */
     void restoreOwn(String id, String json, long at) {
+        // Si le relais a survécu à l'écran, on repart de zéro : la réponse a pu arriver sans personne pour la lire.
+        table.forget(id);
         RelayTable.Entry entry = table.restore(id, json, at, now());
         if (entry != null) spread(entry);
     }
@@ -185,18 +149,29 @@ final class MeshRelay {
         if (!entry.own() && !RelayTable.canForward(entry.hops)) return;
         try {
             String json = entry.own() ? entry.json : Envelopes.withHops(new JSONObject(entry.json), hops);
+            if (!ble.send(peer, json.getBytes(StandardCharsets.UTF_8))) return;
             entry.sentTo.add(peer);
             Log.i(TAG, "Demande passée à un voisin");
-            client.sendPayload(peer, Payload.fromBytes(json.getBytes(StandardCharsets.UTF_8)));
-            if (entry.own()) listener.onRelayed(entry.id);
+            if (entry.own()) {
+                listener.onRelayed(entry.id);
+                if (++entry.sends < MAX_SENDS) main.postDelayed(() -> resendTo(entry, peer), RESEND_MS);
+            }
         } catch (JSONException ignored) {
             // Enveloppe déjà vérifiée à la réception : ne devrait pas arriver.
         }
     }
 
+    /** Un morceau a pu se perdre en route : rien ne le signale, seule l'absence de réponse le montre. */
+    private void resendTo(RelayTable.Entry entry, String peer) {
+        if (entry.answered || !peers.contains(peer)) return;
+        entry.sentTo.remove(peer);
+        forward(entry, peer);
+    }
+
     private void post(RelayTable.Entry entry) {
         if (entry.posted || entry.answered) return;
         entry.posted = true;
+        wake.acquire(POST_WAKE_MS);
         Log.i(TAG, entry.own() ? "Demande envoyée au serveur" : "Demande d'un voisin envoyée au serveur");
         if (entry.own()) listener.onRelayed(entry.id);
         io.execute(() -> {
@@ -209,7 +184,13 @@ final class MeshRelay {
                 main.post(() -> onReply(bytes, null));
             } catch (Exception e) {
                 // Serveur injoignable : on réessaiera au prochain retour d'internet.
-                main.post(() -> entry.posted = false);
+                main.post(() -> {
+                    entry.posted = false;
+                    // Internet annoncé mais serveur injoignable : un voisin aura peut-être plus de chance.
+                    for (String peer : peers) forward(entry, peer);
+                });
+            } finally {
+                wake.release();
             }
         });
     }
@@ -219,7 +200,7 @@ final class MeshRelay {
         if (known != null && !known.own()) {
             // Le voisin redemande : la connexion a sauté. La réponse repart par le nouveau chemin.
             known.from = from;
-            if (known.reply != null) client.sendPayload(from, Payload.fromBytes(known.reply));
+            if (known.reply != null) ble.send(from, known.reply);
             return;
         }
         RelayTable.Entry entry = table.admit(envelope.optString("id"), from, envelope.toString(),
@@ -236,6 +217,8 @@ final class MeshRelay {
         String id = reply.optString("id");
         RelayTable.Entry entry = table.get(id, now());
         if (entry == null || entry.answered) return;
+        // Écrite ici, mais plus d'écran pour la lire : elle reste en attente, l'app la redemandera.
+        if (entry.own() && listener == NOBODY) return;
         entry.answered = true;
         boolean refused = "error".equals(type);
         // Refus : on oublie la demande ici, pour que son renvoi puisse repasser par ce téléphone.
@@ -247,76 +230,40 @@ final class MeshRelay {
             entry.reply = refused ? null : bytes;
             if (peers.contains(entry.from)) {
                 Log.i(TAG, "Réponse rendue au voisin");
-                client.sendPayload(entry.from, Payload.fromBytes(bytes));
+                ble.send(entry.from, bytes);
             }
         }
     }
 
-    private void onPayload(String from, byte[] bytes) {
-        JSONObject envelope = Envelopes.parse(bytes);
+    // --- Événements Bluetooth
+
+    @Override
+    public void onData(String peer, byte[] data) {
+        JSONObject envelope = Envelopes.parse(data);
         if (envelope == null) return;
-        if ("request".equals(envelope.optString("type"))) onRequest(envelope, from);
-        else onReply(bytes, from);
+        if ("request".equals(envelope.optString("type"))) onRequest(envelope, peer);
+        else onReply(data, peer);
     }
 
-    private final PayloadCallback payloads = new PayloadCallback() {
-        @Override
-        public void onPayloadReceived(String endpointId, Payload payload) {
-            if (payload.getType() == Payload.Type.BYTES) onPayload(endpointId, payload.asBytes());
-        }
+    @Override
+    public void onPeerUp(String peer) {
+        peers.add(peer);
+        listener.onPeers(peers.size());
+        for (RelayTable.Entry entry : table.open(now())) if (!entry.posted) forward(entry, peer);
+    }
 
-        @Override
-        public void onPayloadTransferUpdate(String endpointId, PayloadTransferUpdate update) { }
-    };
+    @Override
+    public void onPeerDown(String peer) {
+        peers.remove(peer);
+        // Un voisin revenu n'a peut-être rien reçu : il pourra tout redemander.
+        for (RelayTable.Entry entry : table.open(now())) entry.sentTo.remove(peer);
+        listener.onPeers(peers.size());
+    }
 
-    private final ConnectionLifecycleCallback lifecycle = new ConnectionLifecycleCallback() {
-        @Override
-        public void onConnectionInitiated(String endpointId, ConnectionInfo info) {
-            // Pas de code à comparer : le contenu est chiffré et signé, un voisin ne peut rien en faire.
-            connecting.add(endpointId);
-            client.acceptConnection(endpointId, payloads);
-        }
-
-        @Override
-        public void onConnectionResult(String endpointId, ConnectionResolution resolution) {
-            connecting.remove(endpointId);
-            if (!resolution.getStatus().isSuccess()) {
-                Log.w(TAG, "Connexion échouée : " + resolution.getStatus().getStatusCode());
-                retry(endpointId);
-                return;
-            }
-            Log.i(TAG, "Voisin connecté");
-            peers.add(endpointId);
-            listener.onPeers(peers.size());
-            if (!online) for (RelayTable.Entry entry : table.open(now())) forward(entry, endpointId);
-        }
-
-        @Override
-        public void onDisconnected(String endpointId) {
-            Log.i(TAG, "Voisin déconnecté");
-            peers.remove(endpointId);
-            connecting.remove(endpointId);
-            listener.onPeers(peers.size());
-            retry(endpointId);
-        }
-    };
-
-    private final EndpointDiscoveryCallback discovery = new EndpointDiscoveryCallback() {
-        @Override
-        public void onEndpointFound(String endpointId, DiscoveredEndpointInfo info) {
-            Log.i(TAG, "Voisin trouvé");
-            found.add(endpointId);
-            // L'un des deux commence, pour ne pas se croiser ; l'autre prend le relais s'il ne se passe rien
-            // (les deux téléphones ne se voient pas toujours l'un l'autre).
-            boolean first = name.compareTo(info.getEndpointName()) < 0;
-            if (first) leading.add(endpointId);
-            main.postDelayed(() -> connect(endpointId), first ? 0 : FALLBACK_MS);
-        }
-
-        @Override
-        public void onEndpointLost(String endpointId) {
-            found.remove(endpointId);
-            leading.remove(endpointId);
-        }
-    };
+    @Override
+    public void onRadioProblem() {
+        // On repart de zéro au prochain retour dans l'app (Bluetooth rallumé entre-temps, par exemple).
+        stop();
+        listener.onProblem(RADIO_HELP);
+    }
 }

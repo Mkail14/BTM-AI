@@ -155,4 +155,19 @@ public class ConnectTest {
         answered.answered = true;
         assertEquals(1, table.open(RelayTable.TTL_MS + 4).size());
     }
+
+    @Test
+    public void unMessageEcritIciAttendUnRelaisBienApresDixMinutes() {
+        RelayTable table = new RelayTable();
+        assertNotNull(table.admit("mien", null, "{}", 0, 0));
+        assertNotNull(table.admit("voisin", "voisin-1", "{}", 1, 0));
+        // Un relais arrive une heure plus tard : le message écrit ici lui est encore proposé.
+        long uneHeure = 60 * 60 * 1000L;
+        assertEquals(1, table.open(uneHeure).size());
+        assertEquals("mien", table.open(uneHeure).get(0).id);
+        assertEquals(0, table.open(RelayTable.OWN_TTL_MS + 1).size());
+        // Après un redémarrage de l'app aussi.
+        assertNotNull(new RelayTable().restore("mien", "{}", 0, uneHeure));
+        assertNull(new RelayTable().restore("mien", "{}", 0, RelayTable.OWN_TTL_MS + 1));
+    }
 }

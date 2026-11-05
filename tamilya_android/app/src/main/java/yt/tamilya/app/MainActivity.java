@@ -949,7 +949,7 @@ public class MainActivity extends Activity {
     protected void onPause() {
         CookieManager.getInstance().flush();
         web.onPause();
-        // Relais seulement quand l'app est ouverte (pas en arrière-plan).
+        // Le relais continue si son service tourne ; sinon il s'arrête ici.
         connect.pause();
         super.onPause();
     }

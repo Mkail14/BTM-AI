@@ -9,13 +9,16 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Mémoire du relais : chaque demande vue est gardée 10 minutes au plus, avec le voisin
- * d'où elle venait (pour renvoyer la réponse par le même chemin). Une demande déjà vue
+ * Mémoire du relais : chaque demande vue est gardée 10 minutes au plus (23 h pour celles
+ * écrites ici, qui attendent un voisin), avec le voisin d'où elle venait (pour renvoyer
+ * la réponse par le même chemin). Une demande déjà vue
  * n'est pas relancée, mais sa réponse reste disponible si la connexion a sauté entre-temps.
  * Pas d'Android ici : testable sur l'ordinateur.
  */
 final class RelayTable {
     static final long TTL_MS = 10 * 60 * 1000L;
+    /** Écrite sur ce téléphone : elle attend un voisin presque aussi longtemps que le serveur l'accepte (24 h). */
+    static final long OWN_TTL_MS = 23 * 60 * 60 * 1000L;
     static final int MAX_ENTRIES = 500;
 
     static final class Entry {
@@ -28,6 +31,8 @@ final class RelayTable {
         final Set<String> sentTo = new HashSet<>();
         boolean posted;
         boolean answered;
+        /** Nombre d'envois à un voisin (demandes écrites ici). */
+        int sends;
         /** Réponse du serveur, gardée pour le voisin s'il redemande après une coupure. */
         byte[] reply;
 
@@ -62,7 +67,7 @@ final class RelayTable {
 
     /** Demande reprise après un redémarrage de l'app (garde son heure d'origine). */
     Entry restore(String id, String json, long at, long now) {
-        if (now - at > TTL_MS || entries.containsKey(id)) return null;
+        if (now - at > OWN_TTL_MS || entries.containsKey(id)) return null;
         Entry entry = new Entry(id, null, json, 0, at);
         entries.put(id, entry);
         return entry;
@@ -87,7 +92,7 @@ final class RelayTable {
     }
 
     void prune(long now) {
-        entries.values().removeIf(entry -> now - entry.at > TTL_MS);
+        entries.values().removeIf(entry -> now - entry.at > (entry.own() ? OWN_TTL_MS : TTL_MS));
     }
 
     /** Peut-on la passer à un voisin ? Au plus 5 sauts. */

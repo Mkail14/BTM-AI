@@ -19,6 +19,10 @@ final class ConnectStore {
     String deviceId() { return prefs.getString("deviceId", ""); }
     void setDeviceId(String id) { prefs.edit().putString("deviceId", id).apply(); }
 
+    /** Le serveur n'a pas reconnu cet appareil : à réenregistrer au prochain passage en ligne. */
+    boolean deviceCheck() { return prefs.getBoolean("deviceCheck", false); }
+    void setDeviceCheck(boolean value) { prefs.edit().putBoolean("deviceCheck", value).apply(); }
+
     String keyId() { return prefs.getString("keyId", ""); }
     String serverKey() { return prefs.getString("serverKey", ""); }
     long keyFetchedAt() { return prefs.getLong("keyFetchedAt", 0); }
@@ -32,6 +36,12 @@ final class ConnectStore {
 
     boolean permissionsAsked() { return prefs.getBoolean("permissionsAsked", false); }
     void setPermissionsAsked() { prefs.edit().putBoolean("permissionsAsked", true).apply(); }
+
+    boolean notificationsAsked() { return prefs.getBoolean("notificationsAsked", false); }
+    void setNotificationsAsked() { prefs.edit().putBoolean("notificationsAsked", true).apply(); }
+
+    boolean batteryAsked() { return prefs.getBoolean("batteryAsked", false); }
+    void setBatteryAsked() { prefs.edit().putBoolean("batteryAsked", true).apply(); }
 
     /** Prêt à écrire hors ligne : appareil enregistré et clé du serveur connue. */
     boolean ready() {

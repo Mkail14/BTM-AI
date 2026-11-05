@@ -52,7 +52,6 @@ dependencies {
     implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     // Tamilya Connect : messages de téléphone en téléphone, sans internet.
-    implementation("com.google.android.gms:play-services-nearby:19.3.0")
 
     testImplementation("junit:junit:4.13.2")
     // Vraie bibliothèque JSON pour les tests sur l ordinateur (celle d Android n y est qu une coquille).

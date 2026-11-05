@@ -3,11 +3,16 @@ package yt.tamilya.app.connect;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.PowerManager;
+import android.provider.Settings;
 import android.text.InputFilter;
 import android.text.InputType;
 import android.view.View;
@@ -27,7 +32,7 @@ import java.util.concurrent.Executors;
 /**
  * Tamilya Connect : écrire à Tamilya sans internet. Le message passe de téléphone en
  * téléphone jusqu'à un téléphone connecté, qui le poste au serveur ; la réponse revient
- * par le même chemin. Relais seulement quand l'app est ouverte.
+ * par le même chemin. Le relais continue en arrière-plan (RelayService).
  */
 public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.Actions {
     /** Une journée : la clé du serveur est relue au plus une fois par jour. */
@@ -53,7 +58,8 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         this.store = new ConnectStore(activity);
         this.screen = new ConnectScreen(activity, this);
         this.screen.setVisibility(View.GONE);
-        this.mesh = new MeshRelay(activity, this, io);
+        this.mesh = MeshRelay.shared(activity);
+        this.mesh.setListener(this);
         restorePending();
     }
 
@@ -79,12 +85,10 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
             list.add(Manifest.permission.BLUETOOTH_ADVERTISE);
             list.add(Manifest.permission.BLUETOOTH_CONNECT);
             list.add(Manifest.permission.BLUETOOTH_SCAN);
+        } else {
+            // Avant Android 12, la recherche Bluetooth passe par la position.
+            list.add(Manifest.permission.ACCESS_FINE_LOCATION);
         }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            list.add(Manifest.permission.NEARBY_WIFI_DEVICES);
-        }
-        // Toujours demandée : sans elle, la recherche Bluetooth peut ne jamais voir les voisins.
-        list.add(Manifest.permission.ACCESS_FINE_LOCATION);
         return list.toArray(new String[0]);
     }
 
@@ -112,16 +116,16 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         } else {
             screen.setNotice(null);
         }
-        if (hasPermissions()) mesh.start();
+        if (hasPermissions()) startRelay();
         else host.requestConnectPermissions(permissions());
     }
 
     public void onPermissionsResult() {
         if (hasPermissions()) {
             if (store.ready()) screen.setNotice(null);
-            mesh.start();
+            startRelay();
         } else {
-            screen.setNotice("Autorise « Appareils à proximité » et la position pour trouver des téléphones relais.");
+            screen.setNotice("Autorise « Appareils à proximité » pour trouver des téléphones relais.");
         }
     }
 
@@ -148,10 +152,41 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         host.onConnectClosed();
     }
 
+    /** Relais actif tout de suite, et maintenu quand l'app quitte l'écran. */
+    private void startRelay() {
+        mesh.start();
+        RelayService.start(activity);
+        // Sans cette autorisation le relais marche, mais sa notification reste cachée.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !store.notificationsAsked()
+                && activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            store.setNotificationsAsked();
+            host.requestConnectPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS});
+        } else {
+            askBatteryFreedom();
+        }
+    }
+
+    /**
+     * Une fois : sans cet accord, Android interdit de relancer le relais quand l'app a été tuée.
+     * Le relais marche sans ; il s'arrête seulement jusqu'à la prochaine ouverture de l'app.
+     */
+    private void askBatteryFreedom() {
+        PowerManager power = activity.getSystemService(PowerManager.class);
+        if (!store.ready() || store.batteryAsked() || power == null || power.isIgnoringBatteryOptimizations(activity.getPackageName())) return;
+        store.setBatteryAsked();
+        try {
+            activity.startActivity(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                    Uri.parse("package:" + activity.getPackageName())));
+        } catch (ActivityNotFoundException e) {
+            // Écran absent sur ce téléphone : rien à faire de plus.
+        }
+    }
+
     /** App au premier plan : on relaie (pour soi et pour les autres), si c'est permis. */
     public void resume() {
+        mesh.setOnScreen(true);
         if (hasPermissions()) {
-            mesh.start();
+            startRelay();
         } else if (store.ready() && !store.permissionsAsked()) {
             // Un téléphone relaie même si Connect n'y a jamais été ouvert : on demande une fois.
             store.setPermissionsAsked();
@@ -160,11 +195,13 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
     }
 
     public void pause() {
-        mesh.stop();
+        mesh.setOnScreen(false);
+        if (!RelayService.isRunning()) mesh.stop();
     }
 
     public void destroy() {
-        mesh.stop();
+        mesh.clearListener(this);
+        if (!RelayService.isRunning()) mesh.stop();
         io.shutdown();
     }
 
@@ -180,7 +217,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         if (syncing) return;
         boolean signedIn = cookies != null && cookies.contains("-auth-token");
         boolean needKey = store.serverKey().isEmpty() || System.currentTimeMillis() - store.keyFetchedAt() > KEY_REFRESH_MS;
-        boolean needDevice = signedIn && store.deviceId().isEmpty();
+        boolean needDevice = signedIn && (store.deviceId().isEmpty() || store.deviceCheck());
         if (!needKey && !needDevice) return;
         syncing = true;
         io.execute(() -> {
@@ -194,6 +231,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
                     KeyPair device = DeviceKeys.get();
                     JSONObject answer = ConnectApi.registerDevice(cookies, ConnectCrypto.b64(device.getPublic().getEncoded()));
                     store.setDeviceId(answer.getString("deviceId"));
+                    store.setDeviceCheck(false);
                     // Le serveur donne aussi sa clé : rien de plus à demander.
                     if (!answer.optString("keyId").isEmpty() && !answer.optString("publicKey").isEmpty()) {
                         ConnectCrypto.publicKey(answer.getString("publicKey"));
@@ -335,7 +373,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
             if (message == null || !"me".equals(message.optString("from"))) continue;
             String status = message.optString("status");
             boolean waiting = "searching".equals(status) || "relayed".equals(status) || "retry".equals(status);
-            if (waiting && now - message.optLong("at") > RelayTable.TTL_MS) {
+            if (waiting && now - message.optLong("at") > RelayTable.OWN_TTL_MS) {
                 try {
                     message.put("status", "expired");
                 } catch (JSONException ignored) {
@@ -352,6 +390,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
     @Override
     public void onPeers(int count) {
         screen.setPeers(count);
+        render();
     }
 
     @Override
@@ -418,9 +457,12 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
                 delay = -1;
                 note = "Tamilya a changé de clé : ouvre l'app une fois avec internet, puis réécris ton message.";
                 break;
+            case "unknown_device":
             case "bad_signature":
+                // Pas de remise à zéro ici : ce refus passe par les voisins, sans signature.
+                store.setDeviceCheck(true);
                 delay = -1;
-                note = "Message refusé par Tamilya : réécris-le.";
+                note = "Tamilya ne reconnaît pas ce téléphone : ouvre l'app une fois avec internet, connecté à ton compte, puis réécris ton message.";
                 break;
             case "stale":
                 delay = -1;
