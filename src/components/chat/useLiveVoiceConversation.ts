@@ -35,6 +35,9 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
   const opening = useRef(false);
   const userText = useRef("");
   const tamilyaText = useRef("");
+  /** Message écrit qui attend le choix du mode, puis ce qu'il faut faire s'il reste sans réponse vocale. */
+  const typed = useRef<string | null>(null);
+  const unanswered = useRef<(() => void) | null>(null);
   const turnRef = useRef(onTurn);
   useEffect(() => {
     turnRef.current = onTurn;
@@ -43,6 +46,14 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
   const note = useCallback((event: string) => {
     const at = new Date().toLocaleTimeString("fr-FR", { minute: "2-digit", second: "2-digit" });
     setDebug((previous) => [...previous.split(" · ").filter(Boolean).slice(-2), `${at} ${event}`].join(" · "));
+  }, []);
+
+  /** Fermé ou en échec avant sa première parole : le message écrit n'est pas perdu. */
+  const giveBackTyped = useCallback(() => {
+    const fallback = unanswered.current;
+    typed.current = null;
+    unanswered.current = null;
+    fallback?.();
   }, []);
 
   const stop = useCallback(() => {
@@ -54,9 +65,10 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
     voiceListenEnd();
     setChoosing(false);
     setState("off");
-  }, []);
+    giveBackTyped();
+  }, [giveBackTyped]);
 
-  const open = useCallback((mode: TalkMode) => {
+  const open = useCallback((mode: TalkMode, firstMessage?: string) => {
     if (session.current || opening.current) return;
     opening.current = true;
     const mine = ++generation.current;
@@ -65,11 +77,12 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
     setBoard(false);
     setTranscript("");
     setReply("");
-    userText.current = "";
+    userText.current = firstMessage ?? "";
     tamilyaText.current = "";
     void openLiveSession({
       // « Maintenir » : Tamilya n'écoute que pendant l'appui. « Sans bouton » : Gemini repère seul la fin de parole.
       pushToTalk: mode === "hold",
+      firstMessage,
       onState: (live) => {
         if (live === "connexion") setState("waiting");
         else if (live === "écoute") {
@@ -90,6 +103,7 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
         setBeat((n) => n + 1);
       },
       onTamilyaText: (text) => {
+        unanswered.current = null;
         if (!tamilyaText.current) voiceSpeakStart(text);
         tamilyaText.current += text;
         voiceWord(tamilyaText.current, Math.max(0, tamilyaText.current.length - text.length));
@@ -130,13 +144,14 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
         voiceListenEnd();
         if (problem) setError(problem);
         setState("off");
+        giveBackTyped();
       },
     }).then((opened) => {
       opening.current = false;
       if (mine !== generation.current) return opened?.stop();
       session.current = opened;
     });
-  }, [note]);
+  }, [giveBackTyped, note]);
 
   const start = useCallback(() => {
     const mode = readTalkMode();
@@ -144,12 +159,25 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
     else setChoosing(true);
   }, [open]);
 
+  /** Message écrit qui demande sa voix (« chante ») : à appeler à l'envoi, le toucher ouvre le micro sur iPhone. */
+  const startWith = useCallback(
+    (text: string, fallback: () => void) => {
+      unanswered.current = fallback;
+      const mode = readTalkMode();
+      if (mode) return open(mode, text);
+      typed.current = text;
+      setChoosing(true);
+    },
+    [open],
+  );
+
   /** Le toucher sur le choix ouvre le micro (obligatoire sur iPhone). */
   const choose = useCallback(
     (mode: TalkMode) => {
       saveTalkMode(mode);
       setChoosing(false);
-      open(mode);
+      open(mode, typed.current ?? undefined);
+      typed.current = null;
     },
     [open],
   );
@@ -172,5 +200,5 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
 
   // say / replied : l'ancien mode lisait les réponses écrites ; en direct, Gemini parle lui-même.
   const nothing = useCallback(() => {}, []);
-  return { live: true, board, handsFree, choosing, choose, press, release, supported, state, error, hint: null, debug, transcript, reply, beat, start, stop, interrupt, say: nothing, replied: nothing };
+  return { live: true, board, handsFree, choosing, choose, startWith, press, release, supported, state, error, hint: null, debug, transcript, reply, beat, start, stop, interrupt, say: nothing, replied: nothing };
 }

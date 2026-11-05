@@ -22,6 +22,7 @@ import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
 import { AwaBlob } from "./AwaBlob";
 import { Composer, type ComposerHandle } from "./Composer";
 import { MessageItem, type UiMessage } from "./MessageItem";
+import { wantsSpokenReply } from "@/lib/voice-live/spoken-request";
 import { useLiveVoiceConversation } from "./useLiveVoiceConversation";
 import { useVoiceConversation } from "./useVoiceConversation";
 import { VoiceOverlay } from "./VoiceOverlay";
@@ -790,7 +791,11 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             isStreaming={isStreaming}
             disabled={blocked || !online}
             disabledReason={!online ? "Hors ligne" : importCandidate ? "Choisis d'abord ci-dessus" : "Conversation terminée"}
-            onSend={(text) => void send(text)}
+            onSend={(text) => {
+              // « Chante », « dis-le à voix haute » : le vocal s'ouvre tout seul et elle répond à voix haute.
+              if (voiceEnabled && online && voice.startWith && wantsSpokenReply(text)) voice.startWith(text, () => sendRef.current(text));
+              else void send(text);
+            }}
             onStop={() => abortRef.current?.abort()}
             placeholder="Demande-moi ce que tu veux…"
             // Conversation vide : des exemples défilent pour montrer ce que Tamilya sait faire ; ensuite, le texte reste fixe.

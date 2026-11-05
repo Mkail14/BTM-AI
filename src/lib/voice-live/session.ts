@@ -23,6 +23,8 @@ export type LiveCallbacks = {
   onToolCall?: (name: string, args: Record<string, unknown>) => Promise<string>;
   /** Talkie-walkie dès l'ouverture : Tamilya n'écoute que pendant l'appui sur le bouton. */
   pushToTalk?: boolean;
+  /** Message écrit à envoyer dès l'ouverture : Tamilya y répond tout de suite à voix haute. */
+  firstMessage?: string;
   /** Conversation fermée (normalement ou sur erreur, avec la raison). */
   onClose: (error: string | null) => void;
 };
@@ -142,6 +144,7 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
   /** Talkie-walkie : le micro n'envoie que pendant l'appui sur le bouton (choix de l'écran vocal). */
   let pushToTalk = callbacks.pushToTalk ?? false;
   let holding = false;
+  let firstMessage = callbacks.firstMessage;
   let socket: WebSocket | null = null;
   /** Reprise de la conversation chez Google après une coupure réseau (même contexte). */
   let resumeHandle: string | null = null;
@@ -214,7 +217,12 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
       ready = true;
       reconnects = 0;
       note("Gemini prêt");
-      callbacks.onState("écoute");
+      callbacks.onState(firstMessage ? "connexion" : "écoute");
+      if (firstMessage) {
+        speechEndedAt = performance.now();
+        send({ realtimeInput: { text: firstMessage } });
+        firstMessage = undefined;
+      }
     }
     if (message.sessionResumptionUpdate?.resumable && message.sessionResumptionUpdate.newHandle) {
       resumeHandle = message.sessionResumptionUpdate.newHandle;
