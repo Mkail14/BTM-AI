@@ -38,6 +38,6 @@ describe("boutons du vocal en direct", () => {
     assert.ok(liveToolBlock("commander_repas", { demande: "un mabawa" }, { food: true, barge: false })?.startsWith("```commande-repas"));
     assert.equal(liveToolBlock("inconnu", {}, { food: true, barge: true }), null);
     const names = liveToolDeclarations({ food: false, barge: false }).map((d) => d.name);
-    assert.deepEqual(names, ["reserver_code", "devis_btm"]);
+    assert.deepEqual(names, ["reserver_code", "devis_btm", "lire_tableau", "toucher_tableau", "remplir_tableau"]);
   });
 });

@@ -674,8 +674,10 @@ export function FoodOrder({ query = "" }: { query?: string }) {
             >
               <span aria-hidden="true">⏰</span> Programmer
             </button>
+            {/* N'encaisse rien : ouvre le récapitulatif, où le vrai bouton « Payer » reste au doigt. */}
             <button
               type="button"
+              data-voice-ok
               onClick={() => {
                 setScheduleFirst(false);
                 setCheckout(true);

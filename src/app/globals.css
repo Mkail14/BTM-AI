@@ -247,10 +247,19 @@ html[data-theme="dark"] {
 .voice-overlay {
   --orb: var(--persona, var(--accent));
   --orb-tech: color-mix(in srgb, var(--orb) 45%, #5ee7ff);
+  --orb-size: min(60vw, 16rem);
+  animation: voice-fade-in 300ms ease-out;
+}
+
+.voice-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
   background:
     radial-gradient(40rem 40rem at 50% 42%, color-mix(in srgb, var(--orb) 18%, transparent), transparent 70%),
     #05060a;
-  animation: voice-fade-in 300ms ease-out;
+  transition: opacity 500ms ease;
 }
 
 .voice-orb {
@@ -3207,21 +3216,168 @@ html[data-morph]::view-transition-new(root) {
  * devinée derrière), puis le texte et les boutons montent en douceur.
  */
 .voice-overlay[data-morph] {
-  background: none;
   animation: none;
 }
 
 .voice-overlay[data-morph]::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
   background:
     radial-gradient(38rem 38rem at 50% 42%, color-mix(in srgb, var(--orb) 14%, transparent), transparent 70%),
     rgb(5 6 10 / 0.88);
   -webkit-backdrop-filter: blur(24px) saturate(1.15);
   backdrop-filter: blur(24px) saturate(1.15);
   animation: voice-morph-bg 760ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/*
+ * Globe du mode vocal : au centre, puis en petit en haut de l'écran dès qu'un
+ * tableau s'ouvre (data-compact). Le fond s'efface, on touche le tableau au
+ * travers ; seuls le globe et les boutons restent actifs.
+ */
+.voice-orb-slot {
+  position: relative;
+}
+
+.voice-overlay[data-compact] {
+  pointer-events: none;
+}
+
+.voice-overlay[data-compact]::before {
+  opacity: 0;
+  animation: none;
+}
+
+.voice-overlay[data-compact] .voice-title {
+  visibility: hidden;
+}
+
+.voice-overlay[data-compact] .voice-orb-slot {
+  position: absolute;
+  top: calc(env(safe-area-inset-top) + 0.75rem);
+  left: 50%;
+  translate: -50% 0;
+  pointer-events: auto;
+}
+
+.voice-overlay[data-compact] .voice-middle {
+  justify-content: flex-start;
+  padding-top: 6.5rem;
+}
+
+.voice-overlay[data-compact] .voice-error {
+  width: fit-content;
+  margin-inline: auto;
+  border-radius: 1rem;
+  background: rgb(5 6 10 / 0.9);
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+}
+
+/* Sur un tableau clair comme sombre, les boutons restent lisibles. */
+.voice-overlay[data-compact] .voice-controls {
+  gap: 0.75rem;
+  border-radius: 999px;
+  background: rgb(5 6 10 / 0.88);
+  padding: 0.5rem;
+  pointer-events: auto;
+  box-shadow: 0 8px 28px rgb(0 0 0 / 0.35);
+}
+
+.voice-overlay[data-compact] .voice-mic {
+  width: 3.5rem;
+  height: 3.5rem;
+}
+
+/* Anneau arc-en-ciel : il tourne pendant tout l'appel, plus vite quand elle réfléchit ou parle. */
+.voice-halo {
+  --halo-speed: 5s;
+  position: absolute;
+  inset: -8%;
+  border-radius: 50%;
+  pointer-events: none;
+  transition: background-color 500ms ease;
+}
+
+.voice-orb-slot[data-state="listening"] .voice-halo {
+  --halo-speed: 3.5s;
+}
+
+.voice-orb-slot[data-state="waiting"] .voice-halo {
+  --halo-speed: 1.4s;
+}
+
+.voice-orb-slot[data-state="speaking"] .voice-halo {
+  --halo-speed: 2s;
+}
+
+.voice-orb-slot[data-state="off"] .voice-halo {
+  opacity: 0.45;
+}
+
+.voice-halo::before,
+.voice-halo::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(#ff4d6d, #ffb347, #ffe14d, #4dff88, #4dd2ff, #7a5cff, #ff4dd8, #ff4d6d);
+  -webkit-mask: radial-gradient(closest-side, transparent 89%, #000 91%);
+  mask: radial-gradient(closest-side, transparent 89%, #000 91%);
+  animation: voice-halo-spin var(--halo-speed) linear infinite;
+}
+
+.voice-halo::after {
+  filter: blur(14px);
+  opacity: 0.85;
+}
+
+.voice-overlay[data-compact] .voice-halo::after {
+  filter: blur(7px);
+}
+
+/* En petit, un disque sombre détache le globe de ce qu'il y a derrière. */
+.voice-overlay[data-compact] .voice-halo {
+  background-color: rgb(5 6 10 / 0.92);
+}
+
+@keyframes voice-halo-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
+/* Ce que Tamilya touche à la voix s'illumine, puis le tableau change. */
+[data-voice-board] {
+  scroll-margin-block: 8.5rem;
+}
+
+[data-voice-touch] {
+  /* Vers l'intérieur : certains boutons sont dans une zone qui coupe ce qui dépasse. */
+  outline: 3px solid #ff4dd8;
+  outline-offset: -3px;
+  animation: voice-touch 640ms ease-out both;
+}
+
+@keyframes voice-touch {
+  0% {
+    outline-color: #ff4d6d;
+  }
+  30% {
+    outline-color: #ffe14d;
+  }
+  60% {
+    outline-color: #4dd2ff;
+  }
+  100% {
+    outline-color: #7a5cff;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-halo::before,
+  .voice-halo::after,
+  [data-voice-touch] {
+    animation: none;
+  }
 }
 
 /* Le globe arrive déjà formé : pas d'éclosion par-dessus la morphose. */

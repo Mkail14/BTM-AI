@@ -325,6 +325,7 @@ export function BtmDevis({ query = "" }: { query?: string }) {
         {info.signedIn && info.canSave && problem?.reason !== "no_account" ? (
           <button
             type="button"
+            data-voice-finger
             onClick={() => void save()}
             disabled={!resultat || saving}
             className="flex w-full items-center justify-between gap-3 rounded-full px-4 py-3 font-medium text-white transition hover:brightness-110 active:scale-[0.99] disabled:opacity-45"

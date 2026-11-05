@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createStreamEventParser } from "@/lib/chat/stream-protocol";
 import type { ChatStreamEvent } from "@/lib/chat/types";
+import { Markdown } from "./Markdown";
 import { useLiveVoiceConversation } from "./useLiveVoiceConversation";
 import { useVoiceConversation } from "./useVoiceConversation";
 import { VoiceOverlay } from "./VoiceOverlay";
@@ -21,7 +22,8 @@ async function errorMessage(res: Response): Promise<string> {
 /**
  * Page /voix : seulement le globe. Les échanges partent dans une conversation
  * enregistrée comme les autres (historique, mémoire, shimaoré appris), mais
- * rien ne s'affiche à part Tamilya qui écoute et qui parle.
+ * rien ne s'affiche à part Tamilya qui écoute et qui parle, et les tableaux
+ * qu'elle ouvre (le globe monte alors en haut pour les laisser voir).
  */
 export function VoiceRoom() {
   const router = useRouter();
@@ -29,6 +31,7 @@ export function VoiceRoom() {
   const abortRef = useRef<AbortController | null>(null);
   const repliedRef = useRef<(text: string) => void>(() => {});
   const sayRef = useRef<(text: string) => void>(() => {});
+  const [boards, setBoards] = useState<string[]>([]);
 
   async function ask(text: string) {
     const controller = new AbortController();
@@ -70,7 +73,8 @@ export function VoiceRoom() {
 
   const legacyVoice = useVoiceConversation((text) => void ask(text));
   // Vocal en direct (Gemini Live) : chaque échange est enregistré dans la même conversation.
-  const liveVoice = useLiveVoiceConversation((user, tamilya) => {
+  const liveVoice = useLiveVoiceConversation((user, tamilya, board) => {
+    if (board) setBoards((previous) => [...previous, tamilya]);
     void fetch("/api/voice/live/turn", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -89,5 +93,16 @@ export function VoiceRoom() {
   }, [legacyVoice.replied, legacyVoice.say]);
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  return <VoiceOverlay voice={voice} standalone onClose={() => router.push("/admin")} />;
+  return (
+    <>
+      {boards.length ? (
+        <main className="mx-auto h-dvh max-w-xl space-y-4 overflow-y-auto px-4 pt-36 pb-40">
+          {boards.map((block, index) => (
+            <Markdown key={index} text={block} />
+          ))}
+        </main>
+      ) : null}
+      <VoiceOverlay voice={voice} standalone onClose={() => router.push("/admin")} />
+    </>
+  );
 }

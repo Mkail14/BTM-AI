@@ -636,7 +636,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
                 label={voiceEnabled ? "Parler à Tamilya" : "Écrire à Tamilya"}
                 onActivate={voiceEnabled && !blocked && online ? voice.start : () => composerRef.current?.focus()}
                 // Pendant le mode vocal, ce même globe est au centre de l'écran (morphose) : ici, il s'efface.
-                className={`awa-blob-home shrink-0 [@media(max-height:560px)]:hidden ${voice.state !== "off" ? "is-away" : ""}`}
+                className={`awa-blob-home shrink-0 [@media(max-height:560px)]:hidden ${voice.state !== "off" || voice.choosing ? "is-away" : ""}`}
               />
               <h1 suppressHydrationWarning className="awa-hello-rise mt-5 text-2xl font-semibold tracking-tight sm:mt-8 sm:text-4xl [@media(max-height:560px)]:mt-0">
                 {greeting()}

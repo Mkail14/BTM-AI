@@ -27,6 +27,9 @@ export const CODE_EXAM_BLOCK = "creneaux-code";
 /** Bloc ```commande-repas``` : remplacé par la commande de repas (FoodOrder). */
 export const FOOD_BLOCK = "commande-repas";
 
+/** Tableau que Tamilya peut piloter à la voix (lib/voice-live/board.ts). */
+const Board = ({ children }: { children: ReactNode }) => <div data-voice-board>{children}</div>;
+
 // Le HTML brut n'est pas interprété (pas de rehype-raw) : seul le Markdown est rendu.
 const components: Components = {
   pre: ({ children }) => {
@@ -35,16 +38,36 @@ const components: Components = {
     // Bureau, puis jour et moment voulus (« jour: 2026-11-03 ») ajoutés par le serveur : nouveau contenu, tableau rouvert.
     if (code === `language-${CODE_EXAM_BLOCK}`) {
       const block = textOf(children).trim();
-      return <CodeExamSlots key={block} office={block} />;
+      return (
+        <Board>
+          <CodeExamSlots key={block} office={block} />
+        </Board>
+      );
     }
     // Le contenu du bloc dit ce que la personne veut manger (« tacos », « pizza Pizza Mangrove »).
-    if (code === `language-${FOOD_BLOCK}`) return <FoodOrder query={textOf(children).trim()} />;
+    if (code === `language-${FOOD_BLOCK}`) {
+      return (
+        <Board>
+          <FoodOrder query={textOf(children).trim()} />
+        </Board>
+      );
+    }
     // Bloc ```ticket-barge``` : achat de tickets de barge (Mamoudzou → Dzaoudzi).
-    if (code === `language-${BARGE_BLOCK}`) return <BargeTickets query={textOf(children).trim()} />;
+    if (code === `language-${BARGE_BLOCK}`) {
+      return (
+        <Board>
+          <BargeTickets query={textOf(children).trim()} />
+        </Board>
+      );
+    }
     // Bloc ```devis-btm``` : devis de matériaux BTM (« dalle longueur=8 largeur=6 »), avec code de retrait.
     if (code === `language-${BTM_DEVIS_BLOCK}`) {
       const block = textOf(children).trim();
-      return <BtmDevis key={block} query={block} />;
+      return (
+        <Board>
+          <BtmDevis key={block} query={block} />
+        </Board>
+      );
     }
     return <pre>{children}</pre>;
   },

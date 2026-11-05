@@ -5,6 +5,7 @@ import { createSpeaker, holdMicrophone, isVoiceSupported, listen, speak, unlockS
 import { voiceHeard, voiceListenEnd } from "@/lib/chat/voice-level";
 import { beginVoiceTurn } from "@/lib/chat/voice-metrics";
 import { stripTranslation } from "@/lib/language/unknown-words";
+import type { TalkMode } from "@/lib/voice-live/talk-mode";
 
 /** off → listening (on parle) → waiting (Tamilya répond) → speaking (Tamilya lit) → listening… */
 export type VoiceState = "off" | "listening" | "waiting" | "speaking";
@@ -262,7 +263,8 @@ export function useVoiceConversation(onSend: (text: string) => void) {
 
   // Talkie-walkie et écran épuré : seulement en vocal direct (useLiveVoiceConversation).
   const noPress = undefined as (() => void) | undefined;
-  return { live: false, press: noPress, release: noPress, supported, state, error, hint, debug, transcript, reply, beat, start, stop, interrupt, say, replied };
+  const noChoice = undefined as ((mode: TalkMode) => void) | undefined;
+  return { live: false, board: false, handsFree: true, choosing: false, choose: noChoice, press: noPress, release: noPress, supported, state, error, hint, debug, transcript, reply, beat, start, stop, interrupt, say, replied };
 }
 
 export type VoiceConversation = ReturnType<typeof useVoiceConversation>;

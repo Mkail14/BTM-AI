@@ -5,6 +5,7 @@ import { AwaBlob, takeLaunchOrigin } from "./AwaBlob";
 import { IconClose, IconMic } from "@/components/ui/icons";
 import { speakableText } from "@/lib/chat/voice";
 import { splitUnknownWords } from "@/lib/language/unknown-words";
+import { TALK_MODES } from "@/lib/voice-live/talk-mode";
 import type { VoiceConversation } from "./useVoiceConversation";
 
 const LABELS = {
@@ -18,6 +19,9 @@ const LABELS = {
  * Mode vocal plein écran : le globe de Tamilya écoute, réfléchit et parle.
  * Il pulse à chaque mot entendu ou prononcé.
  * `standalone` (page /voix) : toujours affiché, le globe au repos attend qu'on le touche.
+ * Dès qu'elle ouvre un tableau (`voice.board`), le globe rétrécit et monte en haut, le
+ * fond sombre s'efface et on touche le tableau au travers : Tamilya reste là jusqu'à
+ * la fin de l'appel, entourée de son anneau arc-en-ciel.
  */
 export function VoiceOverlay({
   voice,
@@ -29,7 +33,8 @@ export function VoiceOverlay({
   /** Après l'arrêt (bouton ✕ ou Échap). */
   onClose?: () => void;
 }) {
-  const { state, transcript, reply, error, hint, debug, start, interrupt, live, press, release } = voice;
+  const { state, transcript, reply, error, hint, debug, start, interrupt, live, press, release, handsFree, choosing, choose, board } = voice;
+  const compact = Boolean(board);
   // Talkie-walkie (vocal direct) : bouton maintenu.
   const [holding, setHolding] = useState(false);
   const holdStart = () => {
@@ -49,7 +54,7 @@ export function VoiceOverlay({
     onClose?.();
   }, [onClose, stopVoice]);
 
-  const visible = state !== "off" || standalone;
+  const visible = state !== "off" || standalone || choosing;
   const overlay = useRef<HTMLDivElement>(null);
   const orb = useRef<HTMLDivElement>(null);
 
@@ -81,6 +86,26 @@ export function VoiceOverlay({
     overlay.current?.style.setProperty("--morph-y", `${from.top + from.height / 2}px`);
   }, [visible]);
 
+  /*
+   * Un tableau s'ouvre : le globe glisse du centre vers le haut en rétrécissant.
+   * Il change de place d'un coup, l'animation part de son ancienne place.
+   */
+  const orbRect = useRef<DOMRect | null>(null);
+  useLayoutEffect(() => {
+    const [el, from] = [orb.current, orbRect.current];
+    if (!el || !from || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const to = el.getBoundingClientRect();
+    const dx = from.left + from.width / 2 - (to.left + to.width / 2);
+    const dy = from.top + from.height / 2 - (to.top + to.height / 2);
+    el.animate([{ transform: `translate(${dx}px, ${dy}px) scale(${from.width / to.width})` }, { transform: "none" }], {
+      duration: 700,
+      easing: "cubic-bezier(0.34, 1.3, 0.64, 1)",
+    });
+  }, [compact]);
+  useLayoutEffect(() => {
+    orbRect.current = orb.current?.getBoundingClientRect() ?? null;
+  });
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") close();
@@ -89,7 +114,7 @@ export function VoiceOverlay({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [close]);
 
-  if (state === "off" && !standalone) return null;
+  if (!visible) return null;
   // Réponse de Tamilya : les [[mots français]] (ceux qu'elle ne connaît pas encore en shimaoré) en couleur.
   const text =
     state === "speaking"
@@ -110,29 +135,49 @@ export function VoiceOverlay({
     <div
       ref={overlay}
       role="dialog"
-      aria-modal="true"
+      aria-modal={!compact}
       aria-label="Conversation vocale avec Tamilya"
+      data-compact={compact || undefined}
       className="voice-overlay fixed inset-0 z-[60] flex flex-col items-center px-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] text-white"
     >
-      <p className="voice-morph-in text-sm font-medium tracking-[0.3em] text-white/50 uppercase">Tamilya</p>
+      <p className="voice-title voice-morph-in text-sm font-medium tracking-[0.3em] text-white/50 uppercase">Tamilya</p>
 
-      <div className="flex w-full flex-1 flex-col items-center justify-center gap-10">
+      <div className={`voice-middle flex w-full flex-1 flex-col items-center justify-center ${choosing ? "gap-6" : "gap-10"}`}>
         {/* La même Tamilya que sur l'accueil, en grand : elle suit sa voix quand elle parle, frémit quand on lui parle. */}
-        <div ref={orb}>
+        <div ref={orb} className="voice-orb-slot" data-state={state}>
+          <span aria-hidden="true" className="voice-halo" />
           <AwaBlob
             label={state === "speaking" ? "Couper Tamilya et parler" : "Parler"}
             onActivate={talk}
             immediate
             busy={state === "waiting"}
-            size="min(60vw, 16rem)"
-            goo={13}
+            size={compact ? "min(26vw, 6.5rem)" : "min(60vw, 16rem)"}
+            goo={compact ? 5 : 13}
           />
         </div>
 
-        {live ? (
+        {choosing ? (
+          <div className="voice-morph-in w-full max-w-xl text-center [animation-delay:380ms]">
+            <p className="text-lg font-medium">Comment veux-tu me parler ?</p>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              {TALK_MODES.map((mode) => (
+                <button
+                  key={mode.id}
+                  type="button"
+                  onClick={() => choose?.(mode.id)}
+                  className="rounded-2xl bg-white/10 p-3 text-left transition hover:bg-white/20 sm:p-4"
+                >
+                  <span className="block text-sm font-medium">{mode.title}</span>
+                  <span className="mt-1 block text-xs leading-snug text-white/60">{mode.detail}</span>
+                </button>
+              ))}
+            </div>
+            <p className="mt-3 text-xs text-white/50">Tu pourras changer dans les paramètres, rubrique Tamilya.</p>
+          </div>
+        ) : live ? (
           // Vocal direct : écran épuré, le globe seul (le texte n'apparaît qu'en cas d'erreur).
           <div className="voice-morph-in min-h-[3lh] w-full max-w-xl text-center [animation-delay:380ms]" aria-live="polite">
-            {error && state === "off" ? <p className="text-base font-medium text-red-300">{error}</p> : null}
+            {error && state === "off" ? <p className="voice-error text-base font-medium text-red-300">{error}</p> : null}
             <span className="sr-only">{LABELS[state]}</span>
           </div>
         ) : (
@@ -147,8 +192,8 @@ export function VoiceOverlay({
         )}
       </div>
 
-      <div className="voice-morph-in flex items-center gap-6 [animation-delay:480ms]">
-        {live ? (
+      <div className="voice-controls voice-morph-in flex items-center gap-6 [animation-delay:480ms]">
+        {choosing || (live && handsFree) ? null : live ? (
           // Talkie-walkie : maintenir pour parler, relâcher pour que Tamilya réponde tout de suite.
           <button
             type="button"
@@ -171,7 +216,7 @@ export function VoiceOverlay({
             onContextMenu={(event) => event.preventDefault()}
             // iPhone : pas de loupe ni de menu à l'appui long.
             style={{ WebkitTouchCallout: "none", WebkitUserSelect: "none" }}
-            className={`grid size-20 touch-none select-none place-items-center rounded-full transition disabled:opacity-40 ${
+            className={`voice-mic grid size-20 touch-none select-none place-items-center rounded-full transition disabled:opacity-40 ${
               holding ? "scale-110 bg-white text-black" : "bg-white/10 text-white hover:bg-white/20"
             }`}
           >

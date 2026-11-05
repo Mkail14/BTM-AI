@@ -1,8 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { boardCount, describeBoard, touchBoard, waitForBoard, writeBoard } from "@/lib/voice-live/board";
 import { voiceHeard, voiceListenEnd, voiceSpeakEnd, voiceSpeakStart, voiceWord } from "@/lib/chat/voice-level";
 import { isLiveVoiceSupported, openLiveSession, type LiveSession } from "@/lib/voice-live/session";
+import { readTalkMode, saveTalkMode, type TalkMode } from "@/lib/voice-live/talk-mode";
 import type { VoiceConversation, VoiceState } from "./useVoiceConversation";
 
 const noSubscribe = () => () => {};
@@ -11,9 +13,10 @@ const noSubscribe = () => () => {};
  * Mode vocal en direct (Gemini Live), avec la même interface que l'ancien mode
  * (useVoiceConversation) : l'écran vocal et le globe ne changent pas. À la fin
  * de chaque réponse, `onTurn` reçoit ce que la personne a dit et ce que
- * Tamilya a répondu, pour l'afficher et l'enregistrer dans la conversation.
+ * Tamilya a répondu, pour l'afficher et l'enregistrer dans la conversation
+ * (`board` : ce qu'elle « répond » est un tableau à afficher).
  */
-export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string) => void): VoiceConversation {
+export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string, board?: boolean) => void): VoiceConversation {
   const supported = useSyncExternalStore(noSubscribe, isLiveVoiceSupported, () => false);
   const [state, setState] = useState<VoiceState>("off");
   const [error, setError] = useState<string | null>(null);
@@ -21,6 +24,11 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string)
   const [reply, setReply] = useState("");
   const [beat, setBeat] = useState(0);
   const [debug, setDebug] = useState("");
+  /** Un tableau est ouvert : le globe se fait petit et laisse voir l'écran jusqu'à la fin de l'appel. */
+  const [board, setBoard] = useState(false);
+  /** Première utilisation : l'écran vocal demande comment parler avant d'ouvrir le micro. */
+  const [choosing, setChoosing] = useState(false);
+  const [handsFree, setHandsFree] = useState(false);
   const session = useRef<LiveSession | null>(null);
   /** Numéro de la conversation en cours d'ouverture : fermée avant d'être prête, elle est refermée dès qu'elle l'est. */
   const generation = useRef(0);
@@ -44,21 +52,24 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string)
     session.current = null;
     voiceSpeakEnd();
     voiceListenEnd();
+    setChoosing(false);
     setState("off");
   }, []);
 
-  const start = useCallback(() => {
+  const open = useCallback((mode: TalkMode) => {
     if (session.current || opening.current) return;
     opening.current = true;
     const mine = ++generation.current;
+    setHandsFree(mode === "free");
     setError(null);
+    setBoard(false);
     setTranscript("");
     setReply("");
     userText.current = "";
     tamilyaText.current = "";
     void openLiveSession({
-      // Talkie-walkie seulement : Tamilya n'écoute que pendant l'appui sur le bouton micro.
-      pushToTalk: true,
+      // « Maintenir » : Tamilya n'écoute que pendant l'appui. « Sans bouton » : Gemini repère seul la fin de parole.
+      pushToTalk: mode === "hold",
       onState: (live) => {
         if (live === "connexion") setState("waiting");
         else if (live === "écoute") {
@@ -92,6 +103,10 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string)
         tamilyaText.current = "";
       },
       onToolCall: async (name, args) => {
+        // Tableau déjà à l'écran : Tamilya agit directement dessus, sans passer par le serveur.
+        if (name === "lire_tableau") return describeBoard();
+        if (name === "toucher_tableau") return touchBoard(String(args.bouton ?? ""));
+        if (name === "remplir_tableau") return writeBoard(String(args.champ ?? ""), String(args.valeur ?? ""));
         const response = await fetch("/api/voice/live/tool", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -100,9 +115,12 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string)
         const data = (await response.json().catch(() => null)) as { block?: string; error?: string } | null;
         if (!data?.block) return data?.error ?? "Ce bouton n'est pas disponible : dis-le à la personne.";
         // Le tableau s'affiche dans la conversation, juste après ce que la personne vient de dire.
-        turnRef.current(userText.current.trim(), data.block);
+        const before = boardCount();
+        turnRef.current(userText.current.trim(), data.block, true);
         userText.current = "";
-        return "C'est affiché sur l'écran de la personne : dis-lui en une phrase de choisir et valider au doigt. N'invente aucun horaire ni prix.";
+        setBoard(true);
+        await waitForBoard(before);
+        return `C'est affiché sur l'écran de la personne. Continue toi-même avec ce qu'elle t'a déjà dit.\n${describeBoard()}`;
       },
       onLatency: (ms) => note(`réponse en ${(ms / 1000).toFixed(1)} s`),
       onNote: note,
@@ -119,6 +137,22 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string)
       session.current = opened;
     });
   }, [note]);
+
+  const start = useCallback(() => {
+    const mode = readTalkMode();
+    if (mode) open(mode);
+    else setChoosing(true);
+  }, [open]);
+
+  /** Le toucher sur le choix ouvre le micro (obligatoire sur iPhone). */
+  const choose = useCallback(
+    (mode: TalkMode) => {
+      saveTalkMode(mode);
+      setChoosing(false);
+      open(mode);
+    },
+    [open],
+  );
 
   /** Talkie-walkie : appui = Tamilya se tait et t'écoute ; relâcher = elle répond tout de suite. */
   const press = useCallback(() => {
@@ -138,5 +172,5 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string)
 
   // say / replied : l'ancien mode lisait les réponses écrites ; en direct, Gemini parle lui-même.
   const nothing = useCallback(() => {}, []);
-  return { live: true, press, release, supported, state, error, hint: null, debug, transcript, reply, beat, start, stop, interrupt, say: nothing, replied: nothing };
+  return { live: true, board, handsFree, choosing, choose, press, release, supported, state, error, hint: null, debug, transcript, reply, beat, start, stop, interrupt, say: nothing, replied: nothing };
 }

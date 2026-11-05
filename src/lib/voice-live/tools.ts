@@ -8,8 +8,10 @@ import { detectFoodOrder, foodBlock } from "@/lib/food/intent";
 /**
  * « Boutons » du vocal en direct (fonctions de la Live API) : Tamilya les
  * actionne en parlant, et l'écran affiche le même tableau qu'à l'écrit
- * (créneaux du code, commande de repas, ticket de barge, devis BTM). La
- * personne valide ensuite au doigt : rien n'est payé ni réservé à la voix.
+ * (créneaux du code, commande de repas, ticket de barge, devis BTM). Elle
+ * peut ensuite le remplir à la place de la personne (boutons *_tableau, exécutés
+ * dans le navigateur : lib/voice-live/board.ts). La personne valide au doigt :
+ * rien n'est payé ni réservé à la voix.
  */
 
 export type LiveToolName = "reserver_code" | "commander_repas" | "ticket_barge" | "devis_btm";
@@ -55,6 +57,25 @@ export function liveToolDeclarations(access: LiveAccess) {
       name: "devis_btm",
       description: "Ouvre à l'écran le devis BTM (matériaux de construction aux prix de btm.yt) quand la personne veut chiffrer des travaux ou acheter des matériaux.",
       parameters: { type: "OBJECT", properties: { demande: text("Ses travaux ou matériaux, dans ses mots (ex. « un mur de 10 m »).") }, required: ["demande"] },
+    },
+    {
+      name: "lire_tableau",
+      description: "Relit le tableau affiché à l'écran : son texte, les boutons et les champs disponibles. À utiliser si la personne a touché l'écran, ou pour lui dire ce qui est affiché (prix, horaires).",
+      parameters: { type: "OBJECT", properties: {} },
+    },
+    {
+      name: "toucher_tableau",
+      description: "Touche un bouton du tableau affiché, à la place de la personne (elle le voit bouger) : choisir une ville, un jour, une heure, un restaurant, ajouter un ticket ou un plat. Renvoie le tableau après le toucher. Impossible pour payer ou réserver : c'est au doigt.",
+      parameters: { type: "OBJECT", properties: { bouton: text("Le libellé du bouton, exactement comme dans la liste reçue.") }, required: ["bouton"] },
+    },
+    {
+      name: "remplir_tableau",
+      description: "Écrit dans un champ du tableau affiché (une liste de choix aussi), avec ce que la personne vient de dire. Renvoie le tableau après.",
+      parameters: {
+        type: "OBJECT",
+        properties: { champ: text("Le libellé du champ, exactement comme dans la liste reçue."), valeur: text("Ce qu'il faut écrire ou choisir.") },
+        required: ["champ", "valeur"],
+      },
     },
   ];
 }
