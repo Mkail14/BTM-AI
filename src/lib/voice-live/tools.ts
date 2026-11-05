@@ -3,6 +3,8 @@ import { bargeBlockFor } from "@/lib/barge/intent";
 import { btmDevisBlockFor } from "@/lib/btm/intent";
 import { addWhenToBlock, parseCodeExamWhen } from "@/lib/code-exam/when";
 import { FOOD_CATALOG } from "@/lib/food/catalog";
+import { groupBlock } from "@/lib/food/group-block";
+import { groupSpec } from "@/lib/food/group-order";
 import { detectFoodOrder, foodBlock } from "@/lib/food/intent";
 import { blockContent, combinedBlock, type CombinedPart } from "./combined";
 
@@ -40,8 +42,8 @@ export function liveToolDeclarations(access: LiveAccess) {
       ? [
           {
             name: "commander_repas",
-            description: "Ouvre à l'écran la commande de repas (restaurants de Mayotte) quand la personne veut commander à manger.",
-            parameters: { type: "OBJECT", properties: { demande: text("Ce qu'elle veut, dans ses mots (restaurant, plat, quantité).") }, required: ["demande"] },
+            description: "Ouvre à l'écran la commande de repas (restaurants de Mayotte) quand la personne veut commander à manger. Avec plusieurs articles, le tableau compose le panier : un restaurant s'il a tout, sinon il propose de prendre le reste ailleurs avec le prix du détour.",
+            parameters: { type: "OBJECT", properties: { demande: text("Tout ce qu'elle veut, dans ses mots (restaurant, plats, boissons, quantités), par ex. « un tacos merguez trois sauces et de l'eau ».") }, required: ["demande"] },
           },
         ]
       : []),
@@ -138,7 +140,8 @@ export function liveToolBlock(name: string, args: Record<string, unknown>, acces
     case "commander_repas": {
       if (!access.food) return null;
       const demande = arg(args, "demande");
-      return foodBlock(detectFoodOrder(demande, [], FOOD_CATALOG) ?? demande).trim();
+      const spec = groupSpec(demande);
+      return (spec ? groupBlock(spec) : foodBlock(detectFoodOrder(demande, [], FOOD_CATALOG) ?? demande)).trim();
     }
     case "ticket_barge":
       return access.barge ? bargeBlockFor(arg(args, "demande") || "ticket de barge").trim() : null;

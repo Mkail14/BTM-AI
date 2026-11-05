@@ -5,6 +5,7 @@ import remarkGfm from "remark-gfm";
 import { markUnknownWords } from "@/lib/language/unknown-words";
 import { BARGE_BLOCK } from "@/lib/barge/intent";
 import { BTM_DEVIS_BLOCK } from "@/lib/btm/intent";
+import { GROUP_BLOCK } from "@/lib/food/group-block";
 import { COMBINED_BLOCK } from "@/lib/voice-live/combined";
 import { parseYouTubeLink } from "@/lib/youtube/link";
 import { UnknownWord } from "./UnknownWord";
@@ -53,6 +54,14 @@ const components: Components = {
       return (
         <Board>
           <FoodOrder query={textOf(children).trim()} />
+        </Board>
+      );
+    }
+    // Bloc ```commande-groupee``` : le panier composé par Tamilya, un article par ligne.
+    if (code === `language-${GROUP_BLOCK}`) {
+      return (
+        <Board>
+          <FoodOrder query={textOf(children).trim()} group />
         </Board>
       );
     }

@@ -6,7 +6,7 @@
  */
 
 export const COMBINED_BLOCK = "tableau-combine";
-export const COMBINED_KINDS = ["commande-repas", "ticket-barge", "creneaux-code", "devis-btm"] as const;
+export const COMBINED_KINDS = ["commande-repas", "commande-groupee", "ticket-barge", "creneaux-code", "devis-btm"] as const;
 export type CombinedKind = (typeof COMBINED_KINDS)[number];
 export type CombinedPart = { kind: CombinedKind; spec: string };
 

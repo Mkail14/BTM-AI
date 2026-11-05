@@ -1,3 +1,4 @@
+import { groupSpec } from "./group-order";
 import { DISH_KINDS, matchFoodQuery, normalizeFood } from "./match";
 
 /**
@@ -56,6 +57,12 @@ export function detectFoodOrder(message: string, earlier: readonly string[], res
   }
   // Envie de manger sans rien de précis : toute l'offre.
   return hungry ? "tout" : null;
+}
+
+/** Demande de plusieurs articles (« un tacos et de l'eau ») : le contenu du bloc ```commande-groupee```. */
+export function detectGroupOrder(message: string): string | null {
+  const text = ` ${normalizeFood(message)} `;
+  return !TRACKING.test(text) && WANTS.test(text) ? groupSpec(message) : null;
 }
 
 /** Le bloc à ajouter à la réponse quand le modèle ne l'a pas écrit. */

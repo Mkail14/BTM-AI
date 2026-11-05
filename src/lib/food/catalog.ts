@@ -9,7 +9,9 @@
  * Aucune commande n'est transmise aux restaurants.
  */
 
+import type { Point } from "@/lib/geo/communes";
 import { DEMO_PAYMENTS } from "@/lib/wallet/demo-mode";
+import { groupDeliveryCents, groupRestaurant, MAX_GROUP_STOPS } from "./group-order";
 import { JEJE_RESTAURANTS } from "./jeje-catalog";
 
 /** Démonstration (interrupteur commun à tous les paiements : src/lib/wallet/demo-mode.ts). */
@@ -79,4 +81,23 @@ export function priceOrder(restaurantId: string, cart: readonly FoodCartLine[]) 
   }
   const itemsCents = lines.reduce((sum, l) => sum + l.totalCents, 0);
   return { restaurant, lines, itemsCents, deliveryCents: FOOD_DELIVERY_FEE_CENTS, totalCents: itemsCents + FOOD_DELIVERY_FEE_CENTS };
+}
+
+/**
+ * Commande groupée : même forme que priceOrder, chaque restaurant aux prix du
+ * catalogue et la livraison recalculée d'après le trajet. null si un restaurant
+ * ou un plat est inconnu, ou si un restaurant est cité deux fois.
+ */
+export function priceGroupOrder(stops: readonly { restaurantId: string; cart: readonly FoodCartLine[] }[], client: Point | null) {
+  if (stops.length < 2 || stops.length > MAX_GROUP_STOPS || new Set(stops.map((s) => s.restaurantId)).size !== stops.length) return null;
+  const orders = [];
+  for (const stop of stops) {
+    const order = priceOrder(stop.restaurantId, stop.cart);
+    if (!order) return null;
+    orders.push(order);
+  }
+  const restaurants = orders.map((o) => o.restaurant);
+  const itemsCents = orders.reduce((sum, o) => sum + o.itemsCents, 0);
+  const deliveryCents = groupDeliveryCents(restaurants, client, FOOD_DELIVERY_FEE_CENTS);
+  return { restaurant: groupRestaurant(restaurants), lines: orders.flatMap((o) => o.lines), itemsCents, deliveryCents, totalCents: itemsCents + deliveryCents };
 }

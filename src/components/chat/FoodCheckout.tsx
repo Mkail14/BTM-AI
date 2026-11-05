@@ -132,6 +132,9 @@ export function FoodCheckout({
   onPlaced,
   here = null,
   initialScheduled = false,
+  stops,
+  deliveryCentsFor,
+  initialNote = "",
 }: {
   data: FoodResponse;
   restaurant: FoodRestaurant;
@@ -144,6 +147,12 @@ export function FoodCheckout({
   here?: { commune: string; geo: GeoPoint | null } | null;
   /** Ouvert par « Programmer » : l'heure de livraison est à choisir. */
   initialScheduled?: boolean;
+  /** Commande groupée : les paniers par restaurant (`restaurant` les présente comme un seul). */
+  stops?: { restaurantId: string; cart: FoodCartLine[] }[];
+  /** Commande groupée : la livraison dépend du trajet, donc de l'adresse choisie. */
+  deliveryCentsFor?: (place: { commune: string; geo: GeoPoint | null } | null) => number;
+  /** Précisions déjà données à Tamilya (« trois sauces »). */
+  initialNote?: string;
 }) {
   const id = useId();
   // Quand livrer : dès que possible, ou à une heure choisie (créneaux de 30 min).
@@ -180,7 +189,7 @@ export function FoodCheckout({
   // Numéro enregistré : seule sa version masquée est connue ici, le serveur le réutilise.
   const [editingPhone, setEditingPhone] = useState(!data.savedPhone);
   const [phone, setPhone] = useState("");
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState(initialNote);
   const [tried, setTried] = useState(false);
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -204,12 +213,13 @@ export function FoodCheckout({
   }
 
   const items = new Map(restaurant.menu.flatMap((s) => s.items).map((i) => [i.id, i]));
-  const totalCents = itemsCents + data.deliveryCents;
-  const missingCents = Math.max(0, totalCents - data.balanceCents);
   // Adresse envoyée : celle du compte (ou corrigée), ou la position GPS du moment.
   const book = data.savedAddresses.find((a) => a.id === where) ?? null;
   const delivery: AddressDraft | null =
     where === "here" ? (spot ? { commune: spot.commune, line: "Position GPS : là où je suis", geo: spot.geo } : null) : (book ?? address);
+  const deliveryCents = deliveryCentsFor ? deliveryCentsFor(delivery) : data.deliveryCents;
+  const totalCents = itemsCents + deliveryCents;
+  const missingCents = Math.max(0, totalCents - data.balanceCents);
   const hasAddress = Boolean(delivery?.commune && delivery.line);
   const zoneError =
     delivery?.commune && !data.zones.includes(delivery.commune) ? `On ne livre pas encore à ${delivery.commune}.` : null;
@@ -241,8 +251,9 @@ export function FoodCheckout({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          restaurantId: restaurant.id,
-          cart: lines,
+          restaurantId: stops?.[0]?.restaurantId ?? restaurant.id,
+          cart: stops?.[0]?.cart ?? lines,
+          extraStops: stops?.slice(1),
           address: delivery,
           // Position du moment : jamais gardée comme adresse du compte.
           saveAddress: where === "home" && saveAddress,
@@ -343,7 +354,7 @@ export function FoodCheckout({
           })}
           <li className="flex justify-between px-3 py-2 text-fg-muted">
             <span>Livraison</span>
-            <span className="tabular-nums">{formatEuros(data.deliveryCents)}</span>
+            <span className="tabular-nums">{formatEuros(deliveryCents)}</span>
           </li>
           <li className="flex justify-between px-3 py-2.5 text-base font-semibold">
             <span>Total</span>

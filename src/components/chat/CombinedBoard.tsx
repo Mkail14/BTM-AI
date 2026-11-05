@@ -8,6 +8,7 @@ import { FoodOrder } from "./FoodOrder";
 
 const TITLES: Record<CombinedKind, string> = {
   "commande-repas": "Repas",
+  "commande-groupee": "Repas",
   "ticket-barge": "Barge",
   "creneaux-code": "Code de la route",
   "devis-btm": "Devis BTM",
@@ -35,6 +36,8 @@ export function CombinedBoard({ text }: { text: string }) {
           </p>
           {part.kind === "commande-repas" ? (
             <FoodOrder query={part.spec} />
+          ) : part.kind === "commande-groupee" ? (
+            <FoodOrder query={part.spec} group />
           ) : part.kind === "ticket-barge" ? (
             <BargeTickets query={part.spec} />
           ) : part.kind === "creneaux-code" ? (

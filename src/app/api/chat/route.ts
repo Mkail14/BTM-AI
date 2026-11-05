@@ -7,7 +7,8 @@ import { canBuyBargeTickets } from "@/lib/barge/access";
 import { BARGE_BLOCK, bargeBlockFor, bargeSpec, detectBargeTicket } from "@/lib/barge/intent";
 import { BTM_DEVIS_BLOCK, btmDevisBlockFor, btmDevisSpec, detectBtmDevis } from "@/lib/btm/intent";
 import { FOOD_CATALOG } from "@/lib/food/catalog";
-import { detectFoodOrder, foodBlock } from "@/lib/food/intent";
+import { GROUP_BLOCK, groupBlock } from "@/lib/food/group-block";
+import { detectFoodOrder, detectGroupOrder, foodBlock } from "@/lib/food/intent";
 import { addWhenToBlock, formatWhenDay, parseCodeExamWhen } from "@/lib/code-exam/when";
 import { describeOrder, readLastOrder } from "@/lib/food/last-order";
 import { chatErrorBody } from "@/lib/chat/errors";
@@ -396,9 +397,11 @@ export async function POST(request: NextRequest) {
     ),
     { role: "user", content: body.message },
   ];
+  // Plusieurs articles d'un coup : Tamilya compose le panier, à la place de la commande simple.
+  const foodGroup = foodOrdering && !body.voice ? detectGroupOrder(body.message) : null;
   // Demande de repas reconnue ici, sans attendre le modèle : la commande s'ouvre à coup sûr.
   const foodQuery =
-    foodOrdering && !body.voice
+    foodOrdering && !body.voice && !foodGroup
       ? detectFoodOrder(
           body.message,
           history.filter((turn) => turn.role === "user").map((turn) => turn.content).reverse(),
@@ -432,6 +435,7 @@ export async function POST(request: NextRequest) {
     home,
     foodOrdering,
     foodQuery,
+    foodGroup,
     bargeTickets,
     bargeIntent,
     bargeSpec: bargeIntent === "buy" ? bargeSpec(body.message) : undefined,
@@ -597,6 +601,11 @@ export async function POST(request: NextRequest) {
         // Filet de sécurité : demande de repas reconnue mais pas de bloc dans la réponse (petit modèle, mode maître) : on l'ajoute.
         if (foodQuery && text && !text.includes("```commande-repas")) {
           const block = foodBlock(foodQuery);
+          text += block;
+          send({ type: "delta", text: block });
+        }
+        if (foodGroup && text && !text.includes("```" + GROUP_BLOCK)) {
+          const block = groupBlock(foodGroup);
           text += block;
           send({ type: "delta", text: block });
         }

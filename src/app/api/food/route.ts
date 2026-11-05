@@ -12,7 +12,8 @@ import { geocodeAddress, geocodePlace } from "@/lib/geo/geocode";
 import type { Point } from "@/lib/geo/communes";
 import { orderCode } from "@/lib/food/order-code";
 import { isSchedulable } from "@/lib/food/schedule";
-import { FOOD_CATALOG, FOOD_DELIVERY_FEE_CENTS, FOOD_ZONES, priceOrder, type FoodRestaurant } from "@/lib/food/catalog";
+import { findRestaurant, FOOD_CATALOG, FOOD_DELIVERY_FEE_CENTS, FOOD_ZONES, priceGroupOrder, priceOrder, type FoodRestaurant } from "@/lib/food/catalog";
+import { clientPoint, MAX_GROUP_STOPS } from "@/lib/food/group-order";
 import { getProfileContact, saveProfileAddress, saveProfilePhone } from "@/lib/profile-contact";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
@@ -62,9 +63,13 @@ export async function GET() {
   return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
 }
 
+const cartSchema = z.array(z.object({ itemId: z.string().max(60), quantity: z.number().int() })).min(1).max(30);
+
 const orderSchema = z.object({
   restaurantId: z.string().max(60),
-  cart: z.array(z.object({ itemId: z.string().max(60), quantity: z.number().int() })).min(1).max(30),
+  cart: cartSchema,
+  /** Commande groupée : les autres restaurants, servis par le même livreur. */
+  extraStops: z.array(z.object({ restaurantId: z.string().max(60), cart: cartSchema })).max(MAX_GROUP_STOPS - 1).optional(),
   address: addressSchema,
   /** Garder cette adresse comme celle du compte (proposé quand elle est corrigée). */
   saveAddress: z.boolean(),
@@ -100,7 +105,10 @@ export async function POST(request: NextRequest) {
   if (!FOOD_ZONES.includes(address.commune)) {
     return fail(400, `On ne livre pas encore à ${address.commune} (seulement ${FOOD_ZONES.join(", ")}).`);
   }
-  const order = priceOrder(parsed.data.restaurantId, parsed.data.cart);
+  const { restaurantId, cart, extraStops } = parsed.data;
+  const order = extraStops?.length
+    ? priceGroupOrder([{ restaurantId, cart }, ...extraStops], clientPoint(address.commune, address.geo))
+    : priceOrder(restaurantId, cart);
   if (!order) return fail(400, "Un plat de ta commande n'existe plus : recommence ton panier.");
   const scheduledMs = parsed.data.scheduledFor ? Date.parse(parsed.data.scheduledFor) : null;
   if (scheduledMs !== null && !isSchedulable(scheduledMs, Date.now() - 5 * 60_000, order.restaurant.etaMinutes[1])) {
@@ -119,7 +127,8 @@ export async function POST(request: NextRequest) {
   // cherchés pendant le paiement.
   const places = Promise.all([
     address.geo ? { point: { lat: address.geo.lat, lng: address.geo.lng }, found: true } : geocodeAddress(address.line, address.commune),
-    geocodePlace(order.restaurant.name, order.restaurant.commune, restaurantPoint(order.restaurant.id, order.restaurant.commune)),
+    // Commande groupée : le départ sur la carte est le premier restaurant.
+    geocodePlace(findRestaurant(restaurantId)?.name ?? order.restaurant.name, order.restaurant.commune, restaurantPoint(order.restaurant.id, order.restaurant.commune)),
   ]);
 
   const contact = await getProfileContact(supabase, user.id);

@@ -82,6 +82,8 @@ export type PromptContext = {
   codeExamDay?: string | null;
   /** Ce message demande à manger (detectFoodOrder) : contenu du bloc commande-repas à ouvrir. */
   foodQuery?: string | null;
+  /** Ce message demande plusieurs articles (detectGroupOrder) : contenu du bloc commande-groupee, un article par ligne. */
+  foodGroup?: string | null;
   /** Achat de tickets de barge ouvert à ce compte (démonstration : administrateurs, voir src/lib/barge/access.ts). */
   bargeTickets?: boolean;
   /** Ce message demande un ticket de barge (detectBargeTicket) : « buy » ouvre l'achat, « free » (départ de Petite-Terre) rappelle que c'est gratuit. */
@@ -160,6 +162,9 @@ const FOOD = [
   "- La personne cite un restaurant (même mal écrit, ou demande ce qu'il propose, ce qu'il prépare) : reconnais-le dans la liste et ouvre le bloc avec son nom exact : son menu s'affiche. S'il n'est pas dans la liste, dis simplement que tu ne le connais pas encore et propose ceux qui servent le même genre de plat.",
   `- Restaurants disponibles : ${FOOD_CATALOG.map((r) => `${r.name} (${r.kind.toLowerCase()})`).join(" ; ")}.`,
   "- Un plat précis (« je veux un tacos ») : le bloc n'affiche que ce plat, chez les restaurants qui le font, du plus proche au plus loin de chez la personne. Ta phrase le dit simplement (ex. « Voilà les tacos près de chez toi 🌮 »). Si son adresse n'est pas connue, la carte lui demande où elle est : ne la demande pas toi-même.",
+  "- Plusieurs articles à la fois (« un tacos merguez et de l'eau »), ou un article ajouté à ce qu'elle vient de demander : écris plutôt ce bloc, un article par ligne, avec ses précisions et sans en oublier :",
+  "```commande-groupee\ntacos merguez trois sauces\neau\n```",
+  "- Ce bloc compose le panier tout seul : un restaurant s'il a tout, sinon il propose de prendre le reste ailleurs, livraison plus chère selon le détour. Ne dis jamais toi-même qui vend quoi : le tableau l'affiche.",
   "- Restaurant, plats, adresse, paiement puis suivi de la livraison (préparation, livraison, code) se font dans ce qui s'affiche : n'écris toi-même ni menu ni prix, et ne demande pas l'adresse dans la conversation.",
   "- Avec ton maître aussi, c'est une exception au « UNIQUEMENT en shimaoré » : une phrase très courte en shimaoré, puis le bloc.",
 ].join("\n");
@@ -397,6 +402,16 @@ export function buildSystemPrompt(
             "Le bloc ne montre que ces tickets (lus dans son message) : n'y ajoute ni véhicule ni personne qu'elle n'a pas cités.",
           ].join("\n")
         : "POUR CE MESSAGE : la personne veut un ticket pour partir de Petite-Terre. Dis-lui simplement, en une ou deux phrases, que la traversée depuis Petite-Terre (Dzaoudzi) vers Mamoudzou est gratuite : pas besoin de ticket. N'ajoute pas le bloc ticket-barge.",
+    );
+  }
+  if (context.foodGroup && context.foodOrdering && !context.site && !context.voice) {
+    sections.push(
+      [
+        "POUR CE MESSAGE : la personne veut commander plusieurs articles ensemble.",
+        "Réponds en UNE phrase courte et chaleureuse en français (même avec ton maître), sans poser de question et sans dire quel restaurant a quoi, puis ce bloc exactement, seul sur ses lignes :",
+        `\`\`\`commande-groupee\n${context.foodGroup}\n\`\`\``,
+        "Le panier, les prix et le paiement s'affichent dans le bloc : n'en écris rien toi-même.",
+      ].join("\n"),
     );
   }
   // Demande de devis BTM reconnue par le serveur.

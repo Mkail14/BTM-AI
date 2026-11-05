@@ -11,6 +11,7 @@ import { COMMUNE_CENTERS, distanceKm, locateMe, PETITE_TERRE } from "@/lib/geo/c
 import { formatEuros } from "@/lib/wallet/limits";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { FoodCheckout } from "./FoodCheckout";
+import { FoodGroup } from "./FoodGroup";
 import { ORDER_EVENT, ORDER_KEY, OrderTracker, type PlacedOrder } from "./OrderTracker";
 
 const PERSONA = "var(--persona,var(--accent))";
@@ -217,8 +218,10 @@ const BROWSE = /\b(?:tout|toute|catalogue|application|appli|menu complet|parcour
  * Mangrove » ouvre directement les pizzas de ce restaurant. Un clic sur + remplit
  * le panier (un restaurant à la fois), puis le paiement par le portefeuille.
  */
-export function FoodOrder({ query = "" }: { query?: string }) {
+export function FoodOrder({ query = "", group = false }: { query?: string; group?: boolean }) {
   const [data, setData] = useState<FoodResponse | null>(null);
+  // Commande groupée : le panier composé par Tamilya ; « Voir tous les restaurants » rend la carte habituelle.
+  const [composed, setComposed] = useState(group);
   const [error, setError] = useState<string | null>(null);
   const [kind, setKind] = useState<string | null>(null);
   const [restaurantId, setRestaurantId] = useState<string | null>(null);
@@ -625,6 +628,21 @@ export function FoodOrder({ query = "" }: { query?: string }) {
   // Commande payée : le suivi en direct remplace le menu.
   if (placed) return shell(<OrderTracker order={placed} />);
 
+  const onPlaced = (order: PlacedOrder) => {
+    savedKey.current = blockKey(root.current, query);
+    localStorage.setItem(savedKey.current, JSON.stringify(order));
+    window.dispatchEvent(new Event(ORDER_EVENT));
+    setPlaced(order);
+    setCheckout(false);
+    setCart({ restaurantId: null, items: {} });
+    // Le solde affiché baisse comme après un vrai paiement (fictif pendant la démonstration).
+    setData((d) => (d ? { ...d, balanceCents: Math.max(0, d.balanceCents - order.totalCents) } : d));
+    // La barre latérale relit le solde.
+    window.dispatchEvent(new Event("focus"));
+  };
+
+  if (composed) return shell(<FoodGroup data={data} query={query} here={spot} onPlaced={onPlaced} onBrowse={() => setComposed(false)} />);
+
   if (checkout && cartRestaurant && count > 0) {
     return shell(
       <FoodCheckout
@@ -636,18 +654,7 @@ export function FoodOrder({ query = "" }: { query?: string }) {
         onChangeQuantity={changeLine}
         here={spot}
         initialScheduled={scheduleFirst}
-        onPlaced={(order) => {
-          savedKey.current = blockKey(root.current, query);
-          localStorage.setItem(savedKey.current, JSON.stringify(order));
-          window.dispatchEvent(new Event(ORDER_EVENT));
-          setPlaced(order);
-          setCheckout(false);
-          setCart({ restaurantId: null, items: {} });
-          // Le solde affiché baisse comme après un vrai paiement (fictif pendant la démonstration).
-          setData((d) => (d ? { ...d, balanceCents: Math.max(0, d.balanceCents - order.totalCents) } : d));
-          // La barre latérale relit le solde.
-          window.dispatchEvent(new Event("focus"));
-        }}
+        onPlaced={onPlaced}
       />,
     );
   }
