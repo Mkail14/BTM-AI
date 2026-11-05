@@ -60,7 +60,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
   const initialUser = await loadInitialUser();
 
   return (
-    // suppressHydrationWarning : l'écran de lancement (classe « chargement ») et le thème (data-theme) sont posés avant l'hydratation.
+    // suppressHydrationWarning : l'écran de lancement (classe « chargement »), le thème (data-theme) et l'application (data-app) sont posés avant l'hydratation.
     <html lang="fr" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`} suppressHydrationWarning>
       <body className="min-h-full font-sans">
         <ThemeScript />

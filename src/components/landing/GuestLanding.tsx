@@ -279,7 +279,7 @@ export function GuestLanding({
 
         {/* Ce qu'il faut savoir sur Tamilya : fond d'eau rose floutée (.landing-eau), une conversation d'exemple et trois cartes. */}
         {/* Ordinateur : tout tient sur un écran sous la barre du haut (2,75 rem) ; la conversation prend la place qui reste. */}
-        <section id="shimaore" className="relative isolate flex min-h-dvh flex-col justify-center overflow-hidden pt-12 md:h-dvh md:min-h-[36rem] md:pt-11">
+        <section id="shimaore" className="app-hide relative isolate flex min-h-dvh flex-col justify-center overflow-hidden pt-12 md:h-dvh md:min-h-[36rem] md:pt-11">
           <div aria-hidden="true" className="landing-eau" />
           <div className="mx-auto flex w-full max-w-5xl flex-col px-5 py-12 md:h-full md:py-8">
             {/* Même grille que les cartes du dessous : la conversation tombe pile au-dessus de la troisième carte. */}
@@ -315,7 +315,7 @@ export function GuestLanding({
         </section>
 
         {/* Avis des utilisateurs */}
-        <section id="avis" className="relative flex min-h-[calc(100dvh-4rem)] scroll-mt-16 flex-col justify-center overflow-hidden border-t border-border landing-soft">
+        <section id="avis" className="app-hide relative flex min-h-[calc(100dvh-4rem)] scroll-mt-16 flex-col justify-center overflow-hidden border-t border-border landing-soft">
           <div className="relative mx-auto grid w-full max-w-5xl gap-10 px-5 py-16 md:grid-cols-[minmax(0,19rem)_1fr] md:items-center md:gap-16">
             <Reveal>
               <h2 className="landing-h2">Ce qu&apos;ils en disent</h2>
@@ -346,7 +346,7 @@ export function GuestLanding({
         </section>
       </main>
 
-      <footer className="landing-content relative z-10 border-t border-border landing-soft">
+      <footer className="app-hide landing-content relative z-10 border-t border-border landing-soft">
         <div className="mx-auto grid max-w-5xl gap-10 px-5 pt-12 pb-8 sm:grid-cols-[1.6fr_1fr_1fr]">
           <div>
             <BrandLogo size="sm" />
