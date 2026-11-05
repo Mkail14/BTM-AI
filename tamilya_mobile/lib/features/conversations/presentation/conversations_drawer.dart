@@ -72,6 +72,7 @@ class ConversationsDrawer extends ConsumerWidget {
             ),
             Expanded(
               child: conversations.when(
+                skipLoadingOnReload: true,
                 data: (items) => items.isEmpty
                     ? Padding(
                         padding: const EdgeInsets.all(Gaps.lg),
