@@ -136,6 +136,21 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   const userId = user?.id ?? null;
 
   // Mode vocal du maître de Tamilya (administrateur) : il lui parle, elle répond à voix haute.
+  // Leçon de shimaoré (administrateurs) : interrupteur à côté de la zone de saisie, retenu sur l'appareil.
+  const [shimaoreLesson, setShimaoreLesson] = useState(false);
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- préférence lue après l'affichage (localStorage)
+      setShimaoreLesson(localStorage.getItem("tamilya-lecon-shimaore") === "1");
+    } catch {}
+  }, []);
+  const toggleLesson = () =>
+    setShimaoreLesson((on) => {
+      try {
+        localStorage.setItem("tamilya-lecon-shimaore", on ? "0" : "1");
+      } catch {}
+      return !on;
+    });
   const sendRef = useRef<(text: string, spoken?: boolean) => void>(() => {});
   // Message dicté : le serveur le sait, Tamilya répond court, pour être écoutée.
   const legacyVoice = useVoiceConversation((text) => sendRef.current(text, true));
@@ -373,6 +388,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             ? { message: text, ...(conversationId ? { conversationId } : {}) }
             : { message: text, history: buildModelHistory(settledTurns(base), CHAT_LIMITS.anonymousMaxHistoryChars) }),
           ...(spoken ? { voice: true } : {}),
+          ...(shimaoreLesson ? { shimaoreLesson: true } : {}),
         };
 
         if (spoken) markVoice("sent");
@@ -439,7 +455,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
         if (createdConversationId && !stale()) window.history.replaceState(null, "", `/c/${createdConversationId}`);
       }
     },
-    [conversationId, isStreaming, messages, refreshConversations, updateMessage, userId, voiceReplied, voiceSay, stopVoice, openAuthDialog],
+    [conversationId, isStreaming, messages, refreshConversations, updateMessage, userId, voiceReplied, voiceSay, stopVoice, openAuthDialog, shimaoreLesson],
   );
 
   useEffect(() => {
@@ -779,7 +795,24 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             placeholder="Demande-moi ce que tu veux…"
             // Conversation vide : des exemples défilent pour montrer ce que Tamilya sait faire ; ensuite, le texte reste fixe.
             examples={messages.length === 0 ? [...(user?.isAdmin ? [FOOD_EXAMPLE] : []), ...EXAMPLES] : undefined}
-            leading={<PersonalitySwitcher />}
+            leading={
+              <>
+                <PersonalitySwitcher />
+                {user?.isAdmin ? (
+                  <button
+                    type="button"
+                    onClick={toggleLesson}
+                    aria-pressed={shimaoreLesson}
+                    title={shimaoreLesson ? "Leçon de shimaoré allumée : Tamilya ne parle que shimaoré" : "Allumer la leçon de shimaoré"}
+                    className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium transition ${
+                      shimaoreLesson ? "bg-[var(--persona,var(--accent))] text-white" : "text-fg-muted hover:bg-bg-muted hover:text-fg"
+                    }`}
+                  >
+                    {shimaoreLesson ? "Leçon : oui" : "Leçon"}
+                  </button>
+                ) : null}
+              </>
+            }
             trailing={
               voiceEnabled ? (
                 <button

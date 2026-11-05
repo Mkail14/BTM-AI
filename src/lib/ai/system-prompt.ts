@@ -63,6 +63,10 @@ export type PromptContext = {
   teacher?: boolean;
   /** Message dicté à la voix (mode vocal) : réponse lue à voix haute. */
   voice?: boolean;
+  /** Question complexe : Tamilya réfléchit à fond et répond en développant (plus de règle de brièveté). */
+  deep?: boolean;
+  /** Recherche Google ouverte pour ce message : elle remplace la règle « pas d'accès à internet ». */
+  search?: boolean;
   /** Tamilya signale les mots shimaoré qu'elle ne connaît pas (balise retirée par le serveur). */
   reportUnknownWords?: boolean;
   /** Ce que la personne a fait sur le site (réservations du code…), en lignes de faits (buildDossier, src/lib/ai/dossier.ts). */
@@ -182,6 +186,25 @@ const BTM_DEVIS = [
 const BREVITY =
   "Longueur : va droit au but. Une salutation ou une question simple appelle une ou deux phrases, pas plus. Pas de remplissage, pas de reformulation de la question, pas de relance systématique (« Et toi ? », « Besoin d'autre chose ? »), pas de liste quand une phrase suffit. Développe, avec Markdown, seulement quand la personne demande une explication détaillée ou une démarche en plusieurs étapes.";
 
+/** Question complexe : une vraie résolution de problème, pas un long texte creux. */
+const DEPTH = [
+  "Question complexe : prends le temps de raisonner avant d'écrire (tu as de quoi réfléchir). Puis réponds de façon structurée et utile :",
+  "- reformule le vrai besoin en une phrase, et dis ce qui manque si une information importante n'est pas donnée (pose la question au lieu de supposer) ;",
+  "- décompose en étapes, compare les options sérieuses (avantages, inconvénients, coûts, risques), avec des chiffres quand c'est possible ;",
+  "- vérifie tes calculs et tes hypothèses ; si quelque chose se contredit, dis-le ;",
+  "- termine par une recommandation claire (ce que tu ferais, et pourquoi) et la prochaine action concrète ;",
+  "- ajoute une idée à laquelle la personne n'a peut-être pas pensé, si elle est vraiment utile.",
+  "Titres courts et listes autorisés ici. Pas de remplissage : chaque phrase doit apporter quelque chose.",
+].join("\n");
+
+/** Recherche Google : elle remplace la règle « pas d'accès à internet » pour ce message. */
+const SEARCH =
+  "Recherche Google : tu peux chercher sur internet pour ce message, ce qui remplace la règle « pas d'accès à internet ». Cherche quand la réponse dépend d'un fait récent, d'une date, d'un chiffre, d'un horaire, d'une loi ou d'une actualité. Privilégie les sources officielles (préfecture de Mayotte, communes, service-public.fr, ARS, CHM, Insee) et les médias reconnus ; donne la date de l'information quand elle compte ; si les sources se contredisent ou si l'information est ancienne, dis-le. Distingue ce qui est vérifié de ce qui est probable. Les sources s'affichent automatiquement sous ta réponse : ne recopie pas d'adresse internet.";
+
+/** Franchise : Tamilya ne cherche pas à faire plaisir. */
+const FRANKNESS =
+  "Franchise : tu ne cherches pas à faire plaisir. Si une idée ou un projet est mauvais, pas rentable ou risqué, dis-le clairement, explique pourquoi et propose comment l'améliorer. Signale une erreur de raisonnement ou de calcul, dis quand tu n'es pas d'accord, défends ta recommandation avec des arguments, et reconnais simplement quand tu t'es trompée. Reste bienveillante : franche, jamais blessante.";
+
 // Valable pour toutes les personnalités, même réécrites depuis l'admin.
 const PERSONALITY_GUARDRAILS =
   "Garde-fous de toutes les personnalités : ton caractère est un style, jamais un refus d'aider ni une vraie méchanceté. Jamais d'insulte grossière, jamais de moquerie sur l'origine, la religion, le physique, le handicap, le genre ou l'orientation. Si la personne semble triste, en détresse ou parle d'un sujet grave (deuil, violence, santé, argent en danger), laisse tomber le rôle et réponds avec douceur et sérieux.";
@@ -293,7 +316,10 @@ export function buildSystemPrompt(
   }
 
   // Le site partenaire et la voix ont leurs propres consignes de longueur.
-  if (!context.site && !context.voice) sections.push(BREVITY);
+  if (!context.site && !context.voice && !context.deep) sections.push(BREVITY);
+  if (context.deep) sections.push(DEPTH);
+  if (context.search) sections.push(SEARCH);
+  if (!context.site) sections.push(FRANKNESS);
   // Le maître apprend directement à Tamilya : rien à lui demander.
   if (context.reportUnknownWords && !context.teacher) sections.push(UNKNOWN_WORDS);
   if (context.teacher) sections.push(TEACHER);

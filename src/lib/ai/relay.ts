@@ -17,7 +17,7 @@ import { AIProviderError, type AIErrorCode, type AIProvider, type AIStreamChunk 
 const MAX_SKEW_MS = 5 * 60_000;
 
 /** Plafonds d'une demande relayée (plus bas que ceux d'une conversation stockée). */
-export const RELAY_LIMITS = { systemChars: 200_000, maxOutputTokens: 8_000, bodyBytes: 600_000 } as const;
+export const RELAY_LIMITS = { systemChars: 200_000, maxOutputTokens: 16_000, bodyBytes: 600_000 } as const;
 
 /**
  * Route du relais ouverte sur ce serveur ? Fermée par défaut : il faut
@@ -73,6 +73,8 @@ export function createRelayProvider(url: string, secret: string): AIProvider {
         persona: input.persona ?? false,
         fast: input.fast ?? false,
         ...(input.model ? { model: input.model } : {}),
+        ...(input.deep ? { deep: true } : {}),
+        ...(input.search ? { search: true } : {}),
       });
       const time = Date.now();
       const response = await fetch(`${url}/api/ai/relay`, {

@@ -25,6 +25,8 @@ export const chatRequestSchema = z.strictObject({
   conversationId: z.uuid().optional(),
   /** Message dicté (mode vocal) : Tamilya en tient compte et répond pour être écoutée. */
   voice: z.boolean().optional(),
+  /** Administrateur : leçon de shimaoré allumée (mode maître, Tamilya ne parle que shimaoré). */
+  shimaoreLesson: z.boolean().optional(),
   history: z
     .array(turnSchema)
     .max(CHAT_LIMITS.anonymousMaxMessages)

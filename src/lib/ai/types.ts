@@ -3,6 +3,8 @@ import type { ChatTurn, FinishReason } from "@/lib/chat/types";
 export type AIStreamChunk =
   | { type: "text"; text: string }
   | { type: "finish"; reason: FinishReason }
+  /** Pages consultées par la recherche Google (titre, adresse), envoyées à la fin. */
+  | { type: "sources"; sources: { title: string; url: string }[] }
   /** Jetons consommés (si l'API les donne) ; relevé par la chaîne de secours, jamais transmis plus loin. */
   | { type: "usage"; model: string; inputTokens: number; outputTokens: number };
 
@@ -19,6 +21,10 @@ export type AIStreamInput = {
   fast?: boolean;
   /** Essai d'un autre modèle Gemini (relais signé seulement, pour comparer les temps). */
   model?: string;
+  /** Question complexe : réflexion approfondie (Gemini « pense » avant de répondre). */
+  deep?: boolean;
+  /** Recherche Google autorisée (Gemini décide s'il cherche). */
+  search?: boolean;
 };
 
 /** Contrat commun à tous les fournisseurs de modèle. */

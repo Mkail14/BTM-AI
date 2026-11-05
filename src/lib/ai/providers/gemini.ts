@@ -27,7 +27,11 @@ export const geminiHeaders = (apiKey: string) => ({ "Content-Type": "application
 
 type GeminiChunk = {
   usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
-  candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] }; finishReason?: string }[];
+  candidates?: {
+    content?: { parts?: { text?: string; thought?: boolean }[] };
+    finishReason?: string;
+    groundingMetadata?: { groundingChunks?: { web?: { uri?: string; title?: string } }[] };
+  }[];
   promptFeedback?: { blockReason?: string };
 };
 
@@ -45,6 +49,12 @@ type ThinkingConfig = { thinkingLevel: string } | { thinkingBudget: number };
  * plusieurs secondes avant d'écrire. Gemini 3 et suivants : thinkingLevel ;
  * Gemini 2 : thinkingBudget. Du plus rapide au plus prudent.
  */
+/** Réflexion approfondie (question complexe) : Gemini 3 et suivants « high », Gemini 2 un budget large. */
+export function deepThinking(model: string): ThinkingConfig {
+  const generation = Number(model.match(/^gemini-(\d+)/)?.[1] ?? 0);
+  return generation >= 3 ? { thinkingLevel: "high" } : { thinkingBudget: 8192 };
+}
+
 export function thinkingSettings(model: string): ThinkingConfig[] {
   const generation = Number(model.match(/^gemini-(\d+)/)?.[1] ?? 0);
   if (generation >= 3) return [{ thinkingLevel: "minimal" }, { thinkingLevel: "low" }];
@@ -105,7 +115,9 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
 
   return {
     id: "gemini",
-    async *stream({ system, messages, maxOutputTokens, signal, fast, model: tryModel }: AIStreamInput): AsyncIterable<AIStreamChunk> {
+    async *stream({ system, messages, maxOutputTokens, signal, fast, model: tryModel, deep, search }: AIStreamInput): AsyncIterable<AIStreamChunk> {
+      // Réflexion approfondie ou recherche : le premier morceau peut mettre bien plus longtemps à venir.
+      const firstChunkMs = deep || search ? 45_000 : FIRST_CHUNK_MS;
       // À l'oral : modèle réservé au vocal s'il est réglé (AI_VOICE_MODEL, ex. un « flash-lite »), sinon le modèle habituel.
       // tryModel : essai d'un autre modèle par le relais signé (comparaison des temps).
       const preferred = tryModel || (fast && process.env.AI_VOICE_MODEL?.trim().replace(/^models\//, "")) || chosen;
@@ -120,6 +132,7 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
             systemInstruction: { parts: [{ text: system }] },
             contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
             generationConfig: { maxOutputTokens, ...(thinkingConfig && { thinkingConfig }) },
+            ...(search ? { tools: [{ googleSearch: {} }] } : {}),
           }),
           signal: AbortSignal.any([combined, attemptSignal]),
         });
@@ -134,10 +147,10 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
       const open = async (model: string): Promise<{ reader: ReadableStreamDefaultReader<string>; first: string } | null> => {
         // Réglages de réflexion du plus rapide au plus sûr : un réglage que le modèle
         // refuse (400 qui parle de « thinking ») est retiré au lieu de faire échouer la réponse.
-        const attempts = config.disableReasoning || fast ? [...thinkingSettings(model), null] : [null];
+        const attempts = deep ? [deepThinking(model), null] : config.disableReasoning || fast ? [...thinkingSettings(model), null] : [null];
         for (const [index, thinkingConfig] of attempts.entries()) {
           const attempt = new AbortController();
-          const timer = setTimeout(() => attempt.abort(), FIRST_CHUNK_MS);
+          const timer = setTimeout(() => attempt.abort(), firstChunkMs);
           const silent = (error: unknown) => {
             if (signal.aborted) return new AIProviderError("aborted", "Requête annulée", { cause: error });
             if (timeoutSignal.aborted) return new AIProviderError("timeout", "Délai dépassé", { cause: error });
@@ -212,6 +225,7 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
       let finish: FinishReason = "other";
       let pending: string | null = opened.first;
       let usage: GeminiChunk["usageMetadata"] | null = null;
+      const sources = new Map<string, string>();
 
       try {
         while (true) {
@@ -235,6 +249,9 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
               if (part.text && !part.thought) yield { type: "text", text: part.text };
             }
             if (candidate?.finishReason) finish = mapFinishReason(candidate.finishReason);
+            for (const ground of candidate?.groundingMetadata?.groundingChunks ?? []) {
+              if (ground.web?.uri) sources.set(ground.web.uri, ground.web.title ?? ground.web.uri);
+            }
           }
         }
       } catch (error) {
@@ -253,6 +270,7 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
           outputTokens: (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0),
         };
       }
+      if (sources.size) yield { type: "sources", sources: [...sources].slice(0, 6).map(([url, title]) => ({ url, title })) };
       yield { type: "finish", reason: finish };
     },
   };

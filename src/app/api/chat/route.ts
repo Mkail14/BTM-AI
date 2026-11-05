@@ -46,6 +46,7 @@ import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
 import { consumeRateLimits, type RateLimitSubject } from "@/lib/rate-limit";
 import { loadRateLimitPolicies } from "@/lib/rate-limit/settings";
 import { getClientIp, hashIdentifier, isSameOrigin } from "@/lib/security/request";
+import { isComplexRequest, needsWebSearch } from "@/lib/ai/depth";
 
 export const maxDuration = 120;
 
@@ -62,6 +63,8 @@ const GUEST_TRIAL_IP = [{ name: "anon-trial-ip-30d", limit: 30, windowSeconds: 3
 const LEARN_WAIT_MS = 6_000;
 /** Réponse dictée (mode vocal) : de quoi dire trois phrases, pas une page qui retarderait la voix. */
 const VOICE_MAX_OUTPUT_TOKENS = 500;
+/** Question complexe : de quoi réfléchir et développer la réponse. */
+const DEEP_MAX_OUTPUT_TOKENS = 12_000;
 /** À l'oral : attente maximale des journaux et offres d'emploi avant de répondre. */
 const VOICE_LIVE_WAIT_MS = 1_200;
 
@@ -375,7 +378,13 @@ export async function POST(request: NextRequest) {
   // Mode maître (administrateur) : Tamilya ne parle que shimaoré. Ses anciennes
   // réponses sont nettoyées elles aussi, pour que le modèle ne recopie pas son
   // français, et les [[mots]] traduits depuis sont remplacés par le shimaoré appris.
-  const master = Boolean(user?.isAdmin);
+  // Mode maître (shimaoré uniquement) seulement quand l'administrateur allume la leçon :
+  // automatique, il bridait toutes ses conversations (elle refusait le français).
+  const master = Boolean(user?.isAdmin) && body.shimaoreLesson === true;
+  // Raisonnement adaptatif (règles, sans appel en plus) : réflexion profonde et recherche Google
+  // seulement quand le message le mérite. Pas à l'oral, où la vitesse prime.
+  const deep = !body.voice && isComplexRequest(body.message);
+  const search = !body.voice && needsWebSearch(body.message);
   const known = master ? knownTranslations(brain) : new Map<string, string>();
   const toShimaore = (reply: string) => fillKnownWords(enforceShimaore(reply), known);
   const messages: ChatTurn[] = [
@@ -414,6 +423,8 @@ export async function POST(request: NextRequest) {
     dossier,
     teacher: master,
     voice: body.voice,
+    deep,
+    search,
     reportUnknownWords: true,
     home,
     foodOrdering,
@@ -474,6 +485,7 @@ export async function POST(request: NextRequest) {
       };
 
       let text = "";
+      let webSources: { title: string; url: string }[] = [];
       let status: MessageStatus = "complete";
       let finish: FinishReason = "other";
       // API qui a pris le message : la réponse part d'elle vers la sortie.
@@ -531,7 +543,14 @@ export async function POST(request: NextRequest) {
           messages,
           persona: true,
           fast: body.voice,
-          maxOutputTokens: body.voice ? Math.min(ai.config.maxOutputTokens, VOICE_MAX_OUTPUT_TOKENS) : ai.config.maxOutputTokens,
+          deep,
+          search,
+          // Réflexion approfondie : les « pensées » comptent dans la limite, on la relève pour ne pas couper la réponse.
+          maxOutputTokens: body.voice
+            ? Math.min(ai.config.maxOutputTokens, VOICE_MAX_OUTPUT_TOKENS)
+            : deep
+              ? Math.max(ai.config.maxOutputTokens, DEEP_MAX_OUTPUT_TOKENS)
+              : ai.config.maxOutputTokens,
           signal,
           onAttempt: (slotId, error) => {
             if (!error) answeredBy = slotId;
@@ -556,6 +575,8 @@ export async function POST(request: NextRequest) {
               send({ type: "delta", text: chunk.text });
               speak(chunk.text);
             }
+          } else if (chunk.type === "sources") {
+            webSources = chunk.sources;
           } else if (chunk.type === "finish") {
             finish = chunk.reason;
           }
@@ -564,6 +585,12 @@ export async function POST(request: NextRequest) {
         flush();
         closeTag();
         if (sentences) speakSentences(sentences.end());
+        // Sources de la recherche Google, sous la réponse (affichées et enregistrées avec elle).
+        if (webSources.length && text) {
+          const list = `\n\n**Sources** : ${webSources.map((s) => `[${s.title.replace(/[\[\]]/g, "")}](${s.url})`).join(" · ")}`;
+          text += list;
+          send({ type: "delta", text: list });
+        }
         // Filet de sécurité : demande de repas reconnue mais pas de bloc dans la réponse (petit modèle, mode maître) : on l'ajoute.
         if (foodQuery && text && !text.includes("```commande-repas")) {
           const block = foodBlock(foodQuery);
