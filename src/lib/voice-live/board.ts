@@ -132,8 +132,10 @@ function find(wanted: string, keep: (c: Control) => boolean): Control | string {
   return `${reason}\n${describeBoard()}`;
 }
 
+export const CANCELLED = "Action annulée : la personne a repris la parole.";
+
 /** Tamilya touche un bouton : flash, clic, puis l'état du tableau après le clic. */
-export async function touchBoard(wanted: string): Promise<string> {
+export async function touchBoard(wanted: string, signal?: AbortSignal): Promise<string> {
   const control = find(wanted, (c) => !c.field);
   if (typeof control === "string") return control;
   if (fingerOnly(control)) {
@@ -141,6 +143,8 @@ export async function touchBoard(wanted: string): Promise<string> {
     return `« ${control.label} » se touche au doigt : montre-le à la personne, c'est elle qui le fait.`;
   }
   await flash(control.el, FLASH_MS);
+  // Annulée pendant le flash : la personne a changé d'avis, on ne clique pas.
+  if (signal?.aborted) return CANCELLED;
   if (!control.el.isConnected) return describeBoard();
   control.el.click();
   await wait(SETTLE_MS);
@@ -155,11 +159,12 @@ function setValue(el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
 }
 
 /** Tamilya remplit un champ : les lettres apparaissent, comme si quelqu'un tapait. */
-export async function writeBoard(wanted: string, value: string): Promise<string> {
+export async function writeBoard(wanted: string, value: string, signal?: AbortSignal): Promise<string> {
   const control = find(wanted, (c) => c.field);
   if (typeof control === "string") return control;
   const el = control.el as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
   await flash(el, FLASH_MS);
+  if (signal?.aborted) return CANCELLED;
   if (!el.isConnected) return describeBoard();
   if (el instanceof HTMLSelectElement) {
     const option = pickControl([...el.options].map((o) => ({ label: o.text, value: o.value })), value);
@@ -169,6 +174,7 @@ export async function writeBoard(wanted: string, value: string): Promise<string>
     const text = value.slice(0, 200);
     const step = Math.max(1, Math.ceil(text.length / 14));
     for (let end = step; end < text.length; end += step) {
+      if (signal?.aborted) return CANCELLED;
       setValue(el, text.slice(0, end));
       await wait(30);
     }

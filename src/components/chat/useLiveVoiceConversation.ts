@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { boardCount, describeBoard, touchBoard, waitForBoard, writeBoard } from "@/lib/voice-live/board";
+import { boardCount, CANCELLED, describeBoard, touchBoard, waitForBoard, writeBoard } from "@/lib/voice-live/board";
 import { voiceHeard, voiceListenEnd, voiceSpeakEnd, voiceSpeakStart, voiceWord } from "@/lib/chat/voice-level";
 import { isVoiceIdle, VOICE_HANG_UP_EVENT, VOICE_IDLE_CHECK_MS } from "@/lib/voice-live/hang-up";
 import { isLiveVoiceSupported, openLiveSession, type LiveSession } from "@/lib/voice-live/session";
@@ -103,17 +103,20 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
         userText.current = "";
         tamilyaText.current = "";
       },
-      onToolCall: async (name, args) => {
+      onToolCall: async (name, args, signal) => {
         // Tableau déjà à l'écran : Tamilya agit directement dessus, sans passer par le serveur.
         if (name === "lire_tableau") return describeBoard();
-        if (name === "toucher_tableau") return touchBoard(String(args.bouton ?? ""));
-        if (name === "remplir_tableau") return writeBoard(String(args.champ ?? ""), String(args.valeur ?? ""));
+        if (name === "toucher_tableau") return touchBoard(String(args.bouton ?? ""), signal);
+        if (name === "remplir_tableau") return writeBoard(String(args.champ ?? ""), String(args.valeur ?? ""), signal);
         const response = await fetch("/api/voice/live/tool", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name, args }),
+          signal,
         });
         const data = (await response.json().catch(() => null)) as { block?: string; error?: string } | null;
+        // Annulée pendant le chargement : pas de nouveau tableau, la personne a changé d'avis.
+        if (signal.aborted) return CANCELLED;
         if (!data?.block) return data?.error ?? "Ce bouton n'est pas disponible : dis-le à la personne.";
         // Le tableau s'affiche dans la conversation, juste après ce que la personne vient de dire.
         const before = boardCount();
