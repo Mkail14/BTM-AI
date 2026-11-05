@@ -1,7 +1,6 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { isPersonalityId } from "@/lib/ai/personalities";
 import { addressSchema, MAX_SAVED_ADDRESSES, savedAddressSchema } from "@/lib/address";
 import { getAuthContext } from "@/lib/auth/session";
 import { maskPhone, normalizePhone } from "@/lib/code-exam/candidate";
@@ -9,7 +8,7 @@ import { notifyAccountChange, notifyAccountDeleted } from "@/lib/email/notify";
 import { saveProfileAddress, saveProfilePhone } from "@/lib/profile-contact";
 import { deleteSavedAddress, saveSavedAddress } from "@/lib/saved-addresses";
 import { profileSchema } from "@/lib/chat/validation";
-import { getProfile, updatePersonality, updateProfile } from "@/lib/conversations/repository";
+import { getProfile, updateProfile } from "@/lib/conversations/repository";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { deleteMyReview, saveMyReview } from "@/lib/reviews";
 import { publicName, reviewSchema } from "@/lib/reviews/rules";
@@ -44,23 +43,6 @@ export async function updateProfileAction(
 
   revalidatePath("/", "layout");
   return { status: "saved", message: "Paramètres enregistrés." };
-}
-
-/** Choix de la personnalité de Tamilya (après l'inscription ou depuis les Paramètres). */
-export async function choosePersonalityAction(personality: unknown): Promise<ProfileFormState> {
-  const { supabase, user } = await getAuthContext();
-  if (!supabase || !user) return { status: "error", message: "Ta session a expiré. Reconnecte-toi." };
-  if (!isPersonalityId(personality)) return { status: "error", message: "Personnalité inconnue." };
-
-  try {
-    await updatePersonality(supabase, user.id, personality);
-  } catch (error) {
-    console.error("[parametres] Choix de personnalité impossible", error);
-    return { status: "error", message: "L'enregistrement a échoué. Réessaie." };
-  }
-
-  revalidatePath("/", "layout");
-  return { status: "saved", message: "C'est noté, Tamilya change de personnalité !" };
 }
 
 /**

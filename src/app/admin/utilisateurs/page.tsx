@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { PERSONALITIES } from "@/lib/ai/personalities";
-import { PERSONALITY_LOOKS } from "@/lib/ai/personality-looks";
 import {
   getUserDirectory,
   USER_FILTERS,
@@ -64,20 +62,6 @@ function Status({ user }: { user: DirectoryUser }) {
   );
 }
 
-function Personality({ user }: { user: DirectoryUser }) {
-  if (!user.personality) return <span className="text-fg-muted">—</span>;
-  const p = PERSONALITIES[user.personality];
-  return (
-    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
-      <span
-        aria-hidden="true"
-        className="size-2.5 rounded-full"
-        style={{ backgroundColor: PERSONALITY_LOOKS[user.personality].color }}
-      />
-      {p.emoji} {p.label}
-    </span>
-  );
-}
 
 function Avatar({ user }: { user: DirectoryUser }) {
   const name = user.displayName || user.email || "?";
@@ -237,7 +221,6 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
                       <tr className="border-b border-border text-left text-xs text-fg-muted">
                         <th scope="col" className="px-4 py-2.5 font-medium">Compte</th>
                         <th scope="col" className="px-4 py-2.5 font-medium">Statut</th>
-                        <th scope="col" className="px-4 py-2.5 font-medium">Personnalité</th>
                         <th scope="col" className="px-4 py-2.5 font-medium">Inscription</th>
                         <th scope="col" className="px-4 py-2.5 font-medium">Dernière connexion</th>
                         <th scope="col" className="px-4 py-2.5 text-right font-medium">Conversations</th>
@@ -259,9 +242,6 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
                           <td className="px-4 py-3">
                             <Status user={u} />
                           </td>
-                          <td className="px-4 py-3">
-                            <Personality user={u} />
-                          </td>
                           <td className="px-4 py-3 whitespace-nowrap">{dateFormat.format(new Date(u.createdAt))}</td>
                           <td className="px-4 py-3 whitespace-nowrap text-fg-muted">{ago(u.lastSignInAt)}</td>
                           <td className="px-4 py-3 text-right tabular-nums">{numberFormat.format(u.conversations)}</td>
@@ -280,11 +260,6 @@ export default async function AdminUsersPage({ searchParams }: PageProps<"/admin
                           <p className="truncate font-medium">{u.displayName || "Sans nom"}</p>
                           <p className="truncate text-xs text-fg-muted">{u.email}</p>
                           <Status user={u} />
-                          {u.personality ? (
-                            <p className="text-xs">
-                              <Personality user={u} />
-                            </p>
-                          ) : null}
                           <p className="text-xs text-fg-muted">
                             Inscrit le {dateFormat.format(new Date(u.createdAt))} · vu {ago(u.lastSignInAt).toLowerCase()}
                           </p>

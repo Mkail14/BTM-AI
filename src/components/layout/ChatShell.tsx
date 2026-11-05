@@ -10,8 +10,6 @@ import {
   PersonalityProvider,
   useCurrentPersonality,
 } from "@/components/personality/PersonalityContext";
-import { PersonalityDialog } from "@/components/personality/PersonalityDialog";
-import type { PersonalityCard } from "@/lib/ai/personalities";
 import { clearAnonymousDraft } from "@/lib/chat/anonymous-draft";
 import type { ConversationSummary } from "@/lib/chat/types";
 import { Sidebar } from "./Sidebar";
@@ -35,13 +33,7 @@ export function useChatShell() {
   return value;
 }
 
-export function ChatShell({
-  children,
-  personalityCards,
-}: {
-  children: ReactNode;
-  personalityCards: PersonalityCard[];
-}) {
+export function ChatShell({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -121,7 +113,6 @@ export function ChatShell({
           <Sidebar open={sidebarOpen} onClose={closeSidebar} />
           <PersonaMain>{children}</PersonaMain>
         </div>
-        <PersonalityDialog cards={personalityCards} />
       </PersonalityProvider>
     </ChatShellContext>
   );

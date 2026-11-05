@@ -138,7 +138,7 @@ export async function POST(request: NextRequest) {
   // Le quota par visiteur est tenu par le site appelant (il connaît l'adresse du client).
   flow.step("guard", true);
 
-  // Personnalité professionnelle : celle des visiteurs de BTM AI, réglée depuis /admin/personnalites.
+  // Personnalité professionnelle : celle des visiteurs de BTM AI, réglée depuis /admin/caractere.
   const [brain, personalityInstructions] = await Promise.all([
     loadAwaBrain(),
     loadPersonalityInstructions(DEFAULT_PERSONALITY),

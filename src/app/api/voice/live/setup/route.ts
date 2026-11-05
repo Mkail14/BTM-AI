@@ -75,7 +75,8 @@ export async function POST(request: NextRequest) {
     canOrderFood(sessionUser).catch(() => false),
     canBuyBargeTickets(sessionUser).catch(() => false),
   ]);
-  const personality = profile?.personality ?? DEFAULT_PERSONALITY;
+  // Une seule personnalité pour tout le monde.
+  const personality = DEFAULT_PERSONALITY;
   const personalityInstructions = await loadPersonalityInstructions(personality).catch(() => undefined);
 
   const system = buildSystemPrompt(personality, {

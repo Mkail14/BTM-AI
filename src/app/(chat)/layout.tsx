@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { ChatShell } from "@/components/layout/ChatShell";
-import { loadPersonalityCards } from "@/lib/ai/personality-store";
 import { getAuthContext } from "@/lib/auth/session";
 import { getSiteFlags } from "@/lib/site/settings";
 
@@ -8,8 +7,7 @@ export default async function ChatLayout({ children }: LayoutProps<"/">) {
   // Les administrateurs ont aussi le chat : c'est là qu'ils apprennent le shimaoré à Tamilya.
   const { user } = await getAuthContext();
 
-  // Textes du choix de personnalité (modifiables depuis l'admin), seulement s'il est proposé.
-  const [personalityCards, flags] = await Promise.all([user ? loadPersonalityCards() : [], user?.isAdmin ? getSiteFlags() : null]);
+  const flags = user?.isAdmin ? await getSiteFlags() : null;
 
   return (
     <>
@@ -22,7 +20,7 @@ export default async function ChatLayout({ children }: LayoutProps<"/">) {
           {[flags.demoMode ? "Mode démo" : null, flags.maintenance ? "Maintenance" : null].filter(Boolean).join(" · ")}
         </Link>
       ) : null}
-      <ChatShell personalityCards={personalityCards}>{children}</ChatShell>
+      <ChatShell>{children}</ChatShell>
     </>
   );
 }

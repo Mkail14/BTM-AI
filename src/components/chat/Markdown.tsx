@@ -6,7 +6,9 @@ import { markUnknownWords } from "@/lib/language/unknown-words";
 import { BARGE_BLOCK } from "@/lib/barge/intent";
 import { BTM_DEVIS_BLOCK } from "@/lib/btm/intent";
 import { COMBINED_BLOCK } from "@/lib/voice-live/combined";
+import { parseYouTubeLink } from "@/lib/youtube/link";
 import { UnknownWord } from "./UnknownWord";
+import { YouTubeCard } from "./YouTubeCard";
 
 // Tickets de barge, créneaux du code et commande de repas : chargés seulement
 // quand Tamilya écrit le bloc spécial (carte, QR code, formulaires…).
@@ -82,15 +84,18 @@ const components: Components = {
     }
     return <pre>{children}</pre>;
   },
-  a: ({ href, title, children }) =>
+  a: ({ href, title, children }) => {
     // [[mot]] : mot que Tamilya ne connaît pas encore en shimaoré (voir markUnknownWords).
-    href === "#fr" ? (
-      <UnknownWord french={textOf(children)}>{children}</UnknownWord>
-    ) : (
+    if (href === "#fr") return <UnknownWord french={textOf(children)}>{children}</UnknownWord>;
+    // Vidéo proposée : carte qui ouvre l'app YouTube.
+    const youtube = parseYouTubeLink(href);
+    if (youtube) return <YouTubeCard link={youtube}>{children}</YouTubeCard>;
+    return (
       <a href={href} title={title} target="_blank" rel="noopener noreferrer nofollow">
         {children}
       </a>
-    ),
+    );
+  },
   // Aucune image écrite par le modèle n'est chargée (elle pourrait renseigner un autre site
   // sur la personne) : un simple lien texte, ouvert seulement si on clique.
   img: ({ src, alt }) =>

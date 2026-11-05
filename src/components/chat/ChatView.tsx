@@ -7,7 +7,6 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { alertDialog } from "@/components/ui/ConfirmDialog";
 import { useChatShell } from "@/components/layout/ChatShell";
-import { PersonalitySwitcher } from "@/components/personality/PersonalitySwitcher";
 import { IconArrowDown, IconMenu, IconMic, IconOffline, IconPlus, IconSave } from "@/components/ui/icons";
 import {
   clearAnonymousDraft,
@@ -200,9 +199,26 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     setImportCandidate(userId ? draft : null);
   }, [isHome, userId]);
 
+  // Déconnexion : la conversation du compte (commandes, livraisons…) disparaît de l'écran,
+  // et n'est jamais gardée comme conversation de visiteur sur l'appareil.
+  const wasSignedIn = useRef(false);
+  useEffect(() => {
+    if (userId) {
+      wasSignedIn.current = true;
+      return;
+    }
+    if (!wasSignedIn.current) return;
+    chatGeneration.current += 1;
+    abortRef.current?.abort();
+    clearAnonymousDraft();
+    setMessages([]);
+    setConversationId(null);
+    setImportCandidate(null);
+  }, [userId]);
+
   // Visiteur : sauvegarde locale de l'échange.
   useEffect(() => {
-    if (userId || !isHome || isStreaming) return;
+    if (userId || wasSignedIn.current || !isHome || isStreaming) return;
     saveAnonymousDraft(settledTurns(messages));
   }, [messages, userId, isHome, isStreaming]);
 
@@ -803,7 +819,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             examples={messages.length === 0 ? [...(user?.isAdmin ? [FOOD_EXAMPLE] : []), ...EXAMPLES] : undefined}
             leading={
               <>
-                <PersonalitySwitcher />
                 {user?.isAdmin ? (
                   <button
                     type="button"

@@ -196,10 +196,8 @@ export async function POST(request: NextRequest) {
   const noProfile: Awaited<ReturnType<typeof readChatProfile>> = { personality: undefined, home: null };
   const profileTask =
     user && supabase ? readChatProfile(supabase, user.id).catch(() => noProfile) : Promise.resolve(noProfile);
-  // Comportement de la personnalité réécrit depuis /admin (sinon texte du code), en cache.
-  const personalityInstructionsTask = profileTask.then(({ personality }) =>
-    loadPersonalityInstructions(personality ?? DEFAULT_PERSONALITY),
-  );
+  // Une seule personnalité pour tout le monde (professionnelle), réglée depuis /admin, en cache.
+  const personalityInstructionsTask = loadPersonalityInstructions(DEFAULT_PERSONALITY);
   personalityInstructionsTask.catch(() => {});
   // Mémoire de Tamilya déjà enregistrée (les faits de ce message s'y ajoutent plus bas).
   const storedMemoriesTask =
@@ -366,7 +364,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const [brain, { personality, home }, personalityInstructions, live, library, dossier, foodOrdering, bargeTickets, foodOrder] =
+  const [brain, { home }, personalityInstructions, live, library, dossier, foodOrdering, bargeTickets, foodOrder] =
     await Promise.all([
       brainTask,
       profileTask,
@@ -413,11 +411,11 @@ export async function POST(request: NextRequest) {
   const btmDevis = !body.voice && detectBtmDevis(body.message) ? btmDevisSpec(body.message) : null;
   // Jour voulu pour le code (« demain », « vendredi matin ») : calculé ici, les modèles se trompent de date.
   const codeWhen = parseCodeExamWhen(body.message);
-  const system = buildSystemPrompt(personality ?? undefined, {
+  const system = buildSystemPrompt(DEFAULT_PERSONALITY, {
     personalityInstructions,
     identity: brain.identity,
     rules: brain.rules,
-    lexicon: lexiconFor(brain, personality ?? DEFAULT_PERSONALITY, body.message),
+    lexicon: lexiconFor(brain, DEFAULT_PERSONALITY, body.message),
     grammar: brain.grammar,
     words: wordsFor(brain, body.message, master),
     gloss: glossFor(brain, body.message),

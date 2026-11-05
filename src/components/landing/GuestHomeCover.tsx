@@ -14,7 +14,7 @@ export function GuestHomeCover() {
   const pathname = usePathname();
   if (user || pathname !== "/") return null;
   return (
-    <div aria-hidden="true" className="landing fixed inset-0 z-[55] overflow-hidden bg-bg text-fg">
+    <div aria-hidden="true" className="landing landing-home fixed inset-0 z-[55] overflow-hidden bg-bg text-fg">
       <div className="fond-lagon fond-lagon--page" />
       <LandingNav />
     </div>

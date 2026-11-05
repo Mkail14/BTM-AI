@@ -3287,9 +3287,8 @@ html[data-morph]::view-transition-new(root) {
   height: 3.5rem;
 }
 
-/* Anneau arc-en-ciel : il tourne pendant tout l'appel, plus vite quand elle réfléchit ou parle. */
-.voice-halo {
-  --halo-speed: 5s;
+/* Disque sombre : en petit, il détache le globe du tableau derrière lui. */
+.voice-orb-disc {
   position: absolute;
   inset: -8%;
   border-radius: 50%;
@@ -3297,51 +3296,85 @@ html[data-morph]::view-transition-new(root) {
   transition: background-color 500ms ease;
 }
 
-.voice-orb-slot[data-state="listening"] .voice-halo {
-  --halo-speed: 3.5s;
-}
-
-.voice-orb-slot[data-state="waiting"] .voice-halo {
-  --halo-speed: 1.4s;
-}
-
-.voice-orb-slot[data-state="speaking"] .voice-halo {
-  --halo-speed: 2s;
-}
-
-.voice-orb-slot[data-state="off"] .voice-halo {
-  opacity: 0.45;
-}
-
-.voice-halo::before,
-.voice-halo::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: conic-gradient(#ff4d6d, #ffb347, #ffe14d, #4dff88, #4dd2ff, #7a5cff, #ff4dd8, #ff4d6d);
-  -webkit-mask: radial-gradient(closest-side, transparent 89%, #000 91%);
-  mask: radial-gradient(closest-side, transparent 89%, #000 91%);
-  animation: voice-halo-spin var(--halo-speed) linear infinite;
-}
-
-.voice-halo::after {
-  filter: blur(14px);
-  opacity: 0.85;
-}
-
-.voice-overlay[data-compact] .voice-halo::after {
-  filter: blur(7px);
-}
-
-/* En petit, un disque sombre détache le globe de ce qu'il y a derrière. */
-.voice-overlay[data-compact] .voice-halo {
+.voice-overlay[data-compact] .voice-orb-disc {
   background-color: rgb(5 6 10 / 0.92);
 }
 
-@keyframes voice-halo-spin {
+/*
+ * Lueur autour de la conversation : un tableau est ouvert, Tamilya y travaille.
+ * Le dégradé tourne (transform seul, léger sur téléphone) derrière un masque
+ * qui ne laisse voir que les bords : c'est lui qui fait le fondu.
+ */
+.voice-edge {
+  --edge-width: clamp(2.25rem, 9vmin, 4.5rem);
+  --edge-speed: 7s;
+  position: absolute;
+  inset: 0;
+  z-index: 50;
+  overflow: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 800ms ease;
+  -webkit-mask-image:
+    linear-gradient(to right, #000, transparent var(--edge-width)), linear-gradient(to left, #000, transparent var(--edge-width)),
+    linear-gradient(to bottom, #000, transparent var(--edge-width)), linear-gradient(to top, #000, transparent var(--edge-width));
+  mask-image:
+    linear-gradient(to right, #000, transparent var(--edge-width)), linear-gradient(to left, #000, transparent var(--edge-width)),
+    linear-gradient(to bottom, #000, transparent var(--edge-width)), linear-gradient(to top, #000, transparent var(--edge-width));
+}
+
+/* Navigateurs récents : on retire un centre aux coins arrondis, le fondu n'a plus d'angle droit. */
+@supports (mask-composite: subtract) {
+  .voice-edge {
+    --edge-fade: transparent, rgb(0 0 0 / 0.3) calc(var(--edge-width) * 0.3), rgb(0 0 0 / 0.75) calc(var(--edge-width) * 0.65), #000 var(--edge-width);
+    --edge-hole:
+      linear-gradient(#000, #000), linear-gradient(to right, var(--edge-fade)), linear-gradient(to left, var(--edge-fade)),
+      linear-gradient(to bottom, var(--edge-fade)), linear-gradient(to top, var(--edge-fade));
+    -webkit-mask-image: var(--edge-hole);
+    mask-image: var(--edge-hole);
+    -webkit-mask-composite: source-out, source-in, source-in, source-in, source-over;
+    mask-composite: subtract, intersect, intersect, intersect, add;
+  }
+}
+
+.voice-edge::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 180vmax;
+  height: 180vmax;
+  margin: -90vmax 0 0 -90vmax;
+  background: conic-gradient(#ff4dd8, #9b72cb, #4285f4, #34a853, #fbbc05, #ea4335, #ff4dd8);
+  animation: voice-edge-spin var(--edge-speed) linear infinite paused;
+}
+
+.voice-edge[data-on] {
+  opacity: 0.6;
+}
+
+.voice-edge[data-on]::before {
+  animation-play-state: running;
+}
+
+.voice-edge[data-state="waiting"] {
+  --edge-speed: 2.5s;
+}
+
+.voice-edge[data-on][data-state="waiting"],
+.voice-edge[data-on][data-state="speaking"] {
+  opacity: 0.85;
+}
+
+/* Tamilya touche quelque chose sur le tableau : la lueur monte d'un coup. */
+body:has([data-voice-touch]) .voice-edge[data-on] {
+  opacity: 1;
+  transition-duration: 180ms;
+}
+
+@keyframes voice-edge-spin {
   to {
-    rotate: 360deg;
+    transform: rotate(360deg);
   }
 }
 
@@ -3373,8 +3406,7 @@ html[data-morph]::view-transition-new(root) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .voice-halo::before,
-  .voice-halo::after,
+  .voice-edge::before,
   [data-voice-touch] {
     animation: none;
   }
@@ -3598,4 +3630,15 @@ html[data-app] * {
 
 html[data-app] *::-webkit-scrollbar {
   display: none;
+}
+
+/*
+ * Application Android : l'accueil n'a pas la barre du site,
+ * pour ressembler à une app et pas à une page web. Les autres pages la gardent.
+ */
+html[data-app] .landing-home .landing-nav {
+  display: none;
+}
+html[data-app] .landing-home .landing-content {
+  padding-top: env(safe-area-inset-top);
 }

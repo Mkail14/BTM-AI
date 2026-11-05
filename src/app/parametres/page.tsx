@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { IconWallet } from "@/components/ui/icons";
-import { PersonalityPicker } from "@/components/personality/PersonalityPicker";
 import { getMemories } from "@/lib/ai/memory-store";
-import { PERSONALITIES } from "@/lib/ai/personalities";
-import { loadPersonalityCards } from "@/lib/ai/personality-store";
 import { requireUser } from "@/lib/auth/session";
 import { maskPhone } from "@/lib/code-exam/candidate";
 import { getProfile } from "@/lib/conversations/repository";
@@ -36,18 +33,16 @@ const TABS: SettingsTab[] = ["apercu", "profil", "adresse", "awa", "avis", "secu
 export default async function SettingsPage({ searchParams }: PageProps<"/parametres">) {
   const { supabase, user } = await requireUser("/parametres");
   const params = await searchParams;
-  const [profile, contact, saved, cards, memories, demo, review] = await Promise.all([
+  const [profile, contact, saved, memories, demo, review] = await Promise.all([
     getProfile(supabase, user.id),
     getProfileContact(supabase, user.id),
     listSavedAddresses(supabase),
-    loadPersonalityCards(),
     getMemories(supabase).catch(() => []),
     usesDemoWallet(user),
     getMyReview(user.id),
   ]);
   const balanceCents = demo ? (await readDemoWallet(user.id)).balanceCents : (await loadWallet(supabase, user.id, 1)).balanceCents;
   const name = profile.displayName || user.email?.split("@")[0] || "Toi";
-  const personality = profile.personality ? PERSONALITIES[profile.personality] : null;
   // ?rubrique=adresse : ouvre directement une rubrique (lien depuis la commande, Tamilya…).
   const initial = TABS.find((t) => t === params.rubrique);
 
@@ -55,13 +50,11 @@ export default async function SettingsPage({ searchParams }: PageProps<"/paramet
     name: Boolean(profile.displayName),
     phone: Boolean(contact.phone),
     home: Boolean(contact.address),
-    awa: Boolean(personality),
   };
   const checklist: { key: keyof typeof done; label: string; tab: SettingsTab }[] = [
     { key: "name", label: "Ton prénom", tab: "profil" },
     { key: "phone", label: "Ton téléphone", tab: "profil" },
     { key: "home", label: "L'adresse de ta maison", tab: "adresse" },
-    { key: "awa", label: "La personnalité de Tamilya", tab: "awa" },
   ];
   const completed = checklist.filter((c) => done[c.key]).length;
   const addressCount = (contact.address ? 1 : 0) + (saved?.length ?? 0);
@@ -176,12 +169,12 @@ export default async function SettingsPage({ searchParams }: PageProps<"/paramet
                 </Link>
                 <GoToTab tab="awa" className={tile}>
                   <span aria-hidden="true" className="grid size-10 place-items-center rounded-xl bg-accent-soft text-lg">
-                    {personality?.emoji ?? "✨"}
+                    ✨
                   </span>
                   <span>
                     <span className="block font-medium">Tamilya</span>
                     <span className="block text-sm text-fg-muted">
-                      {personality ? `Personnalité ${personality.label.toLowerCase()}` : "Choisis sa personnalité"} · {memories.length} souvenir
+                      {memories.length} souvenir
                       {memories.length > 1 ? "s" : ""}
                     </span>
                   </span>
@@ -219,15 +212,6 @@ export default async function SettingsPage({ searchParams }: PageProps<"/paramet
           ),
           awa: (
             <div className="space-y-8">
-              {profile.personality !== undefined ? (
-                <section className="space-y-3">
-                  <div>
-                    <h3 className="font-medium">Sa personnalité</h3>
-                    <p className="text-sm text-fg-muted">La façon dont Tamilya te parle. Tu peux en changer quand tu veux.</p>
-                  </div>
-                  <PersonalityPicker cards={cards} current={profile.personality} />
-                </section>
-              ) : null}
               {/* Le vocal n'est ouvert qu'aux administrateurs pour l'instant. */}
               {user.isAdmin ? (
                 <section className="space-y-3">

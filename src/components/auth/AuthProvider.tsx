@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { createContext, use, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { PersonalityId } from "@/lib/ai/personalities";
+import { clearAnonymousDraft } from "@/lib/chat/anonymous-draft";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import dynamic from "next/dynamic";
 import type { AuthDialogOptions } from "./AuthDialog";
@@ -116,6 +117,7 @@ export function AuthProvider({
     if (!supabase) return;
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
+        clearAnonymousDraft();
         setUser(null);
         router.refresh();
       } else if (event === "SIGNED_IN" && session?.user) {
@@ -144,6 +146,8 @@ export function AuthProvider({
   const signOut = useCallback(async () => {
     const supabase = getSupabaseBrowserClient();
     await supabase?.auth.signOut();
+    // Rien du compte ne doit rester proposé au visiteur suivant sur cet appareil.
+    clearAnonymousDraft();
     setUser(null);
     router.push("/");
     router.refresh();

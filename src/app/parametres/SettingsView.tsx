@@ -17,7 +17,7 @@ const SECTIONS: Section[] = [
   { id: "apercu", label: "Vue d'ensemble", hint: "Ton compte en un coup d'œil", icon: IconDashboard },
   { id: "profil", label: "Profil", hint: "Ton nom et ton téléphone", icon: IconUser },
   { id: "adresse", label: "Adresses", hint: "Maison, travail, amis, famille", icon: IconMapPin },
-  { id: "awa", label: "Tamilya", hint: "Sa personnalité et ce qu'elle retient", icon: IconSparkle },
+  { id: "awa", label: "Tamilya", hint: "Le vocal et ce qu'elle retient de toi", icon: IconSparkle },
   { id: "avis", label: "Mon avis", hint: "Ta note sur Tamilya, affichée sur l'accueil", icon: IconStar },
   { id: "securite", label: "Sécurité", hint: "E-mail, mot de passe, session", icon: IconLock },
   { id: "suppression", label: "Supprimer le compte", hint: "Effacer ton compte et tes données", icon: IconTrash, danger: true },

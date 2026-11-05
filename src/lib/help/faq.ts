@@ -25,10 +25,6 @@ export const FAQ: FaqTopic[] = [
         a: "Appuie sur le micro dans la barre de message. Il faut autoriser le micro dans ton navigateur ; Chrome et Edge fonctionnent le mieux.",
       },
       {
-        q: "C'est quoi le bouton « Normale » (ou son émoji) à gauche de la zone de message ?",
-        a: "La personnalité de Tamilya. Clique dessus pour en choisir un autre : elle change sa façon de te parler, pas ce qu'elle sait.",
-      },
-      {
         q: "Comment commencer une nouvelle conversation ?",
         a: "Le bouton + en haut de la barre latérale, ou Ctrl + Maj + O sur ordinateur.",
       },

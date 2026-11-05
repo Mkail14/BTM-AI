@@ -18,7 +18,6 @@ import {
   IconMenu,
   IconSettings,
   IconShield,
-  IconSparkle,
   IconSpeaker,
   IconUsers,
 } from "@/components/ui/icons";
@@ -41,13 +40,8 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
     items: [{ label: "Tableau de bord", icon: IconDashboard, href: "/admin" }],
   },
   {
-    title: "Personnalité",
+    title: "Caractère",
     items: [
-      {
-        label: "Personnalités",
-        icon: IconSparkle,
-        href: "/admin/personnalites",
-      },
       {
         label: "Caractère et règles",
         tab: "Caractère",

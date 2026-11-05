@@ -8,7 +8,7 @@ import { DELETE_CONFIRMATION } from "./confirmation";
 
 const LOST = [
   "Toutes tes conversations avec Tamilya et leurs messages",
-  "Ton profil, ton nom affiché et la personnalité choisie",
+  "Ton profil et ton nom affiché",
   "Ce que Tamilya a retenu de toi, tes adresses et ton avis",
   "Le solde de ton portefeuille",
   "Ton accès : il faudra créer un nouveau compte pour revenir",

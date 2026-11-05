@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { AwaBlob, takeLaunchOrigin } from "./AwaBlob";
 import { IconClose, IconMic } from "@/components/ui/icons";
 import { speakableText } from "@/lib/chat/voice";
@@ -22,7 +23,7 @@ const LABELS = {
  * `standalone` (page /voix) : toujours affiché, le globe au repos attend qu'on le touche.
  * Dès qu'elle ouvre un tableau (`voice.board`), le globe rétrécit et monte en haut, le
  * fond sombre s'efface et on touche le tableau au travers : Tamilya reste là jusqu'à
- * la fin de l'appel, entourée de son anneau arc-en-ciel.
+ * la fin de l'appel, et une lueur fondue entoure la conversation.
  */
 export function VoiceOverlay({
   voice,
@@ -116,6 +117,9 @@ export function VoiceOverlay({
   }, [close]);
 
   if (!visible) return null;
+  // Autour de la conversation seule (pas du menu sur ordinateur) ; sur /voix, autour de l'écran.
+  const edge = <span aria-hidden="true" className="voice-edge" data-on={compact || undefined} data-state={state} />;
+  const surface = typeof document === "undefined" ? null : document.querySelector(".persona-surface");
   // Réponse de Tamilya : les [[mots français]] (ceux qu'elle ne connaît pas encore en shimaoré) en couleur.
   const text =
     state === "speaking"
@@ -141,12 +145,13 @@ export function VoiceOverlay({
       data-compact={compact || undefined}
       className="voice-overlay fixed inset-0 z-[60] flex flex-col items-center px-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] text-white"
     >
+      {surface ? createPortal(edge, surface) : edge}
       <p className="voice-title voice-morph-in text-sm font-medium tracking-[0.3em] text-white/50 uppercase">Tamilya</p>
 
       <div className={`voice-middle flex w-full flex-1 flex-col items-center justify-center ${choosing ? "gap-6" : "gap-10"}`}>
         {/* La même Tamilya que sur l'accueil, en grand : elle suit sa voix quand elle parle, frémit quand on lui parle. */}
         <div ref={orb} className="voice-orb-slot" data-state={state}>
-          <span aria-hidden="true" className="voice-halo" />
+          <span aria-hidden="true" className="voice-orb-disc" />
           <AwaBlob
             label={state === "speaking" ? "Couper Tamilya et parler" : "Parler"}
             onActivate={talk}

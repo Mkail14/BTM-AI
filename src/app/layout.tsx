@@ -4,6 +4,7 @@ import { AuthProvider, type AuthUser } from "@/components/auth/AuthProvider";
 import { BRAND } from "@/components/brand/brand";
 import { SplashReady } from "@/components/brand/SplashReady";
 import { SplashScreen } from "@/components/brand/SplashScreen";
+import { ConnectionNotice } from "@/components/layout/ConnectionNotice";
 import { HelpBubble } from "@/components/help/HelpBubble";
 import { EnvBadge } from "@/components/layout/EnvBadge";
 import { DialogHost } from "@/components/ui/ConfirmDialog";
@@ -77,6 +78,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           {/* Rond d'aide déplaçable : questions fréquentes, assistant d'aide, e-mail à l'équipe. */}
           <HelpBubble />
         </AuthProvider>
+        <ConnectionNotice />
         <DialogHost />
         <EnvBadge isAdmin={initialUser?.isAdmin ?? false} />
       </body>

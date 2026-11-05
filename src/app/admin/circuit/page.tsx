@@ -168,7 +168,7 @@ export default async function AdminCircuitPage() {
       : { status: admin ? "warning" : "error", statusLabel: admin ? "Partiel" : "En mémoire" };
 
   const brainNodes: FlowNode[] = [
-    { id: "personality", column: 2, icon: "sparkle", title: "Personnalité", status: "ok", statusLabel: "Active", href: "/admin/personnalites" },
+    { id: "personality", column: 2, icon: "sparkle", title: "Personnalité", status: "ok", statusLabel: "Active", href: "/admin/caractere" },
     {
       id: "settings",
       column: 2,

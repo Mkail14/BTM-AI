@@ -12,7 +12,7 @@ type ComposerProps = {
   disabledReason?: string;
   onSend: (text: string) => void;
   onStop: () => void;
-  /** Élément affiché à gauche du champ (sélecteur de personnalité). */
+  /** Élément affiché à gauche du champ (leçon de shimaoré…). */
   leading?: ReactNode;
   /** Élément affiché juste avant le bouton d'envoi (micro). */
   trailing?: ReactNode;

@@ -208,7 +208,7 @@ export function GuestLanding({
       aria-label="Bienvenue sur BTM AI"
       data-leaving={leaving || undefined}
       onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 8)}
-      className="landing fixed inset-0 z-[55] overflow-x-hidden overflow-y-auto overscroll-contain bg-bg text-fg"
+      className="landing landing-home fixed inset-0 z-[55] overflow-x-hidden overflow-y-auto overscroll-contain bg-bg text-fg"
     >
       <div aria-hidden="true" className="fond-lagon fond-lagon--page" />
       <LandingNav scrolled={scrolled} onHome={talkAgain} />

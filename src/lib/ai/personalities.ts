@@ -1,7 +1,7 @@
 /**
  * Personnalités de Tamilya, choisies par l'utilisateur après la création de son
  * compte. Chaque personnalité est décrite par des champs simples (attitude,
- * façon de parler, règles, exemples), modifiables depuis /admin/personnalites
+ * façon de parler, règles, exemples), choisies autrefois par l'utilisateur (aujourd'hui : professionnelle pour tous)
  * et assemblés ici en consignes. Seul l'identifiant vient du client (validé) ;
  * le texte vient du code ou des administrateurs, jamais des utilisateurs.
  */
