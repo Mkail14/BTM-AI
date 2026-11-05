@@ -226,6 +226,7 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
       let pending: string | null = opened.first;
       let usage: GeminiChunk["usageMetadata"] | null = null;
       const sources = new Map<string, string>();
+      let grounded = false;
 
       try {
         while (true) {
@@ -249,6 +250,7 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
               if (part.text && !part.thought) yield { type: "text", text: part.text };
             }
             if (candidate?.finishReason) finish = mapFinishReason(candidate.finishReason);
+            if (candidate?.groundingMetadata) grounded = true;
             for (const ground of candidate?.groundingMetadata?.groundingChunks ?? []) {
               if (ground.web?.uri) sources.set(ground.web.uri, ground.web.title ?? ground.web.uri);
             }
@@ -270,6 +272,8 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
           outputTokens: (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0),
         };
       }
+      // Journal : la recherche a-t-elle vraiment servi ? (sans métadonnée : réponse de mémoire)
+      if (search) console.info(`[ai] recherche Google (${usedModel}) : ${grounded ? `${sources.size} source(s)` : "pas utilisée"}`);
       if (sources.size) yield { type: "sources", sources: [...sources].slice(0, 6).map(([url, title]) => ({ url, title })) };
       yield { type: "finish", reason: finish };
     },

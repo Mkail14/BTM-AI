@@ -28,6 +28,7 @@ import {
   getRecentMessages,
   insertMessage,
 } from "@/lib/conversations/repository";
+import { libraryContextFor } from "@/lib/library/store";
 import { liveContextFor } from "@/lib/live";
 import { glossFor, invalidateAwaBrain, knownTranslations, knowledgeFor, lexiconFor, loadAwaBrain, wordsFor } from "@/lib/ai/brain";
 import { AI_ERROR_LABELS } from "@/lib/ai/flow-events";
@@ -218,6 +219,8 @@ export async function POST(request: NextRequest) {
       : Promise.resolve(null);
   // Offres d'emploi et actu de Mayotte, seulement si le message en parle (mode maître compris).
   const liveTask = liveContextFor(body.message, { maxWaitMs: body.voice ? VOICE_LIVE_WAIT_MS : undefined }).catch(() => null);
+  // Bibliothèque Mayotte : passages proches du message (1,5 s au plus, jamais bloquant).
+  const libraryTask = body.voice ? Promise.resolve(null) : libraryContextFor(body.message).catch(() => null);
   // Commande de repas et tickets de barge ouverts à ce compte ? Dernière commande (cookie signé).
   const foodTask = canOrderFood(user).catch(() => false);
   const bargeTask = canBuyBargeTickets(user).catch(() => false);
@@ -363,12 +366,13 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const [brain, { personality, home }, personalityInstructions, live, dossier, foodOrdering, bargeTickets, foodOrder] =
+  const [brain, { personality, home }, personalityInstructions, live, library, dossier, foodOrdering, bargeTickets, foodOrder] =
     await Promise.all([
       brainTask,
       profileTask,
       personalityInstructionsTask,
       liveTask,
+      libraryTask,
       dossierTask,
       foodTask,
       bargeTask,
@@ -419,6 +423,7 @@ export async function POST(request: NextRequest) {
     gloss: glossFor(brain, body.message),
     knowledge: knowledgeFor(brain, body.message),
     live,
+    library,
     memories,
     dossier,
     teacher: master,
