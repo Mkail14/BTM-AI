@@ -11,7 +11,8 @@ import java.util.Set;
 /**
  * Mémoire du relais : chaque demande vue est gardée 10 minutes au plus, avec le voisin
  * d'où elle venait (pour renvoyer la réponse par le même chemin). Une demande déjà vue
- * est ignorée. Pas d'Android ici : testable sur l'ordinateur.
+ * n'est pas relancée, mais sa réponse reste disponible si la connexion a sauté entre-temps.
+ * Pas d'Android ici : testable sur l'ordinateur.
  */
 final class RelayTable {
     static final long TTL_MS = 10 * 60 * 1000L;
@@ -20,13 +21,15 @@ final class RelayTable {
     static final class Entry {
         final String id;
         /** Voisin d'où vient la demande ; null quand elle a été écrite sur ce téléphone. */
-        final String from;
+        String from;
         final long at;
         final String json;
         final int hops;
         final Set<String> sentTo = new HashSet<>();
         boolean posted;
         boolean answered;
+        /** Réponse du serveur, gardée pour le voisin s'il redemande après une coupure. */
+        byte[] reply;
 
         Entry(String id, String from, String json, int hops, long at) {
             this.id = id;

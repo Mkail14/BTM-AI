@@ -30,6 +30,9 @@ final class ConnectStore {
     String conversationId() { return prefs.getString("conversationId", ""); }
     void setConversationId(String id) { prefs.edit().putString("conversationId", id).apply(); }
 
+    boolean permissionsAsked() { return prefs.getBoolean("permissionsAsked", false); }
+    void setPermissionsAsked() { prefs.edit().putBoolean("permissionsAsked", true).apply(); }
+
     /** Prêt à écrire hors ligne : appareil enregistré et clé du serveur connue. */
     boolean ready() {
         return !deviceId().isEmpty() && !keyId().isEmpty() && !serverKey().isEmpty();

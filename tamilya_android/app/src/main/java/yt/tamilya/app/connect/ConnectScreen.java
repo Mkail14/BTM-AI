@@ -10,6 +10,7 @@ import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -43,12 +44,13 @@ final class ConnectScreen extends LinearLayout {
     private final ScrollView scroll;
     private final LinearLayout list;
     private final EditText input;
+    private final GreyGlobe globe;
 
     ConnectScreen(Context context, Actions actions) {
         super(context);
         this.actions = actions;
         setOrientation(VERTICAL);
-        setBackgroundColor(INK);
+        setBackground(new LagonDrawable(context, INK));
         setClickable(true);
 
         LinearLayout header = new LinearLayout(context);
@@ -112,6 +114,15 @@ final class ConnectScreen extends LinearLayout {
         sendParams.leftMargin = dp(8);
         bar.addView(send, sendParams);
         addView(bar);
+
+        // Comme sur le site quand la voix n'est pas disponible : le globe ouvre la zone de saisie.
+        globe = new GreyGlobe(context);
+        globe.setOnClickListener(v -> {
+            globe.pop();
+            input.requestFocus();
+            InputMethodManager keyboard = context.getSystemService(InputMethodManager.class);
+            if (keyboard != null) input.post(() -> keyboard.showSoftInput(input, 0));
+        });
     }
 
     private void submit() {
@@ -138,11 +149,15 @@ final class ConnectScreen extends LinearLayout {
 
     void render(JSONArray messages) {
         list.removeAllViews();
+        list.setGravity(messages.length() == 0 ? Gravity.CENTER : Gravity.TOP);
         if (messages.length() == 0) {
+            LayoutParams globeParams = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            globeParams.gravity = Gravity.CENTER_HORIZONTAL;
+            list.addView(globe, globeParams);
             TextView empty = text("Pas d'internet ? Écris quand même : ton message passe de téléphone en téléphone "
                     + "jusqu'à quelqu'un qui a internet. Écrit seulement, pas de voix.", 15, MUTED);
             empty.setGravity(Gravity.CENTER);
-            empty.setPadding(dp(12), dp(40), dp(12), dp(12));
+            empty.setPadding(dp(12), 0, dp(12), dp(12));
             list.addView(empty);
         }
         for (int i = 0; i < messages.length(); i++) {

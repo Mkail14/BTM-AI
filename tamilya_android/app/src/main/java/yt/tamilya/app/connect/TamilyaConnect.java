@@ -82,9 +82,9 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             list.add(Manifest.permission.NEARBY_WIFI_DEVICES);
-        } else {
-            list.add(Manifest.permission.ACCESS_FINE_LOCATION);
         }
+        // Toujours demandée : sans elle, la recherche Bluetooth peut ne jamais voir les voisins.
+        list.add(Manifest.permission.ACCESS_FINE_LOCATION);
         return list.toArray(new String[0]);
     }
 
@@ -121,7 +121,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
             if (store.ready()) screen.setNotice(null);
             mesh.start();
         } else {
-            screen.setNotice("Autorise « Appareils à proximité » pour trouver des téléphones relais.");
+            screen.setNotice("Autorise « Appareils à proximité » et la position pour trouver des téléphones relais.");
         }
     }
 
@@ -150,7 +150,13 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
 
     /** App au premier plan : on relaie (pour soi et pour les autres), si c'est permis. */
     public void resume() {
-        if (hasPermissions()) mesh.start();
+        if (hasPermissions()) {
+            mesh.start();
+        } else if (store.ready() && !store.permissionsAsked()) {
+            // Un téléphone relaie même si Connect n'y a jamais été ouvert : on demande une fois.
+            store.setPermissionsAsked();
+            host.requestConnectPermissions(permissions());
+        }
     }
 
     public void pause() {
@@ -197,7 +203,10 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
             } catch (Exception ignored) {
                 // Routes pas encore en ligne, ou réseau faible : rien à montrer.
             } finally {
-                main.post(() -> syncing = false);
+                main.post(() -> {
+                    syncing = false;
+                    if (activity.hasWindowFocus()) resume();
+                });
             }
         });
     }
