@@ -22,6 +22,7 @@ import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
 import { AwaBlob } from "./AwaBlob";
 import { Composer, type ComposerHandle } from "./Composer";
 import { MessageItem, type UiMessage } from "./MessageItem";
+import { useLiveVoiceConversation } from "./useLiveVoiceConversation";
 import { useVoiceConversation } from "./useVoiceConversation";
 import { VoiceOverlay } from "./VoiceOverlay";
 import { SuggestionCarousel } from "./SuggestionCarousel";
@@ -137,9 +138,14 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   // Mode vocal du maître de Tamilya (administrateur) : il lui parle, elle répond à voix haute.
   const sendRef = useRef<(text: string, spoken?: boolean) => void>(() => {});
   // Message dicté : le serveur le sait, Tamilya répond court, pour être écoutée.
-  const voice = useVoiceConversation((text) => sendRef.current(text, true));
+  const legacyVoice = useVoiceConversation((text) => sendRef.current(text, true));
+  // Vocal en direct (Gemini Live, comme ChatGPT Voice) : chaque échange s'ajoute à la conversation.
+  const liveTurnRef = useRef<(user: string, tamilya: string) => void>(() => {});
+  const liveVoice = useLiveVoiceConversation((userText, tamilya) => liveTurnRef.current(userText, tamilya));
+  const voice = liveVoice.supported ? liveVoice : legacyVoice;
   const voiceEnabled = Boolean(user?.isAdmin) && voice.supported;
-  const { replied: voiceReplied, say: voiceSay, stop: stopVoice } = voice;
+  // Ancien mode (dictée + réponse écrite lue) : appelé depuis l'envoi d'un message dicté.
+  const { replied: voiceReplied, say: voiceSay, stop: stopVoice } = legacyVoice;
 
   // Clic du maître sur un [[mot]] orange : la traduction est retenue pour
   // toujours, et le mot est remplacé partout dans la conversation affichée.
@@ -439,6 +445,37 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   useEffect(() => {
     sendRef.current = (text, spoken) => void send(text, undefined, spoken);
   }, [send]);
+
+  // Échange du vocal en direct : affiché tout de suite, puis enregistré (conversation créée au premier échange).
+  const conversationIdRef = useRef(conversationId);
+  useEffect(() => {
+    conversationIdRef.current = conversationId;
+  }, [conversationId]);
+  useEffect(() => {
+    liveTurnRef.current = (userText, tamilya) => {
+      setMessages((previous) => [
+        ...previous,
+        ...(userText ? [{ id: newId(), role: "user" as const, content: userText, status: "complete" as const }] : []),
+        ...(tamilya ? [{ id: newId(), role: "assistant" as const, content: tamilya, status: "complete" as const }] : []),
+      ]);
+      if (!userId) return;
+      const known = conversationIdRef.current;
+      void fetch("/api/voice/live/turn", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user: userText, tamilya, ...(known ? { conversationId: known } : {}) }),
+      })
+        .then((r) => (r.ok ? (r.json() as Promise<{ conversationId?: string }>) : null))
+        .then((saved) => {
+          if (!saved?.conversationId || saved.conversationId === conversationIdRef.current) return;
+          conversationIdRef.current = saved.conversationId;
+          setConversationId(saved.conversationId);
+          window.history.replaceState(null, "", `/c/${saved.conversationId}`);
+          refreshConversations();
+        })
+        .catch(() => {});
+    };
+  }, [userId, refreshConversations]);
 
   // Compteur d'essai relu sur l'appareil (localStorage, indisponible au rendu serveur).
   useEffect(() => {

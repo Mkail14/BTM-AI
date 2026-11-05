@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { createStreamEventParser } from "@/lib/chat/stream-protocol";
 import type { ChatStreamEvent } from "@/lib/chat/types";
+import { useLiveVoiceConversation } from "./useLiveVoiceConversation";
 import { useVoiceConversation } from "./useVoiceConversation";
 import { VoiceOverlay } from "./VoiceOverlay";
 
@@ -67,11 +68,25 @@ export function VoiceRoom() {
     repliedRef.current(reply);
   }
 
-  const voice = useVoiceConversation((text) => void ask(text));
+  const legacyVoice = useVoiceConversation((text) => void ask(text));
+  // Vocal en direct (Gemini Live) : chaque échange est enregistré dans la même conversation.
+  const liveVoice = useLiveVoiceConversation((user, tamilya) => {
+    void fetch("/api/voice/live/turn", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user, tamilya, ...(conversationId.current ? { conversationId: conversationId.current } : {}) }),
+    })
+      .then((r) => (r.ok ? (r.json() as Promise<{ conversationId?: string }>) : null))
+      .then((saved) => {
+        if (saved?.conversationId) conversationId.current = saved.conversationId;
+      })
+      .catch(() => {});
+  });
+  const voice = liveVoice.supported ? liveVoice : legacyVoice;
   useEffect(() => {
-    repliedRef.current = voice.replied;
-    sayRef.current = voice.say;
-  }, [voice.replied, voice.say]);
+    repliedRef.current = legacyVoice.replied;
+    sayRef.current = legacyVoice.say;
+  }, [legacyVoice.replied, legacyVoice.say]);
   useEffect(() => () => abortRef.current?.abort(), []);
 
   return <VoiceOverlay voice={voice} standalone onClose={() => router.push("/admin")} />;
