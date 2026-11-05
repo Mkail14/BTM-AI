@@ -169,6 +169,8 @@ export function VoiceOverlay({
               if (event.key === " " || event.key === "Enter") holdEnd();
             }}
             onContextMenu={(event) => event.preventDefault()}
+            // iPhone : pas de loupe ni de menu à l'appui long.
+            style={{ WebkitTouchCallout: "none", WebkitUserSelect: "none" }}
             className={`grid size-20 touch-none select-none place-items-center rounded-full transition disabled:opacity-40 ${
               holding ? "scale-110 bg-white text-black" : "bg-white/10 text-white hover:bg-white/20"
             }`}

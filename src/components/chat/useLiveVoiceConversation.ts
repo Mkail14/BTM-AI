@@ -57,6 +57,8 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string)
     userText.current = "";
     tamilyaText.current = "";
     void openLiveSession({
+      // Talkie-walkie seulement : Tamilya n'écoute que pendant l'appui sur le bouton micro.
+      pushToTalk: true,
       onState: (live) => {
         if (live === "connexion") setState("waiting");
         else if (live === "écoute") {

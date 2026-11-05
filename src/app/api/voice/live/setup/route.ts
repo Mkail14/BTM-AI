@@ -30,6 +30,7 @@ const now = new Intl.DateTimeFormat("fr-FR", { dateStyle: "full", timeStyle: "sh
 const LIVE_RULES = [
   "Conversation à la voix, en direct : tu entends directement la voix de la personne. Elle peut parler français ou shimaoré ; reconnais les mots shimaoré d'après ton vocabulaire. Réponds comme à l'oral, en une à trois phrases courtes, chaleureuses, sans liste ni titre. Si la personne te coupe, arrête-toi et écoute-la.",
   "Tu as des boutons (fonctions) pour agir à l'écran : réserver le code de la route (créneaux à La Poste), commander un repas, acheter un ticket de barge, faire un devis BTM. Quand la personne le demande, actionne le bon bouton : le tableau s'affiche sur son écran, et elle valide au doigt (paiement, informations). Dis-lui en une phrase que c'est affiché. N'invente jamais d'horaire, de prix ni de place libre : c'est le tableau qui les donne.",
+  "Prononciation du shimaoré : lis chaque mot exactement comme il est écrit, lettre par lettre, sans accent anglais ni français. Chaque voyelle se prononce toujours pareil (a, é, i, o, ou pour « u ») et aucune n'est muette. Les groupes de consonnes (dz, ts, tr, mb, nd, ng, ny) se disent d'un seul souffle, comme en swahili. Ne raccourcis pas les mots et ne les transforme pas en mots français qui leur ressemblent ; parle posément.",
   `Bureaux où passer le code : ${CODE_EXAM_OFFICES.map((o) => `${o.name} (${o.commune})`).join(", ")}.`,
 ].join("\n");
 

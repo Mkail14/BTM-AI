@@ -21,6 +21,8 @@ export type LiveCallbacks = {
   onNote?: (text: string) => void;
   /** Tamilya actionne un bouton (réservation, repas…) : renvoie ce qu'il faut lui dire en retour. */
   onToolCall?: (name: string, args: Record<string, unknown>) => Promise<string>;
+  /** Talkie-walkie dès l'ouverture : Tamilya n'écoute que pendant l'appui sur le bouton. */
+  pushToTalk?: boolean;
   /** Conversation fermée (normalement ou sur erreur, avec la raison). */
   onClose: (error: string | null) => void;
 };
@@ -139,8 +141,8 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
   let quietSince = 0;
   let ready = false;
   let closed = false;
-  /** Talkie-walkie utilisé : le micro n'envoie que pendant l'appui. */
-  let pushToTalk = false;
+  /** Talkie-walkie : le micro n'envoie que pendant l'appui sur le bouton (choix de l'écran vocal). */
+  let pushToTalk = callbacks.pushToTalk ?? false;
   let holding = false;
 
   const cut = () => {
