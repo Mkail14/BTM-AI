@@ -347,63 +347,76 @@ export function GuestLanding({
       </main>
 
       <footer className="app-hide landing-content relative z-10 border-t border-border landing-soft">
-        <div className="mx-auto grid max-w-5xl gap-10 px-5 pt-12 pb-8 sm:grid-cols-[1.6fr_1fr_1fr]">
+        {/* Dernier appel : parler à Tamilya ou créer son compte. */}
+        <div className="mx-auto max-w-5xl px-5 pt-14">
+          <div className="landing-glass flex flex-col items-start gap-6 rounded-3xl p-6 sm:flex-row sm:items-center sm:justify-between sm:p-8">
+            <div>
+              <p className="text-2xl font-semibold tracking-tight text-balance sm:text-3xl">
+                Prêt à parler <span className="landing-accent">shimaoré</span> ?
+              </p>
+              <p className="mt-2 text-sm text-fg-muted">C&apos;est gratuit, et tu peux commencer sans compte.</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <button type="button" onClick={talkAgain} className="btn-rose rounded-full px-5 py-2.5 text-sm font-semibold">
+                Parler à Tamilya
+              </button>
+              <button type="button" onClick={signUp} className="rounded-full px-4 py-2.5 text-sm font-semibold transition hover:bg-black/[0.05] dark:hover:bg-white/[0.08]">
+                Créer un compte
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="mx-auto grid max-w-5xl gap-10 px-5 pt-12 pb-10 sm:grid-cols-[1.6fr_1fr_1fr]">
           <div>
             <BrandLogo size="sm" />
-            <p className="mt-3 max-w-xs text-sm text-fg-muted">Tamilya, l&apos;assistante qui apprend le shimaoré. Faite à Mayotte par GROUPE BTM.</p>
+            <p className="mt-3 max-w-xs text-sm leading-relaxed text-fg-muted">
+              Tamilya, l&apos;assistante qui apprend le shimaoré. Faite à Mayotte par GROUPE BTM.
+            </p>
+            <a href="mailto:contact@btm.yt" className="mt-4 inline-block text-sm font-medium underline-offset-4 hover:underline">
+              contact@btm.yt
+            </a>
           </div>
-          <div>
-            <p className="text-sm font-semibold">Tamilya</p>
-            <ul className="mt-1.5 text-sm text-fg-muted">
+          <nav aria-label="Tamilya">
+            <p className="text-xs font-semibold tracking-wider text-fg-muted uppercase">Tamilya</p>
+            <ul className="mt-2 text-sm">
               <li>
-                <button type="button" onClick={talkAgain} className="block py-2 transition hover:text-fg">
+                <button type="button" onClick={talkAgain} className="block py-1.5 text-fg-muted transition hover:text-fg">
                   Lui parler
                 </button>
               </li>
               <li>
-                <button type="button" onClick={signUp} className="block py-2 transition hover:text-fg">
-                  Créer un compte
-                </button>
+                <a href="#avis" className="block py-1.5 text-fg-muted transition hover:text-fg">
+                  Les avis
+                </a>
               </li>
               <li>
-                <button type="button" onClick={() => openAuthDialog({ mode: "signin" })} className="block py-2 transition hover:text-fg">
+                <button type="button" onClick={() => openAuthDialog({ mode: "signin" })} className="block py-1.5 text-fg-muted transition hover:text-fg">
                   Se connecter
                 </button>
               </li>
             </ul>
-          </div>
-          <div>
-            <p className="text-sm font-semibold">Infos</p>
-            <ul className="mt-1.5 text-sm text-fg-muted">
-              <li>
-                <Link href="/aide" className="block py-2 transition hover:text-fg">
-                  Aide
-                </Link>
-              </li>
-              <li>
-                <Link href="/confidentialite" className="block py-2 transition hover:text-fg">
-                  Données et confidentialité
-                </Link>
-              </li>
-              <li>
-                <Link href="/partenaires" className="block py-2 transition hover:text-fg">
-                  Nos partenaires
-                </Link>
-              </li>
-              <li>
-                <Link href="/developpeurs" className="block py-2 transition hover:text-fg">
-                  Développeurs
-                </Link>
-              </li>
-              <li>
-                <a href="mailto:contact@btm.yt" className="block py-2 transition hover:text-fg">
-                  Nous écrire
-                </a>
-              </li>
+          </nav>
+          <nav aria-label="Informations">
+            <p className="text-xs font-semibold tracking-wider text-fg-muted uppercase">Infos</p>
+            <ul className="mt-2 text-sm">
+              {[
+                { href: "/aide", label: "Aide" },
+                { href: "/confidentialite", label: "Données et confidentialité" },
+                { href: "/partenaires", label: "Nos partenaires" },
+                { href: "/developpeurs", label: "Développeurs" },
+              ].map((item) => (
+                <li key={item.href}>
+                  <Link href={item.href} className="block py-1.5 text-fg-muted transition hover:text-fg">
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
-          </div>
+          </nav>
         </div>
-        <div className="mx-auto flex max-w-5xl flex-col gap-1 border-t border-border px-5 pt-5 pb-[calc(4.5rem+env(safe-area-inset-bottom))] text-xs text-fg-muted sm:flex-row sm:justify-between">
+
+        <div className="mx-auto flex max-w-5xl flex-col gap-1.5 border-t border-border px-5 pt-5 pb-[calc(4.5rem+env(safe-area-inset-bottom))] text-xs text-fg-muted sm:flex-row sm:justify-between">
           <p>© {new Date().getFullYear()} GROUPE BTM · Bâtir la Technologie de Mayotte</p>
           <p>Tamilya peut se tromper. Vérifie les informations importantes.</p>
         </div>

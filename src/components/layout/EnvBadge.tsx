@@ -2,7 +2,7 @@
  * Pastille qui indique sur quelle version du site on se trouve : sur son
  * ordinateur (pnpm dev), sur dev.tamilya.yt (branche develop, « Preview »
  * chez Vercel) ou sur tamilya.yt (branche main). En bas à droite, toute
- * petite et sans clic. Sur le site en ligne, seuls les administrateurs la voient.
+ * petite et sans clic. Sur le site en ligne, elle n'apparaît pas.
  */
 const ENVS = {
   local: { label: "Local", color: "#f59e0b" },
@@ -20,7 +20,9 @@ function currentEnv(): keyof typeof ENVS {
 
 export function EnvBadge({ isAdmin }: { isAdmin: boolean }) {
   const env = currentEnv();
-  if (env === "production" && !isAdmin) return null;
+  // Sur le site en ligne, plus de pastille du tout (même pour les administrateurs).
+  if (env === "production") return null;
+  void isAdmin;
   const { label, color } = ENVS[env];
   return (
     <div
