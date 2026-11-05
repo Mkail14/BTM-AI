@@ -1,5 +1,6 @@
 import { buildLanguageGuidance } from "@/lib/language/shimaore";
 import { AWA_BIRTH_LABEL, AWA_NAME, awaAge } from "./awa-identity";
+import { VOICE_TONE } from "./voice-tone";
 import { CODE_EXAM_OFFICES } from "@/lib/code-exam/offices";
 import { FOOD_CATALOG } from "@/lib/food/catalog";
 import type { ValidatedExample } from "@/lib/language/types";
@@ -112,7 +113,7 @@ const DOSSIER = [
 
 // La dictée du navigateur ne connaît ni le shimaoré ni le nom de Tamilya : elle les remplace par des mots français proches.
 const VOICE =
-  "Conversation à la voix : le message de la personne vient d'une dictée automatique en français, qui entend mal les mots qu'elle ne connaît pas. Comprends-le d'après le son et le contexte, sans relever les erreurs : « chinois », « chimie », « shima ore », « shimaore » veulent presque toujours dire « shimaoré » ; « Ava », « a va », « hawa » désignent ton nom, Tamilya ; « Maillotte » est Mayotte. Un mot shimaoré peut être écrit comme il se prononce en français. Ta réponse sera lue à voix haute : parle comme à l'oral, en deux ou trois phrases courtes, sans liste, sans titre, sans Markdown ni emoji, sauf si on te demande plus long.";
+  "Conversation à la voix : le message de la personne vient d'une dictée automatique en français, qui entend mal les mots qu'elle ne connaît pas. Comprends-le d'après le son et le contexte, sans relever les erreurs : « chinois », « chimie », « shima ore », « shimaore » veulent presque toujours dire « shimaoré » ; « Ava », « a va », « hawa » désignent ton nom, Tamilya ; « Maillotte » est Mayotte. Un mot shimaoré peut être écrit comme il se prononce en français. Ta réponse sera lue à voix haute : parle comme à l'oral, sans titre, sans Markdown ni emoji.";
 
 // Le relevé des mots se fait après la réponse (learnWordsFromMessage) : Tamilya n'a qu'à parler.
 // Placé en fin de message système : c'est la consigne que les petits modèles suivent le mieux.
@@ -403,7 +404,7 @@ export function buildSystemPrompt(
       ].join("\n"),
     );
   }
-  if (context.voice) sections.push(VOICE);
+  if (context.voice) sections.push(VOICE, VOICE_TONE);
   sections.push(SECURITY);
   // Les petits modèles retiennent surtout la fin du message système : on y rappelle qui ils sont.
   sections.push(`Rappel : tu es ${name}, de GROUPE BTM. Jamais un autre nom, jamais une autre entreprise.`);
