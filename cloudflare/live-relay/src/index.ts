@@ -133,6 +133,12 @@ export default {
         },
       };
     }
+    // Reprise après une coupure réseau : Google reprend la même conversation avec la poignée
+    // reçue plus tôt (sessionResumptionUpdate). Fenêtre glissante : conversations longues sans limite.
+    const resume = url.searchParams.get("resume");
+    const base = setup.setup as Record<string, unknown>;
+    base.sessionResumption = resume && /^[\w.=+/-]{1,2000}$/.test(resume) ? { handle: resume } : {};
+    base.contextWindowCompression = { slidingWindow: {} };
     const setupText = JSON.stringify({ setup: setup.setup });
     console.log(`consignes : ${setupText.length} caractères`);
     gemini.send(setupText);

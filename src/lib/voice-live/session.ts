@@ -100,6 +100,7 @@ type GeminiMessage = {
     interrupted?: boolean;
     turnComplete?: boolean;
   };
+  sessionResumptionUpdate?: { newHandle?: string; resumable?: boolean };
   toolCall?: { functionCalls?: { id?: string; name?: string; args?: Record<string, unknown> }[] };
   error?: { message?: string };
 };
@@ -131,17 +132,6 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
     return null;
   }
 
-  const session = (await fetch("/api/voice/live/session", { method: "POST" })
-    .then((r) => r.json())
-    .catch(() => null)) as { url?: string; error?: string } | null;
-  if (!session?.url) {
-    mic.getTracks().forEach((t) => t.stop());
-    closeAudio();
-    callbacks.onClose(session?.error ?? "Le vocal en direct ne répond pas. Réessaie dans un instant.");
-    return null;
-  }
-
-  const socket = new WebSocket(session.url);
   const sources = new Set<AudioBufferSourceNode>();
   let nextTime = 0;
   let speechEndedAt: number | null = null;
@@ -152,6 +142,10 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
   /** Talkie-walkie : le micro n'envoie que pendant l'appui sur le bouton (choix de l'écran vocal). */
   let pushToTalk = callbacks.pushToTalk ?? false;
   let holding = false;
+  let socket: WebSocket | null = null;
+  /** Reprise de la conversation chez Google après une coupure réseau (même contexte). */
+  let resumeHandle: string | null = null;
+  let reconnects = 0;
 
   const cut = () => {
     sources.forEach((s) => {
@@ -167,7 +161,7 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
     if (closed) return;
     closed = true;
     try {
-      socket.close();
+      socket?.close();
     } catch {}
     cut();
     mic.getTracks().forEach((t) => t.stop());
@@ -175,12 +169,20 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
     callbacks.onClose(error);
   };
 
-  // Micro → Gemini, et repérage local de la fin de la phrase (pour chronométrer).
+  const send = (message: object) => {
+    if (socket?.readyState === WebSocket.OPEN) socket.send(JSON.stringify(message));
+  };
+
+  // Micro → Gemini. Filtre « passe-haut » : coupe les bruits graves (travaux, moteurs, vent)
+  // avant l'envoi, en plus de la réduction de bruit du téléphone.
   const url = URL.createObjectURL(new Blob([WORKLET], { type: "application/javascript" }));
   await capture.audioWorklet.addModule(url);
   URL.revokeObjectURL(url);
   const node = new AudioWorkletNode(capture, "capture");
-  capture.createMediaStreamSource(mic).connect(node);
+  const lowCut = capture.createBiquadFilter();
+  lowCut.type = "highpass";
+  lowCut.frequency.value = 120;
+  capture.createMediaStreamSource(mic).connect(lowCut).connect(node);
   node.port.onmessage = (event: MessageEvent<Float32Array>) => {
     const samples = event.data;
     let sum = 0;
@@ -197,18 +199,10 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
         speechEndedAt = quietSince;
       }
     }
-    if (ready && socket.readyState === WebSocket.OPEN && (!pushToTalk || holding)) {
-      socket.send(JSON.stringify({ realtimeInput: { audio: { data: toBase64Pcm(samples), mimeType: "audio/pcm;rate=16000" } } }));
-    }
+    if (ready && (!pushToTalk || holding)) send({ realtimeInput: { audio: { data: toBase64Pcm(samples), mimeType: "audio/pcm;rate=16000" } } });
   };
 
-  socket.onopen = () => note("relais connecté");
-  socket.onerror = () => note("erreur de connexion");
-  socket.onclose = (event) => {
-    note(`fermé (${event.code}${event.reason ? ` : ${event.reason}` : ""})`);
-    finish(event.code === 1000 || event.code === 1005 ? null : `La conversation s'est coupée (${event.reason || event.code}). Touche le globe pour reprendre.`);
-  };
-  socket.onmessage = async (event) => {
+  const onMessage = async (event: MessageEvent) => {
     const raw = typeof event.data === "string" ? event.data : await (event.data as Blob).text();
     let message: GeminiMessage;
     try {
@@ -218,18 +212,22 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
     }
     if (message.setupComplete) {
       ready = true;
+      reconnects = 0;
       note("Gemini prêt");
       callbacks.onState("écoute");
+    }
+    if (message.sessionResumptionUpdate?.resumable && message.sessionResumptionUpdate.newHandle) {
+      resumeHandle = message.sessionResumptionUpdate.newHandle;
     }
     if (message.error) note(`Gemini : ${message.error.message ?? "erreur"}`);
     // Boutons actionnés par Tamilya : la page agit, puis répond à Gemini pour qu'il continue.
     for (const call of message.toolCall?.functionCalls ?? []) {
       if (!call.name) continue;
       note(`bouton ${call.name}`);
-      const result = await (callbacks.onToolCall?.(call.name, call.args ?? {}) ?? Promise.resolve("Bouton indisponible.")).catch(() => "Le bouton n'a pas marché : dis-le à la personne.");
-      if (socket.readyState === WebSocket.OPEN) {
-        socket.send(JSON.stringify({ toolResponse: { functionResponses: [{ id: call.id, name: call.name, response: { result } }] } }));
-      }
+      const result = await (callbacks.onToolCall?.(call.name, call.args ?? {}) ?? Promise.resolve("Bouton indisponible.")).catch(
+        () => "Le bouton n'a pas marché : dis-le à la personne.",
+      );
+      send({ toolResponse: { functionResponses: [{ id: call.id, name: call.name, response: { result } }] } });
     }
     const content = message.serverContent;
     if (!content) return;
@@ -267,6 +265,47 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
     if (content.turnComplete) callbacks.onTurnComplete();
   };
 
+  /**
+   * Connexion (et reconnexion) au relais. Connexion faible à Mayotte : si elle
+   * saute, on se reconnecte tout seul jusqu'à 3 fois, et Google reprend la même
+   * conversation (poignée de reprise), sans rien perdre.
+   */
+  const connect = async (): Promise<boolean> => {
+    const session = (await fetch("/api/voice/live/session", { method: "POST" })
+      .then((r) => r.json())
+      .catch(() => null)) as { url?: string; error?: string } | null;
+    if (!session?.url) {
+      if (!reconnects) finish(session?.error ?? "Le vocal en direct ne répond pas. Réessaie dans un instant.");
+      else finish("La connexion est trop faible en ce moment. Touche le globe pour réessayer.");
+      return false;
+    }
+    if (closed) return false;
+    ready = false;
+    const opened = new WebSocket(resumeHandle ? `${session.url}&resume=${encodeURIComponent(resumeHandle)}` : session.url);
+    socket = opened;
+    opened.onopen = () => note(reconnects ? "reconnectée" : "relais connecté");
+    opened.onerror = () => note("erreur de connexion");
+    opened.onmessage = (event) => void onMessage(event);
+    opened.onclose = (event) => {
+      if (closed || socket !== opened) return;
+      note(`fermé (${event.code}${event.reason ? ` : ${event.reason}` : ""})`);
+      if (event.code === 1000) return finish(null);
+      // Coupure : nouvel essai, de plus en plus espacé.
+      if (reconnects < 3) {
+        reconnects += 1;
+        ready = false;
+        cut();
+        callbacks.onState("connexion");
+        note(`reconnexion ${reconnects}/3`);
+        setTimeout(() => void connect(), 600 * reconnects);
+        return;
+      }
+      finish(`La connexion est trop faible en ce moment (${event.reason || event.code}). Touche le globe pour réessayer.`);
+    };
+    return true;
+  };
+  if (!(await connect())) return null;
+
   const press = () => {
     pushToTalk = true;
     holding = true;
@@ -278,7 +317,7 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
     holding = false;
     // Fin de parole tout de suite : speechEndedAt sert au chronométrage.
     speechEndedAt = performance.now();
-    if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
+    send({ realtimeInput: { audioStreamEnd: true } });
   };
 
   return { stop: () => finish(null), cut, press, release };
