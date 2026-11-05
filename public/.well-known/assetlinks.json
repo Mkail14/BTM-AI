@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "yt.tamilya.app",
+      "sha256_cert_fingerprints": [
+        "08:ED:2F:C4:0E:CF:D6:59:82:3D:75:8D:1E:96:EE:8C:41:9D:9E:D2:7B:D3:8E:F9:D6:9C:E3:6E:72:E7:D5:89"
+      ]
+    }
+  }
+]
