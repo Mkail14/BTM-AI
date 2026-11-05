@@ -7,7 +7,18 @@ export const NEWS_SOURCES = [
   { name: "L'info Kwézi", url: "https://www.linfokwezi.fr/feed/" },
 ] as const;
 
-export type NewsItem = { source: string; title: string; link: string; date: string | null; summary: string };
+export type NewsItem = {
+  source: string;
+  title: string;
+  link: string;
+  date: string | null;
+  summary: string;
+  /** Début du texte complet, quand le journal le publie (Mayotte Hebdo, L'info Kwézi) : pour le journal parlé. */
+  body?: string;
+};
+
+/** Texte complet gardé par article (assez pour raconter l'article en détail). */
+const BODY_CHARS = 1_500;
 
 const CACHE_MS = 15 * 60_000;
 /** Étiquette des flux dans le cache de données de Next (partagé entre les instances, survit aux redémarrages). */
@@ -32,7 +43,7 @@ function clean(raw: string): string {
 
 const tag = (item: string, name: string) => item.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`))?.[1] ?? "";
 
-/** Lecture minimale d'un flux RSS : titre, lien, date et résumé de chaque article. */
+/** Lecture minimale d'un flux RSS : titre, lien, date, résumé et, s'il est publié, début du texte complet. */
 export function parseRss(xml: string, source: string): NewsItem[] {
   return [...xml.matchAll(/<item[\s>][\s\S]*?<\/item>/g)].flatMap(([item]) => {
     const title = clean(tag(item, "title"));
@@ -46,6 +57,7 @@ export function parseRss(xml: string, source: string): NewsItem[] {
         link,
         date: Number.isNaN(date.getTime()) ? null : date.toISOString(),
         summary: clean(tag(item, "description")).slice(0, 280),
+        ...(tag(item, "content:encoded") ? { body: clean(tag(item, "content:encoded")).slice(0, BODY_CHARS) } : {}),
       },
     ];
   });

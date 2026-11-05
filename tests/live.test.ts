@@ -79,3 +79,26 @@ describe("rangement automatique des mots", () => {
     assert.equal(phrases.children!.at(-1)!.label, "Apprises en parlant");
   });
 });
+
+describe("journal parlé", () => {
+  it("dit la météo en mots simples", async () => {
+    const { weatherWords } = await import("@/lib/live/weather");
+    assert.equal(weatherWords(0), "grand soleil");
+    assert.equal(weatherWords(81), "averses");
+    assert.equal(weatherWords(95), "orages");
+  });
+
+  it("prend les articles du jour à Mayotte, sans doublon, sinon ceux des 2 derniers jours", async () => {
+    const { pickJournalArticles } = await import("@/lib/live/journal");
+    const now = new Date("2026-11-05T08:00:00Z"); // 11 h à Mayotte
+    const item = (title: string, date: string) => ({ source: "T", title, link: "https://x.yt", date, summary: "…" });
+    const items = [
+      item("Grève des taxis à Mamoudzou", "2026-11-05T05:00:00Z"),
+      item("Grève des taxis à Mamoudzou ce matin", "2026-11-05T04:00:00Z"),
+      item("Collecte de déchets à Tsingoni", "2026-11-05T03:00:00Z"),
+      item("Match de foot à Dembéni", "2026-11-04T22:00:00Z"), // 1 h du matin le 5 à Mayotte
+      item("Vieux sujet", "2026-11-01T10:00:00Z"),
+    ];
+    assert.deepEqual(pickJournalArticles(items, now).map((i) => i.title), ["Grève des taxis à Mamoudzou", "Collecte de déchets à Tsingoni", "Match de foot à Dembéni"]);
+  });
+});
