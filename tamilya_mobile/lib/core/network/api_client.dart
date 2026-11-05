@@ -18,6 +18,8 @@ Dio createApiDio({
       connectTimeout: const Duration(seconds: 15),
       sendTimeout: const Duration(seconds: 30),
       receiveTimeout: const Duration(seconds: 30),
+      followRedirects: false,
+      maxRedirects: 0,
       contentType: Headers.jsonContentType,
       responseType: ResponseType.json,
       validateStatus: (s) => s != null && s >= 200 && s < 300,

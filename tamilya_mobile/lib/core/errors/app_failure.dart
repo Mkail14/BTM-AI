@@ -25,6 +25,14 @@ final class SessionExpiredFailure extends AppFailure {
   ]);
 }
 
+/// Session renouvelée après un 401 sur une requête non rejouable (le chat) :
+/// l'utilisateur doit simplement renvoyer son message (revue sécurité F-3).
+final class RetryableAuthFailure extends AppFailure {
+  const RetryableAuthFailure([
+    super.message = 'Ta session a été renouvelée. Renvoie ton message.',
+  ]);
+}
+
 /// Erreur renvoyée par l'API : `{"error":{"code","message"}}`.
 final class ApiFailure extends AppFailure {
   const ApiFailure({

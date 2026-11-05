@@ -13,7 +13,9 @@ import 'session_tokens.dart';
 ///   simultanées), UN nouvel essai ; si le 401 persiste ou si le
 ///   rafraîchissement échoue : déconnexion locale et [SessionExpiredFailure].
 /// - Une requête marquée `extra[kNoReplay] = true` (le chat, qui consomme du
-///   quota) n'est jamais rejouée.
+///   quota) n'est jamais rejouée : après un rafraîchissement réussi elle
+///   échoue en [RetryableAuthFailure] (« Renvoyer ») ; la déconnexion n'a lieu
+///   que si le rafraîchissement échoue.
 class AuthInterceptor extends Interceptor {
   AuthInterceptor({
     required this.tokens,
@@ -32,7 +34,9 @@ class AuthInterceptor extends Interceptor {
 
   bool _isApiCall(RequestOptions o) {
     final base = Uri.parse(baseUrl);
-    return o.uri.host == base.host && o.uri.port == base.port;
+    return o.uri.scheme == base.scheme &&
+        o.uri.host == base.host &&
+        o.uri.port == base.port;
   }
 
   @override
@@ -72,7 +76,18 @@ class AuthInterceptor extends Interceptor {
 
     final alreadyRetried = options.extra[_kRetried] == true;
     final noReplay = options.extra[kNoReplay] == true;
-    if (!alreadyRetried && !noReplay && await _refreshOnce()) {
+    if (!alreadyRetried && await _refreshOnce()) {
+      if (noReplay) {
+        // Jeton renouvelé, mais la requête n'est pas rejouée : « Renvoyer ».
+        return handler.reject(
+          DioException(
+            requestOptions: options,
+            response: err.response,
+            type: DioExceptionType.badResponse,
+            error: const RetryableAuthFailure(),
+          ),
+        );
+      }
       try {
         options.extra[_kRetried] = true;
         final token = await tokens.currentAccessToken();

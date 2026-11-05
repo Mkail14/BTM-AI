@@ -128,7 +128,7 @@ void main() {
     },
   );
 
-  test('une requête marquée noReplay n est jamais rejouée', () async {
+  test('noReplay + 401 : rafraîchit, ne rejoue pas, "Renvoyer"', () async {
     final tokens = _Tokens();
     final adapter = FakeAdapter([FakeAdapter.reply(401, {})]);
     await expectLater(
@@ -136,10 +136,46 @@ void main() {
         '/api/chat',
         options: Options(extra: {AuthInterceptor.kNoReplay: true}),
       ),
-      throwsA(isA<DioException>()),
+      throwsA(
+        isA<DioException>().having(
+          (e) => e.error,
+          'error',
+          isA<RetryableAuthFailure>(),
+        ),
+      ),
     );
-    expect(tokens.refreshCalls, 0);
+    expect(tokens.refreshCalls, 1);
+    expect(tokens.expireCalls, 0);
     expect(adapter.requests, hasLength(1));
+  });
+
+  test('noReplay + 401 + rafraîchissement impossible : déconnexion', () async {
+    final tokens = _Tokens(refreshWorks: false);
+    final adapter = FakeAdapter([FakeAdapter.reply(401, {})]);
+    await expectLater(
+      _dio(tokens, adapter).post<Object?>(
+        '/api/chat',
+        options: Options(extra: {AuthInterceptor.kNoReplay: true}),
+      ),
+      throwsA(
+        isA<DioException>().having(
+          (e) => e.error,
+          'error',
+          isA<SessionExpiredFailure>(),
+        ),
+      ),
+    );
+    expect(tokens.expireCalls, 1);
+    expect(adapter.requests, hasLength(1));
+  });
+
+  test('pas de Bearer si le schéma diffère; redirections désactivées', () async {
+    final adapter = FakeAdapter([FakeAdapter.reply(200, {})]);
+    final dio = _dio(_Tokens(), adapter);
+    await dio.get<Object?>('https://localhost:8090/api/x');
+    expect(adapter.requests.single.headers['Authorization'], isNull);
+    expect(dio.options.followRedirects, isFalse);
+    expect(dio.options.maxRedirects, 0);
   });
 
   test('deux 401 simultanés : un seul rafraîchissement', () async {
