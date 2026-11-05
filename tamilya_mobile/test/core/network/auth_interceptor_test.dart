@@ -169,14 +169,17 @@ void main() {
     expect(adapter.requests, hasLength(1));
   });
 
-  test('pas de Bearer si le schéma diffère; redirections désactivées', () async {
-    final adapter = FakeAdapter([FakeAdapter.reply(200, {})]);
-    final dio = _dio(_Tokens(), adapter);
-    await dio.get<Object?>('https://localhost:8090/api/x');
-    expect(adapter.requests.single.headers['Authorization'], isNull);
-    expect(dio.options.followRedirects, isFalse);
-    expect(dio.options.maxRedirects, 0);
-  });
+  test(
+    'pas de Bearer si le schéma diffère; redirections désactivées',
+    () async {
+      final adapter = FakeAdapter([FakeAdapter.reply(200, {})]);
+      final dio = _dio(_Tokens(), adapter);
+      await dio.get<Object?>('https://localhost:8090/api/x');
+      expect(adapter.requests.single.headers['Authorization'], isNull);
+      expect(dio.options.followRedirects, isFalse);
+      expect(dio.options.maxRedirects, 0);
+    },
+  );
 
   test('deux 401 simultanés : un seul rafraîchissement', () async {
     final tokens = _Tokens();

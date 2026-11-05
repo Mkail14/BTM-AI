@@ -1,5 +1,6 @@
 import '../../../shared/models/chat_message.dart';
 import '../domain/chat_repository.dart';
+import '../domain/chat_stream_event.dart';
 
 /// Répond une phrase factice, mot par mot, avec un léger délai.
 class FakeChatRepository implements ChatRepository {
@@ -22,15 +23,17 @@ class FakeChatRepository implements ChatRepository {
   ];
 
   @override
-  Stream<String> sendMessage({
+  Stream<ChatStreamEvent> sendMessage({
     String? conversationId,
     required String text,
   }) async* {
     const reply = 'Ceci est une réponse factice de Tamilya.';
     await Future<void>.delayed(delay * 4);
+    yield MetaEvent(conversationId ?? 'fake-conversation');
     for (final word in reply.split(' ')) {
-      yield '$word ';
+      yield DeltaEvent('$word ');
       await Future<void>.delayed(delay);
     }
+    yield const DoneEvent(FinishReason.stop);
   }
 }

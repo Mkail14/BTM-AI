@@ -11,6 +11,7 @@ import '../../features/auth/presentation/splash_screen.dart';
 import '../../features/chat/presentation/chat_controller.dart';
 import '../../features/chat/presentation/chat_screen.dart';
 import '../../features/conversations/presentation/conversations_drawer.dart';
+import '../../features/conversations/presentation/conversations_providers.dart';
 import '../../features/legal/presentation/legal_screen.dart';
 import '../../features/settings/presentation/settings_providers.dart';
 import '../../features/settings/presentation/settings_screen.dart';
@@ -31,8 +32,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         ref.invalidate(chatControllerProvider(null));
         context.go('/');
       },
-      drawerBuilder: (context, closeDrawer) => ConversationsDrawer(
-        selectedId: id,
+      onConversationsChanged: () => ref.invalidate(conversationsListProvider),
+      drawerBuilder: (context, closeDrawer, currentId) => ConversationsDrawer(
+        selectedId: currentId,
         onNewConversation: () {
           closeDrawer();
           ref.invalidate(chatControllerProvider(null));
@@ -52,6 +54,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
   final refresh = ValueNotifier<int>(0);
   ref.listen<bool>(sessionProvider, (previous, signedIn) {
+    // Changement de compte ou déconnexion : plus rien de l'ancien utilisateur.
+    ref.invalidate(conversationsListProvider);
+    ref.invalidate(chatControllerProvider);
     if (!signedIn) ref.invalidate(accountProvider);
     refresh.value++;
   });

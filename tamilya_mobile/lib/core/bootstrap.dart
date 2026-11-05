@@ -4,6 +4,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../features/auth/data/supabase_auth_repository.dart';
 import '../features/auth/presentation/auth_providers.dart';
+import '../features/chat/data/api_chat_repository.dart';
+import '../features/chat/data/supabase_messages_reader.dart';
+import '../features/chat/presentation/chat_controller.dart';
+import '../features/conversations/data/supabase_conversations_repository.dart';
+import '../features/conversations/presentation/conversations_providers.dart';
 import '../features/settings/data/api_account_repository.dart';
 import '../features/settings/presentation/settings_providers.dart';
 import 'config/env.dart';
@@ -52,6 +57,15 @@ Future<Bootstrap> bootstrap() async {
     overrides: [
       authRepositoryProvider.overrideWithValue(auth),
       accountRepositoryProvider.overrideWithValue(ApiAccountRepository(dio)),
+      chatRepositoryProvider.overrideWithValue(
+        ApiChatRepository(
+          dio: dio,
+          readMessages: supabaseMessagesReader(Supabase.instance.client),
+        ),
+      ),
+      conversationsRepositoryProvider.overrideWithValue(
+        SupabaseConversationsRepository.client(Supabase.instance.client),
+      ),
     ],
   );
 }

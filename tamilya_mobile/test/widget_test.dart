@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:tamilya_mobile/app.dart';
+import 'package:tamilya_mobile/core/errors/app_failure.dart';
+import 'package:tamilya_mobile/features/chat/domain/chat_stream_event.dart';
 import 'package:tamilya_mobile/core/theme/app_theme.dart';
 import 'package:tamilya_mobile/core/theme/tokens.dart';
 import 'package:tamilya_mobile/features/auth/presentation/auth_sheet.dart';
@@ -275,9 +277,15 @@ class _FlakyRepository implements ChatRepository {
   Future<List<ChatMessage>> history(String conversationId) async => const [];
 
   @override
-  Stream<String> sendMessage({String? conversationId, required String text}) {
+  Stream<ChatStreamEvent> sendMessage({
+    String? conversationId,
+    required String text,
+  }) {
     calls++;
-    if (calls == 1) return Stream.error(Exception('échec'));
-    return Stream.value('ok');
+    if (calls == 1) return Stream.error(const NetworkFailure());
+    return Stream.fromIterable(const [
+      DeltaEvent('ok'),
+      DoneEvent(FinishReason.stop),
+    ]);
   }
 }

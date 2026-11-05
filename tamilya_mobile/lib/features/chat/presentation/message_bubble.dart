@@ -70,8 +70,9 @@ class _AssistantMessage extends StatelessWidget {
     final p = context.palette;
     final theme = Theme.of(context);
     final isError = message.status == MessageStatus.error;
+    final errorText = message.errorText;
     final text = isError && message.text.isEmpty
-        ? "La réponse n'a pas pu être générée."
+        ? (errorText ?? "La réponse n'a pas pu être générée.")
         : message.text;
 
     return AssistantRow(
@@ -111,12 +112,21 @@ class _AssistantMessage extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.only(top: Gaps.xs),
                 child: Text(
-                  'Réponse interrompue.',
-                  style: theme.textTheme.bodySmall,
+                  errorText ?? 'Réponse interrompue.',
+                  style: errorText == null
+                      ? theme.textTheme.bodySmall
+                      : theme.textTheme.bodySmall?.copyWith(color: p.danger),
                 ),
               ),
-            if (isError && onRetry != null)
-              TextButton(onPressed: onRetry, child: const Text('Réessayer')),
+            if (onRetry != null &&
+                (message.retry != RetryKind.none ||
+                    (isError && errorText == null)))
+              TextButton(
+                onPressed: onRetry,
+                child: Text(
+                  message.retry == RetryKind.resend ? 'Renvoyer' : 'Réessayer',
+                ),
+              ),
           ],
         ),
       ),

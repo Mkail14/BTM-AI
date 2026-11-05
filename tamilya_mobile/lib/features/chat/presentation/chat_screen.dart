@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -27,6 +29,7 @@ class ChatScreen extends ConsumerStatefulWidget {
     required this.drawerBuilder,
     required this.onLeaveConversation,
     required this.onNewConversation,
+    this.onConversationsChanged,
   });
 
   final String? conversationId;
@@ -34,9 +37,18 @@ class ChatScreen extends ConsumerStatefulWidget {
   /// Message à envoyer dès l'ouverture (saisi à l'accueil avant connexion).
   final String? initialMessage;
 
-  /// Construit le tiroir ; le second paramètre ferme le tiroir.
-  final Widget Function(BuildContext context, VoidCallback closeDrawer)
+  /// Construit le tiroir ; le second paramètre ferme le tiroir, le troisième
+  /// est la conversation courante (connue après le premier message).
+  final Widget Function(
+    BuildContext context,
+    VoidCallback closeDrawer,
+    String? currentId,
+  )
   drawerBuilder;
+
+  /// La liste des conversations est peut-être périmée (réponse terminée,
+  /// titre généré, tiroir ouvert) : le routeur la recharge.
+  final VoidCallback? onConversationsChanged;
 
   /// Retour depuis une conversation ouverte vers une nouvelle conversation.
   final VoidCallback onLeaveConversation;
@@ -52,6 +64,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _drawerOpen = false;
   DateTime? _lastBack;
+  Timer? _titleTimer;
+
+  @override
+  void dispose() {
+    _titleTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   void initState() {
@@ -104,13 +123,31 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final controller = ref.read(chatControllerProvider(id).notifier);
     final p = context.palette;
 
+    // Fin d'une réponse : recharger la liste, puis 5 s plus tard pour le titre
+    // généré par l'IA (ChatView.tsx:412-414).
+    ref.listen(chatControllerProvider(id), (previous, next) {
+      if (previous != null && previous.isTyping && !next.isTyping) {
+        widget.onConversationsChanged?.call();
+        if (previous.conversationId == null || id == null) {
+          _titleTimer?.cancel();
+          _titleTimer = Timer(
+            const Duration(seconds: 5),
+            () => widget.onConversationsChanged?.call(),
+          );
+        }
+      }
+    });
+
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: _onBack,
       child: Scaffold(
         key: _scaffoldKey,
         backgroundColor: p.personaSurface,
-        onDrawerChanged: (open) => _drawerOpen = open,
+        onDrawerChanged: (open) {
+          _drawerOpen = open;
+          if (open) widget.onConversationsChanged?.call();
+        },
         appBar: AppBar(
           backgroundColor: Colors.transparent,
           leading: Builder(
@@ -140,6 +177,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         drawer: widget.drawerBuilder(
           context,
           () => _scaffoldKey.currentState?.closeDrawer(),
+          state.conversationId ?? id,
         ),
         body: Stack(
           children: [
@@ -192,6 +230,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   child: _MessageList(
                     state: state,
                     onRetry: controller.retry,
+                    onReload: controller.reload,
                     onPick: _send,
                   ),
                 ),
@@ -199,7 +238,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
                   top: false,
                   child: Composer(
                     sending: state.isTyping,
-                    enabled: !state.loading,
+                    enabled: !state.loading && !state.blocked,
                     onSend: _send,
                     onStop: controller.stop,
                   ),
@@ -225,8 +264,10 @@ class _MessageList extends StatelessWidget {
     required this.state,
     required this.onRetry,
     required this.onPick,
+    this.onReload,
   });
 
+  final VoidCallback? onReload;
   final ChatState state;
   final VoidCallback? onRetry;
   final ValueChanged<String> onPick;
@@ -235,6 +276,20 @@ class _MessageList extends StatelessWidget {
   Widget build(BuildContext context) {
     if (state.loading) {
       return const Center(child: CircularProgressIndicator());
+    }
+    if (state.loadError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(Gaps.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(state.loadError!, textAlign: TextAlign.center),
+              TextButton(onPressed: onReload, child: const Text('Réessayer')),
+            ],
+          ),
+        ),
+      );
     }
     if (state.messages.isEmpty && !state.isTyping) {
       return _EmptyChat(onPick: onPick);

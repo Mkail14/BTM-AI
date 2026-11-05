@@ -1,19 +1,38 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/errors/app_failure.dart';
+import '../../../core/errors/error_messages_fr.dart';
 import '../../../shared/models/chat_message.dart';
 import '../data/fake_chat_repository.dart';
 import '../domain/chat_repository.dart';
+import '../domain/chat_stream_event.dart';
 
-/// Surchargé en C3 par l'implémentation réseau (et dans les tests).
+/// Surchargé au démarrage par l'implémentation réseau (et dans les tests).
 final chatRepositoryProvider = Provider<ChatRepository>(
   (ref) => const FakeChatRepository(),
 );
+
+/// Codes d'erreur après lesquels renvoyer le même message ne sert à rien.
+const Set<String> _noRetryCodes = {
+  'rate_limited',
+  'signup_required',
+  'conversation_too_long',
+  'invalid_request',
+  'unauthorized',
+  'not_found',
+  'refusal',
+};
 
 class ChatState {
   const ChatState({
     this.messages = const [],
     this.isTyping = false,
     this.loading = false,
+    this.conversationId,
+    this.blocked = false,
+    this.loadError,
   });
 
   final List<ChatMessage> messages;
@@ -24,6 +43,16 @@ class ChatState {
   /// Chargement de l'historique d'une conversation existante.
   final bool loading;
 
+  /// Conversation courante (connue après l'événement `meta` pour une
+  /// nouvelle conversation).
+  final String? conversationId;
+
+  /// Conversation trop longue : le composer est bloqué (`conversation_too_long`).
+  final bool blocked;
+
+  /// Échec du chargement de l'historique (message en français).
+  final String? loadError;
+
   /// Vrai tant que Tamilya n'a pas encore commencé à répondre.
   bool get waitingForFirstChunk =>
       isTyping && (messages.isEmpty || messages.last.role == MessageRole.user);
@@ -32,10 +61,17 @@ class ChatState {
     List<ChatMessage>? messages,
     bool? isTyping,
     bool? loading,
+    String? conversationId,
+    bool? blocked,
+    String? loadError,
+    bool clearLoadError = false,
   }) => ChatState(
     messages: messages ?? this.messages,
     isTyping: isTyping ?? this.isTyping,
     loading: loading ?? this.loading,
+    conversationId: conversationId ?? this.conversationId,
+    blocked: blocked ?? this.blocked,
+    loadError: clearLoadError ? null : (loadError ?? this.loadError),
   );
 }
 
@@ -45,24 +81,51 @@ class ChatController extends Notifier<ChatState> {
 
   final String? conversationId;
   int _seq = 0;
-  bool _stopRequested = false;
+  StreamSubscription<ChatStreamEvent>? _sub;
+  Completer<void>? _running;
 
   @override
   ChatState build() {
+    ref.onDispose(() => _sub?.cancel());
     if (conversationId == null) return const ChatState();
     Future.microtask(_loadHistory);
-    return const ChatState(loading: true);
+    return ChatState(loading: true, conversationId: conversationId);
   }
 
   Future<void> _loadHistory() async {
-    final history = await ref
-        .read(chatRepositoryProvider)
-        .history(conversationId!);
-    if (!ref.mounted) return;
-    state = state.copyWith(messages: history, loading: false);
+    try {
+      final history = await ref
+          .read(chatRepositoryProvider)
+          .history(conversationId!);
+      if (!ref.mounted) return;
+      state = state.copyWith(
+        messages: history,
+        loading: false,
+        clearLoadError: true,
+      );
+    } on Object catch (e) {
+      if (!ref.mounted) return;
+      state = state.copyWith(loading: false, loadError: _messageOf(e));
+    }
   }
 
-  void stop() => _stopRequested = true;
+  /// Recharge l'historique après un échec de chargement.
+  Future<void> reload() async {
+    if (conversationId == null) return;
+    state = state.copyWith(loading: true, clearLoadError: true);
+    await _loadHistory();
+  }
+
+  /// Bouton « Arrêter » : annule la requête (le flux dio), garde le texte
+  /// déjà reçu, marqué « Réponse interrompue ».
+  void stop() {
+    final sub = _sub;
+    if (sub == null) return;
+    unawaited(sub.cancel());
+    _sub = null;
+    _settle(interruptedByUser: true);
+    _running?.complete();
+  }
 
   /// Renvoie le dernier message utilisateur après une réponse en erreur ou
   /// interrompue. Action explicite de l'utilisateur (ARCHITECTURE A4) : le
@@ -78,13 +141,19 @@ class ChatController extends Notifier<ChatState> {
     await send(text);
   }
 
+  // --- état de la réponse en cours -------------------------------------
+  String _received = '';
+  String _assistantId = '';
+  bool _started = false;
+
   Future<void> send(String text) async {
     final trimmed = text.trim();
-    if (trimmed.isEmpty || state.isTyping) return;
+    if (trimmed.isEmpty || state.isTyping || state.blocked) return;
 
-    _stopRequested = false;
     final id = _seq++;
-    final assistantId = 'a$id';
+    _assistantId = 'a$id';
+    _received = '';
+    _started = false;
     state = state.copyWith(
       messages: [
         ...state.messages,
@@ -93,64 +162,130 @@ class ChatController extends Notifier<ChatState> {
       isTyping: true,
     );
 
-    var received = '';
-    var started = false;
-    try {
-      final stream = ref
-          .read(chatRepositoryProvider)
-          .sendMessage(conversationId: conversationId, text: trimmed);
-      await for (final delta in stream) {
-        if (!ref.mounted) return;
-        received += delta;
-        _upsertAssistant(
-          ChatMessage(
-            id: assistantId,
-            role: MessageRole.assistant,
-            text: received,
-            status: MessageStatus.streaming,
-          ),
-          replace: started,
+    final running = _running = Completer<void>();
+    final stream = ref
+        .read(chatRepositoryProvider)
+        .sendMessage(
+          conversationId: state.conversationId ?? conversationId,
+          text: trimmed,
         );
-        started = true;
-        if (_stopRequested) break;
-      }
-      if (!ref.mounted) return;
-      _upsertAssistant(
-        ChatMessage(
-          id: assistantId,
-          role: MessageRole.assistant,
-          text: received,
-          status: _stopRequested
+    _sub = stream.listen(
+      _onEvent,
+      onError: (Object e) {
+        _sub = null;
+        _fail(code: e is ApiFailure ? e.code : null, failure: e);
+        if (!running.isCompleted) running.complete();
+      },
+      onDone: () {
+        if (_sub == null) return; // déjà réglé (arrêt, erreur ou fin)
+        _sub = null;
+        // Flux fermé sans `done` : coupure en cours de réponse.
+        _fail(failure: const NetworkFailure());
+        if (!running.isCompleted) running.complete();
+      },
+      cancelOnError: true,
+    );
+    await running.future;
+  }
+
+  void _onEvent(ChatStreamEvent event) {
+    if (!ref.mounted) return;
+    switch (event) {
+      case MetaEvent(:final conversationId):
+        state = state.copyWith(conversationId: conversationId);
+      case DeltaEvent(:final text):
+        _received += text;
+        _show(MessageStatus.streaming);
+      case ReplaceEvent(:final text):
+        _received = text;
+        _show(MessageStatus.streaming);
+      case DoneEvent(:final finishReason):
+        _finish();
+        _show(
+          finishReason == FinishReason.length
               ? MessageStatus.interrupted
               : MessageStatus.complete,
-        ),
-        replace: started,
-      );
-    } on Object {
-      if (!ref.mounted) return;
-      _upsertAssistant(
-        ChatMessage(
-          id: assistantId,
-          role: MessageRole.assistant,
-          text: received,
-          status: received.isEmpty
-              ? MessageStatus.error
-              : MessageStatus.interrupted,
-        ),
-        replace: started,
-      );
-    } finally {
-      if (ref.mounted) state = state.copyWith(isTyping: false);
+        );
+        _settle();
+      case ErrorEvent(:final code, :final message):
+        final sub = _sub;
+        _sub = null;
+        if (sub != null) unawaited(sub.cancel());
+        _fail(
+          code: code,
+          failure: ApiFailure(
+            code: code,
+            message: message.isNotEmpty
+                ? message
+                : (kApiErrorMessagesFr[code] ??
+                      kApiErrorMessagesFr['internal']!),
+          ),
+        );
+        _running?.complete();
     }
   }
 
-  void _upsertAssistant(ChatMessage message, {required bool replace}) {
+  void _finish() {
+    final sub = _sub;
+    _sub = null;
+    if (sub != null) unawaited(sub.cancel());
+    _running?.complete();
+  }
+
+  /// Termine la réponse sans erreur (fin normale ou arrêt demandé).
+  void _settle({bool interruptedByUser = false}) {
+    if (!ref.mounted) return;
+    if (interruptedByUser && _received.isNotEmpty) {
+      _show(MessageStatus.interrupted);
+    }
+    state = state.copyWith(isTyping: false);
+  }
+
+  void _fail({String? code, required Object failure}) {
+    if (!ref.mounted) return;
+    final text = _messageOf(failure);
+    final retry = switch (failure) {
+      RetryableAuthFailure() => RetryKind.resend,
+      SessionExpiredFailure() => RetryKind.none,
+      ApiFailure(:final code) when _noRetryCodes.contains(code) =>
+        RetryKind.none,
+      _ => RetryKind.retry,
+    };
+    _show(
+      _received.isEmpty ? MessageStatus.error : MessageStatus.interrupted,
+      errorText: text,
+      retry: retry,
+    );
+    state = state.copyWith(
+      isTyping: false,
+      blocked: code == 'conversation_too_long' ? true : null,
+    );
+  }
+
+  String _messageOf(Object e) =>
+      e is AppFailure ? e.message : kApiErrorMessagesFr['internal']!;
+
+  void _show(
+    MessageStatus status, {
+    String? errorText,
+    RetryKind retry = RetryKind.none,
+  }) {
+    if (!ref.mounted) return;
+    final message = ChatMessage(
+      id: _assistantId,
+      role: MessageRole.assistant,
+      text: _received,
+      status: status,
+      errorText: errorText,
+      retry: retry,
+    );
     final list = [...state.messages];
-    if (replace && list.isNotEmpty) {
+    if (_started && list.isNotEmpty) {
       list[list.length - 1] = message;
     } else {
       list.add(message);
     }
+    _started = true;
     state = state.copyWith(messages: list);
   }
 }
