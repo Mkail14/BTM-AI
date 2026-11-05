@@ -24,16 +24,26 @@ export type LibraryDocument = {
 };
 
 const PAGE_MAX_BYTES = 3_000_000;
+const MAX_REDIRECTS = 3;
 
 async function readPage(url: string): Promise<{ title: string; text: string }> {
-  // Adresses publiques en https seulement, redirections refusées : pas d'accès aux réseaux internes.
-  if (!isPublicHttpsUrl(url)) throw new Error("Adresse refusée : une page publique en https seulement.");
-  const response = await fetch(url, {
-    headers: { "User-Agent": "BTM-AI/1.0 (+https://btm.yt)" },
-    redirect: "error",
-    signal: AbortSignal.timeout(15_000),
-    cache: "no-store",
-  });
+  // Adresses publiques en https seulement, revérifiées à chaque redirection : pas d'accès aux réseaux internes.
+  let current = url;
+  let response: Response | null = null;
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    if (!isPublicHttpsUrl(current)) throw new Error("Adresse refusée : une page publique en https seulement.");
+    response = await fetch(current, {
+      headers: { "User-Agent": "BTM-AI/1.0 (+https://btm.yt)" },
+      redirect: "manual",
+      signal: AbortSignal.timeout(15_000),
+      cache: "no-store",
+    });
+    const next = response.status >= 300 && response.status < 400 ? response.headers.get("location") : null;
+    if (!next) break;
+    current = new URL(next, current).toString();
+    response = null;
+  }
+  if (!response) throw new Error("Trop de redirections.");
   if (!response.ok) throw new Error(`La page répond ${response.status}.`);
   if (!/text\/html|text\/plain/.test(response.headers.get("content-type") ?? "")) throw new Error("Ce n'est pas une page de texte.");
   const raw = await response.text();

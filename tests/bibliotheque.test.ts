@@ -5,6 +5,9 @@ import { chunkText, htmlToText, trustOf } from "@/lib/library/text";
 describe("bibliothèque Mayotte", () => {
   it("donne un niveau de confiance selon la source", () => {
     assert.equal(trustOf("https://www.mayotte.gouv.fr/actu"), "officiel");
+    assert.equal(trustOf("https://www.mayotte.ars.sante.fr/"), "officiel");
+    assert.equal(trustOf("https://www.departement976.fr/"), "officiel");
+    assert.equal(trustOf("https://www.mamoudzou.yt/"), "officiel");
     assert.equal(trustOf("https://la1ere.franceinfo.fr/mayotte/"), "media");
     assert.equal(trustOf("https://blog-au-hasard.com/mayotte"), "autre");
     assert.equal(trustOf("https://faux-gouv.fr.pirate.com/"), "autre");

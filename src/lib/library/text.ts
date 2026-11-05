@@ -10,7 +10,8 @@ const CHUNK_CHARS = 1_200;
 const OVERLAP_CHARS = 150;
 export const MAX_DOCUMENT_CHARS = 200_000;
 
-const OFFICIAL = /(^|\.)(gouv\.fr|service-public\.fr|insee\.fr|ameli\.fr|france-travail\.fr|caf\.fr|chm-mayotte\.fr|ac-mayotte\.fr|cg976\.fr|mayotte\.fr|legifrance\.gouv\.fr)$/;
+const OFFICIAL =
+  /(^|\.)(gouv\.fr|service-public\.fr|insee\.fr|ameli\.fr|france-travail\.fr|caf\.fr|ars\.sante\.fr|chm-mayotte\.fr|ac-mayotte\.fr|cg976\.fr|departement976\.fr|mamoudzou\.yt)$/;
 const MEDIA = /(^|\.)(franceinfo\.fr|mayottehebdo\.com|lejournaldemayotte\.yt|linfokwezi\.fr|lemonde\.fr|afp\.com)$/;
 
 export function trustOf(url: string | null | undefined): LibraryTrust {
