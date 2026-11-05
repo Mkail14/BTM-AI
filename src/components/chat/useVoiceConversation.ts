@@ -260,7 +260,9 @@ export function useVoiceConversation(onSend: (text: string) => void) {
 
   useEffect(() => stop, [stop]);
 
-  return { supported, state, error, hint, debug, transcript, reply, beat, start, stop, interrupt, say, replied };
+  // Talkie-walkie et écran épuré : seulement en vocal direct (useLiveVoiceConversation).
+  const noPress = undefined as (() => void) | undefined;
+  return { live: false, press: noPress, release: noPress, supported, state, error, hint, debug, transcript, reply, beat, start, stop, interrupt, say, replied };
 }
 
 export type VoiceConversation = ReturnType<typeof useVoiceConversation>;

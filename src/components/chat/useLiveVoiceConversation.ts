@@ -118,6 +118,13 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string)
     });
   }, [note]);
 
+  /** Talkie-walkie : appui = Tamilya se tait et t'écoute ; relâcher = elle répond tout de suite. */
+  const press = useCallback(() => {
+    voiceSpeakEnd();
+    session.current?.press();
+  }, []);
+  const release = useCallback(() => session.current?.release(), []);
+
   /** Toucher du globe pendant qu'elle parle : elle se tait et écoute. */
   const interrupt = useCallback(() => {
     session.current?.cut();
@@ -129,5 +136,5 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string)
 
   // say / replied : l'ancien mode lisait les réponses écrites ; en direct, Gemini parle lui-même.
   const nothing = useCallback(() => {}, []);
-  return { supported, state, error, hint: null, debug, transcript, reply, beat, start, stop, interrupt, say: nothing, replied: nothing };
+  return { live: true, press, release, supported, state, error, hint: null, debug, transcript, reply, beat, start, stop, interrupt, say: nothing, replied: nothing };
 }

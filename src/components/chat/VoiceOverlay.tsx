@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useLayoutEffect, useRef } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { AwaBlob, takeLaunchOrigin } from "./AwaBlob";
 import { IconClose, IconMic } from "@/components/ui/icons";
 import { speakableText } from "@/lib/chat/voice";
@@ -29,7 +29,19 @@ export function VoiceOverlay({
   /** Après l'arrêt (bouton ✕ ou Échap). */
   onClose?: () => void;
 }) {
-  const { state, transcript, reply, error, hint, debug, start, interrupt } = voice;
+  const { state, transcript, reply, error, hint, debug, start, interrupt, live, press, release } = voice;
+  // Talkie-walkie (vocal direct) : bouton maintenu.
+  const [holding, setHolding] = useState(false);
+  const holdStart = () => {
+    if (!press || state === "off") return;
+    setHolding(true);
+    press();
+  };
+  const holdEnd = () => {
+    if (!holding) return;
+    setHolding(false);
+    release?.();
+  };
   const stopVoice = voice.stop;
   const talk = state === "off" ? start : interrupt;
   const close = useCallback(() => {
@@ -117,27 +129,64 @@ export function VoiceOverlay({
           />
         </div>
 
-        <div className="voice-morph-in w-full max-w-xl text-center [animation-delay:380ms]" aria-live="polite">
-          <p className={`text-base font-medium ${error && state === "off" ? "text-red-300" : "text-white/80"}`}>
-            {error && state === "off" ? error : LABELS[state]}
-          </p>
-          <p className="mt-3 line-clamp-4 min-h-[3lh] text-lg leading-relaxed text-white/60">{text}</p>
-          {/* Diagnostic de l'écoute (le mode vocal n'est ouvert qu'aux administrateurs). */}
-          {debug ? <p className="mt-2 text-xs text-white/35 tabular-nums">{debug}</p> : null}
-        </div>
+        {live ? (
+          // Vocal direct : écran épuré, le globe seul (le texte n'apparaît qu'en cas d'erreur).
+          <div className="voice-morph-in min-h-[3lh] w-full max-w-xl text-center [animation-delay:380ms]" aria-live="polite">
+            {error && state === "off" ? <p className="text-base font-medium text-red-300">{error}</p> : null}
+            <span className="sr-only">{LABELS[state]}</span>
+          </div>
+        ) : (
+          <div className="voice-morph-in w-full max-w-xl text-center [animation-delay:380ms]" aria-live="polite">
+            <p className={`text-base font-medium ${error && state === "off" ? "text-red-300" : "text-white/80"}`}>
+              {error && state === "off" ? error : LABELS[state]}
+            </p>
+            <p className="mt-3 line-clamp-4 min-h-[3lh] text-lg leading-relaxed text-white/60">{text}</p>
+            {/* Diagnostic de l'écoute (le mode vocal n'est ouvert qu'aux administrateurs). */}
+            {debug ? <p className="mt-2 text-xs text-white/35 tabular-nums">{debug}</p> : null}
+          </div>
+        )}
       </div>
 
       <div className="voice-morph-in flex items-center gap-6 [animation-delay:480ms]">
-        <button
-          type="button"
-          onClick={talk}
-          aria-label="Parler maintenant"
-          className={`grid size-14 place-items-center rounded-full transition ${
-            state === "listening" ? "bg-white text-black" : "bg-white/10 text-white hover:bg-white/20"
-          }`}
-        >
-          <IconMic width={24} height={24} />
-        </button>
+        {live ? (
+          // Talkie-walkie : maintenir pour parler, relâcher pour que Tamilya réponde tout de suite.
+          <button
+            type="button"
+            aria-label="Maintenir pour parler (talkie-walkie)"
+            aria-pressed={holding}
+            disabled={state === "off" || state === "waiting"}
+            onPointerDown={(event) => {
+              event.currentTarget.setPointerCapture(event.pointerId);
+              holdStart();
+            }}
+            onPointerUp={holdEnd}
+            onPointerCancel={holdEnd}
+            onLostPointerCapture={holdEnd}
+            onKeyDown={(event) => {
+              if ((event.key === " " || event.key === "Enter") && !event.repeat) holdStart();
+            }}
+            onKeyUp={(event) => {
+              if (event.key === " " || event.key === "Enter") holdEnd();
+            }}
+            onContextMenu={(event) => event.preventDefault()}
+            className={`grid size-20 touch-none select-none place-items-center rounded-full transition disabled:opacity-40 ${
+              holding ? "scale-110 bg-white text-black" : "bg-white/10 text-white hover:bg-white/20"
+            }`}
+          >
+            <IconMic width={30} height={30} />
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={talk}
+            aria-label="Parler maintenant"
+            className={`grid size-14 place-items-center rounded-full transition ${
+              state === "listening" ? "bg-white text-black" : "bg-white/10 text-white hover:bg-white/20"
+            }`}
+          >
+            <IconMic width={24} height={24} />
+          </button>
+        )}
         <button
           type="button"
           onClick={close}

@@ -29,6 +29,13 @@ export type LiveSession = {
   stop: () => void;
   /** Coupe la voix de Tamilya (toucher du globe) : elle s'arrête, l'écoute continue. */
   cut: () => void;
+  /**
+   * Talkie-walkie : appuyer coupe Tamilya et ouvre le micro ; relâcher dit à
+   * Gemini « j'ai fini » (il répond sans attendre le silence). Dès le premier
+   * appui, le micro n'envoie plus rien entre deux appuis.
+   */
+  press: () => void;
+  release: () => void;
 };
 
 /** Capture du micro : échantillons ramenés à 16 kHz, envoyés par paquets de 100 ms. */
@@ -132,6 +139,9 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
   let quietSince = 0;
   let ready = false;
   let closed = false;
+  /** Talkie-walkie utilisé : le micro n'envoie que pendant l'appui. */
+  let pushToTalk = false;
+  let holding = false;
 
   const cut = () => {
     sources.forEach((s) => {
@@ -177,7 +187,7 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
         speechEndedAt = quietSince;
       }
     }
-    if (ready && socket.readyState === WebSocket.OPEN) {
+    if (ready && socket.readyState === WebSocket.OPEN && (!pushToTalk || holding)) {
       socket.send(JSON.stringify({ realtimeInput: { audio: { data: toBase64Pcm(samples), mimeType: "audio/pcm;rate=16000" } } }));
     }
   };
@@ -247,5 +257,19 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
     if (content.turnComplete) callbacks.onTurnComplete();
   };
 
-  return { stop: () => finish(null), cut };
+  const press = () => {
+    pushToTalk = true;
+    holding = true;
+    cut();
+    callbacks.onState("écoute");
+  };
+  const release = () => {
+    if (!holding) return;
+    holding = false;
+    // Fin de parole tout de suite : speechEndedAt sert au chronométrage.
+    speechEndedAt = performance.now();
+    if (socket.readyState === WebSocket.OPEN) socket.send(JSON.stringify({ realtimeInput: { audioStreamEnd: true } }));
+  };
+
+  return { stop: () => finish(null), cut, press, release };
 }
