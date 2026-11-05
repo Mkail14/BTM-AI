@@ -121,6 +121,18 @@ export default {
       const config = ((setup.setup as Record<string, unknown>).generationConfig ??= {}) as Record<string, unknown>;
       config.thinkingConfig = { thinkingBudget: Number(think) };
     }
+    // Essai : détection de fin de parole réglée (silence=ms, sens=high|low).
+    // 0,4 s de silence suffit (mesuré : ~0,3 s de gagné sur 0,6 s, sans couper les petites pauses).
+    const silence = (isTest ? url.searchParams.get("silence") : null) ?? "400";
+    const sensitivity = isTest ? url.searchParams.get("sens") : null;
+    if (silence || sensitivity) {
+      (setup.setup as Record<string, unknown>).realtimeInputConfig = {
+        automaticActivityDetection: {
+          ...(silence ? { silenceDurationMs: Number(silence) } : {}),
+          ...(sensitivity ? { endOfSpeechSensitivity: sensitivity === "high" ? "END_SENSITIVITY_HIGH" : "END_SENSITIVITY_LOW" } : {}),
+        },
+      };
+    }
     const setupText = JSON.stringify({ setup: setup.setup });
     console.log(`consignes : ${setupText.length} caractères`);
     gemini.send(setupText);
