@@ -22,15 +22,20 @@ import '../../features/settings/presentation/settings_screen.dart';
 /// Le garde de session (redirections selon l'état d'authentification et le
 /// flag guestMode) arrive avec C3 ; en C2 la navigation est statique.
 final appRouterProvider = Provider<GoRouter>((ref) {
+  // Navigation par l'instance du routeur, jamais par un BuildContext capturé :
+  // un contexte de page déjà remplacée ne doit plus servir (InheritedElement
+  // démonté avec des dépendants, cf. mission C4a).
+  late final GoRouter router;
+
   Widget chat(BuildContext context, String? id, [String? initialMessage]) {
     return ChatScreen(
       key: ValueKey(id),
       conversationId: id,
       initialMessage: initialMessage,
-      onLeaveConversation: () => context.go('/'),
+      onLeaveConversation: () => router.go('/'),
       onNewConversation: () {
         ref.invalidate(chatControllerProvider(null));
-        context.go('/');
+        router.go('/');
       },
       onConversationsChanged: () => ref.invalidate(conversationsListProvider),
       drawerBuilder: (context, closeDrawer, currentId) => ConversationsDrawer(
@@ -38,15 +43,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         onNewConversation: () {
           closeDrawer();
           ref.invalidate(chatControllerProvider(null));
-          context.go('/');
+          router.go('/');
         },
         onSelect: (convId) {
           closeDrawer();
-          context.go('/c/$convId');
+          router.go('/c/$convId');
         },
         onSettings: () {
           closeDrawer();
-          context.push('/settings');
+          router.push('/settings');
         },
       ),
     );
@@ -62,7 +67,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   });
   ref.onDispose(refresh.dispose);
 
-  return GoRouter(
+  router = GoRouter(
     initialLocation: '/splash',
     refreshListenable: refresh,
     redirect: (context, state) {
@@ -97,8 +102,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ],
       GoRoute(
         path: '/splash',
-        builder: (context, state) =>
-            SplashScreen(onDone: () => context.go('/')),
+        builder: (context, state) => SplashScreen(onDone: () => router.go('/')),
       ),
       GoRoute(
         path: '/',
@@ -112,10 +116,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/settings',
         builder: (context, state) => SettingsScreen(
-          onOpenLegal: (page) => context.push('/legal/$page'),
+          onOpenLegal: (page) => router.push('/legal/$page'),
           onSignOut: () async {
             await ref.read(authRepositoryProvider).signOut();
-            if (context.mounted) context.go('/');
+            router.go('/');
           },
         ),
       ),
@@ -126,6 +130,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
     ],
   );
+  return router;
 });
 
 /// Outil de recette visuelle (actif seulement avec `FORCE_THEME`) : ouvre la
