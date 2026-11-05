@@ -18,6 +18,8 @@
 export interface Env {
   GEMINI_API_KEY: string;
   LIVE_TICKET_SECRET: string;
+  /** Essais de l'équipe sans passer par le site (ticket signé avec ce secret, consignes courtes). */
+  LIVE_TEST_SECRET?: string;
   SITE_URL: string;
 }
 
@@ -59,16 +61,30 @@ export default {
     if (request.headers.get("Upgrade")?.toLowerCase() !== "websocket") return new Response("WebSocket attendu", { status: 426 });
 
     const ticket = url.searchParams.get("ticket") ?? "";
-    if (!(await readTicket(ticket, env.LIVE_TICKET_SECRET))) return new Response("Ticket refusé", { status: 401 });
-
-    // Consignes de Tamilya pour cette conversation, préparées par le site (personnalité, shimaoré…).
-    const setupResponse = await fetch(`${env.SITE_URL}/api/voice/live/setup`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ticket }),
-    });
-    if (!setupResponse.ok) return new Response("Consignes indisponibles", { status: 502 });
-    const setup = (await setupResponse.json()) as { setup: { model?: string } };
+    const testTicket = url.searchParams.get("test") ?? "";
+    let setup: { setup: { model?: string } };
+    if (testTicket && env.LIVE_TEST_SECRET && (await readTicket(testTicket, env.LIVE_TEST_SECRET))) {
+      // Essai de l'équipe : consignes courtes, modèle au choix.
+      setup = {
+        setup: {
+          model: url.searchParams.get("model") ?? "models/gemini-2.5-flash-native-audio-latest",
+          generationConfig: { responseModalities: ["AUDIO"], speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: "Leda" } } } },
+          systemInstruction: { parts: [{ text: "Tu es Tamilya, une jeune femme de Mayotte. Réponds en français, en une ou deux phrases courtes." }] },
+          inputAudioTranscription: {},
+          outputAudioTranscription: {},
+        } as { model?: string },
+      };
+    } else {
+      if (!(await readTicket(ticket, env.LIVE_TICKET_SECRET))) return new Response("Ticket refusé", { status: 401 });
+      // Consignes de Tamilya pour cette conversation, préparées par le site (personnalité, shimaoré…).
+      const setupResponse = await fetch(`${env.SITE_URL}/api/voice/live/setup`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ticket }),
+      });
+      if (!setupResponse.ok) return new Response("Consignes indisponibles", { status: 502 });
+      setup = (await setupResponse.json()) as { setup: { model?: string } };
+    }
     console.log(`session : modèle ${setup.setup?.model}`);
 
     // Connexion à Gemini (Live API) depuis Cloudflare.
@@ -105,7 +121,16 @@ export default {
       try {
         const message = JSON.parse(event.data) as Record<string, unknown>;
         if (Object.keys(message).every((key) => ALLOWED_FROM_PHONE.has(key))) {
-          if (fromPhone++ === 0) console.log("téléphone → premier son reçu");
+          // Niveau du son reçu (paquets 1, 10, 30, 60) : un son vide (silence) se voit ici.
+          if ([0, 9, 29, 59].includes(fromPhone)) {
+            const data = (message.realtimeInput as { audio?: { data?: string } })?.audio?.data ?? "";
+            const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
+            const pcm = new Int16Array(bytes.buffer, 0, bytes.length >> 1);
+            let sum = 0;
+            for (const v of pcm) sum += v * v;
+            console.log(`téléphone → paquet ${fromPhone + 1} : ${pcm.length} échantillons, niveau ${Math.round(Math.sqrt(sum / (pcm.length || 1)))}`);
+          }
+          fromPhone++;
           gemini.send(event.data);
         }
       } catch {}
