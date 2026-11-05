@@ -38,6 +38,14 @@ export const RATE_LIMIT_POLICIES = {
     { name: "help-chat-day", limit: 60, windowSeconds: 86_400 },
   ],
   helpEmail: [{ name: "help-email-hour", limit: 5, windowSeconds: 3_600 }],
+  // Tamilya Connect : messages d'un appareil (comme le chat), relais connectés (beaucoup de messages
+  // d'autres téléphones par la même adresse), et enregistrement des appareils.
+  meshDevice: [
+    { name: "mesh-device-min", limit: 10, windowSeconds: 60 },
+    { name: "mesh-device-day", limit: 200, windowSeconds: 86_400 },
+  ],
+  meshRelay: [{ name: "mesh-relay-min", limit: 120, windowSeconds: 60 }],
+  meshRegister: [{ name: "mesh-register-hour", limit: 10, windowSeconds: 3_600 }],
   // API des développeurs : leur clé Gemini paie, mais le serveur de BTM travaille quand même.
   developerKey: [
     { name: "dev-key-min", limit: 20, windowSeconds: 60 },
