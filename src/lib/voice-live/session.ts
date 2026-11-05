@@ -40,16 +40,27 @@ export type LiveSession = {
   release: () => void;
 };
 
-/** Capture du micro : échantillons ramenés à 16 kHz, envoyés par paquets de 100 ms. */
+/**
+ * Capture du micro, à la fréquence normale de l'appareil (souvent 48 kHz),
+ * ramenée ici à 16 kHz en faisant la moyenne des échantillons de chaque
+ * tranche (filtre simple : pas de sifflement ni de voix déformée). Paquets de 100 ms.
+ */
 const WORKLET = `
 class Capture extends AudioWorkletProcessor {
-  constructor() { super(); this.buffer = []; this.ratio = sampleRate / 16000; this.pos = 0; }
+  constructor() { super(); this.buffer = []; this.ratio = sampleRate / 16000; this.pos = 0; this.sum = 0; this.count = 0; }
   process(inputs) {
     const input = inputs[0] && inputs[0][0];
     if (!input) return true;
     for (let i = 0; i < input.length; i++) {
+      this.sum += input[i];
+      this.count += 1;
       this.pos += 1;
-      if (this.pos >= this.ratio) { this.pos -= this.ratio; this.buffer.push(input[i]); }
+      if (this.pos >= this.ratio) {
+        this.pos -= this.ratio;
+        this.buffer.push(this.sum / this.count);
+        this.sum = 0;
+        this.count = 0;
+      }
     }
     if (this.buffer.length >= 1600) {
       this.port.postMessage(Float32Array.from(this.buffer));
@@ -101,12 +112,9 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
   const note = (text: string) => callbacks.onNote?.(text);
   callbacks.onState("connexion");
   const playback = new AudioContext();
-  let capture: AudioContext;
-  try {
-    capture = new AudioContext({ sampleRate: 16000 });
-  } catch {
-    capture = new AudioContext();
-  }
+  // Fréquence normale de l'appareil : sur iPhone, un micro forcé à 16 kHz arrivait
+  // déformé (Gemini entendait « toutes les langues sauf le français »).
+  const capture = new AudioContext();
   void playback.resume();
   void capture.resume();
   const closeAudio = () => {
