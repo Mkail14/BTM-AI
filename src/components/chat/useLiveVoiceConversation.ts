@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { boardCount, describeBoard, touchBoard, waitForBoard, writeBoard } from "@/lib/voice-live/board";
 import { voiceHeard, voiceListenEnd, voiceSpeakEnd, voiceSpeakStart, voiceWord } from "@/lib/chat/voice-level";
+import { isVoiceIdle, VOICE_HANG_UP_EVENT, VOICE_IDLE_CHECK_MS } from "@/lib/voice-live/hang-up";
 import { isLiveVoiceSupported, openLiveSession, type LiveSession } from "@/lib/voice-live/session";
 import { readTalkMode, saveTalkMode, type TalkMode } from "@/lib/voice-live/talk-mode";
 import type { VoiceConversation, VoiceState } from "./useVoiceConversation";
@@ -137,6 +138,31 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
       session.current = opened;
     });
   }, [note]);
+
+  /** Le micro ne reste jamais ouvert à l'insu de la personne (hang-up.ts). */
+  const lastActivity = useRef(0);
+  useEffect(() => {
+    lastActivity.current = Date.now();
+  }, [state, transcript, reply]);
+  useEffect(() => {
+    if (state === "off") return;
+    const seen = () => {
+      lastActivity.current = Date.now();
+    };
+    const timer = setInterval(() => {
+      if (state === "speaking") seen();
+      else if (isVoiceIdle(lastActivity.current, Date.now())) stop();
+    }, VOICE_IDLE_CHECK_MS);
+    window.addEventListener("pointerdown", seen, { passive: true });
+    window.addEventListener("keydown", seen);
+    window.addEventListener(VOICE_HANG_UP_EVENT, stop);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener("pointerdown", seen);
+      window.removeEventListener("keydown", seen);
+      window.removeEventListener(VOICE_HANG_UP_EVENT, stop);
+    };
+  }, [state, stop]);
 
   const start = useCallback(() => {
     const mode = readTalkMode();
