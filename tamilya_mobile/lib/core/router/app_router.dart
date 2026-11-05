@@ -62,7 +62,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: refresh,
     redirect: (context, state) {
       final loc = state.matchedLocation;
-      if (Env.forceTheme.isNotEmpty && loc == '/recette/chat') {
+      if (Env.recetteEnabled && loc == '/recette/chat') {
         // Outil de recette (dépôt factice) : ouvre une session sans réseau.
         ref
             .read(authRepositoryProvider)
@@ -74,12 +74,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           loc == '/' ||
           loc == '/splash' ||
           loc.startsWith('/legal') ||
-          loc.startsWith('/recette');
+          (Env.recetteEnabled && loc.startsWith('/recette'));
       if (!ref.read(sessionProvider) && !open) return '/';
       return null;
     },
     routes: [
-      if (Env.forceTheme.isNotEmpty) ...[
+      if (Env.recetteEnabled) ...[
         GoRoute(path: '/recette/chat', builder: (c, s) => const SizedBox()),
         GoRoute(
           path: '/recette/auth',
