@@ -23,6 +23,12 @@ describe("bibliothèque Mayotte", () => {
     assert.ok(!/Menu|Pied|alert/.test(text));
   });
 
+  it("refuse les pages vides d'hébergeur", async () => {
+    const { isPlaceholderPage } = await import("@/lib/library/text");
+    assert.equal(isPlaceholderPage("Domain Default page", "What is Plesk"), true);
+    assert.equal(isPlaceholderPage("Accueil - Ville de Mamoudzou", "Les services de la ville"), false);
+  });
+
   it("découpe en passages qui se chevauchent, coupés entre deux phrases", () => {
     const text = Array.from({ length: 60 }, (_, i) => `Phrase numéro ${i} sur la vie à Mayotte et ses communes.`).join(" ");
     const chunks = chunkText(text);

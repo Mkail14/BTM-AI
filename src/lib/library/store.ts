@@ -2,7 +2,7 @@ import "server-only";
 import { isPublicHttpsUrl } from "@/lib/security/public-url";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { embedTexts } from "./embed";
-import { chunkText, htmlToText, MAX_DOCUMENT_CHARS, trustOf, type LibraryTrust } from "./text";
+import { chunkText, htmlToText, isPlaceholderPage, MAX_DOCUMENT_CHARS, trustOf, type LibraryTrust } from "./text";
 
 /**
  * Bibliothèque Mayotte : ajout de documents (toujours « à valider »), et
@@ -62,6 +62,7 @@ export async function addDocument(
   const page = url ? await readPage(url) : { title: "", text: input.text ?? "" };
   const text = page.text.slice(0, MAX_DOCUMENT_CHARS);
   if (text.trim().length < 80) throw new Error("Pas assez de texte à retenir.");
+  if (isPlaceholderPage(page.title, text)) throw new Error("Page vide d'hébergeur : rien à retenir.");
   const chunks = chunkText(text);
   const embeddings = await embedTexts(chunks, "RETRIEVAL_DOCUMENT", AbortSignal.timeout(50_000));
 

@@ -28,18 +28,26 @@ export function trustOf(url: string | null | undefined): LibraryTrust {
 
 const ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " " };
 
+const decodeEntities = (value: string) =>
+  value
+    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([\da-f]+);/gi, (_, code: string) => String.fromCodePoint(parseInt(code, 16)))
+    .replace(/&(\w+);/g, (match, name: string) => ENTITIES[name] ?? match);
+
+/** Page d'hébergeur sans contenu (site pas installé, domaine parqué) : rien à retenir. */
+export function isPlaceholderPage(title: string, text: string): boolean {
+  return /domain default page|this domain is parked|site en construction|coming soon|it works!/i.test(`${title} ${text.slice(0, 400)}`);
+}
+
 /** Texte lisible d'une page HTML : sans scripts, styles, menus ni pied de page. */
 export function htmlToText(html: string): { title: string; text: string } {
-  const title = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.replace(/\s+/g, " ").trim() ?? "";
+  const title = decodeEntities(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] ?? "").replace(/\s+/g, " ").trim();
   const body = (html.match(/<main[\s\S]*?<\/main>/i)?.[0] ?? html.match(/<body[\s\S]*<\/body>/i)?.[0] ?? html)
     .replace(/<(script|style|noscript|svg|nav|header|footer|aside|form)\b[\s\S]*?<\/\1>/gi, " ")
     .replace(/<!--[\s\S]*?-->/g, " ")
     .replace(/<\/(p|div|li|h[1-6]|tr|section|article|br)\s*>|<br\s*\/?>/gi, "\n")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&#(\d+);/g, (_, code: string) => String.fromCodePoint(Number(code)))
-    .replace(/&#x([\da-f]+);/gi, (_, code: string) => String.fromCodePoint(parseInt(code, 16)))
-    .replace(/&(\w+);/g, (match, name: string) => ENTITIES[name] ?? match);
-  const text = body
+    .replace(/<[^>]+>/g, " ");
+  const text = decodeEntities(body)
     .split("\n")
     .map((line) => line.replace(/\s+/g, " ").trim())
     .filter(Boolean)
