@@ -10,6 +10,12 @@ describe("États du site", () => {
     assert.match(siteClosure("maintenance")?.apiError ?? "", /maintenance/);
     assert.match(siteClosure("waiting_partner")?.apiError ?? "", /bientôt/);
   });
+
+  it("ne ferme jamais le site de la branche develop", () => {
+    assert.equal(siteClosure("maintenance", { VERCEL_GIT_COMMIT_REF: "develop" }), null);
+    assert.equal(siteClosure("waiting_partner", { VERCEL_GIT_COMMIT_REF: "develop" }), null);
+    assert.notEqual(siteClosure("maintenance", { VERCEL_GIT_COMMIT_REF: "main" }), null);
+  });
 });
 
 describe("Profil de l'entreprise", () => {
