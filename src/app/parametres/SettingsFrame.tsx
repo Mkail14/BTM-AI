@@ -39,9 +39,9 @@ export function SettingsFrame({
             ) : null}
             <Link
               href="/"
-              className="rounded-full bg-accent px-3 py-1.5 font-medium text-accent-fg hover:bg-accent-hover"
+              className="rounded-full bg-accent px-3 py-1.5 font-medium whitespace-nowrap text-accent-fg hover:bg-accent-hover"
             >
-              Retour à Tamilya
+              <span className="hidden sm:inline">Retour à </span>Tamilya
             </Link>
           </div>
         </div>

@@ -13,6 +13,7 @@ import {
   stripTranslation,
   translationTable,
 } from "@/lib/language/unknown-words";
+import { mayotteClock } from "@/lib/ai/clock";
 import { buildSystemPrompt, DEFAULT_IDENTITY, DEFAULT_RULES } from "@/lib/ai/system-prompt";
 import { selectWords } from "@/lib/ai/words";
 
@@ -55,6 +56,11 @@ describe("selectKnowledge", () => {
 });
 
 describe("buildSystemPrompt avec le cerveau", () => {
+  it("donne l'heure exacte de Mayotte à chaque message", () => {
+    assert.equal(mayotteClock(new Date("2026-11-06T12:42:00Z")), "vendredi 6 novembre 2026 à 15:42");
+    assert.match(buildSystemPrompt(), /Heure exacte : à Mayotte, nous sommes le .+ à [0-9]{2}:[0-9]{2}./);
+  });
+
   it("sans cerveau, garde les textes par défaut", () => {
     const prompt = buildSystemPrompt();
     assert.match(prompt, /^Tu es Tamilya,/);

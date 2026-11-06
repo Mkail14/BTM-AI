@@ -1,11 +1,12 @@
 "use client";
 
 import { useId, useState } from "react";
+import { IconMapPin, IconPlus } from "@/components/ui/icons";
 import { AddressFields, EMPTY_ADDRESS, type AddressDraft } from "@/components/ui/AddressFields";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { addressFieldErrors, kindOf, MAX_SAVED_ADDRESSES, SAVED_ADDRESS_KINDS, type SavedAddress, type SavedAddressKind } from "@/lib/address";
 import { deleteSavedAddressAction, saveAddressAction, saveSavedAddressAction } from "./actions";
-import { Feedback, INPUT_CLASS, PRIMARY, SECONDARY, useSave } from "./ContactForms";
+import { Feedback, INPUT_CLASS, PRIMARY, RowEditor, SECONDARY, SettingsGroup, useSave } from "./ui";
 
 /** Ce qui est en cours de modification : la maison, une adresse du carnet, ou une nouvelle. */
 type Editing = { what: "home" } | { what: "saved"; id: string } | { what: "new" } | null;
@@ -22,11 +23,11 @@ export function AddressBook({ home, saved }: { home: AddressDraft | null; saved:
   const close = () => setEditing(null);
 
   return (
-    <div className="space-y-3">
+    <SettingsGroup footer={editing === null ? <Feedback state={state} /> : null}>
       {/* Maison */}
       {editing?.what === "home" ? (
         <AddressForm
-          title="🏠 Maison"
+          title="Maison"
           hint={home ? null : "Ajoute ton adresse : tes livraisons arriveront au bon endroit et Tamilya saura ce qui est près de chez toi."}
           initial={home ?? EMPTY_ADDRESS}
           onCancel={home ? close : undefined}
@@ -35,12 +36,12 @@ export function AddressBook({ home, saved }: { home: AddressDraft | null; saved:
           state={state}
         />
       ) : home ? (
-        <AddressRow emoji="🏠" title="Maison" badge="Par défaut" address={home} onEdit={() => setEditing({ what: "home" })} />
+        <AddressRow title="Maison" badge="Par défaut" address={home} onEdit={() => setEditing({ what: "home" })} />
       ) : null}
 
       {/* Carnet */}
       {saved === null ? (
-        <p className="rounded-2xl bg-bg-subtle px-4 py-3 text-sm text-fg-muted">Le carnet d&apos;adresses arrive bientôt.</p>
+        <p className="px-4 py-3.5 text-sm text-fg-muted sm:px-5">Le carnet d&apos;adresses arrive bientôt.</p>
       ) : (
         saved.map((a) =>
           editing?.what === "saved" && editing.id === a.id ? (
@@ -66,7 +67,6 @@ export function AddressBook({ home, saved }: { home: AddressDraft | null; saved:
           ) : (
             <AddressRow
               key={a.id}
-              emoji={kindOf(a.kind).emoji}
               title={a.label}
               badge={kindOf(a.kind).label}
               address={a}
@@ -91,46 +91,43 @@ export function AddressBook({ home, saved }: { home: AddressDraft | null; saved:
           type="button"
           disabled={full || editing !== null}
           onClick={() => setEditing({ what: "new" })}
-          className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-border px-4 py-4 text-sm font-medium text-fg-muted transition hover:border-accent hover:bg-accent-soft hover:text-accent disabled:pointer-events-none disabled:opacity-50"
+          className="flex min-h-14 w-full items-center gap-3 px-4 text-sm font-medium text-accent transition hover:bg-bg-subtle disabled:pointer-events-none disabled:text-fg-muted disabled:opacity-60 sm:px-5"
         >
-          <span aria-hidden="true" className="text-lg leading-none">
-            +
+          <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center">
+            <IconPlus width={18} height={18} />
           </span>
           {full ? `Carnet plein (${MAX_SAVED_ADDRESSES} adresses)` : "Ajouter une adresse"}
         </button>
       ) : null}
 
-      {editing === null ? <Feedback state={state} /> : null}
-    </div>
+    </SettingsGroup>
   );
 }
 
 function AddressRow({
-  emoji,
   title,
   badge,
   address,
   onEdit,
 }: {
-  emoji: string;
   title: string;
   badge: string;
   address: AddressDraft;
   onEdit: () => void;
 }) {
   return (
-    <div className="group flex items-center gap-4 rounded-2xl border border-border bg-bg p-4 transition hover:border-fg-muted/40">
-      <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center rounded-xl bg-bg-subtle text-xl">
-        {emoji}
+    <div className="flex min-h-16 items-center gap-3 px-4 py-3 sm:px-5">
+      <span className="grid size-9 shrink-0 place-items-center rounded-full bg-bg-muted text-fg-muted">
+        <IconMapPin width={16} height={16} />
       </span>
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-2">
-          <span className="truncate font-medium">{title}</span>
-          <span className="shrink-0 rounded-full bg-bg-muted px-2 py-0.5 text-[11px] font-medium text-fg-muted">{badge}</span>
+          <span className="truncate text-sm font-medium">{title}</span>
+          <span className="shrink-0 rounded-full bg-bg-muted px-2 py-px text-[11px] font-medium text-fg-muted">{badge}</span>
         </p>
-        <p className="truncate text-sm text-fg-muted">
+        <p className="text-sm break-words text-fg-muted">
           {address.line} · {address.commune}
-          {address.geo ? " · 📍 GPS" : ""}
+          {address.geo ? " · Position GPS" : ""}
         </p>
       </div>
       <button type="button" onClick={onEdit} className={SECONDARY}>
@@ -173,9 +170,10 @@ function AddressForm({
   const labelError = named && !label.trim() ? "Donne un nom à cette adresse." : null;
 
   return (
+    <RowEditor>
     <form
       noValidate
-      className="profile-swap space-y-4 rounded-2xl border border-accent/40 bg-bg p-4 shadow-sm ring-4 ring-accent-soft"
+      className="space-y-4"
       onSubmit={(e) => {
         e.preventDefault();
         setTried(true);
@@ -183,8 +181,8 @@ function AddressForm({
         onSave(draft, () => setTried(false), { kind, label });
       }}
     >
-      <p className="font-medium">{title}</p>
-      {hint ? <p className="rounded-xl bg-warning-soft px-3.5 py-2.5 text-sm text-warning">{hint}</p> : null}
+      <p className="text-sm font-semibold">{title}</p>
+      {hint ? <p className="text-sm text-fg-muted">{hint}</p> : null}
 
       {named ? (
         <>
@@ -205,7 +203,7 @@ function AddressForm({
                     kind === k.id ? "border-accent bg-accent-soft font-medium text-accent" : "border-border hover:bg-bg-muted"
                   }`}
                 >
-                  <span aria-hidden="true">{k.emoji}</span> {k.label}
+                  {k.label}
                 </button>
               ))}
             </div>
@@ -237,7 +235,7 @@ function AddressForm({
         gps
       />
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         <button type="submit" disabled={pending} className={PRIMARY}>
           {pending ? "Enregistrement…" : "Enregistrer"}
         </button>
@@ -247,12 +245,13 @@ function AddressForm({
           </button>
         ) : null}
         {onDelete ? (
-          <button type="button" disabled={pending} onClick={onDelete} className="ml-auto text-sm font-medium text-danger hover:underline">
+          <button type="button" disabled={pending} onClick={onDelete} className="ml-auto rounded-full px-3 py-1.5 text-sm font-medium text-danger transition hover:bg-danger-soft">
             Supprimer
           </button>
         ) : null}
       </div>
       {state?.status === "error" ? <Feedback state={state} /> : null}
     </form>
+    </RowEditor>
   );
 }

@@ -76,6 +76,23 @@ export const FAQ: FaqTopic[] = [
     ],
   },
   {
+    title: "Mes documents",
+    questions: [
+      {
+        q: "Où sont gardés mes documents ?",
+        a: "Dans ton propre Google Drive, dans un dossier Tamilya rangé par thème. Ils utilisent donc ton espace Google (15 Go gratuits) et restent à toi, même si tu quittes Tamilya.",
+      },
+      {
+        q: "Tamilya voit-elle tout mon Drive ?",
+        a: "Non : seulement les fichiers qu'elle y a déposés. Le reste de ton Drive lui est fermé.",
+      },
+      {
+        q: "Comment connecter mon Drive ?",
+        a: "Ouvre ton compte en bas du menu, puis Mes documents, et connecte Google Drive. Tu peux couper l'accès au même endroit.",
+      },
+    ],
+  },
+  {
     title: "Portefeuille",
     questions: [
       {
@@ -110,7 +127,7 @@ export const FAQ: FaqTopic[] = [
       },
       {
         q: "Comment supprimer mon compte ?",
-        a: "Paramètres → Supprimer le compte. Tes conversations, la mémoire de Tamilya et tes informations sont effacées.",
+        a: "Paramètres → Sécurité → Supprimer. Tes conversations, la mémoire de Tamilya et tes informations sont effacées.",
       },
       {
         q: "Que fait BTM de mes données ?",

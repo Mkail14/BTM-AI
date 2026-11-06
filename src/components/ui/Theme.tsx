@@ -23,9 +23,49 @@ function setTheme(theme: Theme) {
   } catch {
     // Stockage bloqué (navigation privée) : le choix vaut pour cette page seulement.
   }
+  applyTheme(theme);
+}
+
+function applyTheme(theme: Theme) {
   const apply = (window as Window & { __btmTheme?: (t: Theme) => void }).__btmTheme;
   if (apply) apply(theme);
   else document.documentElement.dataset.theme = theme;
+}
+
+export type ThemeChoice = Theme | "system";
+
+const choiceListeners = new Set<() => void>();
+
+export function subscribeThemeChoice(onChange: () => void) {
+  choiceListeners.add(onChange);
+  return () => {
+    choiceListeners.delete(onChange);
+  };
+}
+
+/** Choix enregistré ; « system » tant que la personne suit le réglage de son appareil. */
+export function readThemeChoice(): ThemeChoice {
+  try {
+    const saved = localStorage.getItem(THEME_STORAGE_KEY);
+    return saved === "light" || saved === "dark" ? saved : "system";
+  } catch {
+    return "system";
+  }
+}
+
+/** Réglage des Paramètres : un thème fixe, ou retour au réglage de l'appareil. */
+export function saveThemeChoice(choice: ThemeChoice) {
+  if (choice === "system") {
+    try {
+      localStorage.removeItem(THEME_STORAGE_KEY);
+    } catch {
+      // Stockage bloqué : le thème affiché change quand même ci-dessous.
+    }
+    applyTheme(window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+  } else {
+    setTheme(choice);
+  }
+  choiceListeners.forEach((listener) => listener());
 }
 
 /**

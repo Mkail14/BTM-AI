@@ -239,6 +239,23 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
+        <Section id="documents" title="Vos documents et Google Drive">
+          <p>
+            Si vous reliez votre compte Google, vos documents sont rangés dans un dossier Tamilya de votre propre Google
+            Drive. Ils ne sont pas stockés sur nos serveurs : nous gardons seulement un jeton de connexion chiffré et
+            l&apos;adresse de ce compte Google.
+          </p>
+          <p>
+            Tamilya n&apos;accède qu&apos;aux fichiers qu&apos;elle a elle-même déposés, jamais au reste de votre Drive. Ces
+            données servent uniquement à afficher et ranger vos documents : elles ne sont ni vendues, ni utilisées pour de
+            la publicité, ni pour entraîner une intelligence artificielle.
+          </p>
+          <p>
+            Vous pouvez couper l&apos;accès à tout moment dans Mes documents ou depuis votre compte Google. Vos fichiers
+            restent alors dans votre Drive.
+          </p>
+        </Section>
+
         <Section id="prestataires" title="Nos prestataires">
           <p>Nous ne travaillons qu&apos;avec des services reconnus, chacun pour un rôle précis :</p>
           <List
@@ -251,6 +268,9 @@ export default function PrivacyPage() {
               </>,
               <>
                 <span className={strong}>Google (Gemini)</span> : modèle d&apos;intelligence artificielle.
+              </>,
+              <>
+                <span className={strong}>Google Drive</span> : vos documents, si vous reliez votre compte.
               </>,
               <>
                 <span className={strong}>Stripe</span> : paiements du portefeuille.

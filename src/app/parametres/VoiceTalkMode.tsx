@@ -2,24 +2,16 @@
 
 import { useSyncExternalStore } from "react";
 import { readTalkMode, saveTalkMode, subscribeTalkMode, TALK_MODES } from "@/lib/voice-live/talk-mode";
+import { RadioRow, SettingsGroup } from "./ui";
 
 /** Choix de la façon de parler à Tamilya en vocal (gardé sur cet appareil). */
 export function VoiceTalkMode() {
   const current = useSyncExternalStore(subscribeTalkMode, readTalkMode, () => null);
   return (
-    <div className="grid gap-2 sm:grid-cols-2">
+    <SettingsGroup title="Le vocal" description="Comment tu lui parles. Ce choix est gardé sur cet appareil.">
       {TALK_MODES.map((mode) => (
-        <button
-          key={mode.id}
-          type="button"
-          aria-pressed={current === mode.id}
-          onClick={() => saveTalkMode(mode.id)}
-          className={`rounded-2xl border p-4 text-left transition ${current === mode.id ? "border-accent bg-accent-soft" : "border-border hover:bg-bg-muted"}`}
-        >
-          <span className="block text-sm font-medium">{mode.title}</span>
-          <span className="mt-0.5 block text-sm text-fg-muted">{mode.detail}</span>
-        </button>
+        <RadioRow key={mode.id} name="mode-vocal" checked={current === mode.id} onSelect={() => saveTalkMode(mode.id)} title={mode.title} detail={mode.detail} />
       ))}
-    </div>
+    </SettingsGroup>
   );
 }

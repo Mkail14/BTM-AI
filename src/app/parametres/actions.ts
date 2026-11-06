@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { addressSchema, MAX_SAVED_ADDRESSES, savedAddressSchema } from "@/lib/address";
 import { getAuthContext } from "@/lib/auth/session";
 import { maskPhone, normalizePhone } from "@/lib/code-exam/candidate";
+import { disconnectDrive } from "@/lib/drive/connection";
 import { notifyAccountChange, notifyAccountDeleted } from "@/lib/email/notify";
 import { saveProfileAddress, saveProfilePhone } from "@/lib/profile-contact";
 import { deleteSavedAddress, saveSavedAddress } from "@/lib/saved-addresses";
@@ -59,6 +60,9 @@ export async function deleteAccountAction(confirmation: unknown): Promise<Profil
 
   const admin = getSupabaseAdminClient();
   if (!admin) return { status: "error", message: "La suppression est indisponible pour le moment." };
+
+  // Avant la suppression, qui efface le jeton : l'accès au Drive doit aussi être retiré chez Google.
+  if (!user.isAdmin) await disconnectDrive(admin, user.id).catch(() => {});
 
   const { error } = await admin.auth.admin.deleteUser(user.id);
   if (error) {

@@ -1,5 +1,6 @@
 import "server-only";
 import nodemailer, { type Transporter } from "nodemailer";
+import type { Attachment } from "nodemailer/lib/mailer";
 import type { RenderedEmail } from "./templates";
 
 /**
@@ -31,7 +32,7 @@ function getTransporter() {
 }
 
 /** `replyTo` : adresse à qui répondre (message envoyé à l'équipe depuis le rond d'aide). */
-export async function sendEmail(to: string, email: RenderedEmail, { replyTo = EMAIL_FROM_ADDRESS }: { replyTo?: string } = {}) {
+export async function sendEmail(to: string, email: RenderedEmail, { replyTo = EMAIL_FROM_ADDRESS, attachments }: { replyTo?: string; attachments?: Attachment[] } = {}) {
   if (!emailConfigured()) throw new Error("Envoi d'e-mails non configuré (SMTP_PASSWORD manquant)");
   await getTransporter().sendMail({
     from: FROM,
@@ -40,5 +41,6 @@ export async function sendEmail(to: string, email: RenderedEmail, { replyTo = EM
     subject: email.subject,
     html: email.html,
     text: email.text,
+    attachments,
   });
 }

@@ -20,6 +20,10 @@ export const RATE_LIMIT_POLICIES = {
   ],
   conversationImport: [{ name: "import-hour", limit: 10, windowSeconds: 3_600 }],
   walletTopup: [{ name: "wallet-topup-hour", limit: 10, windowSeconds: 3_600 }],
+  // Banque de documents : de quoi ranger tous ses papiers d'un coup.
+  driveUpload: [{ name: "drive-upload-hour", limit: 120, windowSeconds: 3_600 }],
+  // Attestation reçue par mail : de quoi la refaire après une correction.
+  attestationEmail: [{ name: "attestation-email-hour", limit: 5, windowSeconds: 3_600 }],
   // Formulaires avec téléphone et adresse : assez pour se tromper, pas pour inonder l'équipe.
   foodOrder: [{ name: "food-order-hour", limit: 10, windowSeconds: 3_600 }],
   bargeTicket: [{ name: "barge-ticket-hour", limit: 10, windowSeconds: 3_600 }],

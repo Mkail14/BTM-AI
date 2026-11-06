@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { MAYOTTE_COMMUNES } from "@/lib/code-exam/candidate";
 import { REVIEW_COMMENT_MAX, type MyReview } from "@/lib/reviews/rules";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { deleteReviewAction, saveReviewAction } from "./actions";
-import { Feedback, PRIMARY, SECONDARY, useSave } from "./ContactForms";
+import { DANGER, Feedback, INPUT_CLASS, PRIMARY, SettingsGroup, useSave } from "./ui";
 
 const LABELS = ["", "Décevante", "Moyenne", "Bien", "Très bien", "Excellente"];
 
@@ -21,9 +22,25 @@ export function ReviewForm({ review, publicName, defaultCommune }: { review: MyR
   const [commune, setCommune] = useState(review ? (review.commune ?? "") : (defaultCommune ?? ""));
   const shown = hover || rating;
 
+  async function remove() {
+    const ok = await confirmDialog({
+      title: "Supprimer ton avis ?",
+      message: "Il disparaîtra de la page d'accueil.",
+      confirmLabel: "Supprimer",
+      tone: "danger",
+    });
+    if (ok) {
+      run(deleteReviewAction, () => {
+        setRating(0);
+        setComment("");
+      });
+    }
+  }
+
   return (
+    <SettingsGroup>
     <form
-      className="space-y-5"
+      className="space-y-5 p-4 sm:p-5"
       onSubmit={(e) => {
         e.preventDefault();
         run(() => saveReviewAction({ rating, comment, commune: commune || null }));
@@ -55,7 +72,7 @@ export function ReviewForm({ review, publicName, defaultCommune }: { review: MyR
       </fieldset>
 
       <div>
-        <label htmlFor="avis-texte" className="text-sm font-medium">
+        <label htmlFor="avis-texte" className="block text-sm font-medium">
           Ton avis <span className="font-normal text-fg-muted">(facultatif)</span>
         </label>
         <textarea
@@ -65,7 +82,7 @@ export function ReviewForm({ review, publicName, defaultCommune }: { review: MyR
           maxLength={REVIEW_COMMENT_MAX}
           rows={4}
           placeholder="Qu'est-ce que Tamilya t'a apporté ?"
-          className="mt-1.5 w-full resize-y rounded-xl border border-border bg-bg px-3.5 py-2.5 text-base outline-none focus:border-accent sm:text-sm"
+          className="mt-1.5 w-full resize-y rounded-xl border border-border bg-bg px-3.5 py-2.5 text-base outline-none transition focus:border-accent focus:ring-4 focus:ring-accent-soft sm:text-sm"
         />
         <p className="mt-1 text-right text-xs text-fg-muted tabular-nums">
           {comment.length} / {REVIEW_COMMENT_MAX}
@@ -73,14 +90,14 @@ export function ReviewForm({ review, publicName, defaultCommune }: { review: MyR
       </div>
 
       <div>
-        <label htmlFor="avis-commune" className="text-sm font-medium">
+        <label htmlFor="avis-commune" className="block text-sm font-medium">
           Ta commune <span className="font-normal text-fg-muted">(facultatif)</span>
         </label>
         <select
           id="avis-commune"
           value={commune}
           onChange={(e) => setCommune(e.target.value)}
-          className="mt-1.5 w-full rounded-xl border border-border bg-bg px-3.5 py-2.5 text-base outline-none focus:border-accent sm:w-64 sm:text-sm"
+          className={`${INPUT_CLASS} sm:max-w-64`}
         >
           <option value="">Ne pas l&apos;afficher</option>
           {MAYOTTE_COMMUNES.map((c) => (
@@ -91,34 +108,23 @@ export function ReviewForm({ review, publicName, defaultCommune }: { review: MyR
         </select>
       </div>
 
-      <p className="rounded-2xl bg-bg-subtle px-4 py-3 text-sm text-fg-muted">
-        🌍 Ton avis est public : il s&apos;affiche sur la page d&apos;accueil sous le nom <strong className="text-fg">{publicName}</strong>
+      <p className="text-sm text-fg-muted">
+        Ton avis est public : il s&apos;affiche sur la page d&apos;accueil sous le nom <strong className="font-medium text-fg">{publicName}</strong>
         {commune ? `, à ${commune}` : ""}. Jamais ton e-mail.
       </p>
 
-      <div className="flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-2">
         <button type="submit" disabled={pending || !rating} className={PRIMARY}>
           {pending ? "Enregistrement…" : review ? "Mettre à jour mon avis" : "Publier mon avis"}
         </button>
         {review ? (
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => {
-              if (window.confirm("Supprimer ton avis ? Il disparaîtra de la page d'accueil.")) {
-                run(deleteReviewAction, () => {
-                  setRating(0);
-                  setComment("");
-                });
-              }
-            }}
-            className={`${SECONDARY} text-danger hover:bg-danger-soft`}
-          >
+          <button type="button" disabled={pending} onClick={remove} className={DANGER}>
             Supprimer mon avis
           </button>
         ) : null}
         <Feedback state={state} />
       </div>
     </form>
+    </SettingsGroup>
   );
 }

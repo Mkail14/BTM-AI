@@ -1,154 +1,203 @@
 "use client";
 
-import { createContext, useContext, useEffect, useRef, useState, type ComponentType, type ReactNode, type SVGProps } from "react";
-import { IconDashboard, IconLock, IconMapPin, IconSparkle, IconStar, IconTrash, IconUser } from "@/components/ui/icons";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useRef, type ComponentType, type MouseEvent, type ReactNode, type SVGProps } from "react";
+import { IconFolder, IconLock, IconMapPin, IconSparkle, IconStar, IconSun, IconUser, IconWallet } from "@/components/ui/icons";
+import { SignOutButton } from "./SignOutButton";
 
-export type SettingsTab = "apercu" | "profil" | "adresse" | "awa" | "avis" | "securite" | "suppression";
+export type SettingsTab = "profil" | "adresse" | "securite" | "awa" | "apparence" | "avis";
 
-type Section = {
-  id: SettingsTab;
-  label: string;
-  hint: string;
-  icon: ComponentType<SVGProps<SVGSVGElement>>;
-  danger?: boolean;
-};
+type Section = { id: SettingsTab; label: string; hint: string; icon: ComponentType<SVGProps<SVGSVGElement>> };
 
-const SECTIONS: Section[] = [
-  { id: "apercu", label: "Vue d'ensemble", hint: "Ton compte en un coup d'œil", icon: IconDashboard },
-  { id: "profil", label: "Profil", hint: "Ton nom et ton téléphone", icon: IconUser },
-  { id: "adresse", label: "Adresses", hint: "Maison, travail, amis, famille", icon: IconMapPin },
-  { id: "awa", label: "Tamilya", hint: "Le vocal et ce qu'elle retient de toi", icon: IconSparkle },
-  { id: "avis", label: "Mon avis", hint: "Ta note sur Tamilya, affichée sur l'accueil", icon: IconStar },
-  { id: "securite", label: "Sécurité", hint: "E-mail, mot de passe, session", icon: IconLock },
-  { id: "suppression", label: "Supprimer le compte", hint: "Effacer ton compte et tes données", icon: IconTrash, danger: true },
+const GROUPS: { title: string; sections: Section[] }[] = [
+  {
+    title: "Mon compte",
+    sections: [
+      { id: "profil", label: "Profil", hint: "Ton nom, ton téléphone et ton adresse e-mail.", icon: IconUser },
+      { id: "adresse", label: "Adresses", hint: "Tu choisis l'une d'elles à chaque commande. Tamilya sait aussi ce qui est près de chez toi.", icon: IconMapPin },
+      { id: "securite", label: "Sécurité", hint: "Ton mot de passe, ta session et la suppression du compte.", icon: IconLock },
+    ],
+  },
+  {
+    title: "Préférences",
+    sections: [
+      { id: "awa", label: "Tamilya", hint: "Ce qu'elle retient de toi et comment tu lui parles.", icon: IconSparkle },
+      { id: "apparence", label: "Apparence", hint: "Le thème du site sur cet appareil.", icon: IconSun },
+      { id: "avis", label: "Mon avis", hint: "Ta note sur Tamilya, affichée sur la page d'accueil.", icon: IconStar },
+    ],
+  },
 ];
 
-const TabContext = createContext<(tab: SettingsTab) => void>(() => {});
+const SECTIONS = GROUPS.flatMap((group) => group.sections);
 
-/** Bouton qui ouvre une autre rubrique (depuis la vue d'ensemble). */
-export function GoToTab({ tab, className, children }: { tab: SettingsTab; className?: string; children: ReactNode }) {
-  const go = useContext(TabContext);
-  return (
-    <button type="button" onClick={() => go(tab)} className={className}>
-      {children}
-    </button>
-  );
+/** Ancienne adresse encore possible dans un lien : ?rubrique=suppression ouvre la Sécurité. */
+function tabFrom(value: string | null): SettingsTab | null {
+  if (value === "suppression") return "securite";
+  return SECTIONS.find((section) => section.id === value)?.id ?? null;
 }
 
+const LIST = "divide-y divide-border overflow-hidden rounded-2xl border border-border bg-bg md:space-y-0.5 md:divide-y-0 md:overflow-visible md:rounded-none md:border-0 md:bg-transparent";
+const ITEM = "flex min-h-13 items-center gap-3 px-4 text-sm transition md:min-h-9 md:rounded-lg md:px-2.5";
+const IDLE = "md:text-fg-muted md:hover:bg-bg-muted/60 md:hover:text-fg";
+const GROUP_TITLE = "mb-1.5 px-1 text-xs font-medium text-fg-muted md:px-2.5";
+
+const Chevron = () => (
+  <svg aria-hidden="true" width={16} height={16} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="shrink-0 text-fg-muted/60 md:hidden">
+    <path d="m9 6 6 6-6 6" />
+  </svg>
+);
+
 /**
- * Paramètres en écran fixe : la page ne défile jamais. À gauche, la carte du
- * compte et le menu ; à droite, la rubrique ouverte (seule elle peut défiler).
- * Une pastille signale une rubrique à compléter (adresse manquante…).
+ * Paramètres. Ordinateur et tablette : menu à gauche, rubrique à droite, seule la
+ * rubrique défile. Téléphone : la liste des rubriques, puis une rubrique à la fois
+ * avec retour à la liste. La rubrique ouverte est dans l'adresse (?rubrique=…) :
+ * le bouton retour du téléphone et les liens directs fonctionnent.
  */
 export function SettingsView({
-  identity,
+  name,
+  email,
+  isAdmin,
+  balance,
   panels,
-  badges = {},
-  initial,
+  toComplete = [],
 }: {
-  identity: ReactNode;
-  panels: Partial<Record<SettingsTab, ReactNode>>;
-  badges?: Partial<Record<SettingsTab, boolean>>;
-  initial?: SettingsTab;
+  name: string;
+  email: string | null;
+  isAdmin: boolean;
+  balance: string;
+  panels: Record<SettingsTab, ReactNode>;
+  /** Rubriques où il manque quelque chose (adresse, téléphone). */
+  toComplete?: SettingsTab[];
 }) {
-  const sections = SECTIONS.filter((s) => panels[s.id] !== undefined);
-  const [active, setActive] = useState<SettingsTab>(initial ?? sections[0]?.id ?? "apercu");
-  const current = sections.find((s) => s.id === active) ?? sections[0];
-  const CurrentIcon = current?.icon;
-  const navRef = useRef<HTMLUListElement>(null);
-  const sectionRef = useRef<HTMLElement>(null);
-  const changed = useRef(false);
+  const active = tabFrom(useSearchParams().get("rubrique"));
+  const current = SECTIONS.find((section) => section.id === active) ?? SECTIONS[0];
+  const heading = useRef<HTMLHeadingElement>(null);
+  const panel = useRef<HTMLElement>(null);
+  const fromList = useRef(false);
+  const shown = useRef(active);
 
-  // Téléphone : l'onglet choisi est ramené dans la bande (elle défile de côté), et la
-  // rubrique ouverte remonte sous l'en-tête si on l'a choisie plus bas dans la page.
+  // Rubrique changée à la main : on remonte en haut et le lecteur d'écran annonce son titre.
   useEffect(() => {
-    if (!changed.current) return;
-    navRef.current?.querySelector<HTMLElement>("[aria-current=page]")?.scrollIntoView({ inline: "center", block: "nearest", behavior: "smooth" });
-    const top = sectionRef.current?.getBoundingClientRect().top ?? 0;
-    if (window.matchMedia("(max-width: 767px)").matches && top < 56) {
-      window.scrollTo({ top: window.scrollY + top - 140, behavior: "smooth" });
-    }
+    if (shown.current === active) return;
+    shown.current = active;
+    window.scrollTo({ top: 0 });
+    panel.current?.scrollTo({ top: 0 });
+    if (active) heading.current?.focus({ preventScroll: true });
   }, [active]);
-  const open = (tab: SettingsTab) => {
-    changed.current = true;
-    setActive(tab);
+
+  const open = (event: MouseEvent, tab: SettingsTab) => {
+    // Ctrl + clic, clic milieu : le navigateur ouvre un nouvel onglet.
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+    event.preventDefault();
+    fromList.current = active === null;
+    window.history.pushState(null, "", `?rubrique=${tab}`);
+  };
+
+  const backToList = (event: MouseEvent) => {
+    event.preventDefault();
+    // Arrivée directe sur la rubrique (lien d'une commande) : il n'y a pas de liste à rejouer.
+    if (fromList.current) window.history.back();
+    else window.history.replaceState(null, "", window.location.pathname);
   };
 
   return (
-    <TabContext.Provider value={open}>
-      <div className="flex flex-1 flex-col gap-4 md:min-h-0 md:flex-row md:gap-6">
-        <aside className="shrink-0 md:flex md:w-64 md:flex-col md:gap-4">
-          <div className="hidden md:block">{identity}</div>
-          <nav aria-label="Rubriques des paramètres">
-            {/* Téléphone : onglets qui défilent de côté ; tablette et ordinateur : menu vertical. */}
-            <ul ref={navRef} className="-mx-4 flex gap-1.5 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:flex-col md:gap-0.5 md:overflow-visible md:px-0">
-              {sections.map((s, i) => {
-                const selected = s.id === current?.id;
-                const Icon = s.icon;
-                return (
-                  <li key={s.id} className={`shrink-0 ${s.danger && i > 0 ? "md:mt-3 md:border-t md:border-border md:pt-3" : ""}`}>
-                    <button
-                      type="button"
-                      onClick={() => open(s.id)}
-                      aria-current={selected ? "page" : undefined}
-                      className={`relative flex w-full items-center gap-2 rounded-full border px-3.5 py-2.5 text-sm whitespace-nowrap transition md:gap-3 md:rounded-xl md:border-0 md:px-3 md:py-2 md:text-left ${
-                        selected
-                          ? s.danger
-                            ? "border-transparent bg-danger-soft font-medium text-danger"
-                            : "border-transparent bg-fg font-medium text-bg md:bg-bg md:text-fg md:shadow-sm md:ring-1 md:ring-border"
-                          : s.danger
-                            ? "border-border text-danger/80 hover:bg-danger-soft hover:text-danger"
-                            : "border-border bg-bg text-fg-muted hover:text-fg md:bg-transparent md:hover:bg-bg-muted"
-                      }`}
-                    >
-                      <span
-                        className={`grid shrink-0 place-items-center md:size-8 md:rounded-lg ${
-                          selected && !s.danger ? "md:bg-accent-soft md:text-accent" : ""
-                        }`}
-                      >
-                        <Icon width={16} height={16} />
-                      </span>
-                      <span className="min-w-0">{s.label}</span>
-                      {badges[s.id] ? (
-                        <span aria-label="à compléter" className="absolute top-1.5 right-1.5 size-2 rounded-full bg-warning md:static md:ml-auto" />
-                      ) : null}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </nav>
-        </aside>
+    <div className="flex flex-1 flex-col md:-mb-8 md:min-h-0 md:flex-row md:gap-10">
+      <aside className={`shrink-0 flex-col gap-5 md:flex md:w-56 md:gap-6 md:overflow-y-auto md:[scrollbar-width:none] ${active ? "hidden" : "flex"}`}>
+        <div className="flex items-center gap-3 rounded-2xl border border-border bg-bg p-4 md:rounded-none md:border-0 md:bg-transparent md:px-2.5 md:py-0">
+          <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center rounded-full bg-accent-soft text-base font-semibold text-accent uppercase md:size-10">
+            {name.charAt(0)}
+          </span>
+          <div className="min-w-0">
+            <p className="flex items-center gap-2">
+              <span className="truncate text-sm font-semibold">{name}</span>
+              {isAdmin ? <span className="shrink-0 rounded-full bg-bg-muted px-2 py-px text-[11px] font-medium text-fg-muted">Admin</span> : null}
+            </p>
+            {email ? <p className="truncate text-xs text-fg-muted">{email}</p> : null}
+          </div>
+        </div>
 
-        {current ? (
-          <section
-            ref={sectionRef}
-            key={current.id}
-            aria-labelledby={`rubrique-${current.id}`}
-            className="flex flex-1 animate-[correct-fade_.18s_ease-out] flex-col rounded-3xl border border-border bg-bg shadow-sm md:min-h-0 md:overflow-hidden"
-          >
-            <header className="flex shrink-0 items-center gap-3 border-b border-border px-5 py-4 md:px-7">
-              {CurrentIcon ? (
-                <span
-                  aria-hidden="true"
-                  className={`grid size-10 shrink-0 place-items-center rounded-xl ${current.danger ? "bg-danger-soft text-danger" : "bg-accent-soft text-accent"}`}
-                >
-                  <CurrentIcon width={18} height={18} />
-                </span>
-              ) : null}
-              <div className="min-w-0">
-                <h2 id={`rubrique-${current.id}`} className={`text-lg leading-tight font-semibold tracking-tight ${current.danger ? "text-danger" : ""}`}>
-                  {current.label}
-                </h2>
-                <p className="truncate text-sm text-fg-muted">{current.hint}</p>
-              </div>
-            </header>
-            <div className="scrollbar-none flex-1 px-5 py-5 md:min-h-0 md:overflow-y-auto md:overscroll-contain md:px-7 md:py-6">
-              <div className="max-w-2xl">{panels[current.id]}</div>
+        <nav aria-label="Rubriques des paramètres" className="flex flex-col gap-5">
+          {GROUPS.map((group) => (
+            <div key={group.title}>
+              <p className={GROUP_TITLE}>{group.title}</p>
+              <ul className={LIST}>
+                {group.sections.map((section) => {
+                  const selected = section.id === current.id;
+                  const Icon = section.icon;
+                  return (
+                    <li key={section.id}>
+                      <a
+                        href={`?rubrique=${section.id}`}
+                        onClick={(event) => open(event, section.id)}
+                        aria-current={selected ? "page" : undefined}
+                        className={`${ITEM} ${selected ? "md:bg-bg-muted md:font-medium" : IDLE}`}
+                      >
+                        <Icon width={18} height={18} className="shrink-0 text-fg-muted" />
+                        <span className="min-w-0 flex-1 truncate">{section.label}</span>
+                        {toComplete.includes(section.id) ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-warning">
+                            <span className="md:sr-only">À compléter</span>
+                            <span aria-hidden="true" className="size-2 rounded-full bg-warning" />
+                          </span>
+                        ) : null}
+                        <Chevron />
+                      </a>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
-          </section>
-        ) : null}
-      </div>
-    </TabContext.Provider>
+          ))}
+
+          <div>
+            <p className={GROUP_TITLE}>Raccourcis</p>
+            <ul className={LIST}>
+              <li>
+                <a href="/portefeuille" className={`${ITEM} ${IDLE}`}>
+                  <IconWallet width={18} height={18} className="shrink-0 text-fg-muted" />
+                  <span className="min-w-0 flex-1 truncate">Portefeuille</span>
+                  <span className="text-sm text-fg-muted tabular-nums md:text-xs">{balance}</span>
+                  <Chevron />
+                </a>
+              </li>
+              <li>
+                <a href="/documents" className={`${ITEM} ${IDLE}`}>
+                  <IconFolder width={18} height={18} className="shrink-0 text-fg-muted" />
+                  <span className="min-w-0 flex-1 truncate">Mes documents</span>
+                  <Chevron />
+                </a>
+              </li>
+            </ul>
+          </div>
+
+          <div className="overflow-hidden rounded-2xl border border-border bg-bg md:hidden">
+            <SignOutButton row />
+          </div>
+        </nav>
+      </aside>
+
+      <section
+        ref={panel}
+        aria-labelledby="rubrique-titre"
+        className={`min-w-0 flex-1 md:block md:min-h-0 md:overflow-y-auto md:overscroll-contain md:[scrollbar-width:none] ${active ? "block" : "hidden"}`}
+      >
+        {/* Espace en bas : le rond d'aide ne cache pas la dernière ligne. */}
+        <div key={current.id} className="max-w-2xl animate-[correct-fade_.18s_ease-out] pb-24 md:pb-20">
+          <a href="?" onClick={backToList} className="-ml-1.5 mb-3 inline-flex items-center gap-1 rounded-lg py-1.5 pr-2 text-sm font-medium text-fg-muted hover:text-fg md:hidden">
+            <svg aria-hidden="true" width={18} height={18} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+              <path d="m15 6-6 6 6 6" />
+            </svg>
+            Paramètres
+          </a>
+          <header className="mb-6">
+            <h2 id="rubrique-titre" ref={heading} tabIndex={-1} className="text-xl font-semibold tracking-tight outline-none">
+              {current.label}
+            </h2>
+            <p className="mt-1 text-sm text-fg-muted">{current.hint}</p>
+          </header>
+          <div className="space-y-8">{panels[current.id]}</div>
+        </div>
+      </section>
+    </div>
   );
 }

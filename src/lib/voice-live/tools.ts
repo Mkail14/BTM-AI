@@ -94,6 +94,11 @@ export function liveToolDeclarations(access: LiveAccess) {
       },
     },
     {
+      name: "heure_mayotte",
+      description: "Donne le jour et l'heure exacts à Mayotte, maintenant. À utiliser dès que la personne demande l'heure ou le jour.",
+      parameters: { type: "OBJECT", properties: {} },
+    },
+    {
       name: "defiler_conversation",
       description: "Fait défiler la discussion à l'écran : tout en haut, tout en bas, jusqu'au dernier tableau, ou jusqu'au message qui contient des mots précis. À utiliser quand la personne veut revoir un passage.",
       parameters: { type: "OBJECT", properties: { vers: text("« haut », « bas », « tableau », ou des mots du message à retrouver (ex. « tacos »).") }, required: ["vers"] },

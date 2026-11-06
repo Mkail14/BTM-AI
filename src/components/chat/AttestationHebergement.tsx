@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
 import { checkFields, EMPTY_FIELDS, todayMayotte, type AttestationFields } from "@/lib/attestation/fields";
 import { SIGNATURE_HELP_EVENT } from "@/lib/attestation/intent";
 import { pdfBase64 } from "@/lib/attestation/pdf-base64";
+import { DRIVE_UPLOAD_MESSAGES, uploadToDrive } from "@/lib/drive/upload";
 import { removeSignatureBackground, type SignatureProblem } from "@/lib/attestation/signature";
 import { APP_USER_AGENT } from "@/components/ui/ThemeScript";
 import { AttestationPreview } from "./AttestationPreview";
@@ -82,7 +83,13 @@ export function AttestationHebergement({ resume = false }: { resume?: boolean })
   const [buildError, setBuildError] = useState(false);
   const [file, setFile] = useState<{ url: string; name: string; blob: Blob } | null>(null);
   const [onPaper, setOnPaper] = useState(false);
+  const [driveLinked, setDriveLinked] = useState(false);
+  /** Rangement dans Mes documents : en cours, fait, ou le message d'erreur. */
+  const [banked, setBanked] = useState<string | null>(null);
+  const [mail, setMail] = useState<{ status: "idle" | "sending" | "sent" | "error"; text?: string }>({ status: "idle" });
   const fileUrl = useRef<string | null>(null);
+  /** Dernière version rangée : revenir en arrière sans rien changer ne crée pas un doublon sur le Drive. */
+  const bankedVersion = useRef<string | null>(null);
   const signatureHelpSent = useRef(resume);
 
   useEffect(
@@ -131,9 +138,22 @@ export function AttestationHebergement({ resume = false }: { resume?: boolean })
       const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
       if (fileUrl.current) URL.revokeObjectURL(fileUrl.current);
       fileUrl.current = URL.createObjectURL(blob);
-      setFile({ url: fileUrl.current, name: attestationFileName(fields), blob });
+      const created = { url: fileUrl.current, name: attestationFileName(fields), blob };
+      const version = JSON.stringify([fields, paper, signatures.hebergeant?.url, signatures.heberge?.url]);
+      setFile(created);
       setOnPaper(paper);
+      if (bankedVersion.current !== version) setBanked(null);
+      setMail({ status: "idle" });
       setStep("done");
+      // Drive relié : la copie part toute seule dans Mes documents (dossier Logement).
+      void fetch("/api/drive", { cache: "no-store" })
+        .then((res) => (res.ok ? res.json() : null))
+        .then((data: { connected?: boolean } | null) => {
+          const linked = Boolean(data?.connected);
+          setDriveLinked(linked);
+          if (linked && bankedVersion.current !== version) void saveToDocuments(created, version);
+        })
+        .catch(() => {});
     } catch {
       setBuildError(true);
     } finally {
@@ -147,14 +167,20 @@ export function AttestationHebergement({ resume = false }: { resume?: boolean })
     window.TamilyaFiles?.savePdf?.(file.name, pdfBase64(bytes));
   };
 
-  const share = async () => {
+  const saveToDocuments = async (target: { name: string; blob: Blob }, version: string) => {
+    setBanked("sending");
+    const problem = await uploadToDrive(new File([target.blob], target.name, { type: "application/pdf" }), "logement");
+    if (!problem) bankedVersion.current = version;
+    setBanked(problem ? DRIVE_UPLOAD_MESSAGES[problem] : "done");
+  };
+
+  const sendByMail = async () => {
     if (!file) return;
-    const pdf = new File([file.blob], file.name, { type: "application/pdf" });
-    try {
-      await navigator.share({ files: [pdf], title: "Attestation d'hébergement" });
-    } catch {
-      // Partage annulé : le bouton de téléchargement reste là.
-    }
+    setMail({ status: "sending" });
+    const response = await fetch("/api/attestation/email", { method: "POST", headers: { "Content-Type": "application/pdf" }, body: file.blob }).catch(() => null);
+    const data = (await response?.json().catch(() => null)) as { to?: string; error?: string } | null | undefined;
+    if (response?.ok) setMail({ status: "sent", text: `Envoyée à ${data?.to}` });
+    else setMail({ status: "error", text: data?.error ?? "Le mail n'est pas parti. Réessaie." });
   };
 
   const input = (key: TextKey, label: string, options: { type?: "text" | "date"; wide?: boolean; numeric?: boolean } = {}) => {
@@ -400,7 +426,6 @@ export function AttestationHebergement({ resume = false }: { resume?: boolean })
 
   const saveInApp = window.TamilyaFiles?.savePdf ? () => void saveWithApp() : null;
   const oldApp = !saveInApp && navigator.userAgent.includes(APP_USER_AGENT);
-  const canShare = file && typeof navigator.canShare === "function" && navigator.canShare({ files: [new File([file.blob], file.name, { type: "application/pdf" })] });
   return shell(
     <>
       {header("Vérifie ton attestation", "form")}
@@ -423,13 +448,37 @@ export function AttestationHebergement({ resume = false }: { resume?: boolean })
             Télécharger le PDF
           </a>
         ) : null}
-        {canShare ? (
-          <button type="button" onClick={() => void share()} className="w-full rounded-full border border-border px-4 py-3 font-medium hover:bg-bg-subtle">
-            Partager
-          </button>
+        {driveLinked && banked === "sending" ? <p className="text-center text-xs text-fg-muted">Rangement dans Mes documents…</p> : null}
+        {driveLinked && banked === "done" ? <p className="text-center text-xs text-fg-muted">Rangé dans Mes documents (dossier Logement)</p> : null}
+        {driveLinked && file && banked && banked !== "sending" && banked !== "done" ? (
+          <>
+            <p role="alert" className="text-center text-xs text-danger">
+              {banked}
+            </p>
+            <button
+              type="button"
+              onClick={() => void saveToDocuments(file, JSON.stringify([fields, onPaper, signatures.hebergeant?.url, signatures.heberge?.url]))}
+              className="w-full rounded-full border border-border px-4 py-3 font-medium hover:bg-bg-subtle"
+            >
+              Réessayer de ranger dans Mes documents
+            </button>
+          </>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => void sendByMail()}
+          disabled={mail.status === "sending" || mail.status === "sent"}
+          className="w-full rounded-full border border-border px-4 py-3 font-medium hover:bg-bg-subtle disabled:opacity-60"
+        >
+          {mail.status === "sending" ? "Envoi…" : mail.status === "sent" ? mail.text : "Envoyer par mail"}
+        </button>
+        {mail.status === "error" ? (
+          <p role="alert" className="text-center text-xs text-danger">
+            {mail.text}
+          </p>
         ) : null}
         <p className="text-center text-[11px] text-fg-muted">
-          {onPaper ? "Imprime ce document : chaque personne le relit et signe elle-même à la main. " : ""}Joins la copie de la pièce d&apos;identité et un justificatif de domicile de l&apos;hébergeant. Le document disparaît si tu quittes cette page.
+          {onPaper ? "Imprime ce document : chaque personne le relit et signe elle-même à la main. " : ""}Joins la copie de la pièce d&apos;identité et un justificatif de domicile de l&apos;hébergeant.{banked === "done" ? "" : " Le document disparaît si tu quittes cette page."}
         </p>
       </div>
     </>,

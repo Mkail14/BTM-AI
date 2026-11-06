@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { mayotteClock } from "@/lib/ai/clock";
 import { getAuthContext } from "@/lib/auth/session";
 import { canBuyBargeTickets } from "@/lib/barge/access";
 import { canOrderFood } from "@/lib/food/access";
@@ -23,6 +24,8 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: "Connexion requise." }, { status: 401 });
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Demande invalide." }, { status: 400 });
+  // Pas un tableau : juste une réponse pour Tamilya, lue sur l'horloge du serveur.
+  if (parsed.data.name === "heure_mayotte") return NextResponse.json({ time: mayotteClock() });
   const [food, barge] = await Promise.all([canOrderFood(user).catch(() => false), canBuyBargeTickets(user).catch(() => false)]);
   const block = liveToolBlock(parsed.data.name, parsed.data.args, { food, barge });
   if (!block) return NextResponse.json({ error: "Ce bouton n'est pas disponible pour ce compte." }, { status: 404 });

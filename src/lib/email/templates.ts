@@ -206,6 +206,25 @@ export function accountChangeEmail(email: string, change: AccountChange, ctx: Em
   );
 }
 
+/** Attestation d'hébergement demandée depuis la conversation, en pièce jointe. */
+export function attestationEmail(origin: string) {
+  return render(
+    "Votre attestation d'hébergement",
+    {
+      preheader: "Votre attestation est en pièce jointe.",
+      eyebrow: "Vos documents",
+      title: "Votre attestation est prête",
+      paragraphs: [
+        "Bonjour,",
+        "Vous trouverez votre attestation d'hébergement en pièce jointe, au format PDF.",
+        "Joignez-y la copie de la pièce d'identité et un justificatif de domicile de l'hébergeant.",
+      ],
+      reason: "Vous recevez cet e-mail parce que vous avez demandé votre attestation à Tamilya.",
+    },
+    origin,
+  );
+}
+
 /** 7. Compte supprimé : dernier message, sans bouton vers le site. */
 export function accountDeletedEmail(email: string, ctx: EmailContext) {
   return render(

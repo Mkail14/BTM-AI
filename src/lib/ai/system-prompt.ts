@@ -4,6 +4,7 @@ import { VOICE_TONE } from "./voice-tone";
 import { CODE_EXAM_OFFICES } from "@/lib/code-exam/offices";
 import { FOOD_CATALOG } from "@/lib/food/catalog";
 import type { ValidatedExample } from "@/lib/language/types";
+import { mayotteClock } from "./clock";
 import type { KnowledgeEntry } from "./knowledge";
 import type { MemoryFact } from "./memory";
 import type { Gloss, WordEntry } from "./words";
@@ -462,6 +463,8 @@ export function buildSystemPrompt(
       ].join("\n"),
     );
   }
+  // Vers la fin : l'heure change à chaque message, le début du prompt reste identique (cache Gemini).
+  sections.push(`Heure exacte : à Mayotte, nous sommes le ${mayotteClock()}. Pour dire l'heure ou le jour, sers-toi de cette information : ne cherche pas sur internet et ne devine pas.`);
   if (context.voice) sections.push(VOICE, VOICE_TONE);
   if (!context.teacher) sections.push(LISTENING);
   sections.push(SECURITY);

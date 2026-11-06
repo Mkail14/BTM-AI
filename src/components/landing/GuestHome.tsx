@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { noteGlobeOrigin } from "@/components/chat/globe-origin";
 import { loadAnonymousDraft } from "@/lib/chat/anonymous-draft";
 import type { PublicReview } from "@/lib/reviews/rules";
 import type { Announcement } from "@/lib/site/announcement-rules";
@@ -119,6 +120,8 @@ export function GuestHome({ reviews, announcement }: { reviews: PublicReview[]; 
   };
 
   const start = (message: string | null, component: ChatViewComponent) => {
+    // Le globe de l'accueil est celui qui descendra écrire la réponse (WritingGlobe).
+    if (message) noteGlobeOrigin(document.querySelector(".landing .awa-blob")?.getBoundingClientRect() ?? null);
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setChat(() => component);
       setPrompt(message);

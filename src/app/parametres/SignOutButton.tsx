@@ -2,29 +2,21 @@
 
 import { useAuth } from "@/components/auth/AuthProvider";
 import { IconLogout } from "@/components/ui/icons";
+import { SECONDARY } from "./ui";
 
-/** `compact` : icône seule, pour les barres d'en-tête. */
-export function SignOutButton({ compact = false }: { compact?: boolean }) {
+/** `row` : ligne de liste, en bas des rubriques sur téléphone. */
+export function SignOutButton({ row = false }: { row?: boolean }) {
   const { signOut } = useAuth();
-  if (compact) {
+  if (row) {
     return (
-      <button
-        type="button"
-        onClick={signOut}
-        aria-label="Se déconnecter"
-        title="Se déconnecter"
-        className="rounded-lg p-2 text-fg-muted hover:bg-bg-muted hover:text-fg"
-      >
-        <IconLogout width={18} height={18} />
+      <button type="button" onClick={signOut} className="flex min-h-13 w-full items-center gap-3 px-4 text-left text-sm">
+        <IconLogout width={18} height={18} className="shrink-0 text-fg-muted" />
+        Se déconnecter
       </button>
     );
   }
   return (
-    <button
-      type="button"
-      onClick={signOut}
-      className="rounded-lg border border-border px-3 py-2 font-medium whitespace-nowrap hover:bg-bg-muted"
-    >
+    <button type="button" onClick={signOut} className={SECONDARY}>
       Se déconnecter
     </button>
   );

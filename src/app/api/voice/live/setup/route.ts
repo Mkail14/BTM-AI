@@ -27,8 +27,6 @@ import { liveToolDeclarations } from "@/lib/voice-live/tools";
  * Protégée par le ticket signé du compte.
  */
 
-const now = new Intl.DateTimeFormat("fr-FR", { dateStyle: "full", timeStyle: "short", timeZone: "Indian/Mayotte" });
-
 /** À l'oral en direct : la personne parle, Tamilya l'entend (pas de dictée qui se trompe). */
 const LIVE_RULES = [
   "Sois humaine : parle comme une vraie jeune femme de Mayotte. Montre tes émotions (tu ris quand c'est drôle, tu es touchée quand c'est triste), réagis à ce que la personne ressent, fais de l'humour, varie ton intonation et ton rythme.",
@@ -114,7 +112,7 @@ export async function POST(request: NextRequest) {
             {
               text: [
                 system,
-                `Nous sommes le ${now.format(new Date())}, heure de Mayotte, au début de cette conversation.`,
+                "Dans ce vocal, l'heure exacte ci-dessus est celle du début de l'appel : si on te demande l'heure ou le jour, appelle heure_mayotte et dis ce qu'elle renvoie.",
                 news ? `${JOURNAL_RULES}\n\n${news}` : null,
                 LIVE_RULES,
                 listeningRules(corrections),

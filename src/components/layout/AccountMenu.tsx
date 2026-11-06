@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { AuthUser } from "@/components/auth/AuthProvider";
-import { IconChevronUpDown, IconGauge, IconHelp, IconLogout, IconSettings, IconWallet } from "@/components/ui/icons";
+import { IconChevronUpDown, IconFolder, IconGauge, IconHelp, IconLogout, IconSettings, IconWallet } from "@/components/ui/icons";
 import { formatEuros } from "@/lib/wallet/limits";
 
 /** Solde du portefeuille (demo : solde fictif de la démonstration), relu à chaque changement de page et au retour sur l'onglet. */
@@ -136,6 +136,9 @@ export function AccountMenu({
               ) : null}
             </Link>
           ) : null}
+          <Link href="/documents" role="menuitem" onClick={close} className={itemClass}>
+            <IconFolder /> Mes documents
+          </Link>
           <Link href="/parametres" role="menuitem" onClick={close} className={itemClass}>
             <IconSettings /> Paramètres
           </Link>
