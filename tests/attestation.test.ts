@@ -5,6 +5,7 @@ import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { attestationBlock, detectAttestation } from "@/lib/attestation/intent";
 import { checkFields, dateFr, EMPTY_FIELDS, todayMayotte, type AttestationFields } from "@/lib/attestation/fields";
 import { attestationFileName, buildAttestationPdf, pdfText, splitAddress } from "@/lib/attestation/pdf";
+import { SIGNATURE_HELP, signaturesBlock } from "@/lib/attestation/intent";
 import { liveToolBlock } from "@/lib/voice-live/tools";
 import { pdfBase64 } from "@/lib/attestation/pdf-base64";
 import { removeSignatureBackground, type Pixels } from "@/lib/attestation/signature";
@@ -117,6 +118,15 @@ describe("Attestation : fond de la signature", () => {
 describe("Attestation : à la voix", () => {
   it("s'ouvre avec le bouton du vocal", () => {
     assert.match(liveToolBlock("attestation_hebergement", {}, { food: false, barge: false }) ?? "", /attestation-hebergement/);
+  });
+
+  it("explique les signatures : feuille blanche et deux photos séparées", () => {
+    assert.match(SIGNATURE_HELP, /feuille blanche/);
+    assert.match(SIGNATURE_HELP, /deux photos séparées/);
+  });
+
+  it("remet le formulaire sous l'explication, à l'étape des photos", () => {
+    assert.equal(signaturesBlock, "```attestation-hebergement\nsignatures\n```");
   });
 
   it("crée un PDF sans signature, à signer à la main", async () => {

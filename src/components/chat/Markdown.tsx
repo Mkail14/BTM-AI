@@ -3,7 +3,7 @@ import { isValidElement, memo, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { markUnknownWords } from "@/lib/language/unknown-words";
-import { ATTESTATION_BLOCK } from "@/lib/attestation/intent";
+import { ATTESTATION_BLOCK, SIGNATURES_STEP } from "@/lib/attestation/intent";
 import { BARGE_BLOCK } from "@/lib/barge/intent";
 import { BTM_DEVIS_BLOCK } from "@/lib/btm/intent";
 import { GROUP_BLOCK } from "@/lib/food/group-block";
@@ -88,7 +88,7 @@ const components: Components = {
     if (code === `language-${ATTESTATION_BLOCK}`) {
       return (
         <Board>
-          <AttestationHebergement />
+          <AttestationHebergement resume={textOf(children).trim() === SIGNATURES_STEP} />
         </Board>
       );
     }

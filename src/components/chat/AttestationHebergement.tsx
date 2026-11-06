@@ -2,9 +2,11 @@
 
 import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
 import { checkFields, EMPTY_FIELDS, todayMayotte, type AttestationFields } from "@/lib/attestation/fields";
+import { SIGNATURE_HELP_EVENT } from "@/lib/attestation/intent";
 import { pdfBase64 } from "@/lib/attestation/pdf-base64";
 import { removeSignatureBackground, type SignatureProblem } from "@/lib/attestation/signature";
 import { APP_USER_AGENT } from "@/components/ui/ThemeScript";
+import { AttestationPreview } from "./AttestationPreview";
 
 declare global {
   interface Window {
@@ -17,7 +19,7 @@ const PERSONA = "var(--persona,var(--accent))";
 const MAX_PHOTO_SIDE = 1400;
 
 type Person = "hebergeant" | "heberge";
-type Step = "form" | "signatures" | "rappel" | "papier" | "done";
+type Step = "form" | "signatures" | "rappel" | "papier" | "done" | "moved";
 type Signature = { bytes: Uint8Array; url: string };
 
 const PERSON_LABEL: Record<Person, string> = { hebergeant: "L'hébergeant", heberge: "La personne hébergée" };
@@ -27,6 +29,9 @@ const PROBLEMS: Record<SignatureProblem | "unreadable", string> = {
   not_white_sheet: "Le fond n'est pas assez blanc. Reprends la photo sur une feuille blanche bien éclairée.",
   unreadable: "Cette image ne s'ouvre pas. Essaie avec une autre photo.",
 };
+
+/** Formulaire rempli, repris par le bloc qui revient sous l'explication. Reste sur l'appareil, en mémoire. */
+let filled: AttestationFields | null = null;
 
 /** Photo → PNG à fond transparent. Tout se passe sur l'appareil : rien n'est envoyé au serveur. */
 async function cleanSignature(file: File): Promise<{ ok: true; signature: Signature } | { ok: false; problem: SignatureProblem | "unreadable" }> {
@@ -64,10 +69,10 @@ type TextKey = Exclude<keyof AttestationFields, "civilite">;
  * Le formulaire, les signatures et le PDF restent sur l'appareil : rien n'est envoyé
  * ni gardé, et le rappel à la loi vient avant que les signatures soient posées.
  */
-export function AttestationHebergement() {
+export function AttestationHebergement({ resume = false }: { resume?: boolean }) {
   const uid = useId();
-  const [fields, setFields] = useState<AttestationFields>(() => ({ ...EMPTY_FIELDS, faitLe: todayMayotte() }));
-  const [step, setStep] = useState<Step>("form");
+  const [fields, setFields] = useState<AttestationFields>(() => (resume && filled) || { ...EMPTY_FIELDS, faitLe: todayMayotte() });
+  const [step, setStep] = useState<Step>(resume && filled ? "signatures" : "form");
   const [touched, setTouched] = useState(false);
   const [signatures, setSignatures] = useState<Partial<Record<Person, Signature>>>({});
   const [photoErrors, setPhotoErrors] = useState<Partial<Record<Person, string>>>({});
@@ -78,6 +83,7 @@ export function AttestationHebergement() {
   const [file, setFile] = useState<{ url: string; name: string; blob: Blob } | null>(null);
   const [onPaper, setOnPaper] = useState(false);
   const fileUrl = useRef<string | null>(null);
+  const signatureHelpSent = useRef(resume);
 
   useEffect(
     () => () => {
@@ -236,7 +242,14 @@ export function AttestationHebergement() {
             style={{ background: PERSONA }}
             onClick={() => {
               setTouched(true);
-              if (Object.keys(errors).length === 0) setStep("signatures");
+              if (Object.keys(errors).length > 0) return;
+              // Une seule fois, même si la personne revient au formulaire.
+              if (signatureHelpSent.current) return setStep("signatures");
+              signatureHelpSent.current = true;
+              filled = fields;
+              // La conversation écrit l'explication et remet le bloc dessous ; ailleurs, on reste ici.
+              const moved = !window.dispatchEvent(new Event(SIGNATURE_HELP_EVENT, { cancelable: true }));
+              setStep(moved ? "moved" : "signatures");
             }}
           >
             Continuer
@@ -257,6 +270,10 @@ export function AttestationHebergement() {
     );
   }
 
+  if (step === "moved") {
+    return shell(<p className="p-4 text-fg-muted">Formulaire rempli. La suite est juste en dessous.</p>);
+  }
+
   if (step === "signatures") {
     return shell(
       <>
@@ -270,22 +287,31 @@ export function AttestationHebergement() {
             const error = photoErrors[person];
             return (
               <div key={person} className="rounded-2xl border border-border p-3">
-                <p className="font-medium">{PERSON_LABEL[person]}</p>
-                <p className="truncate text-xs text-fg-muted">{nameOf(person)}</p>
-                {signature ? (
-                  // Image locale en data: : le composant Image de Next ne s'applique pas ici.
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={signature.url} alt={`Signature : ${nameOf(person)}`} className="mt-2 h-20 w-full rounded-xl bg-white object-contain p-2" />
-                ) : null}
+                {/* Nom et bouton à gauche, photo de la signature à droite. */}
+                <div className="flex items-center gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium">{PERSON_LABEL[person]}</p>
+                    <p className="truncate text-xs text-fg-muted">{nameOf(person)}</p>
+                    <label data-voice-never="" className="mt-2 block cursor-pointer rounded-full border border-border px-3 py-2 text-center text-sm font-medium hover:bg-bg-subtle">
+                      {reading === person ? "Préparation…" : signature ? "Changer la photo" : "Ajouter la photo"}
+                      <input type="file" accept="image/*" className="sr-only" disabled={reading !== null} onChange={(e) => void pick(person, e)} />
+                    </label>
+                  </div>
+                  <div className="grid h-20 w-28 shrink-0 place-items-center rounded-xl border border-dashed border-border bg-white p-1.5 sm:w-36">
+                    {signature ? (
+                      // Image locale en data: : le composant Image de Next ne s'applique pas ici.
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={signature.url} alt={`Signature : ${nameOf(person)}`} className="max-h-full max-w-full object-contain" />
+                    ) : (
+                      <span className="text-center text-[11px] text-neutral-500">Signature</span>
+                    )}
+                  </div>
+                </div>
                 {error ? (
                   <p role="alert" className="mt-2 text-xs text-danger">
                     {error}
                   </p>
                 ) : null}
-                <label data-voice-never="" className="mt-2 block cursor-pointer rounded-full border border-border px-3 py-2 text-center text-sm font-medium hover:bg-bg-subtle">
-                  {reading === person ? "Préparation…" : signature ? "Changer la photo" : "Ajouter la photo"}
-                  <input type="file" accept="image/*" className="sr-only" disabled={reading !== null} onChange={(e) => void pick(person, e)} />
-                </label>
               </div>
             );
           })}
@@ -377,8 +403,13 @@ export function AttestationHebergement() {
   const canShare = file && typeof navigator.canShare === "function" && navigator.canShare({ files: [new File([file.blob], file.name, { type: "application/pdf" })] });
   return shell(
     <>
-      {header("Attestation prête")}
+      {header("Vérifie ton attestation", "form")}
       <div className="booking-step space-y-2 p-4">
+        <AttestationPreview
+          fields={fields}
+          signatures={onPaper ? {} : { hebergeant: signatures.hebergeant?.url, heberge: signatures.heberge?.url }}
+          names={{ hebergeant: nameOf("hebergeant"), heberge: nameOf("heberge") }}
+        />
         {saveInApp ? (
           <button type="button" onClick={saveInApp} className={primary} style={{ background: PERSONA }}>
             Enregistrer le PDF

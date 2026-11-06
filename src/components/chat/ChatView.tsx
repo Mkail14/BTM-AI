@@ -13,6 +13,7 @@ import {
   loadAnonymousDraft,
   saveAnonymousDraft,
 } from "@/lib/chat/anonymous-draft";
+import { SIGNATURE_HELP, SIGNATURE_HELP_EVENT, signaturesBlock } from "@/lib/attestation/intent";
 import { buildModelHistory } from "@/lib/chat/history";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
 import { createStreamEventParser } from "@/lib/chat/stream-protocol";
@@ -79,6 +80,9 @@ function greeting() {
   const hour = Number(new Intl.DateTimeFormat("fr-FR", { hour: "numeric", hour12: false, timeZone: "Indian/Mayotte" }).format(new Date()));
   return hour >= 18 || hour < 4 ? "Bonsoir" : "Bonjour";
 }
+
+/** Temps laissé à l'explication pour s'écrire avant que le bloc des photos revienne. */
+const SIGNATURES_BLOCK_DELAY_MS = 2_500;
 
 function newId() {
   return crypto.randomUUID();
@@ -484,6 +488,21 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   useEffect(() => {
     conversationIdRef.current = conversationId;
   }, [conversationId]);
+  // Attestation : formulaire rempli, Tamilya écrit d'elle-même comment faire les signatures.
+  // Non enregistré : ce texte est le même pour tous et ne dit rien de la personne.
+  useEffect(() => {
+    const explain = (event: Event) => {
+      // Le bloc de départ sait que la suite est ici et se replie.
+      event.preventDefault();
+      const id = newId();
+      setMessages((previous) => [...previous, { id, role: "assistant", content: SIGNATURE_HELP, status: "streaming" }]);
+      // Le message s'écrit lettre à lettre à son arrivée (MessageItem), puis le bloc revient dessous.
+      window.setTimeout(() => setMessages((previous) => previous.map((m) => (m.id === id ? { ...m, status: "complete" } : m))), 100);
+      window.setTimeout(() => setMessages((previous) => [...previous, { id: newId(), role: "assistant", content: signaturesBlock, status: "complete" }]), SIGNATURES_BLOCK_DELAY_MS);
+    };
+    window.addEventListener(SIGNATURE_HELP_EVENT, explain);
+    return () => window.removeEventListener(SIGNATURE_HELP_EVENT, explain);
+  }, []);
   useEffect(() => {
     liveTurnRef.current = (userText, tamilya) => {
       setMessages((previous) => [
