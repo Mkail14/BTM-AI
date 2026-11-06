@@ -16,7 +16,7 @@ import {
   passwordChecks,
   suggestEmailCorrection,
 } from "@/lib/auth/signup";
-import { hasNativeGoogle, nativeGoogleSignIn, renderGoogleButton } from "@/lib/auth/google-identity";
+import { hasNativeGoogle, nativeGoogleSignIn, renderGoogleButton, watchGoogleButton } from "@/lib/auth/google-identity";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { AuthUser } from "./AuthProvider";
 
@@ -28,6 +28,8 @@ export type AuthDialogOptions = {
   /** Chemin interne vers lequel revenir après connexion. */
   next?: string;
   mode?: "signin" | "signup";
+  /** Connexion seule : pas de lien vers l'inscription (maintenance). */
+  signupClosed?: boolean;
 };
 
 type View = "signin" | "signup" | "confirm";
@@ -180,7 +182,7 @@ function AuthPanel({
     </button>
   );
 
-  const switchLine = (
+  const switchLine = options.signupClosed ? null : (
     <p className="text-center text-sm text-fg-muted">
       {isSignup ? "Déjà un compte ? " : "Pas encore de compte ? "}
       <button
@@ -338,7 +340,7 @@ function AuthPanel({
 function GoogleButton({ next, isSignup, onSignedIn }: { next: string; isSignup: boolean; onSignedIn: SignedInHandler }) {
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
-  // Bouton de Google dessiné : le nôtre, identique, s'efface.
+  // Bouton de Google en état de marche : le nôtre, identique, s'efface.
   const [ready, setReady] = useState(false);
   const slot = useRef<HTMLDivElement>(null);
   const handler = useRef(onSignedIn);
@@ -353,9 +355,11 @@ function GoogleButton({ next, isSignup, onSignedIn }: { next: string; isSignup: 
     const element = slot.current;
     if (!element || native) return;
     let cancelled = false;
+    let stopWatching = () => {};
     renderGoogleButton(element, {
       signup: isSignup,
       dark: document.documentElement.dataset.theme === "dark",
+      isStale: () => cancelled,
       onToken: async (token, nonce) => {
         const supabase = getSupabaseBrowserClient();
         if (!supabase) return;
@@ -379,13 +383,14 @@ function GoogleButton({ next, isSignup, onSignedIn }: { next: string; isSignup: 
       },
     })
       .then(() => {
-        if (!cancelled && element.querySelector("iframe, div[role=button]")) setReady(true);
+        if (!cancelled) stopWatching = watchGoogleButton(element, () => setReady(true));
       })
       .catch(() => {
         // Script de Google bloqué : notre bouton reste, par redirection.
       });
     return () => {
       cancelled = true;
+      stopWatching();
     };
   }, [isSignup, next, native]);
 
@@ -443,7 +448,7 @@ function GoogleButton({ next, isSignup, onSignedIn }: { next: string; isSignup: 
       <div
         ref={slot}
         aria-hidden={!ready || pending}
-        className={ready && !pending ? "mt-2.5 flex h-11 w-full justify-center overflow-hidden" : "pointer-events-none absolute h-0 w-full max-w-[400px] overflow-hidden opacity-0"}
+        className={ready && !pending ? "mt-2.5 flex h-11 w-full justify-center overflow-hidden" : "pointer-events-none h-0 w-full overflow-hidden opacity-0"}
       />
       <button
         type="button"

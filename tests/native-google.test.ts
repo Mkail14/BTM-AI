@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { test } from "node:test";
-import { hasNativeGoogle, nativeGoogleSignIn } from "../src/lib/auth/google-identity";
+import { googleButtonWorks, hasNativeGoogle, nativeGoogleSignIn } from "../src/lib/auth/google-identity";
 
 function fakeApp(answer: (request: string, hashed: string) => [string, string]) {
   const win: Record<string, unknown> = {};
@@ -46,4 +46,12 @@ test("erreur du téléphone : elle remonte", async () => {
   const done = fakeApp(() => ["", "no-credential"]);
   await assert.rejects(nativeGoogleSignIn(), /no-credential/);
   done();
+});
+
+test("le bouton de Google ne compte que si son iframe a une taille (adresse acceptée par Google)", () => {
+  const slot = (iframe: unknown) => ({ querySelector: () => iframe }) as unknown as Pick<HTMLElement, "querySelector">;
+  const iframe = (width: number) => ({ getBoundingClientRect: () => ({ width }) });
+  assert.equal(googleButtonWorks(slot(null)), false);
+  assert.equal(googleButtonWorks(slot(iframe(0))), false);
+  assert.equal(googleButtonWorks(slot(iframe(406))), true);
 });

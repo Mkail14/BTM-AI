@@ -90,16 +90,23 @@ async function sha256(text: string) {
  */
 export async function renderGoogleButton(
   element: HTMLElement,
-  { signup, dark, onToken }: { signup: boolean; dark: boolean; onToken: (token: string, nonce: string) => void },
+  {
+    signup,
+    dark,
+    isStale,
+    onToken,
+  }: { signup: boolean; dark: boolean; isStale: () => boolean; onToken: (token: string, nonce: string) => void },
 ) {
   await loadScript();
   const id = window.google?.accounts?.id;
   if (!id) throw new Error("Google indisponible.");
-  if (!element.isConnected) return;
   const nonce = crypto.randomUUID();
+  const hashedNonce = await sha256(nonce);
+  // Fenêtre fermée ou mode changé pendant le chargement : Google ne garde qu'une configuration.
+  if (isStale() || !element.isConnected) return;
   id.initialize({
     client_id: GOOGLE_CLIENT_ID,
-    nonce: await sha256(nonce),
+    nonce: hashedNonce,
     callback: (response: { credential?: string }) => {
       if (response.credential) onToken(response.credential, nonce);
     },
@@ -114,7 +121,28 @@ export async function renderGoogleButton(
     shape: "pill",
     text: signup ? "signup_with" : "continue_with",
     logo_alignment: "center",
-    width: Math.max(200, Math.min(400, Math.round(element.getBoundingClientRect().width))),
+    // offsetWidth : la vraie largeur, sans l'effet de l'animation d'ouverture de la fenêtre.
+    width: Math.max(200, Math.min(400, element.offsetWidth)),
     locale: "fr",
   });
+}
+
+/**
+ * Le bouton de Google fonctionne-t-il ? Son iframe ne prend une taille que si Google
+ * accepte l'adresse du site. Sinon (localhost, adresse d'aperçu) elle reste à 0 et Google
+ * laisse à la place une imitation qui ne connecte pas.
+ */
+export function googleButtonWorks(element: Pick<HTMLElement, "querySelector">) {
+  const iframe = element.querySelector("iframe");
+  return !!iframe && iframe.getBoundingClientRect().width > 0;
+}
+
+/** Prévient une fois quand le bouton de Google fonctionne ; renvoie de quoi arrêter d'attendre. */
+export function watchGoogleButton(element: HTMLElement, onWorks: () => void) {
+  const timer = window.setInterval(() => {
+    if (!googleButtonWorks(element)) return;
+    window.clearInterval(timer);
+    onWorks();
+  }, 150);
+  return () => window.clearInterval(timer);
 }
