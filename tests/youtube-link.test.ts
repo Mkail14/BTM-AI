@@ -42,3 +42,26 @@ describe("vidéos proposées en rangée", () => {
     assert.equal(groupYouTubeLines(text), text);
   });
 });
+
+describe("vidéos montrées à la voix", () => {
+  it("transforme ses recherches en cartes YouTube, trois au plus", async () => {
+    const { voiceVideosBlock } = await import("@/lib/youtube/voice-videos");
+    const block = voiceVideosBlock(["Squeezie vidéos drôles", "Squeezie meilleurs moments", "Squeezie vidéos drôles", "a", "b"]) ?? "";
+    const lines = block.split("\n");
+    assert.equal(lines.length, 3);
+    assert.equal(lines[0], "[Squeezie vidéos drôles](https://www.youtube.com/results?search_query=Squeezie%20vid%C3%A9os%20dr%C3%B4les&sp=CAM%253D)");
+    assert.ok(lines.every((line) => parseYouTubeLink(/\((\S+)\)$/.exec(line)?.[1])?.kind === "search"));
+  });
+
+  it("n'affiche rien sans recherche, et ne casse pas le lien", async () => {
+    const { voiceVideosBlock } = await import("@/lib/youtube/voice-videos");
+    assert.equal(voiceVideosBlock([]), null);
+    assert.equal(voiceVideosBlock(undefined), null);
+    assert.equal(voiceVideosBlock("[x](y)"), "[x y](https://www.youtube.com/results?search_query=x%20y&sp=CAM%253D)");
+  });
+
+  it("garde le tri par vues quand la carte relit le lien", () => {
+    const url = youtubeSearchUrl("Squeezie", true);
+    assert.equal(parseYouTubeLink(url)?.url, url);
+  });
+});

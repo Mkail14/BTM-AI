@@ -6,6 +6,6 @@ import { buildDriveAuthUrl, driveConfigured } from "@/lib/drive/oauth";
 export async function GET(request: NextRequest) {
   const { origin } = request.nextUrl;
   const { user } = await getAuthContext();
-  const url = user && driveConfigured() ? buildDriveAuthUrl(user.id, origin) : null;
+  const url = user && driveConfigured() ? buildDriveAuthUrl(user.id, origin, Date.now(), undefined, user.email) : null;
   return NextResponse.redirect(url ?? new URL("/documents?drive=echec", origin));
 }

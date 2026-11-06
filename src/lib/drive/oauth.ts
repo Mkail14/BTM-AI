@@ -12,6 +12,11 @@ import { signJson, verifyJson } from "@/lib/security/signed-cookie";
  */
 
 export const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
+/**
+ * openid email en plus du Drive : Google rend aussi un jeton d'identité, qui relie
+ * ce compte Google au compte Tamilya (« Continuer avec Google » mène au même compte).
+ */
+export const DRIVE_SCOPES = `openid email ${DRIVE_SCOPE}`;
 const STATE_PURPOSE = "drive-oauth";
 const STATE_LIFETIME_MS = 10 * 60 * 1000;
 
@@ -24,7 +29,8 @@ export const driveRedirectUri = (origin: string) => `${origin}/documents/connexi
 
 type DriveState = { user: string; redirectUri: string; expires: number };
 
-export function buildDriveAuthUrl(userId: string, origin: string, now = Date.now(), key?: string): string | null {
+/** loginHint : l'adresse du compte Tamilya, que Google propose en premier s'il la connaît. */
+export function buildDriveAuthUrl(userId: string, origin: string, now = Date.now(), key?: string, loginHint?: string | null): string | null {
   const redirectUri = driveRedirectUri(origin);
   const state = signJson(STATE_PURPOSE, { user: userId, redirectUri, expires: now + STATE_LIFETIME_MS } satisfies DriveState, key);
   if (!state) return null;
@@ -32,12 +38,13 @@ export function buildDriveAuthUrl(userId: string, origin: string, now = Date.now
     client_id: GOOGLE_CLIENT_ID,
     redirect_uri: redirectUri,
     response_type: "code",
-    scope: DRIVE_SCOPE,
+    scope: DRIVE_SCOPES,
     access_type: "offline",
     // Sans consentement redemandé, Google ne redonne pas de jeton durable à une reconnexion.
     prompt: "select_account consent",
     state,
   });
+  if (loginHint) params.set("login_hint", loginHint);
   return `https://accounts.google.com/o/oauth2/v2/auth?${params}`;
 }
 
@@ -54,7 +61,7 @@ export function readDriveState(raw: string | undefined, userId: string, now = Da
 
 export class DriveAccessLost extends Error {}
 
-type TokenResponse = { access_token?: string; refresh_token?: string; scope?: string; error?: string };
+type TokenResponse = { access_token?: string; refresh_token?: string; id_token?: string; scope?: string; error?: string };
 
 async function requestToken(body: Record<string, string>): Promise<TokenResponse> {
   const secret = clientSecret();
@@ -69,11 +76,14 @@ async function requestToken(body: Record<string, string>): Promise<TokenResponse
 }
 
 /** null : pas de jeton durable, ou accès au Drive décoché sur l'écran de Google. */
-export async function exchangeDriveCode(code: string, redirectUri: string): Promise<{ accessToken: string; refreshToken: string } | null> {
+export async function exchangeDriveCode(
+  code: string,
+  redirectUri: string,
+): Promise<{ accessToken: string; refreshToken: string; idToken: string | null } | null> {
   const token = await requestToken({ code, redirect_uri: redirectUri, grant_type: "authorization_code" });
   if (!token.access_token || !token.refresh_token) return null;
   if (!token.scope?.split(" ").includes(DRIVE_SCOPE)) return null;
-  return { accessToken: token.access_token, refreshToken: token.refresh_token };
+  return { accessToken: token.access_token, refreshToken: token.refresh_token, idToken: token.id_token ?? null };
 }
 
 /** Accès d'une heure. DriveAccessLost : la personne a retiré l'accès depuis son compte Google. */

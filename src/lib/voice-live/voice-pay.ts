@@ -1,6 +1,7 @@
 /**
  * Paiement à la voix (navigateur). Tamilya ne touche « Payer » qu'après :
- * 1. l'avertissement affiché à l'écran, accepté par la personne (à la voix ou au doigt) ;
+ * 1. l'avertissement affiché à l'écran, accepté par la personne (à la voix ou au doigt)
+ *    une seule fois : l'autorisation est gardée sur le compte, puis plus jamais redemandée ;
  * 2. son code à 4 chiffres, vérifié par le serveur (/api/wallet/pin).
  * Ensuite, pendant 2 minutes, elle peut toucher les boutons de paiement
  * (plusieurs parties d'un tableau combiné, par exemple).
@@ -51,7 +52,7 @@ export async function requestPayment(label: string, run: () => Promise<string>):
   update({ step: "checking", label, typed: 0, error: null });
   const known = (await fetch("/api/wallet/pin", { cache: "no-store" })
     .then((r) => (r.ok ? r.json() : null))
-    .catch(() => null)) as { hasPin?: boolean } | null;
+    .catch(() => null)) as { hasPin?: boolean; consented?: boolean } | null;
   if (!known) {
     update({ step: "idle" });
     pending = null;
@@ -61,6 +62,12 @@ export async function requestPayment(label: string, run: () => Promise<string>):
     update({ step: "nopin" });
     return "Pas de code de paiement sur ce compte : sans code, tu ne peux pas payer à sa place. Dis-lui de le créer dans les paramètres (rubrique Tamilya), ou de toucher elle-même le bouton.";
   }
+  // L'autorisation se donne une seule fois : déjà donnée, on passe au code.
+  if (known.consented) {
+    pinTurn = true;
+    update({ step: "pin" });
+    return "Elle a déjà autorisé une fois pour toutes : ne lui relis pas l'avertissement. Dis le montant, puis demande-lui son code à 4 chiffres : elle peut le dire ou le taper. S'il le dit, appelle saisir_code. Ne répète jamais le code, ne le dis pas, ne l'écris nulle part.";
+  }
   update({ step: "consent" });
   return "L'avertissement est affiché. Lis-le-lui en une phrase : si elle t'autorise à payer à sa place, c'est sous sa responsabilité, et elle doit vérifier le montant. Si elle dit oui, appelle autoriser_paiement. Sinon, appelle annuler_paiement.";
 }
@@ -69,6 +76,8 @@ export function acceptPayment(): string {
   if (state.step !== "consent") return state.step === "pin" ? "Déjà autorisé : demande-lui son code." : "Aucun paiement en attente.";
   pinTurn = true;
   update({ step: "pin", error: null });
+  // Gardée sur le compte : l'avertissement ne sera plus jamais réaffiché.
+  void fetch("/api/wallet/pin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "consent" }) }).catch(() => null);
   return "Demande-lui son code à 4 chiffres : elle peut le dire ou le taper. S'il le dit, appelle saisir_code. Ne répète jamais le code, ne le dis pas, ne l'écris nulle part.";
 }
 

@@ -4,7 +4,7 @@ import { getAuthContext } from "@/lib/auth/session";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { hasPin, removePin, savePin, verifyPin, type PinCheck } from "@/lib/wallet/pin";
+import { payStatus, removePin, savePin, setConsent, verifyPin, type PinCheck } from "@/lib/wallet/pin";
 
 /**
  * Code de paiement à 4 chiffres (paiement à la voix par Tamilya).
@@ -17,6 +17,9 @@ const bodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("verify"), pin }),
   z.object({ action: z.literal("set"), pin, current: pin.optional() }),
   z.object({ action: z.literal("remove"), current: pin }),
+  // Autorisation donnée une seule fois (consent) ou retirée (revoke).
+  z.object({ action: z.literal("consent") }),
+  z.object({ action: z.literal("revoke") }),
 ]);
 
 const fail = (status: number, error: string, extra: object = {}) => NextResponse.json({ ok: false, error, ...extra }, { status, headers: { "Cache-Control": "no-store" } });
@@ -32,7 +35,7 @@ export async function GET() {
   const { user } = await getAuthContext();
   const admin = getSupabaseAdminClient();
   if (!user || !admin) return fail(401, "Connexion requise.");
-  return NextResponse.json({ hasPin: await hasPin(admin, user.id) }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json(await payStatus(admin, user.id), { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: NextRequest) {
@@ -50,7 +53,13 @@ export async function POST(request: NextRequest) {
   try {
     const body = parsed.data;
     const check =
-      body.action === "verify" ? await verifyPin(admin, user.id, body.pin) : body.action === "set" ? await savePin(admin, user.id, body.pin, body.current) : await removePin(admin, user.id, body.current);
+      body.action === "verify"
+        ? await verifyPin(admin, user.id, body.pin)
+        : body.action === "set"
+          ? await savePin(admin, user.id, body.pin, body.current)
+          : body.action === "remove"
+            ? await removePin(admin, user.id, body.current)
+            : await setConsent(admin, user.id, body.action === "consent");
     if (!check.ok) return explain(check);
     return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

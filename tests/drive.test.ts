@@ -58,7 +58,10 @@ describe("connexion à Google Drive", () => {
 
   it("ne demande que l'accès aux fichiers créés par Tamilya, avec un jeton durable", () => {
     const url = new URL(buildDriveAuthUrl("compte-1", origin, 1_000, key)!);
-    assert.equal(url.searchParams.get("scope"), DRIVE_SCOPE);
+    assert.deepEqual(url.searchParams.get("scope")!.split(" "), ["openid", "email", DRIVE_SCOPE]);
+    assert.equal(url.searchParams.get("login_hint"), null);
+    const hinted = new URL(buildDriveAuthUrl("compte-1", origin, 1_000, key, "ali@exemple.fr")!);
+    assert.equal(hinted.searchParams.get("login_hint"), "ali@exemple.fr");
     assert.equal(url.searchParams.get("access_type"), "offline");
     assert.match(url.searchParams.get("prompt")!, /consent/);
     assert.equal(url.searchParams.get("redirect_uri"), `${origin}/documents/connexion`);

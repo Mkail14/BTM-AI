@@ -120,7 +120,7 @@ export function GuestHome({ reviews, announcement }: { reviews: PublicReview[]; 
   };
 
   const start = (message: string | null, component: ChatViewComponent) => {
-    // Le globe de l'accueil est celui qui descendra écrire la réponse (WritingGlobe).
+    // Le globe de l'accueil est celui qui glissera jusqu'à la première réponse (MessageItem).
     if (message) noteGlobeOrigin(document.querySelector(".landing .awa-blob")?.getBoundingClientRect() ?? null);
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setChat(() => component);

@@ -28,6 +28,7 @@ function PinField({ label, value, onChange, autoFocus = false }: { label: string
  */
 export function PaymentPin() {
   const [hasPin, setHasPin] = useState<boolean | null>(null);
+  const [consented, setConsented] = useState(false);
   const [mode, setMode] = useState<"set" | "remove" | null>(null);
   const [current, setCurrent] = useState("");
   const [pin, setPin] = useState("");
@@ -37,8 +38,11 @@ export function PaymentPin() {
 
   useEffect(() => {
     fetch("/api/wallet/pin", { cache: "no-store" })
-      .then((r) => (r.ok ? (r.json() as Promise<{ hasPin: boolean }>) : null))
-      .then((body) => setHasPin(body?.hasPin ?? false))
+      .then((r) => (r.ok ? (r.json() as Promise<{ hasPin: boolean; consented?: boolean }>) : null))
+      .then((body) => {
+        setHasPin(body?.hasPin ?? false);
+        setConsented(Boolean(body?.consented));
+      })
       .catch(() => setHasPin(false));
   }, []);
 
@@ -59,8 +63,21 @@ export function PaymentPin() {
     setBusy(false);
     if (!result?.ok) return setMessage({ ok: false, text: result?.error ?? "Connexion impossible : réessaie." });
     setHasPin(action === "set");
+    if (action === "remove") setConsented(false);
     close();
     setMessage({ ok: true, text: action === "set" ? "Code enregistré." : "Code supprimé : Tamilya ne peut plus payer à ta place." });
+  }
+
+  /** Retire l'autorisation donnée une fois : l'avertissement sera réaffiché au prochain paiement. */
+  async function revoke() {
+    setBusy(true);
+    setMessage(null);
+    const response = await fetch("/api/wallet/pin", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ action: "revoke" }) }).catch(() => null);
+    const result = (await response?.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+    setBusy(false);
+    if (!result?.ok) return setMessage({ ok: false, text: result?.error ?? "Connexion impossible : réessaie." });
+    setConsented(false);
+    setMessage({ ok: true, text: "Autorisation retirée : Tamilya te la redemandera avant de payer." });
   }
 
   const ready = mode === "remove" ? current.length === 4 : pin.length === 4 && again.length === 4 && (!hasPin || current.length === 4);
@@ -96,7 +113,15 @@ export function PaymentPin() {
             </button>
           </div>
         </SettingsRow>
-      ) : (
+      ) : null}
+      {hasPin && mode === null && consented ? (
+        <SettingsRow label="Autorisation de payer" value="Donnée une fois pour toutes">
+          <button type="button" disabled={busy} onClick={() => void revoke()} className={DANGER}>
+            Retirer
+          </button>
+        </SettingsRow>
+      ) : null}
+      {hasPin === null || mode === null ? null : (
         <RowEditor>
           <form
             className="space-y-4"

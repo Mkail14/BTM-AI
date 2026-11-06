@@ -18,13 +18,18 @@ export function parseYouTubeLink(href: string | undefined): YouTubeLink | null {
   if (url.protocol !== "https:" && url.protocol !== "http:") return null;
   if (!HOSTS.has(url.hostname.toLowerCase())) return null;
   const query = url.searchParams.get("search_query")?.trim();
-  if (url.pathname === "/results" && query) return { kind: "search", query, url: youtubeSearchUrl(query) };
+  if (url.pathname === "/results" && query) return { kind: "search", query, url: youtubeSearchUrl(query, url.searchParams.get("sp") === MOST_VIEWED) };
   const id = url.hostname === "youtu.be" ? url.pathname.slice(1) : url.pathname === "/watch" ? url.searchParams.get("v") : url.pathname.match(/^\/shorts\/([\w-]+)/)?.[1];
   if (id && VIDEO_ID.test(id)) return { kind: "video", id, url: `https://www.youtube.com/watch?v=${id}` };
   return null;
 }
 
-export const youtubeSearchUrl = (query: string) => `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+/** Filtre YouTube « trier par nombre de vues » (valeur du paramètre sp). */
+const MOST_VIEWED = "CAM%3D";
+
+/** Recherche YouTube ; `mostViewed` : les vidéos les plus vues d'abord. */
+export const youtubeSearchUrl = (query: string, mostViewed = false) =>
+  `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}${mostViewed ? `&sp=${encodeURIComponent(MOST_VIEWED)}` : ""}`;
 
 /** Android : ouvre directement l'app YouTube, ou la page YouTube si l'app n'est pas installée. */
 export function androidYouTubeIntent(url: string): string {

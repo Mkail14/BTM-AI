@@ -5,6 +5,7 @@ import { createContext, use, useCallback, useEffect, useMemo, useState, type Rea
 import type { PersonalityId } from "@/lib/ai/personalities";
 import { clearAnonymousDraft } from "@/lib/chat/anonymous-draft";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { APP_USER_AGENT } from "@/components/ui/ThemeScript";
 import dynamic from "next/dynamic";
 import type { AuthDialogOptions } from "./AuthDialog";
 
@@ -152,6 +153,18 @@ export function AuthProvider({
     router.push("/");
     router.refresh();
   }, [router]);
+
+  // « Se déconnecter » du menu de Tamilya Connect (app Android) : l'app ouvre /?deconnexion=1.
+  // Seulement dans l'app, pour qu'un lien reçu ne déconnecte personne dans un navigateur.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (!url.searchParams.has("deconnexion")) return;
+    url.searchParams.delete("deconnexion");
+    window.history.replaceState(null, "", url.pathname + url.search + url.hash);
+    if (navigator.userAgent.includes(APP_USER_AGENT)) {
+      window.setTimeout(() => void signOut(), 0);
+    }
+  }, [signOut]);
 
   const value = useMemo(
     () => ({ user, authAvailable, openAuthDialog, signOut }),

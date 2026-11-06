@@ -4,6 +4,7 @@ import { Lock } from "lucide-react";
 import { Pictogram } from "@/components/ui/Pictogram";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { hapticTear } from "@/lib/chat/haptics";
 import { FLY_MS, flyToBell, notify } from "@/lib/notifications";
 import { hangUpVoice } from "@/lib/voice-live/hang-up";
 import { formatEuros } from "@/lib/wallet/limits";
@@ -40,6 +41,8 @@ export type PlacedOrder = {
   to?: Point;
   /** Clic « J'ai récupéré la commande » du livreur (envoyé par le partenaire ; simulé en démonstration). */
   pickedUpAt?: string;
+  /** Le livreur a scanné ou saisi le code : commande livrée (envoyé par le partenaire ; simulé en démonstration). */
+  deliveredAt?: string;
   /** Adresse écrite et mot laissé, pour « Ma commande ». */
   address?: string;
   note?: string;
@@ -55,6 +58,25 @@ export const ORDER_EVENT = "btm-food-order";
 const ARRIVED_KEPT_MS = 20 * 60_000;
 /** Démonstration : le livreur simulé récupère la commande quelques secondes après la fin de la préparation. */
 const DEMO_PICKUP_DELAY_MS = 8000;
+/** Démonstration : le livreur simulé scanne le code un moment après son arrivée (le temps de toucher soi-même). */
+const DEMO_SCAN_DELAY_MS = 25_000;
+/** Le billet se déchire, puis le panneau se ferme et la commande passe en livrée. */
+const TEAR_MS = 1700;
+/** Validé par le livreur : un peu plus long, pour lire qui l'a validé. */
+const TEAR_COURIER_MS = 2600;
+
+/** Bord en zigzag de la déchirure, le long de la perforation. */
+const TEETH = 16;
+const TOOTH_PX = 7;
+const zigzag = (top: boolean) => {
+  const points = Array.from({ length: TEETH * 2 + 1 }, (_, i) => {
+    const x = `${((top ? TEETH * 2 - i : i) * 100) / (TEETH * 2)}%`;
+    const deep = i % 2 === 0;
+    return top ? `${x} ${deep ? "100%" : `calc(100% - ${TOOTH_PX}px)`}` : `${x} ${deep ? `${TOOTH_PX}px` : "0"}`;
+  });
+  return top ? `polygon(0 0, 100% 0, ${points.join(", ")})` : `polygon(${points.join(", ")}, 100% 100%, 0 100%)`;
+};
+const TEAR_STYLE = { "--tear-top": zigzag(true), "--tear-bottom": zigzag(false) } as CSSProperties;
 
 type StoredOrder = PlacedOrder & { receivedAt?: string };
 
@@ -125,14 +147,19 @@ function useOrderClock(order: PlacedOrder) {
     : order.demo
       ? Math.min(ready + DEMO_PICKUP_DELAY_MS, arrives - 5000)
       : Number.POSITIVE_INFINITY;
+  // Le livreur scanne ou saisit le code : envoyé par le partenaire (deliveredAt), simulé en démonstration.
+  const delivery = order.deliveredAt ? Date.parse(order.deliveredAt) : order.demo ? arrives + DEMO_SCAN_DELAY_MS : Number.POSITIVE_INFINITY;
+  const accepted = now >= pickup;
+  const delivered = accepted && phase === 2 && now >= delivery;
 
+  // Une fois arrivé, l'horloge continue tant que le livreur peut encore valider le code.
+  const ticking = phase !== 2 || (!delivered && Number.isFinite(delivery));
   useEffect(() => {
-    if (phase === 2) return;
+    if (!ticking) return;
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
-  }, [phase]);
+  }, [ticking]);
 
-  const accepted = now >= pickup;
   // Commande programmée dont la préparation n'a pas encore commencé.
   const waiting = Boolean(order.scheduled) && now < placed;
   // Cloche des notifications : commande passée, livreur parti, livreur arrivé (une fois chacune).
@@ -160,6 +187,8 @@ function useOrderClock(order: PlacedOrder) {
     // Le code et le QR code n'apparaissent qu'après le clic du livreur : il a bien la commande en main.
     accepted,
     waiting,
+    /** Le livreur a validé le code : commande livrée. */
+    delivered,
   };
 }
 
@@ -238,6 +267,10 @@ export function OrderTracker({ order }: { order: PlacedOrder }) {
     window.addEventListener(THANKS_EVENT, onThanks);
     return () => window.removeEventListener(THANKS_EVENT, onThanks);
   }, [order.code]);
+  // Code validé par le livreur pendant que le suivi est fermé : livrée directement (ouvert, le billet se déchire d'abord).
+  useEffect(() => {
+    if (clock.delivered && !open && !received) markReceived(order.code);
+  }, [clock.delivered, open, received, order.code]);
 
   // Reçue : la carte s'efface (la pastille dit merci), la conversation reste légère.
   if (received && !open) return null;
@@ -272,7 +305,7 @@ export function OrderTracker({ order }: { order: PlacedOrder }) {
  * le code s'écrit, puis un reflet passe. Ensuite, le billet flotte à peine
  * et une onde part du QR code toutes les quelques secondes, pour attirer l'œil.
  */
-function ArrivalCode({ order, courierName }: { order: PlacedOrder; courierName: string | null }) {
+function ArrivalCode({ order, courierName, torn }: { order: PlacedOrder; courierName: string | null; torn: "me" | "courier" | null }) {
   return (
     <div className="order-arrival absolute inset-0 flex flex-col items-center justify-center gap-4 overflow-hidden px-6 pt-16 pb-12 text-center text-white">
       <div aria-hidden="true" className="order-arrival-glow absolute inset-0" />
@@ -280,7 +313,8 @@ function ArrivalCode({ order, courierName }: { order: PlacedOrder; courierName: 
         {courierName ? `${courierName} est devant chez toi` : "Ton livreur est devant chez toi"}
       </p>
 
-      <div className="order-ticket-wrap relative">
+      {/* Déchiré : le haut (QR code) se détache en zigzag et tombe, le bas reste, tamponné « Livrée ». */}
+      <div className="order-ticket-wrap relative" data-torn={torn ?? undefined} style={TEAR_STYLE}>
         <span aria-hidden="true" className="order-ticket-wave absolute inset-x-6 top-6 aspect-square rounded-[2rem]" />
         <div className="order-ticket relative w-[min(16.5rem,calc(32dvh+5rem))] text-left text-neutral-900">
           {/* Haut du billet : restaurant et QR code */}
@@ -296,9 +330,14 @@ function ArrivalCode({ order, courierName }: { order: PlacedOrder; courierName: 
             </div>
           </div>
           {/* Perforation */}
-          <div aria-hidden="true" className="relative h-0 border-t-2 border-dashed border-neutral-200 bg-white" />
+          <div aria-hidden="true" className="order-ticket-perf relative h-0 border-t-2 border-dashed border-neutral-200 bg-white" />
           {/* Bas du billet : le code à dicter */}
-          <div className="order-ticket-bottom rounded-b-[1.75rem] bg-white px-5 pt-3.5 pb-4">
+          <div className="order-ticket-bottom relative rounded-b-[1.75rem] bg-white px-5 pt-3.5 pb-4">
+            {torn ? (
+              <span className="order-ticket-stamp absolute top-1/2 right-4 -translate-y-1/2 -rotate-12 rounded-lg border-2 border-current px-2 py-0.5 text-sm font-bold tracking-[0.14em] text-emerald-600 uppercase">
+                Livrée
+              </span>
+            ) : null}
             <p className="text-[10px] font-semibold tracking-[0.16em] text-neutral-400 uppercase">Code de commande</p>
             <p className="mt-0.5 font-mono text-[1.65rem] leading-tight font-semibold tracking-[0.12em] select-all" aria-label={`Code ${order.code}`}>
               {[...order.code].map((c, i) => (
@@ -312,7 +351,13 @@ function ArrivalCode({ order, courierName }: { order: PlacedOrder; courierName: 
         </div>
       </div>
 
-      <p className="order-arrival-hint relative text-xs text-white/70">Montre ce QR code ou dicte le code au livreur</p>
+      <p className="order-arrival-hint relative text-xs text-white/70" aria-live="polite">
+        {torn === "courier"
+          ? `${courierName ?? "Le livreur"} a validé ton code · commande livrée`
+          : torn
+            ? "QR code utilisé · commande livrée"
+            : "Montre ce QR code ou dicte le code au livreur"}
+      </p>
     </div>
   );
 }
@@ -393,10 +438,34 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
   // Sans animation (réglage « réduire les animations »), rien ne signalerait la fin de la sortie : fermeture immédiate.
   const close = () => (window.matchMedia("(prefers-reduced-motion: reduce)").matches ? onClose() : setClosing(true));
   // Le panneau se ferme d'abord en douceur, puis la pastille dit merci (sinon le panneau la cacherait).
-  const received = () => {
+  const finish = () => {
     close();
     window.setTimeout(() => markReceived(order.code), 320);
   };
+  // Billet à l'écran : il se déchire le long des pointillés (QR code utilisé), puis la commande passe en livrée.
+  const [torn, setTorn] = useState<"me" | "courier" | null>(null);
+  const tornRef = useRef(false);
+  const tear = useCallback(
+    (by: "me" | "courier") => {
+      if (tornRef.current) return;
+      tornRef.current = true;
+      setTorn(by);
+      hapticTear();
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.setTimeout(() => {
+        close();
+        window.setTimeout(() => markReceived(order.code), 320);
+      }, reduced ? 600 : by === "courier" ? TEAR_COURIER_MS : TEAR_MS);
+    },
+    // close ne change rien d'utile entre deux rendus : seul le code compte.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [order.code],
+  );
+  const received = () => (arrived ? tear("me") : finish());
+  // Le livreur a scanné ou saisi le code : le billet se déchire tout seul.
+  useEffect(() => {
+    if (clock.delivered && arrived) tear("courier");
+  }, [clock.delivered, arrived, tear]);
 
   // Échap ferme d'abord le volet ouvert, puis le panneau.
   const escapeRef = useRef(close);
@@ -470,7 +539,7 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
               />
             </div>
           )}
-          {arrived ? <ArrivalCode order={order} courierName={courier?.name ?? null} /> : null}
+          {arrived ? <ArrivalCode order={order} courierName={courier?.name ?? null} torn={torn} /> : null}
           <div className="absolute inset-x-0 top-0 z-10 flex items-center gap-2 p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
             <button
               type="button"
@@ -608,7 +677,8 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
               <button
                 type="button"
                 onClick={received}
-                className="w-full rounded-full px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.99]"
+                disabled={torn !== null}
+                className="w-full rounded-full px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.99] disabled:opacity-60"
                 style={{ background: PERSONA }}
               >
                 ✓ J&apos;ai reçu ma commande

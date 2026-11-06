@@ -9,7 +9,14 @@ import { DRIVE_UPLOAD_MESSAGES, uploadToDrive } from "@/lib/drive/upload";
 type Bank = { files: DriveFile[]; email: string | null; used: number | null; limit: number | null };
 
 const NOTICES: Record<string, { tone: string; text: string }> = {
-  ok: { tone: "border-success/30 bg-success-soft text-success", text: "Ton Google Drive est relié." },
+  ok: {
+    tone: "border-success/30 bg-success-soft text-success",
+    text: "Ton Google Drive est relié. Tu peux aussi te connecter avec ce compte Google : tu arrives sur le même compte Tamilya.",
+  },
+  pris: {
+    tone: "border-warning/30 bg-warning-soft text-warning",
+    text: "Ton Google Drive est relié. Ce compte Google sert déjà à un autre compte Tamilya : pour te connecter ici, garde ton e-mail habituel.",
+  },
   refus: { tone: "border-warning/30 bg-warning-soft text-warning", text: "Google n'a pas donné l'accès : réessaie et laisse la case Drive cochée." },
   "autre-compte": { tone: "border-danger/30 bg-danger-soft text-danger", text: "Ce lien a expiré ou vient d'un autre compte : relance la connexion." },
   echec: { tone: "border-danger/30 bg-danger-soft text-danger", text: "La connexion n'a pas abouti. Réessaie." },
@@ -45,10 +52,16 @@ function Connect({ available }: { available: boolean }) {
         Tes documents sont rangés par dossier dans ton Google Drive. Ils restent à toi, et Tamilya ne voit que ce qu&apos;elle y a déposé.
       </p>
       {available ? (
-        // Vrai lien : on quitte le site pour Google.
-        <a href="/api/drive/connect" className="mt-5 inline-flex rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-fg hover:bg-accent-hover">
-          Connecter Google Drive
-        </a>
+        <>
+          {/* Vrai lien : on quitte le site pour Google. */}
+          <a href="/api/drive/connect" className="mt-5 inline-flex rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-accent-fg hover:bg-accent-hover">
+            Connecter Google Drive
+          </a>
+          <p className="mt-4 text-xs text-fg-muted">
+            Ce compte Google te servira aussi à te connecter. Pas de compte Google ? Google te propose d&apos;en créer un gratuitement, même avec
+            une adresse qui n&apos;est pas Gmail.
+          </p>
+        </>
       ) : (
         <p className="mt-5 text-sm text-fg-muted">Bientôt disponible.</p>
       )}
