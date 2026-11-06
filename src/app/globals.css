@@ -3769,6 +3769,15 @@ html[data-app] .landing-home .landing-content {
   justify-content: safe center;
 }
 
+/*
+ * Tableau reparti dans la conversation (data-compact) : Tamilya reste en haut, et la
+ * conversation commence sous elle. Ce qui défile est coupé sous le globe, jamais dessus.
+ */
+body:has(.voice-overlay[data-compact]) [data-chat-scroll] {
+  padding-top: calc(env(safe-area-inset-top) + 8rem);
+  clip-path: inset(calc(env(safe-area-inset-top) + 8rem) 0 0 0);
+}
+
 /* Le texte sous le globe est vide pendant le tableau : il ne prend pas de place. */
 .voice-overlay[data-stage] .voice-middle > :not(.voice-orb-slot) {
   display: none;
