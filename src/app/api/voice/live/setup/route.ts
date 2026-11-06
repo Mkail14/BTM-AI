@@ -12,7 +12,9 @@ import { CODE_EXAM_OFFICES } from "@/lib/code-exam/offices";
 import { canOrderFood } from "@/lib/food/access";
 import { buildJournal } from "@/lib/live/journal";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { loadVoiceCorrections } from "@/lib/voice-live/corrections";
 import { speechDetection } from "@/lib/voice-live/detection";
+import { listeningRules } from "@/lib/voice-live/listening";
 import { chooseLiveModel, liveModels } from "@/lib/voice-live/models";
 import { liveTicketSecret, readLiveTicket } from "@/lib/voice-live/ticket";
 import { liveToolDeclarations } from "@/lib/voice-live/tools";
@@ -65,7 +67,7 @@ export async function POST(request: NextRequest) {
 
   const admin = getSupabaseAdminClient();
   const sessionUser = { id: ticket.uid, email: null, isAdmin: ticket.admin, isPrincipalAdmin: false };
-  const [brain, profile, voice, memories, dossier, news, food, barge] = await Promise.all([
+  const [brain, profile, voice, memories, dossier, news, food, barge, corrections] = await Promise.all([
     loadAwaBrain(),
     admin ? readChatProfile(admin, ticket.uid).catch(() => null) : Promise.resolve(null),
     loadVoice(),
@@ -75,6 +77,7 @@ export async function POST(request: NextRequest) {
     Promise.race([buildJournal(), new Promise<null>((resolve) => setTimeout(() => resolve(null), 3_000))]).catch(() => null),
     canOrderFood(sessionUser).catch(() => false),
     canBuyBargeTickets(sessionUser).catch(() => false),
+    loadVoiceCorrections().catch(() => []),
   ]);
   // Une seule personnalité pour tout le monde.
   const personality = DEFAULT_PERSONALITY;
@@ -113,6 +116,7 @@ export async function POST(request: NextRequest) {
                 `Nous sommes le ${now.format(new Date())}, heure de Mayotte, au début de cette conversation.`,
                 news ? `${JOURNAL_RULES}\n\n${news}` : null,
                 LIVE_RULES,
+                listeningRules(corrections),
               ]
                 .filter(Boolean)
                 .join("\n\n"),

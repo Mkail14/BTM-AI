@@ -7,6 +7,8 @@ import { CHAT_LIMITS } from "@/lib/chat/limits";
 import { quickTitle } from "@/lib/chat/title";
 import { createConversation, getConversation, insertMessage } from "@/lib/conversations/repository";
 import { isSameOrigin } from "@/lib/security/request";
+import { loadVoiceCorrections } from "@/lib/voice-live/corrections";
+import { applyVoiceCorrections } from "@/lib/voice-live/listening";
 
 /**
  * Vocal en direct : enregistre un échange (ce que la personne a dit, ce que
@@ -38,7 +40,9 @@ export async function POST(request: NextRequest) {
     if (!conversationId) {
       conversationId = (await createConversation(supabase, user.id, quickTitle(parsed.data.user || parsed.data.tamilya))).id;
     }
-    if (parsed.data.user) await insertMessage(supabase, { conversationId, userId: user.id, role: "user", content: parsed.data.user });
+    // Texte de la personne : les mots connus pour être mal entendus sont remis d'aplomb avant l'enregistrement.
+    const spoken = parsed.data.user ? applyVoiceCorrections(parsed.data.user, await loadVoiceCorrections().catch(() => [])) : "";
+    if (spoken) await insertMessage(supabase, { conversationId, userId: user.id, role: "user", content: spoken });
     if (parsed.data.tamilya) await insertMessage(supabase, { conversationId, userId: user.id, role: "assistant", content: parsed.data.tamilya });
     flow.step("output", true);
     return NextResponse.json({ conversationId });
