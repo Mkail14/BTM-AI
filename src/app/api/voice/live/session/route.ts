@@ -1,4 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { VOICE_NODE } from "@/lib/ai/flow-events";
+import { startFlowTrace } from "@/lib/ai/flow-trace";
 import { getAuthContext } from "@/lib/auth/session";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
@@ -15,10 +17,20 @@ export async function POST(request: NextRequest) {
   if (!user?.isAdmin) return NextResponse.json({ error: "Réservé aux administrateurs." }, { status: 403 });
   const relay = liveRelayUrl();
   const secret = liveTicketSecret();
-  if (!relay || !secret) return NextResponse.json({ error: "Vocal en direct pas encore configuré (LIVE_RELAY_URL, LIVE_TICKET_SECRET)." }, { status: 503 });
+  // Circuit : un appel refusé s'arrête en rouge sur le bloc qui l'a bloqué.
+  const flow = startFlowTrace();
+  flow.step("input", true);
+  if (!relay || !secret) {
+    flow.step(VOICE_NODE, false, "vocal non configuré");
+    return NextResponse.json({ error: "Vocal en direct pas encore configuré (LIVE_RELAY_URL, LIVE_TICKET_SECRET)." }, { status: 503 });
+  }
 
   const limit = await consumeRateLimits([{ key: `voice-live:${user.id}`, rules: RATE_LIMIT_POLICIES.voiceSpeak }]).catch(() => null);
-  if (limit && !limit.allowed) return NextResponse.json({ error: "Trop de conversations, réessaie dans un instant." }, { status: 429 });
+  if (limit && !limit.allowed) {
+    flow.step("guard", false, "quota de conversations atteint");
+    return NextResponse.json({ error: "Trop de conversations, réessaie dans un instant." }, { status: 429 });
+  }
+  flow.step("guard", true);
 
   const body = (await request.json().catch(() => null)) as { manual?: unknown } | null;
   const ticket = signLiveTicket(user, secret, Date.now(), body?.manual === true);

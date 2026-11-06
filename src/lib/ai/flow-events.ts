@@ -5,6 +5,8 @@
  */
 export const FLOW_TOPIC = "admin-flow";
 export const FLOW_EVENT = "step";
+/** Bloc du vocal en direct (Gemini Live, par le relais) dans le schéma. */
+export const VOICE_NODE = "voice-live";
 
 export type FlowStep = {
   /** Identifiant du message suivi. */

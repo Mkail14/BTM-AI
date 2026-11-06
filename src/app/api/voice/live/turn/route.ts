@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { VOICE_NODE } from "@/lib/ai/flow-events";
+import { startFlowTrace } from "@/lib/ai/flow-trace";
 import { getAuthContext } from "@/lib/auth/session";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
 import { quickTitle } from "@/lib/chat/title";
@@ -25,6 +27,10 @@ export async function POST(request: NextRequest) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success || (!parsed.data.user && !parsed.data.tamilya)) return NextResponse.json({ error: "Demande invalide." }, { status: 400 });
 
+  // Circuit : un échange parlé suit le même trajet qu'un message écrit, sans aucun contenu.
+  const flow = startFlowTrace();
+  for (const node of ["input", "guard", "prompt", VOICE_NODE]) flow.step(node, true);
+
   try {
     let conversationId = parsed.data.conversationId;
     // Conversation d'un autre compte (ou effacée) : on en ouvre une nouvelle.
@@ -34,9 +40,11 @@ export async function POST(request: NextRequest) {
     }
     if (parsed.data.user) await insertMessage(supabase, { conversationId, userId: user.id, role: "user", content: parsed.data.user });
     if (parsed.data.tamilya) await insertMessage(supabase, { conversationId, userId: user.id, role: "assistant", content: parsed.data.tamilya });
+    flow.step("output", true);
     return NextResponse.json({ conversationId });
   } catch (error) {
     console.error("[vocal direct] Échange non enregistré", error);
+    flow.step("output", false, "échange non enregistré");
     return NextResponse.json({ error: "Échange non enregistré." }, { status: 500 });
   }
 }

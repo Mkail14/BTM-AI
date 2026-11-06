@@ -4,7 +4,7 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { slotHealthId } from "@/lib/ai";
 import { loadAIChain, loadRemovedApis } from "@/lib/ai/registry";
 import { readAIChain } from "@/lib/ai/config";
-import { AI_ERROR_LABELS } from "@/lib/ai/flow-events";
+import { AI_ERROR_LABELS, VOICE_NODE } from "@/lib/ai/flow-events";
 import { flowCutStop, loadFlowCuts } from "@/lib/ai/flow-cuts";
 import { canEncrypt } from "@/lib/ai/secret-box";
 import { averageLatency, deriveModelStatus, freeDailyQuota, getHealth, requestsToday, type NodeStatus } from "@/lib/ai/health";
@@ -13,6 +13,7 @@ import { DEFAULT_IDENTITY, DEFAULT_RULES } from "@/lib/ai/system-prompt";
 import { requireAdmin } from "@/lib/auth/session";
 import { loadRateLimitSettings } from "@/lib/rate-limit/settings";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { liveRelayUrl, liveTicketSecret } from "@/lib/voice-live/ticket";
 import { AIFlow } from "./AIFlow";
 import type { ApiDetails, FlowEdge, FlowNode } from "./flow";
 
@@ -209,6 +210,7 @@ export default async function AdminCircuitPage() {
     },
   ];
 
+  const voiceReady = Boolean(liveRelayUrl() && liveTicketSecret());
   const nodes: FlowNode[] = [
     {
       id: "input",
@@ -239,6 +241,16 @@ export default async function AdminCircuitPage() {
         ...(cuts.has(slot.id) && unpluggedApi),
       }),
     ),
+    {
+      id: VOICE_NODE,
+      column: 4,
+      icon: "chip",
+      title: "Voix en direct",
+      subtitle: process.env.AI_LIVE_MODEL?.trim() || "Gemini Live",
+      status: voiceReady ? "ok" : "off",
+      statusLabel: voiceReady ? "Prête" : "Non configurée",
+      href: "/admin/voix",
+    },
     {
       id: "output",
       column: 5,
@@ -276,6 +288,8 @@ export default async function AdminCircuitPage() {
         { from: `model-${m.slot.id}`, to: "output", ...link },
       ];
     }),
+    { from: "prompt", to: VOICE_NODE, muted: !voiceReady },
+    { from: VOICE_NODE, to: "output", muted: !voiceReady },
   ];
 
   return (
