@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type TouchEvent } fr
 import { useAuth } from "@/components/auth/AuthProvider";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { alertDialog, confirmDialog } from "@/components/ui/ConfirmDialog";
-import { IconClose, IconDashboard, IconLock, IconPlus, IconSettings, IconSidebar } from "@/components/ui/icons";
+import { IconClose, IconDashboard, IconFolder, IconLock, IconPlus, IconSettings, IconSidebar } from "@/components/ui/icons";
 import { AccountMenu } from "./AccountMenu";
 import { ConversationItem } from "./ConversationItem";
 import { useChatShell } from "./ChatShell";
@@ -234,7 +234,20 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           className={`border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-sm ${collapsed ? "md:px-2" : ""}`}
         >
           {user ? (
-            <AccountMenu user={user} onNavigate={onClose} onSignOut={signOut} compact={collapsed} />
+            <>
+              {/* Le coffre (Google Drive) en vue, juste au-dessus du profil. */}
+              <Link
+                href="/documents"
+                onClick={onClose}
+                aria-current={pathname === "/documents" ? "page" : undefined}
+                title={collapsed ? "Mes documents" : undefined}
+                className={`mb-1 flex w-full items-center gap-3 rounded-lg px-2 py-2 font-medium whitespace-nowrap hover:bg-bg-muted ${pathname === "/documents" ? "bg-bg-muted" : ""} ${iconOnly}`}
+              >
+                <IconFolder className="shrink-0" />
+                <span className={label}>Mes documents</span>
+              </Link>
+              <AccountMenu user={user} onNavigate={onClose} onSignOut={signOut} compact={collapsed} />
+            </>
           ) : collapsed ? (
             <button
               type="button"
