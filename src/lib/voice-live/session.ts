@@ -44,6 +44,10 @@ export type LiveSession = {
    */
   press: () => void;
   release: () => void;
+  /** Le serveur autorise Tamilya à parler d'elle-même (mode admin). */
+  canInitiate: () => boolean;
+  /** Consigne écrite envoyée à Gemini : Tamilya y répond à voix haute, sans que ce soit une phrase de la personne. */
+  nudge: (text: string) => void;
 };
 
 /**
@@ -122,6 +126,7 @@ export const isLiveVoiceSupported = () =>
 /** À appeler au toucher (obligatoire sur iPhone pour le micro et le son). */
 export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSession | null> {
   const note = (text: string) => callbacks.onNote?.(text);
+  let initiative = false;
   callbacks.onState("connexion");
   const playback = new AudioContext();
   // Fréquence normale de l'appareil : sur iPhone, un micro forcé à 16 kHz arrivait
@@ -350,7 +355,7 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
       body: JSON.stringify({ manual }),
     })
       .then((r) => r.json())
-      .catch(() => null)) as { url?: string; lexicon?: string[]; error?: string } | null;
+      .catch(() => null)) as { url?: string; lexicon?: string[]; error?: string; initiative?: boolean } | null;
     if (!session?.url) {
       if (!reconnects) finish(session?.error ?? "Le vocal en direct ne répond pas. Réessaie dans un instant.");
       else finish("La connexion est trop faible en ce moment. Touche le globe pour réessayer.");
@@ -358,6 +363,7 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
     }
     if (closed) return false;
     if (session.lexicon) callbacks.onLexicon?.(session.lexicon);
+    initiative = session.initiative === true;
     ready = false;
     const opened = new WebSocket(resumeHandle ? `${session.url}&resume=${encodeURIComponent(resumeHandle)}` : session.url);
     socket = opened;
@@ -401,5 +407,9 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
     else closeActivity();
   };
 
-  return { stop: () => finish(null), cut, press, release };
+  const nudge = (text: string) => {
+    if (ready) send({ realtimeInput: { text } });
+  };
+
+  return { stop: () => finish(null), cut, press, release, canInitiate: () => initiative, nudge };
 }

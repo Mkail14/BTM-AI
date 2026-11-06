@@ -39,5 +39,6 @@ export async function POST(request: NextRequest) {
   // Mots validés de Tamilya : le téléphone y rapproche ce que Gemini écrit à l'oreille.
   const brain = await loadAwaBrain().catch(() => null);
   const lexicon = brain?.words.map((word) => word.shimaore) ?? [];
-  return NextResponse.json({ url, lexicon }, { headers: { "Cache-Control": "no-store" } });
+  // initiative : mode admin, Tamilya peut parler d'elle-même quand plus personne n'interagit.
+  return NextResponse.json({ url, lexicon, initiative: user.isAdmin }, { headers: { "Cache-Control": "no-store" } });
 }

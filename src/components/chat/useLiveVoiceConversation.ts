@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { boardCount, CANCELLED, describeBoard, scrollConversation, touchBoard, waitForBoard, writeBoard } from "@/lib/voice-live/board";
 import { buildSnapLexicon, snapToLexicon, type SnapLexicon } from "@/lib/language/snap-lexicon";
+import { INITIATIVE_NOTE, initiativeDelayMs } from "@/lib/voice-live/initiative";
 import { acceptPayment, cancelPayment, enterPin, takePinTurn } from "@/lib/voice-live/voice-pay";
 import { voiceHeard, voiceListenEnd, voiceSpeakEnd, voiceSpeakStart, voiceWord } from "@/lib/chat/voice-level";
 import { isVoiceIdle, VOICE_HANG_UP_EVENT, VOICE_IDLE_CHECK_MS } from "@/lib/voice-live/hang-up";
@@ -42,6 +43,8 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
   const opening = useRef(false);
   /** Bouton déjà appuyé pendant que le micro s'ouvre : l'appui compte dès qu'il est prêt. */
   const held = useRef(false);
+  /** Prises de parole de Tamilya restées sans réponse. */
+  const initiatives = useRef(0);
   const userText = useRef("");
   const lexicon = useRef<SnapLexicon>(buildSnapLexicon([]));
   const tamilyaText = useRef("");
@@ -102,6 +105,7 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
         } else setState("speaking");
       },
       onUserText: (text) => {
+        initiatives.current = 0;
         // Nouvelle phrase de la personne après une réponse : on repart de zéro.
         if (tamilyaText.current) {
           userText.current = "";
@@ -207,6 +211,30 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
       window.removeEventListener(VOICE_HANG_UP_EVENT, stop);
     };
   }, [state, stop]);
+
+  /** Mode admin : plus aucune interaction pendant l'appel, Tamilya prend la parole d'elle-même (initiative.ts). */
+  useEffect(() => {
+    if (state !== "listening" || board) return;
+    const wait = initiativeDelayMs(initiatives.current);
+    if (wait === null) return;
+    let timer = 0;
+    const arm = () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        if (held.current || !session.current?.canInitiate()) return;
+        initiatives.current += 1;
+        session.current.nudge(INITIATIVE_NOTE);
+      }, wait);
+    };
+    arm();
+    window.addEventListener("pointerdown", arm, { passive: true });
+    window.addEventListener("keydown", arm);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("pointerdown", arm);
+      window.removeEventListener("keydown", arm);
+    };
+  }, [state, board, beat]);
 
   const start = useCallback(() => {
     const mode = readTalkMode();
