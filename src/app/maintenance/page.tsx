@@ -5,21 +5,27 @@ import { BRAND } from "@/components/brand/brand";
 import { getSiteFlags } from "@/lib/site/settings";
 import type { SiteStatus } from "@/lib/site/status";
 import { AdminSignIn } from "./AdminSignIn";
+import { TamilyaGlobe } from "./TamilyaGlobe";
+import "./atelier.css";
 
 export const dynamic = "force-dynamic";
 
-const COPY: Record<SiteStatus, { tabTitle: string; title: string; lead: string }> = {
+const COPY: Record<SiteStatus, { tabTitle: string; badge: string | null; title: string; lead: string; steps: string[] }> = {
   maintenance: {
     tabTitle: "Maintenance en cours",
+    badge: "Maintenance en cours",
     title: "Tamilya est en travaux.",
-    lead: "Rien n'est perdu : tes conversations et tes informations sont gardées. Réessaie dans un moment.",
+    lead: "Rien n'est perdu : tes conversations et tes informations sont gardées.",
+    steps: ["Mise à jour en cours", "Vérifications", "Derniers réglages"],
   },
   waiting_partner: {
     tabTitle: "Bientôt disponible",
+    badge: "Ouverture en préparation",
     title: "Tamilya arrive bientôt.",
     lead: "Le site ouvrira dès que notre premier partenaire à Mayotte sera validé.",
+    steps: ["Tamilya se prépare", "Derniers réglages", "En attente du premier partenaire"],
   },
-  online: { tabTitle: "Tamilya", title: "Tamilya est de retour.", lead: "Les travaux sont finis, tu peux reprendre." },
+  online: { tabTitle: "Tamilya", badge: null, title: "Tamilya est de retour.", lead: "Les travaux sont finis, tu peux reprendre.", steps: [] },
 };
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -32,53 +38,65 @@ export async function generateMetadata(): Promise<Metadata> {
  * adresse, code 503) pour tous sauf les administrateurs. Jamais de redirection
  * ici : juste après une réouverture, le proxy et cette page peuvent lire l'état
  * à quelques secondes d'écart, et une redirection tournerait en boucle.
- * Sans script : le bouton « Réessayer » est un simple lien (connexion faible).
+ * Sans script, le texte et le bouton « Réessayer », un simple lien, restent là (connexion faible).
+ * Page simple : elle tient toujours dans l'écran, sans défilement.
  */
 export default async function MaintenancePage() {
   const { status, maintenanceMessage } = await getSiteFlags();
   const copy = COPY[status];
+  const button = "btn-rose h-11 shrink-0 rounded-2xl px-8 text-[15px] font-semibold";
 
   return (
-    <div className="grid min-h-dvh grid-rows-[auto_1fr] bg-bg lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)] lg:grid-rows-1">
-      {/* Fond rose sous la photo : la page reste habillée si l'image tarde (connexion faible). */}
-      <div aria-hidden="true" className="h-[30dvh] min-h-36 bg-accent bg-[url(/fond/eau-rose.webp)] bg-cover bg-center lg:order-2 lg:h-auto" />
+    <main
+      id="contenu"
+      className="isolate grid h-dvh grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-bg px-6 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-10"
+    >
+      <div aria-hidden="true" className="fond-lagon fond-lagon--page atelier-lagon" />
+      <BrandLogo size="md" className="self-start justify-self-start" />
 
-      <main
-        id="contenu"
-        className="flex flex-col px-6 pt-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-10 lg:px-16 lg:pt-10 lg:pb-10"
-      >
-        <BrandLogo size="md" className="self-start" />
+      <div className="atelier-layout min-h-0">
+        <div className="atelier-text">
+        {copy.badge ? <p className="atelier-status">{copy.badge}</p> : null}
+        <h1 className="text-[clamp(1.6rem,6dvh,3.25rem)] leading-[1.05] font-semibold tracking-[-0.03em] text-balance">{copy.title}</h1>
+        <p className="max-w-md text-[clamp(0.9rem,2.2dvh,1.125rem)] leading-snug text-fg-muted">{copy.lead}</p>
+        {copy.steps.length ? (
+          <>
+            <p className="atelier-line">
+              {maintenanceMessage ? (
+                <>
+                  <span className="line-clamp-2 min-w-0 font-medium text-fg">{maintenanceMessage}</span>
+                  <span aria-hidden="true">·</span>
+                </>
+              ) : null}
+              <span className="atelier-steps" aria-hidden="true">
+                {copy.steps.map((step) => (
+                  <span key={step}>{step}</span>
+                ))}
+              </span>
+            </p>
+            <div className="atelier-bar" aria-hidden="true" />
+          </>
+        ) : null}
 
-        <div className="my-auto max-w-lg py-10">
-          <h1 className="text-[clamp(2.75rem,6vw,4.5rem)] leading-[1.02] font-semibold tracking-[-0.035em] text-balance">
-            {copy.title}
-          </h1>
-          <p className="mt-5 text-lg leading-relaxed text-fg-muted">{copy.lead}</p>
-          {status !== "online" && maintenanceMessage ? (
-            <p className="mt-6 border-t border-border pt-4 text-[15px] leading-relaxed whitespace-pre-line">{maintenanceMessage}</p>
-          ) : null}
-
-          {/* Lien et non bouton : marche sans JavaScript ; prefetch coupé, la page doit être redemandée. */}
-          {status === "waiting_partner" ? (
-            <a
-              href="mailto:contact@btm.yt?subject=Devenir%20partenaire%20de%20Tamilya"
-              className="btn-rose mt-8 h-12 w-full rounded-2xl px-8 text-[15px] font-semibold sm:w-auto"
-            >
-              Devenir partenaire
-            </a>
-          ) : (
-            <Link href="/" prefetch={false} className="btn-rose mt-8 h-12 w-full rounded-2xl px-8 text-[15px] font-semibold sm:w-auto">
-              {status === "maintenance" ? "Réessayer" : "Ouvrir Tamilya"}
-            </Link>
-          )}
+        {/* Lien et non bouton : marche sans JavaScript ; prefetch coupé, la page doit être redemandée. */}
+        {status === "waiting_partner" ? (
+          <a href="mailto:contact@btm.yt?subject=Devenir%20partenaire%20de%20Tamilya" className={button}>
+            Devenir partenaire
+          </a>
+        ) : (
+          <Link href="/" prefetch={false} className={button}>
+            {status === "maintenance" ? "Réessayer" : "Ouvrir Tamilya"}
+          </Link>
+        )}
         </div>
+        <TamilyaGlobe />
+      </div>
 
-        <p className="text-xs text-fg-muted">
-          {BRAND.parent} · Mayotte
-          <span aria-hidden="true"> · </span>
-          <AdminSignIn />
-        </p>
-      </main>
-    </div>
+      <p className="pt-1 text-center text-xs text-fg-muted">
+        {BRAND.parent} · Mayotte
+        <span aria-hidden="true"> · </span>
+        <AdminSignIn signupClosed={status === "maintenance"} />
+      </p>
+    </main>
   );
 }

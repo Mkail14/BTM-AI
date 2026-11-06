@@ -1,0 +1,189 @@
+/*
+ * Page d'attente : le globe de Tamilya au travail, en boucle et sans défilement.
+ * Les tailles suivent la hauteur de l'écran : la page tient toujours dedans.
+ */
+
+/* Téléphone debout : le globe au-dessus du texte. Dès qu'il y a la place : texte à gauche, globe à droite. */
+.atelier-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.4rem, 1.6dvh, 1rem);
+}
+.atelier-layout > .atelier-globe {
+  order: -1;
+}
+.atelier-text {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(0.4rem, 1.6dvh, 1rem);
+  text-align: center;
+}
+
+@media (min-width: 700px) {
+  .atelier-layout {
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: clamp(2.5rem, 6vw, 6rem);
+    /* Texte calé à gauche (9,5 % de l'écran, marge de la page comprise), globe gardé à droite. */
+    padding-left: calc(9.5vw - 2.5rem);
+  }
+  .atelier-layout > .atelier-globe {
+    --globe: min(15vw, 26dvh);
+    order: 0;
+    margin-left: auto;
+    margin-right: calc(27vw - 2.5rem - var(--globe) * 0.75);
+  }
+  .atelier-text {
+    flex: 0 1 36rem;
+    align-items: flex-start;
+    text-align: left;
+  }
+  .atelier-text .atelier-line {
+    justify-content: flex-start;
+  }
+}
+
+.atelier-globe {
+  --globe: min(28vw, 15dvh);
+  --tech: color-mix(in srgb, var(--accent) 45%, #5ee7ff);
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: calc(var(--globe) * 1.5);
+  height: calc(var(--globe) * 1.5);
+  flex: none;
+}
+
+.atelier-globe > * {
+  grid-area: 1 / 1;
+}
+
+/* Halo qui balaie le globe, comme un contrôle en cours. */
+.atelier-scan {
+  width: calc(var(--globe) * 1.42);
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0 62%, color-mix(in srgb, var(--tech) 42%, transparent) 96%, transparent 100%);
+  -webkit-mask: radial-gradient(closest-side, transparent 72%, #000 73%);
+  mask: radial-gradient(closest-side, transparent 72%, #000 73%);
+  animation: atelier-spin 3.4s linear infinite;
+}
+
+.atelier-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: 999px;
+  background: var(--warning-soft);
+  color: var(--warning);
+  padding: 0.3rem 0.8rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+.atelier-status::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: currentColor;
+  animation: atelier-pulse 1.4s ease-in-out infinite;
+}
+
+/* Étapes qui défilent l'une après l'autre : sans script, au même endroit. */
+.atelier-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15rem 0.5rem;
+  font-size: clamp(0.72rem, 3.4vw, 0.875rem);
+  color: var(--fg-muted);
+}
+.atelier-steps {
+  display: inline-grid;
+  justify-items: start;
+  white-space: nowrap;
+}
+.atelier-steps > span {
+  grid-area: 1 / 1;
+  opacity: 0;
+  animation: atelier-step 9s linear infinite;
+}
+.atelier-steps > span:nth-child(2) { animation-delay: 3s; }
+.atelier-steps > span:nth-child(3) { animation-delay: 6s; }
+
+/* Barre sans pourcentage : du travail en cours, pas une promesse d'heure. */
+.atelier-bar {
+  position: relative;
+  width: min(16rem, 70vw);
+  height: 3px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--bg-muted);
+}
+.atelier-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 38%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent), var(--tech));
+  animation: atelier-bar 2.2s ease-in-out infinite;
+}
+
+@keyframes atelier-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes atelier-pulse {
+  50% { opacity: 0.3; }
+}
+@keyframes atelier-step {
+  0%, 30% { opacity: 1; }
+  33.3%, 96% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes atelier-bar {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(270%); }
+}
+
+/* Écran très bas (téléphone couché) : l'essentiel seulement. */
+@media (max-height: 560px) {
+  .atelier-bar { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .atelier-scan,
+  .atelier-status::before,
+  .atelier-bar::after {
+    animation: none;
+  }
+  .atelier-steps > span {
+    animation: none;
+  }
+  .atelier-steps > span:first-child {
+    opacity: 1;
+  }
+}
+
+/* Très petit téléphone : les deux textes passent sur deux lignes, le point ne sert plus. */
+@media (max-width: 340px) {
+  .atelier-line > [aria-hidden="true"]:not(.atelier-steps) {
+    display: none;
+  }
+}
+
+/* Lignes de fond de la conversation, ici en gris sombre et discret, derrière le contenu. */
+.fond-lagon.atelier-lagon {
+  z-index: -1;
+  background: #2e3134;
+  opacity: 0.13;
+}
+[data-theme="dark"] .fond-lagon.atelier-lagon {
+  background: #6b7176;
+  opacity: 0.32;
+}
