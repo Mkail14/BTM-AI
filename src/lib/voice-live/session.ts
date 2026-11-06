@@ -13,6 +13,8 @@ export type LiveCallbacks = {
   onState: (state: LiveState) => void;
   /** Morceau de ce que dit la personne (transcription). */
   onUserText: (text: string) => void;
+  /** Mots validés de Tamilya, reçus à la connexion. */
+  onLexicon?: (words: string[]) => void;
   /** Morceau de ce que dit Tamilya (transcription). */
   onTamilyaText: (text: string) => void;
   /** Tour terminé : Tamilya a fini sa réponse. */
@@ -348,13 +350,14 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
       body: JSON.stringify({ manual }),
     })
       .then((r) => r.json())
-      .catch(() => null)) as { url?: string; error?: string } | null;
+      .catch(() => null)) as { url?: string; lexicon?: string[]; error?: string } | null;
     if (!session?.url) {
       if (!reconnects) finish(session?.error ?? "Le vocal en direct ne répond pas. Réessaie dans un instant.");
       else finish("La connexion est trop faible en ce moment. Touche le globe pour réessayer.");
       return false;
     }
     if (closed) return false;
+    if (session.lexicon) callbacks.onLexicon?.(session.lexicon);
     ready = false;
     const opened = new WebSocket(resumeHandle ? `${session.url}&resume=${encodeURIComponent(resumeHandle)}` : session.url);
     socket = opened;

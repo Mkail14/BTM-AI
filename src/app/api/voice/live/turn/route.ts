@@ -1,11 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { loadAwaBrain } from "@/lib/ai/brain";
 import { VOICE_NODE } from "@/lib/ai/flow-events";
 import { startFlowTrace } from "@/lib/ai/flow-trace";
 import { getAuthContext } from "@/lib/auth/session";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
 import { quickTitle } from "@/lib/chat/title";
 import { createConversation, getConversation, insertMessage } from "@/lib/conversations/repository";
+import { buildSnapLexicon, snapToLexicon } from "@/lib/language/snap-lexicon";
 import { isSameOrigin } from "@/lib/security/request";
 import { loadVoiceCorrections } from "@/lib/voice-live/corrections";
 import { applyVoiceCorrections } from "@/lib/voice-live/listening";
@@ -41,7 +43,10 @@ export async function POST(request: NextRequest) {
       conversationId = (await createConversation(supabase, user.id, quickTitle(parsed.data.user || parsed.data.tamilya))).id;
     }
     // Texte de la personne : les mots connus pour être mal entendus sont remis d'aplomb avant l'enregistrement.
-    const spoken = parsed.data.user ? applyVoiceCorrections(parsed.data.user, await loadVoiceCorrections().catch(() => [])) : "";
+    // Puis ce que Gemini a écrit à l'oreille est rapproché des mots validés de Tamilya.
+    const brain = parsed.data.user ? await loadAwaBrain().catch(() => null) : null;
+    const lexicon = buildSnapLexicon(brain?.words.map((word) => word.shimaore) ?? []);
+    const spoken = parsed.data.user ? snapToLexicon(applyVoiceCorrections(parsed.data.user, await loadVoiceCorrections().catch(() => [])), lexicon) : "";
     if (spoken) await insertMessage(supabase, { conversationId, userId: user.id, role: "user", content: spoken });
     if (parsed.data.tamilya) await insertMessage(supabase, { conversationId, userId: user.id, role: "assistant", content: parsed.data.tamilya });
     flow.step("output", true);

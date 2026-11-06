@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { boardCount, CANCELLED, describeBoard, scrollConversation, touchBoard, waitForBoard, writeBoard } from "@/lib/voice-live/board";
+import { buildSnapLexicon, snapToLexicon, type SnapLexicon } from "@/lib/language/snap-lexicon";
 import { acceptPayment, cancelPayment, enterPin, takePinTurn } from "@/lib/voice-live/voice-pay";
 import { voiceHeard, voiceListenEnd, voiceSpeakEnd, voiceSpeakStart, voiceWord } from "@/lib/chat/voice-level";
 import { isVoiceIdle, VOICE_HANG_UP_EVENT, VOICE_IDLE_CHECK_MS } from "@/lib/voice-live/hang-up";
@@ -42,6 +43,7 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
   /** Bouton déjà appuyé pendant que le micro s'ouvre : l'appui compte dès qu'il est prêt. */
   const held = useRef(false);
   const userText = useRef("");
+  const lexicon = useRef<SnapLexicon>(buildSnapLexicon([]));
   const tamilyaText = useRef("");
   /** Message écrit qui attend le choix du mode, puis ce qu'il faut faire s'il reste sans réponse vocale. */
   const typed = useRef<string | null>(null);
@@ -107,9 +109,12 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
           setReply("");
         }
         userText.current += text;
-        setTranscript(userText.current.trim());
+        setTranscript(snapToLexicon(userText.current.trim(), lexicon.current));
         voiceHeard(text.length);
         setBeat((n) => n + 1);
+      },
+      onLexicon: (words) => {
+        lexicon.current = buildSnapLexicon(words);
       },
       onTamilyaText: (text) => {
         unanswered.current = null;

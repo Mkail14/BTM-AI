@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { loadAwaBrain } from "@/lib/ai/brain";
 import { VOICE_NODE } from "@/lib/ai/flow-events";
 import { startFlowTrace } from "@/lib/ai/flow-trace";
 import { getAuthContext } from "@/lib/auth/session";
@@ -35,5 +36,8 @@ export async function POST(request: NextRequest) {
   const body = (await request.json().catch(() => null)) as { manual?: unknown } | null;
   const ticket = signLiveTicket(user, secret, Date.now(), body?.manual === true);
   const url = `${relay.replace(/^http/, "ws")}/live?ticket=${encodeURIComponent(ticket)}`;
-  return NextResponse.json({ url }, { headers: { "Cache-Control": "no-store" } });
+  // Mots validés de Tamilya : le téléphone y rapproche ce que Gemini écrit à l'oreille.
+  const brain = await loadAwaBrain().catch(() => null);
+  const lexicon = brain?.words.map((word) => word.shimaore) ?? [];
+  return NextResponse.json({ url, lexicon }, { headers: { "Cache-Control": "no-store" } });
 }
