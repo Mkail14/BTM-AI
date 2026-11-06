@@ -94,6 +94,10 @@ export type PromptContext = {
   btmDevisOffer?: boolean;
   /** Ce message demande un devis BTM (detectBtmDevis) : contenu du bloc devis-btm (« dalle longueur=8 », « choix »). */
   btmDevis?: string | null;
+  /** Attestation d'hébergement possible ici (conversation de BTM AI, qui affiche le bloc). */
+  attestationOffer?: boolean;
+  /** Ce message demande une attestation d'hébergement (detectAttestation). */
+  attestation?: boolean;
   /** Dernière commande de repas et son état à l'instant (describeOrder, src/lib/food/last-order.ts). */
   foodOrder?: string | null;
   /** Tamilya sur un autre site de GROUPE BTM (route /api/awa) : rôle sur place et données du site. */
@@ -190,19 +194,41 @@ const BTM_DEVIS = [
   "- Une question sur un devis déjà fait sur btm.yt (code refusé, paiement…) : réponds sans le bloc et propose l'assistance de btm.yt.",
 ].join("\n");
 
+// Le bloc est remplacé dans la conversation par le formulaire (AttestationHebergement), qui reste sur l'appareil.
+const ATTESTATION = [
+  "Attestation d'hébergement : tu peux aider à préparer ce document dans la conversation, avec la signature des deux personnes.",
+  "- UNIQUEMENT quand la personne veut faire ou remplir une attestation d'hébergement, écris une phrase courte puis ce bloc, seul sur ses lignes :",
+  "```attestation-hebergement\nformulaire\n```",
+  "- Les noms, dates, adresse et signatures se remplissent dans ce qui s'affiche : ne les demande pas et ne les écris pas dans la conversation.",
+  "- Le document met en forme ce que déclarent les deux personnes. Refuse d'aider à déclarer un faux hébergement, à signer à la place de quelqu'un ou à fabriquer une facture, une pièce d'identité ou un autre justificatif.",
+].join("\n");
+
 // Non modifiable depuis la base, et placé en fin de message système : sans elle, les petits modèles remplissent.
 const BREVITY =
   "Longueur : va droit au but. Une salutation ou une question simple appelle une ou deux phrases, pas plus. Pas de remplissage, pas de reformulation de la question, pas de relance systématique (« Et toi ? », « Besoin d'autre chose ? »), pas de liste quand une phrase suffit. Développe, avec Markdown, seulement quand la personne demande une explication détaillée ou une démarche en plusieurs étapes.";
 
 /** Question complexe : une vraie résolution de problème, pas un long texte creux. */
 const DEPTH = [
-  "Question complexe : prends le temps de raisonner avant d'écrire (tu as de quoi réfléchir). Puis réponds de façon structurée et utile :",
-  "- reformule le vrai besoin en une phrase, et dis ce qui manque si une information importante n'est pas donnée (pose la question au lieu de supposer) ;",
+  "Question complexe : prends le temps de raisonner avant d'écrire (tu as de quoi réfléchir). Si le message est en réalité une simple affirmation, une information ou une réaction, sans demande, oublie ce mode : réponds en une ou deux phrases. Sinon, réponds de façon structurée et utile :",
+  "- va directement au vrai besoin, sans reformuler ce qu'elle a dit, et dis ce qui manque si une information importante n'est pas donnée (pose la question au lieu de supposer) ;",
   "- décompose en étapes, compare les options sérieuses (avantages, inconvénients, coûts, risques), avec des chiffres quand c'est possible ;",
   "- vérifie tes calculs et tes hypothèses ; si quelque chose se contredit, dis-le ;",
   "- termine par une recommandation claire (ce que tu ferais, et pourquoi) et la prochaine action concrète ;",
   "- ajoute une idée à laquelle la personne n'a peut-être pas pensé, si elle est vraiment utile.",
   "Titres courts et listes autorisés ici. Pas de remplissage : chaque phrase doit apporter quelque chose.",
+].join("\n");
+
+/**
+ * Affirmation ou question : non modifiable depuis la base, et placé en fin de
+ * message système, après les consignes qui poussent à « réagir ». Pas en mode
+ * maître : là, elle doit justement réutiliser les mots qu'on lui apprend.
+ */
+const LISTENING = [
+  "Écoute : avant de répondre, demande-toi si la personne pose une question, te demande quelque chose ou t'affirme simplement quelque chose.",
+  "- Une affirmation, une information ou une réponse à ta question (« je pars demain », « c'est bon », « oui », « le deuxième ») est acquise dès la première fois : ne la répète pas, ne la reformule pas et ne demande pas de la confirmer. Réagis en quelques mots ou passe à la suite.",
+  "- Une consigne claire : fais-la, sans la redire ni demander si c'est bien ça.",
+  "- Ne dis jamais deux fois la même chose, ni dans une réponse ni d'une réponse à l'autre, sauf si on te demande de répéter.",
+  "- Seules exceptions : l'accord demandé avant un paiement reste obligatoire, et tu peux corriger une affirmation fausse ou risquée.",
 ].join("\n");
 
 /** Recherche Google : elle remplace la règle « pas d'accès à internet » pour ce message. */
@@ -369,6 +395,7 @@ export function buildSystemPrompt(
   if (context.foodOrdering && !context.site && !context.voice) sections.push(FOOD);
   if (context.bargeTickets && !context.site && !context.voice) sections.push(BARGE);
   if (context.btmDevisOffer && !context.site && !context.voice) sections.push(BTM_DEVIS);
+  if (context.attestationOffer && !context.site && !context.voice) sections.push(ATTESTATION);
   // Commande en cours (une donnée, pas une consigne) : Tamilya répond « elle arrive quand ? » sans rouvrir le bloc.
   if (context.foodOrder && !context.site) {
     sections.push(
@@ -391,6 +418,16 @@ export function buildSystemPrompt(
       ].join("\n"),
     );
   }
+  if (context.foodGroup && context.foodOrdering && !context.site && !context.voice) {
+    sections.push(
+      [
+        "POUR CE MESSAGE : la personne veut commander plusieurs articles ensemble.",
+        "Réponds en UNE phrase courte et chaleureuse en français (même avec ton maître), sans poser de question et sans dire quel restaurant a quoi, puis ce bloc exactement, seul sur ses lignes :",
+        `\`\`\`commande-groupee\n${context.foodGroup}\n\`\`\``,
+        "Le panier, les prix et le paiement s'affichent dans le bloc : n'en écris rien toi-même.",
+      ].join("\n"),
+    );
+  }
   // Demande de ticket de barge reconnue par le serveur.
   if (context.bargeIntent && context.bargeTickets && !context.site && !context.voice) {
     sections.push(
@@ -404,16 +441,6 @@ export function buildSystemPrompt(
         : "POUR CE MESSAGE : la personne veut un ticket pour partir de Petite-Terre. Dis-lui simplement, en une ou deux phrases, que la traversée depuis Petite-Terre (Dzaoudzi) vers Mamoudzou est gratuite : pas besoin de ticket. N'ajoute pas le bloc ticket-barge.",
     );
   }
-  if (context.foodGroup && context.foodOrdering && !context.site && !context.voice) {
-    sections.push(
-      [
-        "POUR CE MESSAGE : la personne veut commander plusieurs articles ensemble.",
-        "Réponds en UNE phrase courte et chaleureuse en français (même avec ton maître), sans poser de question et sans dire quel restaurant a quoi, puis ce bloc exactement, seul sur ses lignes :",
-        `\`\`\`commande-groupee\n${context.foodGroup}\n\`\`\``,
-        "Le panier, les prix et le paiement s'affichent dans le bloc : n'en écris rien toi-même.",
-      ].join("\n"),
-    );
-  }
   // Demande de devis BTM reconnue par le serveur.
   if (context.btmDevis && context.btmDevisOffer && !context.site && !context.voice) {
     sections.push(
@@ -425,7 +452,18 @@ export function buildSystemPrompt(
       ].join("\n"),
     );
   }
+  // Demande d'attestation reconnue par le serveur.
+  if (context.attestation && context.attestationOffer && !context.site && !context.voice) {
+    sections.push(
+      [
+        "POUR CE MESSAGE : la personne veut faire une attestation d'hébergement.",
+        "Réponds en UNE phrase courte en français (même avec ton maître), sans poser de question, puis ce bloc exactement, seul sur ses lignes :",
+        "```attestation-hebergement\nformulaire\n```",
+      ].join("\n"),
+    );
+  }
   if (context.voice) sections.push(VOICE, VOICE_TONE);
+  if (!context.teacher) sections.push(LISTENING);
   sections.push(SECURITY);
   // Les petits modèles retiennent surtout la fin du message système : on y rappelle qui ils sont.
   sections.push(`Rappel : tu es ${name}, de GROUPE BTM. Jamais un autre nom, jamais une autre entreprise.`);

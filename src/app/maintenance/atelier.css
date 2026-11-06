@@ -187,3 +187,8 @@
   background: #6b7176;
   opacity: 0.32;
 }
+
+/* Site fermé : pas de bouton d'aide, son assistant et ses messages sont fermés aussi. */
+body:has(.atelier-lagon) [data-help-bubble] {
+  display: none;
+}

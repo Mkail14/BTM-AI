@@ -3,7 +3,7 @@ import { flowCutStop, loadFlowCuts } from "@/lib/ai/flow-cuts";
 import { loadServerKey, openRequest, readDevicePublicKey, sealReply, verifySignature } from "@/lib/mesh/crypto";
 import { isStale, MESH_MAX_BODY_BYTES, payloadSchema, requestEnvelopeSchema, type MeshReplyBody, type ReplyEnvelope } from "@/lib/mesh/envelope";
 import { handleMeshPayload } from "@/lib/mesh/handle";
-import { claimMessage, findDevice, releaseMessage, saveReply, touchDevice } from "@/lib/mesh/store";
+import { claimMessage, findDevice, releaseMessage, saveReply, touchDevice, type MeshDevice } from "@/lib/mesh/store";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { getClientIp, hashIdentifier } from "@/lib/security/request";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -44,9 +44,22 @@ export async function POST(request: NextRequest) {
   ]).catch(() => null);
   if (!relayLimit?.allowed) return fail(429, "rate_limited");
 
-  const device = await findDevice(admin, envelope.deviceId).catch(() => null);
-  const deviceKey = device ? readDevicePublicKey(device.publicKey) : null;
-  if (!device || !deviceKey || !verifySignature(envelope, envelope.sig, deviceKey)) return fail(403, "bad_signature");
+  let device: MeshDevice | null;
+  try {
+    device = await findDevice(admin, envelope.deviceId);
+  } catch {
+    // Panne passagère de la base : ce n'est pas la faute du message, le téléphone réessaie tout seul.
+    return fail(503, "unavailable");
+  }
+  if (!device) {
+    console.warn("[tamilya connect] Appareil inconnu ou révoqué");
+    return fail(403, "unknown_device");
+  }
+  const deviceKey = readDevicePublicKey(device.publicKey);
+  if (!deviceKey || !verifySignature(envelope, envelope.sig, deviceKey)) {
+    console.warn("[tamilya connect] Signature refusée");
+    return fail(403, "bad_signature");
+  }
 
   const payload = payloadSchema.safeParse(openRequest(server, envelope));
   if (!payload.success) return fail(400, "invalid_payload");

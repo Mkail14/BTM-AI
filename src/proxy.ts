@@ -40,10 +40,9 @@ export async function proxy(request: NextRequest) {
 /**
  * Toujours ouverts : la page d'attente, la connexion (un administrateur doit
  * pouvoir se connecter), les tâches planifiées, le retour des paiements Stripe et
- * le relais vocal, qui prépare la voix des administrateurs (route protégée par ticket signé),
- * et l'aide du bouton rose, affichée aussi sur la page d'attente (quotas dans sa route).
+ * le relais vocal, qui prépare la voix des administrateurs (route protégée par ticket signé).
  */
-const OPEN_WHEN_CLOSED = ["/maintenance", "/auth/", "/api/auth/", "/api/cron/", "/api/ai/relay", "/api/voice/live/setup", "/api/aide", "/api/wallet/webhook", "/manifest.webmanifest", "/brand/"];
+const OPEN_WHEN_CLOSED = ["/maintenance", "/auth/", "/api/auth/", "/api/cron/", "/api/ai/relay", "/api/voice/live/setup", "/api/wallet/webhook", "/manifest.webmanifest", "/brand/"];
 
 export const config = {
   matcher: [

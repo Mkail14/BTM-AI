@@ -5,6 +5,7 @@ import { getAuthContext } from "@/lib/auth/session";
 import { canOrderFood } from "@/lib/food/access";
 import { canBuyBargeTickets } from "@/lib/barge/access";
 import { BARGE_BLOCK, bargeBlockFor, bargeSpec, detectBargeTicket } from "@/lib/barge/intent";
+import { ATTESTATION_BLOCK, attestationBlock, detectAttestation } from "@/lib/attestation/intent";
 import { BTM_DEVIS_BLOCK, btmDevisBlockFor, btmDevisSpec, detectBtmDevis } from "@/lib/btm/intent";
 import { FOOD_CATALOG } from "@/lib/food/catalog";
 import { GROUP_BLOCK, groupBlock } from "@/lib/food/group-block";
@@ -412,6 +413,8 @@ export async function POST(request: NextRequest) {
   const bargeIntent = bargeTickets && !body.voice ? detectBargeTicket(body.message) : null;
   // Demande de devis BTM (mur, dalle…) reconnue ici : le devis s'ouvre à coup sûr.
   const btmDevis = !body.voice && detectBtmDevis(body.message) ? btmDevisSpec(body.message) : null;
+  // Demande d'attestation d'hébergement reconnue ici : le formulaire s'ouvre à coup sûr.
+  const attestation = !body.voice && detectAttestation(body.message);
   // Jour voulu pour le code (« demain », « vendredi matin ») : calculé ici, les modèles se trompent de date.
   const codeWhen = parseCodeExamWhen(body.message);
   const system = buildSystemPrompt(DEFAULT_PERSONALITY, {
@@ -441,6 +444,8 @@ export async function POST(request: NextRequest) {
     bargeSpec: bargeIntent === "buy" ? bargeSpec(body.message) : undefined,
     btmDevisOffer: true,
     btmDevis,
+    attestationOffer: true,
+    attestation,
     codeExamDay: codeWhen.day ? formatWhenDay(codeWhen.day) : null,
     foodOrder,
   });
@@ -620,6 +625,11 @@ export async function POST(request: NextRequest) {
           const block = btmDevisBlockFor(body.message);
           text += block;
           send({ type: "delta", text: block });
+        }
+        // Attestation demandée mais pas de bloc dans la réponse : on l'ajoute.
+        if (attestation && text && !text.includes("```" + ATTESTATION_BLOCK)) {
+          text += attestationBlock;
+          send({ type: "delta", text: attestationBlock });
         }
         // Jour et moment demandés (« demain matin ») : inscrits dans le bloc des créneaux, qui s'ouvre sur ce jour.
         if (codeWhen.day || codeWhen.moment) {

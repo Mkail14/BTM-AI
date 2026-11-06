@@ -201,6 +201,17 @@ select public.set_site_status('online', null, '00000000-0000-4000-8000-000000000
 select tests.check('Serveur : réouverture, message gardé', (select status = 'online' and maintenance_message = 'Retour à 14 h' from public.site_settings where id = 1));
 rollback;
 
+-- Aucun nouveau compte pendant la maintenance ; les comptes existants ne sont pas touchés.
+begin;
+select public.set_site_status('maintenance', null, '00000000-0000-4000-8000-0000000000ad', 'admin@exemple.test');
+select tests.denied('Maintenance : création de compte refusée', $$insert into auth.users (email) values ('nouveau@exemple.test')$$);
+update auth.users set last_sign_in_at = now() where id = tests.alice();
+select tests.check('Maintenance : un compte existant se connecte', (select last_sign_in_at is not null from auth.users where id = tests.alice()));
+select public.set_site_status('online', null, '00000000-0000-4000-8000-0000000000ad', 'admin@exemple.test');
+insert into auth.users (email) values ('nouveau@exemple.test');
+select tests.check('Site rouvert : création de compte permise', exists (select 1 from auth.users where email = 'nouveau@exemple.test'));
+rollback;
+
 -- Serveur : en attente, le premier partenaire validé ouvre le site (et le suivant ne change rien).
 begin;
 set local role service_role;

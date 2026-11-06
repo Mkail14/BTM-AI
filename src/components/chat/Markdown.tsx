@@ -3,6 +3,7 @@ import { isValidElement, memo, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { markUnknownWords } from "@/lib/language/unknown-words";
+import { ATTESTATION_BLOCK } from "@/lib/attestation/intent";
 import { BARGE_BLOCK } from "@/lib/barge/intent";
 import { BTM_DEVIS_BLOCK } from "@/lib/btm/intent";
 import { GROUP_BLOCK } from "@/lib/food/group-block";
@@ -13,6 +14,7 @@ import { YouTubeCard } from "./YouTubeCard";
 
 // Tickets de barge, créneaux du code et commande de repas : chargés seulement
 // quand Tamilya écrit le bloc spécial (carte, QR code, formulaires…).
+const AttestationHebergement = dynamic(() => import("./AttestationHebergement").then((m) => m.AttestationHebergement));
 const BargeTickets = dynamic(() => import("./BargeTickets").then((m) => m.BargeTickets));
 const BtmDevis = dynamic(() => import("./BtmDevis").then((m) => m.BtmDevis));
 const CombinedBoard = dynamic(() => import("./CombinedBoard").then((m) => m.CombinedBoard));
@@ -82,6 +84,8 @@ const components: Components = {
         </Board>
       );
     }
+    // Bloc ```attestation-hebergement``` : formulaire, signatures et PDF, le tout sur l'appareil.
+    if (code === `language-${ATTESTATION_BLOCK}`) return <AttestationHebergement />;
     // Bloc ```tableau-combine``` : plusieurs services en un tableau, créé par Tamilya sur demande.
     if (code === `language-${COMBINED_BLOCK}`) {
       const block = textOf(children).trim();
