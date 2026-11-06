@@ -153,10 +153,14 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
         if (name === "videos_youtube") {
           const block = voiceVideosBlock(args.recherches);
           if (!block) return "Aucune recherche : redemande en un mot ce qu'elle veut voir.";
-          // Pas un tableau : les cartes s'ajoutent à la conversation, sans passer au centre.
+          // Pas un tableau : Tamilya revient dans la conversation (globe en petit en haut)
+          // et les cartes s'y ajoutent, sous les yeux de la personne.
+          setStage(false);
           turnRef.current(hidePin(userText.current.trim(), "")[0], block, true);
           userText.current = "";
-          return "Les vidéos sont affichées sur l'écran de la personne : elle touche celle qu'elle veut. Dis seulement une phrase courte, ne les décris pas et ne les lis pas.";
+          setBoard(true);
+          requestAnimationFrame(() => scrollConversation("bas"));
+          return "Les vidéos sont affichées, les plus vues d'abord : elle touche celle qu'elle veut. Dis seulement « Voilà ! », rien d'autre : ne les décris pas, ne les lis pas, ne pose aucune question.";
         }
         if (name === "defiler_conversation") return scrollConversation(String(args.vers ?? ""));
         if (name === "autoriser_paiement") return acceptPayment();

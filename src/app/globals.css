@@ -3567,47 +3567,24 @@ body:has([data-voice-touch]) .voice-edge[data-on] {
   transition-duration: 120ms;
 }
 
-/* Petit globe au-dessus de la zone de saisie pendant que Tamilya écrit (WritingGlobe). */
-.writing-globe {
-  animation: writing-globe-in 280ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  transform-origin: center;
-}
-
-.writing-globe[data-flying] {
+/*
+ * Globe de Tamilya à côté de ses réponses (MessageItem) : il bouge pendant
+ * qu'elle écrit, puis se fige (data-still) dans sa dernière forme.
+ */
+.awa-blob[data-still],
+.awa-blob[data-still] * {
   animation: none;
 }
 
-.writing-globe[data-leaving] {
-  animation: writing-globe-out 260ms ease-in both;
+.awa-avatar .awa-blob {
+  cursor: default;
 }
 
-@keyframes writing-globe-in {
-  from {
-    opacity: 0;
-    scale: 0.4;
-  }
-}
-
-@keyframes writing-globe-out {
-  to {
-    opacity: 0;
-    scale: 0.4;
-  }
-}
-
-@keyframes writing-globe-fade {
-  from,
-  to {
-    opacity: 0.85;
-  }
+.awa-avatar .awa-blob__glow {
+  filter: blur(4px);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .writing-globe,
-  .writing-globe[data-leaving] {
-    animation-name: writing-globe-fade;
-  }
-
   .voice-overlay[data-morph]::before,
   .voice-morph-in {
     animation: none;

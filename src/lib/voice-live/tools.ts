@@ -107,7 +107,7 @@ export function liveToolDeclarations(access: LiveAccess) {
     {
       name: "videos_youtube",
       description:
-        "Montre des vidéos YouTube à l'écran : dès que la personne veut voir, regarder ou écouter quelque chose (vidéos drôles, clips, musique, recette, tutoriel, sport, un artiste), appelle-le tout de suite, sans rien demander ni décrire avant. Après, dis seulement une phrase courte (« Voilà, régale-toi ! »).",
+        "Montre des vidéos YouTube à l'écran : dès que la personne veut voir, regarder ou écouter quelque chose (vidéos drôles, clips, musique, recette, tutoriel, sport, un artiste), appelle-le tout de suite, sans rien demander ni dire avant : les plus vues s'affichent d'elles-mêmes. Après, dis seulement « Voilà ! ».",
       parameters: {
         type: "OBJECT",
         properties: {

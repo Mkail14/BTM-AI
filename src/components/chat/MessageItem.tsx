@@ -1,13 +1,12 @@
 "use client";
 
-import { Pictogram } from "@/components/ui/Pictogram";
-import { memo, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { memo, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { speak } from "@/lib/chat/voice";
-import { useCurrentPersonality } from "@/components/personality/PersonalityContext";
 import { IconCheck, IconCopy, IconRetry, IconSpeaker, IconStop } from "@/components/ui/icons";
-import { PERSONALITIES } from "@/lib/ai/personalities";
 import type { ChatRole } from "@/lib/chat/types";
 import { Correctable } from "./Correctable";
+import { AwaBlob } from "./AwaBlob";
+import { takeGlobeOrigin } from "./globe-origin";
 import { Markdown } from "./Markdown";
 import { AttestationAsk } from "./attestation-ask";
 import { useTypewriter } from "./useTypewriter";
@@ -95,15 +94,44 @@ function SpeakAction({ text }: { text: string }) {
   );
 }
 
-/** Avatar de Tamilya : pastille à la couleur et à l'emoji de sa personnalité. */
-function AwaAvatar({ busy }: { busy: boolean }) {
-  const { current } = useCurrentPersonality();
+/** Durée du vol du grand globe de l'accueil jusqu'à la première réponse. */
+const FLIGHT_MS = 950;
+const noop = () => {};
+
+/**
+ * Avatar de Tamilya : son globe, à la couleur de sa personnalité. Il bouge
+ * pendant qu'elle écrit, puis se fige. Au début d'une conversation, le grand
+ * globe de l'accueil rétrécit et glisse jusqu'ici avant d'écrire.
+ */
+function AwaAvatar({ writing }: { writing: boolean }) {
+  const box = useRef<HTMLSpanElement>(null);
+  useLayoutEffect(() => {
+    if (!writing) return;
+    const from = takeGlobeOrigin();
+    const el = box.current;
+    if (!el || !from || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const to = el.getBoundingClientRect();
+    const dx = from.left + from.width / 2 - (to.left + to.width / 2);
+    const dy = from.top + from.height / 2 - (to.top + to.height / 2);
+    const scale = from.width / to.width;
+    const flight = el.animate(
+      [
+        { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, easing: "cubic-bezier(0.5, 0, 0.2, 1)" },
+        { transform: `translate(${dx}px, ${dy}px) scale(${scale * 0.42})`, offset: 0.34, easing: "cubic-bezier(0.55, 0, 0.7, 0.6)" },
+        { transform: "translate(0, 0) scale(1.22, 0.8)", offset: 0.8, easing: "cubic-bezier(0.2, 0.7, 0.3, 1)" },
+        { transform: "translate(0, -4px) scale(0.92, 1.1)", offset: 0.9, easing: "ease-in" },
+        { transform: "translate(0, 0) scale(1)" },
+      ],
+      { duration: FLIGHT_MS },
+    );
+    return () => flight.cancel();
+    // Le vol ne se fait qu'à l'arrivée de la réponse.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   return (
-    <span
-      aria-hidden="true"
-      className={`grid size-8 shrink-0 place-items-center rounded-full bg-[var(--persona-soft,var(--bg-muted))] text-base ring-1 ring-[var(--persona-border,var(--border))] ${busy ? "animate-pulse" : ""}`}
-    >
-      <Pictogram of={PERSONALITIES[current].emoji} />
+    // inert : le globe se regarde, il ne prend ni le doigt ni le clavier.
+    <span ref={box} aria-hidden="true" inert className="awa-avatar relative z-10 grid size-8 shrink-0 place-items-center">
+      <AwaBlob label="Tamilya" onActivate={noop} size="2rem" goo={2} busy={writing} still={!writing} />
     </span>
   );
 }
@@ -157,7 +185,7 @@ function AssistantMessage({ message, question }: { message: UiMessage; question?
     <AttestationAsk value={question ?? ""}>
     <article className="group flex min-w-0 gap-2.5 sm:gap-3" aria-busy={writing}>
       <h3 className="sr-only">Tamilya a répondu :</h3>
-      <AwaAvatar busy={waiting} />
+      <AwaAvatar writing={writing} />
       <div className="relative min-w-0 flex-1 pt-1">
         {waiting ? (
           <p className="flex h-6 items-center gap-1 text-[var(--persona,var(--fg-muted))]" aria-label="Tamilya rédige une réponse">

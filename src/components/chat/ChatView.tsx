@@ -22,8 +22,7 @@ import { createStreamEventParser } from "@/lib/chat/stream-protocol";
 import type { ChatStreamEvent, ChatTurn } from "@/lib/chat/types";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
 import { AwaBlob } from "./AwaBlob";
-import { takeGlobeOrigin } from "./globe-origin";
-import { WritingGlobe } from "./WritingGlobe";
+import { noteGlobeOrigin, takeGlobeOrigin } from "./globe-origin";
 import { Composer, type ComposerHandle } from "./Composer";
 import { MessageItem, type UiMessage } from "./MessageItem";
 import { wantsSpokenReply } from "@/lib/voice-live/spoken-request";
@@ -138,8 +137,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   const composerRef = useRef<ComposerHandle>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
-  /** Place du grand globe de l'accueil au moment du premier message : il part de là pour descendre. */
-  const globeOrigin = useRef<DOMRect | null>(null);
   // Bouton « revenir en bas » quand on a remonté la conversation.
   const [showJump, setShowJump] = useState(false);
   const isHome = initialConversationId === null;
@@ -320,7 +317,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       };
       const userMessage: UiMessage = { id: newId(), role: "user", content: text, status: "complete" };
       const assistantId = newId();
-      if (base.length === 0 && !spoken) globeOrigin.current = takeGlobeOrigin() ?? scrollRef.current?.querySelector(".awa-blob-home")?.getBoundingClientRect() ?? null;
+      // Début de conversation : le grand globe de l'accueil glisse jusqu'à la première réponse (MessageItem).
+      if (base.length === 0 && !spoken) noteGlobeOrigin(takeGlobeOrigin() ?? scrollRef.current?.querySelector(".awa-blob-home")?.getBoundingClientRect() ?? null);
       setMessages([...base, userMessage, { id: assistantId, role: "assistant", content: "", status: "streaming" }]);
       setIsStreaming(true);
       setLiveStatus("Tamilya rédige une réponse.");
@@ -727,7 +725,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
           messages.length === 0 ? "pt-1" : "bg-[linear-gradient(to_top,var(--persona-surface,var(--bg))_80%,transparent)] pt-4"
         }`}
       >
-        <WritingGlobe active={isStreaming && voice.state === "off" && !voice.choosing} originRef={globeOrigin} onActivate={() => composerRef.current?.focus()} />
         {/* Revenir en bas après avoir remonté la conversation. */}
         {showJump && messages.length > 0 ? (
           <button

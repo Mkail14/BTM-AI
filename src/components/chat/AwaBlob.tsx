@@ -59,6 +59,7 @@ export function AwaBlob({
   goo = 7,
   busy = false,
   immediate = false,
+  still = false,
 }: {
   label: string;
   onActivate: () => void;
@@ -70,6 +71,8 @@ export function AwaBlob({
   busy?: boolean;
   /** Ouvre l'action sans attendre la fin de l'animation du clic (mode vocal). */
   immediate?: boolean;
+  /** Figée : la goutte garde sa forme et ne bouge plus (réponses finies de la conversation). */
+  still?: boolean;
 }) {
   const filterId = `awa-goo-${useId().replace(/:/g, "")}`;
   const [popping, setPopping] = useState(false);
@@ -87,7 +90,7 @@ export function AwaBlob({
   useEffect(() => () => window.clearTimeout(timer.current), []);
 
   useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    if (still || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     root.current?.setAttribute("data-live", "");
     const noise = makeNoise();
     let frame = 0;
@@ -218,7 +221,7 @@ export function AwaBlob({
       document.removeEventListener("visibilitychange", sync);
       cancelAnimationFrame(frame);
     };
-  }, []);
+  }, [still]);
 
   return (
     <button
@@ -227,6 +230,7 @@ export function AwaBlob({
       aria-label={label}
       title={label}
       data-popping={popping || undefined}
+      data-still={still || undefined}
       onClick={() => {
         if (popping) return;
         if (root.current) launch = { rect: root.current.getBoundingClientRect(), at: performance.now() };
