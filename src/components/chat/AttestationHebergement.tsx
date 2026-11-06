@@ -17,7 +17,7 @@ const PERSONA = "var(--persona,var(--accent))";
 const MAX_PHOTO_SIDE = 1400;
 
 type Person = "hebergeant" | "heberge";
-type Step = "form" | "signatures" | "rappel" | "done";
+type Step = "form" | "signatures" | "rappel" | "papier" | "done";
 type Signature = { bytes: Uint8Array; url: string };
 
 const PERSON_LABEL: Record<Person, string> = { hebergeant: "L'hébergeant", heberge: "La personne hébergée" };
@@ -76,6 +76,7 @@ export function AttestationHebergement() {
   const [building, setBuilding] = useState(false);
   const [buildError, setBuildError] = useState(false);
   const [file, setFile] = useState<{ url: string; name: string; blob: Blob } | null>(null);
+  const [onPaper, setOnPaper] = useState(false);
   const fileUrl = useRef<string | null>(null);
 
   useEffect(
@@ -108,18 +109,24 @@ export function AttestationHebergement() {
     }
   };
 
-  const build = async () => {
-    if (!signatures.hebergeant || !signatures.heberge || !confirmed.hebergeant || !confirmed.heberge) return;
+  /** paper : document sans signature, à imprimer et à signer à la main par chacun. */
+  const build = async (paper = false) => {
+    const signed = signatures.hebergeant && signatures.heberge && confirmed.hebergeant && confirmed.heberge;
+    if (!paper && !signed) return;
     setBuilding(true);
     setBuildError(false);
     try {
       // Bibliothèque PDF chargée seulement ici : elle est lourde et sert rarement.
       const { attestationFileName, buildAttestationPdf } = await import("@/lib/attestation/pdf");
-      const bytes = await buildAttestationPdf(fields, { hebergeant: signatures.hebergeant.bytes, heberge: signatures.heberge.bytes });
+      const bytes = await buildAttestationPdf(
+        fields,
+        paper || !signatures.hebergeant || !signatures.heberge ? undefined : { hebergeant: signatures.hebergeant.bytes, heberge: signatures.heberge.bytes },
+      );
       const blob = new Blob([new Uint8Array(bytes)], { type: "application/pdf" });
       if (fileUrl.current) URL.revokeObjectURL(fileUrl.current);
       fileUrl.current = URL.createObjectURL(blob);
       setFile({ url: fileUrl.current, name: attestationFileName(fields), blob });
+      setOnPaper(paper);
       setStep("done");
     } catch {
       setBuildError(true);
@@ -234,6 +241,16 @@ export function AttestationHebergement() {
           >
             Continuer
           </button>
+          <button
+            type="button"
+            className="mt-2 w-full rounded-full border border-border px-4 py-3 font-medium hover:bg-bg-subtle"
+            onClick={() => {
+              setTouched(true);
+              if (Object.keys(errors).length === 0) setStep("papier");
+            }}
+          >
+            Préparer pour signer à la main
+          </button>
           <p className="mt-2 text-center text-[11px] text-fg-muted">Ce modèle dit que l&apos;hébergement est gratuit. Rien n&apos;est envoyé ni gardé par Tamilya.</p>
         </div>
       </>,
@@ -265,7 +282,7 @@ export function AttestationHebergement() {
                     {error}
                   </p>
                 ) : null}
-                <label className="mt-2 block cursor-pointer rounded-full border border-border px-3 py-2 text-center text-sm font-medium hover:bg-bg-subtle">
+                <label data-voice-never="" className="mt-2 block cursor-pointer rounded-full border border-border px-3 py-2 text-center text-sm font-medium hover:bg-bg-subtle">
                   {reading === person ? "Préparation…" : signature ? "Changer la photo" : "Ajouter la photo"}
                   <input type="file" accept="image/*" className="sr-only" disabled={reading !== null} onChange={(e) => void pick(person, e)} />
                 </label>
@@ -294,7 +311,7 @@ export function AttestationHebergement() {
             </p>
           </div>
           {(["hebergeant", "heberge"] as const).map((person) => (
-            <label key={person} className="flex items-start gap-2 text-xs">
+            <label key={person} data-voice-never="" className="flex items-start gap-2 text-xs">
               <input
                 type="checkbox"
                 className="mt-0.5"
@@ -329,6 +346,32 @@ export function AttestationHebergement() {
     );
   }
 
+  if (step === "papier") {
+    return shell(
+      <>
+        {header("Rappel de la loi", "form")}
+        <div className="space-y-3 px-4 pt-3">
+          <div role="alert" className="rounded-2xl bg-bg-subtle p-3">
+            <p className="font-semibold">Une fausse attestation est un délit.</p>
+            <p className="mt-1 text-xs">
+              Faire ou utiliser une attestation fausse, ou signer à la place de quelqu&apos;un, est puni par la loi. Chaque personne relit le document imprimé et signe elle-même, à la main.
+            </p>
+          </div>
+        </div>
+        <div className="p-4">
+          {buildError ? (
+            <p role="alert" className="mb-2 text-center text-xs text-danger">
+              Le document n&apos;a pas pu être créé. Réessaie.
+            </p>
+          ) : null}
+          <button type="button" disabled={building} className={primary} style={{ background: PERSONA }} onClick={() => void build(true)}>
+            {building ? "Création…" : "Créer le PDF à imprimer"}
+          </button>
+        </div>
+      </>,
+    );
+  }
+
   const saveInApp = window.TamilyaFiles?.savePdf ? () => void saveWithApp() : null;
   const oldApp = !saveInApp && navigator.userAgent.includes(APP_USER_AGENT);
   const canShare = file && typeof navigator.canShare === "function" && navigator.canShare({ files: [new File([file.blob], file.name, { type: "application/pdf" })] });
@@ -355,7 +398,7 @@ export function AttestationHebergement() {
           </button>
         ) : null}
         <p className="text-center text-[11px] text-fg-muted">
-          Joins la copie de la pièce d&apos;identité et un justificatif de domicile de l&apos;hébergeant. Le document disparaît si tu quittes cette page.
+          {onPaper ? "Imprime ce document : chaque personne le relit et signe elle-même à la main. " : ""}Joins la copie de la pièce d&apos;identité et un justificatif de domicile de l&apos;hébergeant. Le document disparaît si tu quittes cette page.
         </p>
       </div>
     </>,

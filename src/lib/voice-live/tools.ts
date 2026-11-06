@@ -1,4 +1,5 @@
 import "server-only";
+import { attestationBlock } from "@/lib/attestation/intent";
 import { bargeBlockFor } from "@/lib/barge/intent";
 import { btmDevisBlockFor } from "@/lib/btm/intent";
 import { addWhenToBlock, parseCodeExamWhen } from "@/lib/code-exam/when";
@@ -17,7 +18,7 @@ import { blockContent, combinedBlock, type CombinedPart } from "./combined";
  * rien n'est payé ni réservé à la voix.
  */
 
-export type LiveToolName = "reserver_code" | "commander_repas" | "ticket_barge" | "devis_btm" | "tableau_combine";
+export type LiveToolName = "reserver_code" | "commander_repas" | "ticket_barge" | "devis_btm" | "attestation_hebergement" | "tableau_combine";
 
 export type LiveAccess = { food: boolean; barge: boolean };
 
@@ -60,6 +61,12 @@ export function liveToolDeclarations(access: LiveAccess) {
       name: "devis_btm",
       description: "Ouvre à l'écran le devis BTM (matériaux de construction aux prix de btm.yt) quand la personne veut chiffrer des travaux ou acheter des matériaux.",
       parameters: { type: "OBJECT", properties: { demande: text("Ses travaux ou matériaux, dans ses mots (ex. « un mur de 10 m »).") }, required: ["demande"] },
+    },
+    {
+      name: "attestation_hebergement",
+      description:
+        "Ouvre à l'écran l'attestation d'hébergement à titre gratuit quand la personne veut la faire, puis remplis-la à sa place. Préviens d'abord en une phrase que ce qu'elle dit passe par le vocal et reste écrit dans la conversation. Pose une seule question à la fois, écris chaque réponse avec remplir_tableau, et fais épeler les noms de famille. Champs de date : écris au format AAAA-MM-JJ. Quand tout est rempli, relis le nom des deux personnes et l'adresse. Puis touche « Préparer pour signer à la main », lis le rappel de la loi à voix haute, touche « Créer le PDF à imprimer » et enfin le bouton qui l'enregistre. Tu ne signes jamais, tu ne certifies jamais à la place de quelqu'un, et tu n'inventes aucune information : chaque personne signe elle-même à la main.",
+      parameters: { type: "OBJECT", properties: {} },
     },
     {
       name: "tableau_combine",
@@ -147,6 +154,8 @@ export function liveToolBlock(name: string, args: Record<string, unknown>, acces
       return access.barge ? bargeBlockFor(arg(args, "demande") || "ticket de barge").trim() : null;
     case "devis_btm":
       return btmDevisBlockFor(arg(args, "demande") || "devis").trim();
+    case "attestation_hebergement":
+      return attestationBlock.trim();
     case "tableau_combine": {
       const tools: Record<string, string> = { repas: "commander_repas", barge: "ticket_barge", code: "reserver_code", devis: "devis_btm" };
       const parties = Array.isArray(args.parties) ? args.parties.slice(0, 4) : [];

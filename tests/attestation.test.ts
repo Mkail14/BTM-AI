@@ -5,6 +5,7 @@ import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { attestationBlock, detectAttestation } from "@/lib/attestation/intent";
 import { checkFields, dateFr, EMPTY_FIELDS, todayMayotte, type AttestationFields } from "@/lib/attestation/fields";
 import { attestationFileName, buildAttestationPdf, pdfText, splitAddress } from "@/lib/attestation/pdf";
+import { liveToolBlock } from "@/lib/voice-live/tools";
 import { pdfBase64 } from "@/lib/attestation/pdf-base64";
 import { removeSignatureBackground, type Pixels } from "@/lib/attestation/signature";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
@@ -110,6 +111,17 @@ describe("Attestation : fond de la signature", () => {
     assert.deepEqual(removeSignatureBackground(sheet(200, 200, () => 240)), { ok: false, problem: "empty" });
     const mixed = removeSignatureBackground(sheet(400, 400, () => 240, (x, y) => (Math.floor(x / 40) + Math.floor(y / 40)) % 2 === 0));
     assert.deepEqual(mixed, { ok: false, problem: "not_white_sheet" });
+  });
+});
+
+describe("Attestation : à la voix", () => {
+  it("s'ouvre avec le bouton du vocal", () => {
+    assert.match(liveToolBlock("attestation_hebergement", {}, { food: false, barge: false }) ?? "", /attestation-hebergement/);
+  });
+
+  it("crée un PDF sans signature, à signer à la main", async () => {
+    const bytes = await buildAttestationPdf(FILLED);
+    assert.ok(bytes.length > 500);
   });
 });
 

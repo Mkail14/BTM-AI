@@ -62,7 +62,8 @@ async function signature(pdf: PDFDocument, page: PDFPage, png: Uint8Array, x: nu
 
 export type AttestationSignatures = { hebergeant: Uint8Array; heberge: Uint8Array };
 
-export async function buildAttestationPdf(f: AttestationFields, signatures: AttestationSignatures) {
+/** Sans `signatures` : cases vides, chacun signe à la main sur le papier imprimé. */
+export async function buildAttestationPdf(f: AttestationFields, signatures?: AttestationSignatures) {
   const pdf = await PDFDocument.create();
   pdf.setTitle("Attestation d’hébergement à titre gratuit");
   pdf.setLanguage("fr-FR");
@@ -110,8 +111,10 @@ export async function buildAttestationPdf(f: AttestationFields, signatures: Atte
 
   page.drawText("Signature de l’hébergeant :", { x: LEFT, y: 297, size: SIZE, font: fonts.bold, color: BLACK });
   page.drawText("Signature de l’hébergé(e) :", { x: SECOND_COLUMN, y: 297, size: SIZE, font: fonts.bold, color: BLACK });
-  await signature(pdf, page, signatures.hebergeant, LEFT, 285);
-  await signature(pdf, page, signatures.heberge, SECOND_COLUMN, 285);
+  if (signatures) {
+    await signature(pdf, page, signatures.hebergeant, LEFT, 285);
+    await signature(pdf, page, signatures.heberge, SECOND_COLUMN, 285);
+  }
 
   return pdf.save();
 }

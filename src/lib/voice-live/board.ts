@@ -8,13 +8,14 @@
  * Règle ferme : payer, réserver et valider se font au doigt, sauf si la personne
  * accepte l'avertissement et donne son code à 4 chiffres, vérifié par le serveur
  * (voice-pay.ts). La voix se trompe parfois de mot, et son portefeuille est en jeu.
+ * [data-voice-never] : jamais touché à la voix (signature, déclaration sur l'honneur).
  */
 
 import { payAuthorized, requestPayment } from "./voice-pay";
 
 const BOARD = "[data-voice-board]";
 const CONTROLS =
-  'button, [role="radio"], select, textarea, input:not([type="radio"], [type="checkbox"], [type="hidden"]), label:has(input[type="radio"]), label:has(input[type="checkbox"])';
+  'a[download], button, [role="radio"], select, textarea, input:not([type="radio"], [type="checkbox"], [type="hidden"]), label:has(input[type="radio"]), label:has(input[type="checkbox"])';
 /** Assez pour voir le flash avant le clic, et le tableau changer après. */
 const FLASH_MS = 320;
 const SETTLE_MS = 450;
@@ -74,7 +75,7 @@ function labelOf(el: HTMLElement): string {
 
 function controlsOf(board: HTMLElement): Control[] {
   return [...board.querySelectorAll<HTMLElement>(CONTROLS)]
-    .filter((el) => el.getClientRects().length > 0 && !(el as HTMLButtonElement).disabled && el.getAttribute("type") !== "submit")
+    .filter((el) => el.getClientRects().length > 0 && !(el as HTMLButtonElement).disabled && el.getAttribute("type") !== "submit" && !el.closest("[data-voice-never]"))
     .map((el) => ({ el, label: labelOf(el), field: el.matches("input, select, textarea") }))
     .filter((c) => c.label);
 }

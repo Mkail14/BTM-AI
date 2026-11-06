@@ -85,7 +85,13 @@ const components: Components = {
       );
     }
     // Bloc ```attestation-hebergement``` : formulaire, signatures et PDF, le tout sur l'appareil.
-    if (code === `language-${ATTESTATION_BLOCK}`) return <AttestationHebergement />;
+    if (code === `language-${ATTESTATION_BLOCK}`) {
+      return (
+        <Board>
+          <AttestationHebergement />
+        </Board>
+      );
+    }
     // Bloc ```tableau-combine``` : plusieurs services en un tableau, créé par Tamilya sur demande.
     if (code === `language-${COMBINED_BLOCK}`) {
       const block = textOf(children).trim();
