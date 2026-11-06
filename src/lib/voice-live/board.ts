@@ -11,6 +11,7 @@
  * [data-voice-never] : jamais touché à la voix (signature, déclaration sur l'honneur).
  */
 
+import { fixFieldValue } from "./place-snap";
 import { payAuthorized, requestPayment } from "./voice-pay";
 
 const BOARD = "[data-voice-board]";
@@ -241,9 +242,17 @@ function setValue(el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
 }
 
 /** Tamilya remplit un champ : les lettres apparaissent, comme si quelqu'un tapait. */
-export async function writeBoard(wanted: string, value: string, signal?: AbortSignal): Promise<string> {
+export async function writeBoard(wanted: string, asked: string, signal?: AbortSignal, heard = ""): Promise<string> {
   const control = find(wanted, (c) => c.field);
   if (typeof control === "string") return control;
+  // Texte libre : mot épelé recopié, villes et rues de Mayotte bien écrites (place-snap.ts).
+  const isText = control.el instanceof HTMLTextAreaElement || (control.el instanceof HTMLInputElement && control.el.type !== "date");
+  const fixed = isText ? await fixFieldValue(control.label, asked, heard) : { value: asked, note: null };
+  const result = await fillControl(control, fixed.value, signal);
+  return fixed.note ? `${fixed.note}\n${result}` : result;
+}
+
+async function fillControl(control: Control, value: string, signal?: AbortSignal): Promise<string> {
   const el = control.el as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
   await flash(el, FLASH_MS);
   if (signal?.aborted) return CANCELLED;

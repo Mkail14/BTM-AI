@@ -5,6 +5,7 @@ import { boardCount, CANCELLED, describeBoard, scrollConversation, touchBoard, w
 import { buildSnapLexicon, snapToLexicon, type SnapLexicon } from "@/lib/language/snap-lexicon";
 import { INITIATIVE_NOTE, initiativeDelayMs } from "@/lib/voice-live/initiative";
 import { onBoardDone } from "@/lib/voice-live/stage";
+import { voiceVideosBlock } from "@/lib/youtube/voice-videos";
 import { acceptPayment, cancelPayment, enterPin, takePinTurn } from "@/lib/voice-live/voice-pay";
 import { voiceHeard, voiceListenEnd, voiceSpeakEnd, voiceSpeakStart, voiceWord } from "@/lib/chat/voice-level";
 import { isVoiceIdle, VOICE_HANG_UP_EVENT, VOICE_IDLE_CHECK_MS } from "@/lib/voice-live/hang-up";
@@ -148,7 +149,15 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
         // Tableau déjà à l'écran : Tamilya agit directement dessus, sans passer par le serveur.
         if (name === "lire_tableau") return describeBoard();
         if (name === "toucher_tableau") return touchBoard(String(args.bouton ?? ""), signal);
-        if (name === "remplir_tableau") return writeBoard(String(args.champ ?? ""), String(args.valeur ?? ""), signal);
+        if (name === "remplir_tableau") return writeBoard(String(args.champ ?? ""), String(args.valeur ?? ""), signal, userText.current);
+        if (name === "videos_youtube") {
+          const block = voiceVideosBlock(args.recherches);
+          if (!block) return "Aucune recherche : redemande en un mot ce qu'elle veut voir.";
+          // Pas un tableau : les cartes s'ajoutent à la conversation, sans passer au centre.
+          turnRef.current(hidePin(userText.current.trim(), "")[0], block, true);
+          userText.current = "";
+          return "Les vidéos sont affichées sur l'écran de la personne : elle touche celle qu'elle veut. Dis seulement une phrase courte, ne les décris pas et ne les lis pas.";
+        }
         if (name === "defiler_conversation") return scrollConversation(String(args.vers ?? ""));
         if (name === "autoriser_paiement") return acceptPayment();
         if (name === "saisir_code") return enterPin(String(args.chiffres ?? ""));

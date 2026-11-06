@@ -43,8 +43,8 @@ export function liveToolDeclarations(access: LiveAccess) {
       ? [
           {
             name: "commander_repas",
-            description: "Ouvre à l'écran la commande de repas (restaurants de Mayotte) quand la personne veut commander à manger. Avec plusieurs articles, le tableau compose le panier : un restaurant s'il a tout, sinon il propose de prendre le reste ailleurs avec le prix du détour.",
-            parameters: { type: "OBJECT", properties: { demande: text("Tout ce qu'elle veut, dans ses mots (restaurant, plats, boissons, quantités), par ex. « un tacos merguez trois sauces et de l'eau ».") }, required: ["demande"] },
+            description: `Ouvre à l'écran la commande de repas (restaurants de Mayotte) dès que la personne veut commander à manger, même si elle ne dit pas encore quoi : appelle-le tout de suite, AVANT toute question. Un nom de restaurant suffit (« je veux commander chez Délices d'Ashi ») : le tableau affiche sa carte, et c'est là qu'elle choisit. Ne demande jamais « tu veux commander quoi ? » avant d'avoir ouvert le tableau. Avec plusieurs articles, le tableau compose le panier : un restaurant s'il a tout, sinon il propose de prendre le reste ailleurs avec le prix du détour. Restaurants : ${FOOD_CATALOG.map((r) => r.name).join(", ")}.`,
+            parameters: { type: "OBJECT", properties: { demande: text("Tout ce qu'elle a dit vouloir, dans ses mots (restaurant, plats, boissons, quantités), par ex. « Délices d'Ashi » ou « un tacos merguez et de l'eau ». Rien de précis : « tout ».") }, required: ["demande"] },
           },
         ]
       : []),
@@ -105,6 +105,22 @@ export function liveToolDeclarations(access: LiveAccess) {
       parameters: { type: "OBJECT", properties: {} },
     },
     {
+      name: "videos_youtube",
+      description:
+        "Montre des vidéos YouTube à l'écran : dès que la personne veut voir, regarder ou écouter quelque chose (vidéos drôles, clips, musique, recette, tutoriel, sport, un artiste), appelle-le tout de suite, sans rien demander ni décrire avant. Après, dis seulement une phrase courte (« Voilà, régale-toi ! »).",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          recherches: {
+            type: "ARRAY",
+            items: { type: "STRING" },
+            description: "Une à trois recherches YouTube courtes et précises, dans ses mots (ex. « Squeezie vidéos drôles », « Squeezie meilleurs moments »).",
+          },
+        },
+        required: ["recherches"],
+      },
+    },
+    {
       name: "defiler_conversation",
       description: "Fait défiler la discussion à l'écran : tout en haut, tout en bas, jusqu'au dernier tableau, ou jusqu'au message qui contient des mots précis. À utiliser quand la personne veut revoir un passage.",
       parameters: { type: "OBJECT", properties: { vers: text("« haut », « bas », « tableau », ou des mots du message à retrouver (ex. « tacos »).") }, required: ["vers"] },
@@ -157,7 +173,8 @@ export function liveToolBlock(name: string, args: Record<string, unknown>, acces
     }
     case "commander_repas": {
       if (!access.food) return null;
-      const demande = arg(args, "demande");
+      // Rien de précis : tous les restaurants, plutôt qu'un tableau vide.
+      const demande = arg(args, "demande") || "tout";
       const spec = groupSpec(demande);
       return (spec ? groupBlock(spec) : foodBlock(detectFoodOrder(demande, [], FOOD_CATALOG) ?? demande)).trim();
     }

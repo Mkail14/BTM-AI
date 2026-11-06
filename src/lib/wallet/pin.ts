@@ -39,6 +39,26 @@ export async function hasPin(admin: SupabaseClient, userId: string): Promise<boo
   return Boolean(await readRow(admin, userId));
 }
 
+/** Le compte a-t-il un code, et a-t-il déjà autorisé Tamilya à payer (une seule fois) ? */
+export async function payStatus(admin: SupabaseClient, userId: string): Promise<{ hasPin: boolean; consented: boolean }> {
+  const { data, error } = await admin.from("wallet_pins").select("voice_pay_consent_at").eq("user_id", userId).maybeSingle();
+  // Migration pas encore appliquée : on garde l'ancien fonctionnement (avertissement à chaque fois).
+  if (error?.code === "42703") return { hasPin: await hasPin(admin, userId), consented: false };
+  if (error) throw error;
+  return { hasPin: Boolean(data), consented: Boolean(data?.voice_pay_consent_at) };
+}
+
+/** Enregistre (ou retire) l'autorisation donnée une fois pour toutes. Exige un code. */
+export async function setConsent(admin: SupabaseClient, userId: string, given: boolean): Promise<PinCheck> {
+  if (!(await hasPin(admin, userId))) return { ok: false, reason: "none" };
+  const { error } = await admin
+    .from("wallet_pins")
+    .update({ voice_pay_consent_at: given ? new Date().toISOString() : null })
+    .eq("user_id", userId);
+  if (error) throw error;
+  return { ok: true };
+}
+
 export type PinCheck = { ok: true } | { ok: false; reason: "none" | "wrong" | "locked"; left?: number; lockedUntil?: string };
 
 /** Vérifie le code ; compte les erreurs et bloque après PIN_MAX_FAILURES. */

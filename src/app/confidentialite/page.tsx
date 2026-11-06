@@ -238,6 +238,19 @@ export default function PrivacyPage() {
             votre solde, l&apos;historique de vos opérations et le type de moyen de paiement (par exemple « Visa •••• 4242 »).
             Le solde est plafonné à {formatEuros(WALLET_MAX_BALANCE)} pour limiter les risques.
           </p>
+          <p>
+            <span className={strong}>Tamilya paie à votre place.</span> Avant le premier paiement fait par Tamilya, un
+            avertissement s&apos;affiche et vous devez toucher « J&apos;autorise ». Cette autorisation se donne{" "}
+            <span className={strong}>une seule fois</span> : elle vaut pour tous les paiements suivants et
+            l&apos;avertissement n&apos;est plus jamais réaffiché. Votre code à 4 chiffres reste demandé à chaque
+            paiement.
+          </p>
+          <p>
+            Tamilya peut mal comprendre ce que vous dites. Un paiement fait avec votre autorisation et votre code juste est
+            sous votre responsabilité, même s&apos;il était une erreur : vérifiez toujours le montant avant de donner votre
+            code. BTM ne garantit pas le résultat d&apos;un tel paiement et ne le rembourse pas. Vous pouvez retirer
+            l&apos;autorisation à tout moment dans les paramètres, rubrique Tamilya ; supprimer votre code la retire aussi.
+          </p>
         </Section>
 
         <Section id="documents" title="Vos documents et Google Drive">

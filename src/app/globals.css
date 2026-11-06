@@ -1914,6 +1914,70 @@ html.chargement body {
   animation: order-ticket-wave 3s 2.2s cubic-bezier(0.22, 1, 0.36, 1) infinite;
 }
 
+/*
+ * Billet déchiré (commande reçue ou code validé par le livreur) : la perforation
+ * devient un zigzag, le haut avec le QR code se décroche par la droite et tombe,
+ * le bas encaisse la secousse puis reçoit le tampon « Livrée ».
+ */
+.order-ticket-wrap[data-torn] .order-ticket {
+  animation: none;
+}
+
+.order-ticket-wrap[data-torn] .order-ticket-wave,
+.order-ticket-wrap[data-torn] .order-ticket-shine,
+.order-ticket-wrap[data-torn] .order-ticket-perf {
+  display: none;
+}
+
+.order-ticket-wrap[data-torn] .order-ticket-top {
+  position: relative;
+  z-index: 1;
+  clip-path: var(--tear-top);
+  transform-origin: 100% 100%;
+  animation: order-tear-top 1150ms 140ms cubic-bezier(0.55, 0, 0.75, 0.2) forwards;
+}
+
+.order-ticket-wrap[data-torn] .order-ticket-bottom {
+  clip-path: var(--tear-bottom);
+  animation: order-tear-bottom 520ms 140ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.order-ticket-wrap[data-torn] .order-ticket-bottom > :not(.order-ticket-stamp) {
+  opacity: 0.35;
+  transition: opacity 400ms 500ms ease;
+}
+
+.order-ticket-stamp {
+  animation: order-stamp-in 380ms 650ms cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+@keyframes order-tear-top {
+  0% {
+    transform: none;
+  }
+  /* On tire : le billet résiste un instant, puis lâche. */
+  22% {
+    transform: translate(-3px, -5px) rotate(-4deg);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-48px, 150%) rotate(-26deg);
+  }
+}
+
+@keyframes order-tear-bottom {
+  30% {
+    transform: translateY(5px);
+  }
+}
+
+@keyframes order-stamp-in {
+  from {
+    opacity: 0;
+    scale: 1.8;
+  }
+}
+
 @keyframes order-map-out {
   to {
     opacity: 0;
@@ -2008,6 +2072,17 @@ html.chargement body {
 
   .order-map-out {
     opacity: 0;
+  }
+
+  /* Sans animation : le haut disparaît, le tampon apparaît. */
+  .order-ticket-wrap[data-torn] .order-ticket-top,
+  .order-ticket-wrap[data-torn] .order-ticket-bottom,
+  .order-ticket-stamp {
+    animation: none;
+  }
+
+  .order-ticket-wrap[data-torn] .order-ticket-top {
+    visibility: hidden;
   }
 }
 
@@ -3773,9 +3848,36 @@ html[data-app] .landing-home .landing-content {
  * Tableau reparti dans la conversation (data-compact) : Tamilya reste en haut, et la
  * conversation commence sous elle. Ce qui défile est coupé sous le globe, jamais dessus.
  */
-body:has(.voice-overlay[data-compact]) [data-chat-scroll] {
+body:has(.voice-overlay[data-compact]) [data-chat-scroll]:not(:has(> header)) {
   padding-top: calc(env(safe-area-inset-top) + 8rem);
   clip-path: inset(calc(env(safe-area-inset-top) + 8rem) 0 0 0);
+}
+
+/*
+ * Dans la conversation, la barre du haut (menu, logo, +) reste tout en haut :
+ * seuls les messages descendent. Sous la barre, une bande du fond de la page
+ * accueille le globe ; ce qui défile passe dessous, jamais par-dessus.
+ */
+body:has(.voice-overlay[data-compact]) [data-chat-scroll] > header {
+  margin-bottom: 8rem;
+  border-color: transparent;
+}
+
+body:has(.voice-overlay[data-compact]) [data-chat-scroll] > header::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  top: 100%;
+  height: 8rem;
+  background-color: var(--persona-surface);
+}
+
+body:has([data-chat-scroll] > header) .voice-overlay[data-compact] .voice-orb-slot {
+  top: calc(env(safe-area-inset-top) + 4.25rem);
+}
+
+body:has([data-chat-scroll] > header) .voice-overlay[data-compact] .voice-middle {
+  padding-top: 10.5rem;
 }
 
 /* Le texte sous le globe est vide pendant le tableau : il ne prend pas de place. */

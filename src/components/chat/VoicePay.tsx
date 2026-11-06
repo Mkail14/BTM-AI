@@ -6,7 +6,7 @@ import { acceptPayment, cancelPayment, eraseDigit, getPay, subscribePay, typeDig
 const idle = () => ({ step: "idle" as const, label: "", typed: 0, error: null });
 
 /**
- * Paiement à la voix, à l'écran : l'avertissement à accepter, puis le code à
+ * Paiement à la voix, à l'écran : l'avertissement à accepter (une seule fois), puis le code à
  * 4 chiffres (dit à Tamilya ou tapé ici). Rien n'est payé avant le code juste.
  */
 export function VoicePay() {
@@ -37,6 +37,7 @@ export function VoicePay() {
       ) : pay.step === "consent" ? (
         <>
           <p className="font-semibold">Laisser Tamilya payer à ta place ?</p>
+          <p className="mt-0.5 text-xs text-neutral-500">Demandé une seule fois : ensuite, seul ton code sera demandé.</p>
           <p className="mt-1 truncate text-xs text-neutral-500">{pay.label}</p>
           <ul className="mt-2 space-y-1.5 text-[13px] leading-snug text-neutral-700">
             <li>Tamilya peut mal comprendre ce que tu dis. Si tu l&apos;autorises à payer, c&apos;est sous ta responsabilité : vérifie toujours le montant.</li>

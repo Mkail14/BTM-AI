@@ -44,6 +44,11 @@ export function hapticTick() {
   pulse(4);
 }
 
+/** Billet déchiré (commande reçue) : petites secousses, comme du papier qu'on arrache. */
+export function hapticTear() {
+  pulse([8, 25, 8, 25, 8, 25, 40]);
+}
+
 /** Réponse prête : deux impulsions rapprochées. */
 export function hapticReady() {
   if (pulse([10, 70, 10])) setTimeout(() => iosSwitch?.click(), 90);
