@@ -20,6 +20,14 @@ const OVER_NOISE = 1.8;
 const MIN_LEVEL = 0.012;
 /** Deux paquets (0,2 s) : un coup de marteau isolé n'ouvre pas la porte. */
 const PACKETS_TO_OPEN = 2;
+/*
+ * Pendant que Tamilya parle, sa voix revient dans le micro (surtout quand elle chante) :
+ * Gemini la prenait pour la personne et se coupait. Pour l'interrompre, il faut alors
+ * parler nettement plus fort que cet écho, pendant 0,4 s.
+ */
+const OVER_ECHO = 3.5;
+const ECHO_LEVEL = 0.06;
+const ECHO_PACKETS_TO_OPEN = 4;
 /** La porte reste ouverte 0,6 s après le dernier mot : les petites pauses ne coupent pas la phrase. */
 const PACKETS_TO_CLOSE = 6;
 /**
@@ -43,11 +51,12 @@ export function createNoiseGate() {
   /** Début de phrase : gardé le temps de savoir si c'est de la parole, pour ne pas couper le premier mot. */
   let pending: Float32Array[] = [];
 
-  return (samples: Float32Array): Float32Array[] => {
+  return (samples: Float32Array, tamilyaTalking = false): Float32Array[] => {
     const rms = level(samples);
     recent.push(rms);
     if (recent.length > NOISE_WINDOW) recent.shift();
-    const over = rms > Math.max(MIN_LEVEL, Math.min(...recent) * OVER_NOISE);
+    const floor = Math.min(...recent);
+    const over = rms > (tamilyaTalking ? Math.max(ECHO_LEVEL, floor * OVER_ECHO) : Math.max(MIN_LEVEL, floor * OVER_NOISE));
 
     if (open) {
       quiet = over ? 0 : quiet + 1;
@@ -62,7 +71,7 @@ export function createNoiseGate() {
       return [new Float32Array(samples.length)];
     }
     pending.push(samples);
-    if (loud < PACKETS_TO_OPEN) return [new Float32Array(samples.length)];
+    if (loud < (tamilyaTalking ? ECHO_PACKETS_TO_OPEN : PACKETS_TO_OPEN)) return [new Float32Array(samples.length)];
     open = true;
     quiet = 0;
     const flush = pending;

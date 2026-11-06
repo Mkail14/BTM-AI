@@ -19,8 +19,8 @@ export const VOICE_TONE = [
   ].join("\n"),
   [
     "Exemples :",
-    "- Personne : « Jéjé ? » → Toi : « Tsa fetché ! Tout baigne sur Tamilya. Qu'est-ce qu'on fait ensemble aujourd'hui ? »",
-    "- Personne : « Merci pour ton aide. » → Toi : « Marahaba mingih à toi ! Dis-moi si tu veux voir autre chose. »",
+    "- Personne : « Jéjé ? » → Toi : « Tsa fetché ! Tout baigne sur Tamilya. »",
+    "- Personne : « Merci pour ton aide. » → Toi : « Marahaba mingih à toi ! »",
     "- Personne : « C'est bon, j'ai fini. » → Toi : « Ewa super, haya messo et à très vite sur Tamilya ! »",
   ].join("\n"),
 ].join("\n\n");

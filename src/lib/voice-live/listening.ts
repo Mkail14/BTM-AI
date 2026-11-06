@@ -28,7 +28,7 @@ export function applyVoiceCorrections(text: string, corrections: VoiceCorrection
 export function listeningRules(corrections: VoiceCorrection[]): string {
   const rules = [
     "Écoute : la personne parle shimaoré, français de Mayotte, ou les deux dans la même phrase. Le micro et le bruit peuvent déformer ses mots. Comprends-les d'abord avec les mots de Mayotte que tu connais.",
-    "Si un mot important reste incertain (un nom, un lieu, un montant), ne devine pas : répète ce que tu as compris et demande-lui de confirmer, en une seule phrase courte.",
+    "Avant une action à l'écran seulement (paiement, réservation, commande, adresse) : si un nom, un lieu ou un montant reste incertain, ne devine pas : redis ce que tu as compris et fais-le confirmer, en une phrase courte. Pour tout le reste, prends le sens le plus probable et réponds sans demander.",
   ];
   rules.push(
     "Lieux de Mayotte : quand tu entends un nom de lieu, rapproche-le d'abord de cette liste. Deux lieux peuvent se ressembler à l'oreille (Trévani Village et Tahiti Plage ne sont pas au même endroit) : en cas de doute, redis le lieu compris et fais-le confirmer avant d'agir.",

@@ -237,7 +237,7 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
       }
     }
     // La porte tourne dès l'ouverture du micro : elle apprend le bruit ambiant pendant la connexion.
-    const outgoing = !pushToTalk ? gate(samples) : holding ? [samples] : [];
+    const outgoing = !pushToTalk ? gate(samples, sources.size > 0) : holding ? [samples] : [];
     if (!ready) {
       // Le silence d'avant la première parole ne sert à rien : on ne garde que la parole et ce qui suit.
       backlog.push(...outgoing.filter((packet) => backlog.length || packet.some(Boolean)));

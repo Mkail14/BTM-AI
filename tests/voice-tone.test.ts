@@ -27,3 +27,11 @@ test("le mode question complexe ne fait plus reformuler", () => {
   assert.ok(deep.includes("simple affirmation"));
   assert.doesNotMatch(deep, /reformule le vrai besoin/);
 });
+
+test("à l'oral, elle fait d'abord et ne salue qu'une fois", async () => {
+  const { LIVE_PRIORITY, LIVE_RULES } = await import("../src/lib/voice-live/rules");
+  assert.match(LIVE_PRIORITY, /AUCUNE question/);
+  assert.match(LIVE_PRIORITY, /ne salue qu'une fois/);
+  assert.match(LIVE_RULES, /chante vraiment, avec ta voix et en rythme, dès le premier mot/);
+  assert.doesNotMatch(VOICE_TONE, /Qu'est-ce qu'on fait ensemble/);
+});

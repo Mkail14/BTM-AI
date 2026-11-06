@@ -70,3 +70,12 @@ test("le mode choisi voyage dans le ticket signé", () => {
   assert.equal(readLiveTicket(signLiveTicket(user, "s", Date.now(), true), "s")?.manual, true);
   assert.equal(readLiveTicket(signLiveTicket(user, "s"), "s")?.manual, false);
 });
+
+test("pendant que Tamilya parle, l'écho de sa voix ne passe pas, mais une vraie interruption si", () => {
+  const gate = createNoiseGate();
+  for (let i = 0; i < 20; i++) gate(new Float32Array(SIZE), true);
+  for (let i = 0; i < 40; i++) assert.ok(silent(gate(voice(0.04), true)), `écho ${i}`);
+  const interruption = Array.from({ length: 6 }, () => gate(voice(0.3), true));
+  assert.ok(silent(interruption[1]), "pas sur un simple coup de bruit");
+  assert.ok(!silent(interruption[5]), "la personne qui parle fort la coupe");
+});
