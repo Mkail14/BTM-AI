@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { androidYouTubeIntent, parseYouTubeLink, youtubeSearchUrl } from "@/lib/youtube/link";
+import { androidYouTubeIntent, groupYouTubeLines, parseYouTubeLink, youtubeSearchUrl } from "@/lib/youtube/link";
 
 describe("liens YouTube proposés par Tamilya", () => {
   it("reconnaît une recherche et une vidéo", () => {
@@ -25,5 +25,20 @@ describe("liens YouTube proposés par Tamilya", () => {
     assert.ok(intent.startsWith("intent://www.youtube.com/results?search_query=chigoma#Intent;"));
     assert.ok(intent.includes("package=com.google.android.youtube"));
     assert.ok(intent.includes(`S.browser_fallback_url=${encodeURIComponent("https://www.youtube.com/results?search_query=chigoma")}`));
+  });
+});
+
+describe("vidéos proposées en rangée", () => {
+  it("réunit les lignes de vidéos, même en liste ou séparées par une ligne vide", () => {
+    const text = "Voici :\n\n- [Recette](https://www.youtube.com/results?search_query=a)\n\n- [Danse](https://www.youtube.com/results?search_query=b)\n\nBon appétit";
+    assert.equal(
+      groupYouTubeLines(text),
+      "Voici :\n\n[Recette](https://www.youtube.com/results?search_query=a) [Danse](https://www.youtube.com/results?search_query=b)\n\nBon appétit",
+    );
+  });
+
+  it("ne touche ni aux autres liens ni aux blocs de code", () => {
+    const text = "- [Site](https://example.com)\n```\n[V](https://youtu.be/dQw4w9WgXcQ)\n```";
+    assert.equal(groupYouTubeLines(text), text);
   });
 });

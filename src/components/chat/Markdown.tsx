@@ -1,6 +1,6 @@
 import { stripEmoji } from "@/lib/chat/no-emoji";
 import dynamic from "next/dynamic";
-import { isValidElement, memo, type ReactNode } from "react";
+import { Children, isValidElement, memo, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { markUnknownWords } from "@/lib/language/unknown-words";
@@ -9,10 +9,10 @@ import { BARGE_BLOCK } from "@/lib/barge/intent";
 import { BTM_DEVIS_BLOCK } from "@/lib/btm/intent";
 import { GROUP_BLOCK } from "@/lib/food/group-block";
 import { COMBINED_BLOCK } from "@/lib/voice-live/combined";
-import { parseYouTubeLink } from "@/lib/youtube/link";
+import { groupYouTubeLines, parseYouTubeLink } from "@/lib/youtube/link";
 import { UnknownWord } from "./UnknownWord";
 import { VoiceBoard as Board } from "./VoiceBoard";
-import { YouTubeCard } from "./YouTubeCard";
+import { YouTubeCard, YouTubeRow } from "./YouTubeCard";
 
 // Tickets de barge, créneaux du code et commande de repas : chargés seulement
 // quand Tamilya écrit le bloc spécial (carte, QR code, formulaires…).
@@ -102,6 +102,12 @@ const components: Components = {
     }
     return <pre>{children}</pre>;
   },
+  // Paragraphe fait seulement de vidéos YouTube : rangée qui défile vers la droite.
+  p: ({ children }) => {
+    const items = Children.toArray(children).filter((c) => !(typeof c === "string" && !c.trim()));
+    const onlyVideos = items.length > 0 && items.every((c) => isValidElement<{ href?: string }>(c) && parseYouTubeLink(c.props.href));
+    return onlyVideos ? <YouTubeRow>{items}</YouTubeRow> : <p>{children}</p>;
+  },
   a: ({ href, title, children }) => {
     // [[mot]] : mot que Tamilya ne connaît pas encore en shimaoré (voir markUnknownWords).
     if (href === "#fr") return <UnknownWord french={textOf(children)}>{children}</UnknownWord>;
@@ -137,7 +143,7 @@ export const Markdown = memo(function Markdown({ text }: { text: string }) {
   return (
     <div className="markdown">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components} urlTransform={safeUrl}>
-        {markUnknownWords(stripEmoji(text))}
+        {groupYouTubeLines(markUnknownWords(stripEmoji(text)))}
       </ReactMarkdown>
     </div>
   );

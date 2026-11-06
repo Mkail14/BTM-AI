@@ -31,3 +31,37 @@ export function androidYouTubeIntent(url: string): string {
   const { host, pathname, search } = new URL(url);
   return `intent://${host}${pathname}${search}#Intent;scheme=https;package=com.google.android.youtube;S.browser_fallback_url=${encodeURIComponent(url)};end`;
 }
+
+const LINK_LINE = /^\s*(?:[-*+]|\d+[.)])?\s*\[[^\]\n]+\]\((\S+?)\)\s*$/;
+
+/**
+ * Lignes qui ne contiennent qu'une vidéo YouTube (puce ou numéro permis, lignes vides
+ * entre elles) : réunies en un seul paragraphe, affiché en rangée qui défile vers la droite.
+ */
+export function groupYouTubeLines(text: string): string {
+  const out: string[] = [];
+  let run: string[] = [];
+  let blanks: string[] = [];
+  let fenced = false;
+  const flush = () => {
+    if (run.length) out.push(run.join(" "));
+    out.push(...blanks);
+    run = [];
+    blanks = [];
+  };
+  for (const line of text.split("\n")) {
+    if (/^\s*(```|~~~)/.test(line)) fenced = !fenced;
+    const match = fenced ? null : line.match(LINK_LINE);
+    if (match && parseYouTubeLink(match[1])) {
+      run.push(line.replace(/^\s*(?:[-*+]|\d+[.)])?\s*/, "").trim());
+      blanks = [];
+    } else if (run.length && !line.trim()) {
+      blanks.push(line);
+    } else {
+      flush();
+      out.push(line);
+    }
+  }
+  flush();
+  return out.join("\n");
+}
