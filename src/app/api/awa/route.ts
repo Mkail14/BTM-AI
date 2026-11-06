@@ -8,7 +8,7 @@ import { AI_ERROR_LABELS } from "@/lib/ai/flow-events";
 import { startFlowTrace } from "@/lib/ai/flow-trace";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
 import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
-import { parseSiteReply, SITE_IDS, SITES, siteInstructions, type SiteId } from "@/lib/ai/sites";
+import { parseAppReply, parseSiteReply, SITE_IDS, SITES, siteInstructions, type SiteId } from "@/lib/ai/sites";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
 import type { ChatTurn } from "@/lib/chat/types";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
@@ -186,6 +186,17 @@ export async function POST(request: NextRequest) {
     if (answeredBy) flow.step("output", false, "réponse interrompue");
     // quota : toutes les API sont à court de crédits ; le site prévient alors son conseiller.
     return NextResponse.json({ error: code === "quota" || code === "rate_limited" ? "quota" : "provider_error" }, { status: 502 });
+  }
+
+  // BTM Market : des commandes pour l'application plutôt qu'un passage de relais.
+  if (body.site === "btm-market") {
+    const app = parseAppReply(text);
+    if (!app.text && !app.commands.length) {
+      flow.step("output", false, "réponse vide");
+      return fail(502, "provider_error");
+    }
+    flow.step("output", true);
+    return NextResponse.json({ text: app.text, action: null, reason: null, commands: app.commands }, { headers: { "Cache-Control": "no-store" } });
   }
 
   const reply = parseSiteReply(text, { waitingForAdvisor });

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseSiteReply, SITES, siteInstructions } from "@/lib/ai/sites";
+import { parseAppReply, parseSiteReply, SITES, siteInstructions } from "@/lib/ai/sites";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 
 describe("parseSiteReply", () => {
@@ -26,6 +26,33 @@ describe("parseSiteReply", () => {
 
   it("laisse une réponse ordinaire intacte", () => {
     assert.deepEqual(parseSiteReply("  Bonjour ! "), { text: "Bonjour !", action: null, reason: null });
+  });
+});
+
+describe("parseAppReply (BTM Market)", () => {
+  it("sépare le texte lu des commandes, dans l'ordre", () => {
+    const reply = parseAppReply("Je t'ouvre le formulaire.\n<<aller: produits>>\n<<appuyer: Nouveau produit>>\n<<remplir: Nom = Coco  râpé>>");
+    assert.deepEqual(reply, {
+      text: "Je t'ouvre le formulaire.",
+      commands: ["aller: produits", "appuyer: Nouveau produit", "remplir: Nom = Coco râpé"],
+    });
+  });
+
+  it("retire toute autre balise sans l'exécuter", () => {
+    const reply = parseAppReply("Ok.\n<<transferer_conseiller: x>>\n<<supprimer: tout>>");
+    assert.deepEqual(reply, { text: "Ok.", commands: [] });
+  });
+
+  it("limite le nombre de commandes", () => {
+    const many = Array.from({ length: 30 }, (_, i) => `<<appuyer: Bouton ${i}>>`).join("\n");
+    assert.equal(parseAppReply(many).commands.length, 12);
+  });
+
+  it("garde la Tamilya de BTM AI, et seul btm.yt connaît l'attente d'un conseiller", () => {
+    const prompt = buildSystemPrompt(undefined, { site: { intro: SITES["btm-market"].intro, instructions: siteInstructions("btm-market", { waitingForAdvisor: true }) } });
+    assert.match(prompt, /la même Tamilya que sur BTM AI ; ici, tu es dans BTM Market/);
+    assert.match(prompt, /Tu ne peux rien enregistrer toi-même/);
+    assert.doesNotMatch(prompt, /conseiller BTM a été prévenu/);
   });
 });
 

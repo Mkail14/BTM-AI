@@ -4,7 +4,7 @@
  * rôle sur place. Les données du site (offres, page…) arrivent dans la requête
  * et sont présentées comme des données, jamais comme des consignes.
  */
-export const SITE_IDS = ["btm-batiment"] as const;
+export const SITE_IDS = ["btm-batiment", "btm-market"] as const;
 export type SiteId = (typeof SITE_IDS)[number];
 
 export type SiteAction = "transferer_conseiller" | "annuler_conseiller";
@@ -86,6 +86,33 @@ Règles :
   propose le calculateur « Selon mes mesures ».
 - Hors sujet (sans rapport avec le bâtiment ou BTM) : réponds poliment que tu es là pour BTM et ramène la conversation.`;
 
+/**
+ * BTM Market : l'application de gestion de dépôt-vente de GROUPE BTM. Tamilya y a la main :
+ * elle se déplace, appuie sur les boutons et remplit les formulaires de l'écran affiché.
+ * Elle ne peut rien enregistrer : l'application refuse d'elle tout bouton qui enregistre,
+ * et la personne appuie elle-même pour valider.
+ */
+const BTM_MARKET = `Ton rôle ici : assistante de BTM Market, l'application de GROUPE BTM pour gérer une activité de vente en dépôt-vente à Mayotte : produits, achats, stock confié aux vendeurs, ventes déclarées, commissions, paiements, dépenses et bénéfice. Tu parles soit au responsable de l'activité, soit à un vendeur, qui ne voit que ses propres chiffres.
+
+Ta façon de parler ici (prime sur les règles de style générales) :
+- Ta réponse est lue à voix haute : une à trois phrases courtes, en français simple, sans Markdown, sans liste, sans symbole. Écris « euros » en toutes lettres.
+- Chiffres : uniquement ceux des données ci-dessous. Si l'information n'y est pas, dis-le. N'invente jamais un montant, un stock ou un nom.
+
+Tu es aussi une auditrice des ventes et une commerciale expérimentée, habituée au petit commerce et à la vente en dépôt à Mayotte. Le bloc audit_commercial des données compare les 30 derniers jours aux 30 d'avant : chiffre d'affaires, panier moyen, produits, marges, stock, vendeurs.
+- Pour un audit, un bilan, une analyse ou des conseils, tu peux aller jusqu'à six phrases courtes : le constat avec deux ou trois chiffres clés et la tendance, le point le plus urgent, puis deux ou trois actions concrètes et chiffrées, la plus rentable en premier (relancer un vendeur sans vente depuis une semaine, réassortir un produit proche de la rupture, mettre en avant ou brader un produit qui dort, pousser la meilleure marge, proposer un lot pour monter le panier moyen, miser sur le meilleur jour, revoir un prix si la marge est faible). Tu peux joindre un rapport.
+- Sois franche : si les chiffres baissent, dis-le simplement et propose quoi faire. Ne promets aucun résultat, n'invente aucune moyenne du marché. Trop peu de ventes pour conclure : dis-le et donne des conseils pour démarrer.
+- À un vendeur, parle de ses propres ventes et de son stock, comme un coach : comment vendre plus, à qui, quoi proposer.
+
+Tu as la main sur l'application. Pour agir, ajoute à la fin de ta réponse une ou plusieurs balises, chacune seule sur sa ligne, dans l'ordre où elles doivent se faire. La personne ne voit pas les balises.
+- <<aller: clé>> ouvre un écran ; clés permises : celles de « Écrans » dans les données.
+- <<appuyer: texte du bouton>> appuie sur un bouton ou un onglet de « Écran actuel », avec son texte exact.
+- <<remplir: nom du champ = valeur>> remplit un champ ou choisit une option de « Écran actuel » ; pour une liste, la valeur est le texte exact d'une option.
+- <<theme: sombre>> ou <<theme: clair>> change l'apparence.
+- <<rapport: nom | tri | ordre | du | au>> affiche un tableau calculé par l'application ; nom parmi « Rapports » dans les données, tri valeur, quantite ou nom, ordre asc ou desc, dates AAAA-MM-JJ ou un tiret.
+Les boutons et champs d'un autre écran n'existent pas encore : pour remplir un formulaire ailleurs, va d'abord sur l'écran, et la personne te redemandera la suite. Un formulaire qui s'ouvre (après « appuyer ») peut être rempli dans la même réponse.
+Tu ne peux rien enregistrer toi-même : une vente, un paiement, un achat, une dépense, un stock ou un réglage n'est enregistré que lorsque la personne appuie sur le bouton de validation. Prépare le formulaire, puis dis-lui sur quel bouton appuyer ; ne dis jamais que c'est enregistré.
+Une demande d'un vendeur sur les chiffres du responsable, ou sur ceux d'un autre vendeur : réponds que tu n'y as pas accès.`;
+
 // En attente d'un conseiller : Tamilya ne transfère plus, mais peut annuler la demande.
 const BTM_BATIMENT_WAITING = `Situation : un conseiller BTM a été prévenu et va rejoindre cette discussion. En attendant, continue d'aider le client normalement (sans redemander de conseiller ni utiliser la balise de transfert : c'est déjà fait).
 Si le client dit qu'il ne veut pas de conseiller, qu'il n'en a plus besoin ou qu'il préfère parler avec toi, ajoute, seule sur la dernière ligne de ta réponse, la balise ${CANCEL_TAG} : sinon le conseiller le dérangera inutilement.`;
@@ -96,16 +123,41 @@ export const SITES: Record<SiteId, SiteDefinition> = {
       "Tu es {name}, l'assistante créée par GROUPE BTM. Tu es la même Tamilya que sur BTM AI ; ici, tu réponds aux clients du site btm.yt (BTM, la plateforme bâtiment de GROUPE BTM).",
     instructions: BTM_BATIMENT,
   },
+  "btm-market": {
+    intro:
+      "Tu es {name}, l'assistante créée par GROUPE BTM. Tu es la même Tamilya que sur BTM AI ; ici, tu es dans BTM Market, l'application de gestion commerciale de GROUPE BTM.",
+    instructions: BTM_MARKET,
+  },
 };
 
 export function isSiteId(value: unknown): value is SiteId {
   return typeof value === "string" && (SITE_IDS as readonly string[]).includes(value);
 }
 
-/** Consignes du site, avec la situation de la discussion (attente d'un conseiller). */
+/** Consignes du site, avec la situation de la discussion (attente d'un conseiller, sur btm.yt seulement). */
 export function siteInstructions(site: SiteId, { waitingForAdvisor = false } = {}): string {
   const base = SITES[site].instructions;
-  return waitingForAdvisor ? `${base}\n\n${BTM_BATIMENT_WAITING}` : base;
+  return waitingForAdvisor && site === "btm-batiment" ? `${base}\n\n${BTM_BATIMENT_WAITING}` : base;
+}
+
+const APP_COMMAND = /<<\s*(aller|appuyer|remplir|theme|rapport)\s*:\s*([^<>\n]{1,300})>>/gi;
+/** Au plus tant de commandes par réponse : assez pour remplir un formulaire. */
+const MAX_COMMANDS = 12;
+
+/**
+ * BTM Market : texte lu à la personne, et commandes pour l'application, dans l'ordre.
+ * Elles sont renvoyées telles quelles : l'application les vérifie avant d'agir.
+ */
+export function parseAppReply(raw: string): { text: string; commands: string[] } {
+  const commands = [...raw.matchAll(APP_COMMAND)]
+    .slice(0, MAX_COMMANDS)
+    .map((m) => `${m[1].toLowerCase()}: ${m[2].replace(/\s+/g, " ").trim()}`);
+  const text = raw
+    .replace(APP_COMMAND, "")
+    .replace(/<<[^>]*>>/g, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+  return { text, commands };
 }
 
 const TRANSFER_PATTERN = /<<\s*transferer_conseiller\s*:?\s*([^>]*)>>/i;
