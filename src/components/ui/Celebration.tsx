@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { FLY_MS, flyToBell, NOTIFY_EVENT } from "@/lib/notifications";
 
 /** Une bonne nouvelle à fêter (place de code réservée…). */
-export type CelebrationDetail = { emoji: string; title: string; subtitle?: string; note?: string; amount?: string };
+export type CelebrationDetail = { title: string; subtitle?: string; note?: string; amount?: string };
 
 const EVENT = "btm-celebrate";
 /** Durée d'affichage avant l'envol. */
@@ -86,7 +86,7 @@ export function CelebrationToast() {
             </span>
             {current.subtitle ? (
               <span className="mt-0.5 block text-xs text-fg-muted">
-                {current.emoji} {current.subtitle}
+                {current.subtitle}
               </span>
             ) : null}
           </span>

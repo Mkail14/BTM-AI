@@ -39,9 +39,9 @@ export function VoicePay() {
           <p className="font-semibold">Laisser Tamilya payer à ta place ?</p>
           <p className="mt-1 truncate text-xs text-neutral-500">{pay.label}</p>
           <ul className="mt-2 space-y-1.5 text-[13px] leading-snug text-neutral-700">
-            <li>⚠️ Tamilya peut mal comprendre ce que tu dis. Si tu l&apos;autorises à payer, c&apos;est sous ta responsabilité : vérifie toujours le montant.</li>
-            <li>⚠️ BTM ne garantit pas le résultat d&apos;un paiement fait par Tamilya et ne rembourse pas un paiement que tu as autorisé.</li>
-            <li>🔒 Ton code à 4 chiffres est obligatoire. Tamilya ne le garde pas et le site ne l&apos;enregistre pas. Si tu le dis à voix haute, Google (Gemini) l&apos;entend pour le comprendre, et les gens autour de toi aussi : tu peux le taper ici à la place.</li>
+            <li>Tamilya peut mal comprendre ce que tu dis. Si tu l&apos;autorises à payer, c&apos;est sous ta responsabilité : vérifie toujours le montant.</li>
+            <li>BTM ne garantit pas le résultat d&apos;un paiement fait par Tamilya et ne rembourse pas un paiement que tu as autorisé.</li>
+            <li>Ton code à 4 chiffres est obligatoire. Tamilya ne le garde pas et le site ne l&apos;enregistre pas. Si tu le dis à voix haute, Google (Gemini) l&apos;entend pour le comprendre, et les gens autour de toi aussi : tu peux le taper ici à la place.</li>
           </ul>
           <div className="mt-3 flex gap-2">
             <button type="button" onClick={acceptPayment} className="flex-1 rounded-full bg-neutral-900 px-4 py-2.5 font-medium text-white">

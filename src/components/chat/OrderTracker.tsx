@@ -1,5 +1,7 @@
 "use client";
 
+import { Lock } from "lucide-react";
+import { Pictogram } from "@/components/ui/Pictogram";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { FLY_MS, flyToBell, notify } from "@/lib/notifications";
@@ -135,7 +137,7 @@ function useOrderClock(order: PlacedOrder) {
   const waiting = Boolean(order.scheduled) && now < placed;
   // Cloche des notifications : commande passée, livreur parti, livreur arrivé (une fois chacune).
   useEffect(() => {
-    const what = `${order.emoji} ${order.restaurant}`;
+    const what = order.restaurant;
     if (order.scheduled)
       notify({ id: `${order.code}:scheduled`, emoji: "⏰", title: `Commande programmée chez ${order.restaurant}`, subtitle: `Livraison vers ${time.format(new Date(order.arrivesAt))} · ${order.lines.join(" · ")}`, at: new Date().toISOString() });
     if (!waiting)
@@ -285,7 +287,7 @@ function ArrivalCode({ order, courierName }: { order: PlacedOrder; courierName: 
           <div className="order-ticket-top rounded-t-[1.75rem] bg-white px-5 pt-4 pb-5">
             <div className="flex items-center justify-between gap-3">
               <span className="truncate text-[11px] font-semibold tracking-[0.14em] text-neutral-500 uppercase">
-                {order.emoji} {order.restaurant}
+                {order.restaurant}
               </span>
               <span className="shrink-0 text-[11px] font-semibold tracking-[0.14em] text-neutral-400 uppercase">BTM</span>
             </div>
@@ -344,7 +346,7 @@ function RoundAction({ icon, label, href, onClick, badge }: { icon: string; labe
   const inner = (
     <>
       <span className="relative grid size-11 place-items-center rounded-full bg-bg-subtle text-lg transition group-hover:bg-bg-muted group-active:scale-95">
-        {icon}
+        <Pictogram of={icon} />
         {badge ? (
           <span className="absolute -top-0.5 -right-0.5 grid size-4 place-items-center rounded-full text-[9px] font-bold text-white" style={{ background: PERSONA }}>
             {badge}
@@ -464,7 +466,6 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
                 route={ahead}
                 trail={trail}
                 courier={courierAt}
-                restaurantEmoji={order.emoji}
                 moving={phase === 1 && accepted}
               />
             </div>
@@ -487,7 +488,7 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
               rel="noopener noreferrer"
               className="ml-auto inline-flex items-center gap-1.5 rounded-full bg-bg/90 px-3 py-2 text-xs font-semibold shadow-lg backdrop-blur hover:bg-bg"
             >
-              🗺️ Ouvrir dans Maps
+              Ouvrir dans Maps
             </a>
             )}
           </div>
@@ -510,7 +511,7 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
             <div className="min-w-0">
               <p className="text-lg leading-tight font-semibold">{titleOf(phase, order.restaurant, clock.accepted, clock.waiting)}</p>
               <p className="mt-0.5 truncate text-xs text-fg-muted">
-                {order.emoji} {order.restaurant} · livraison à {order.commune}
+                {order.restaurant} · livraison à {order.commune}
               </p>
             </div>
             <div className="shrink-0 text-right">
@@ -542,14 +543,14 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
             courier ? (
               <div className="order-rise grid grid-cols-2 gap-2 [animation-delay:80ms]">
                 <a href={telLink(courier.phone)} className="flex items-center justify-center gap-2 rounded-full border border-border px-3 py-2.5 text-sm font-semibold transition hover:bg-bg-subtle">
-                  📞 Appeler {courier.name}
+                  Appeler {courier.name}
                 </a>
                 <button
                   type="button"
                   onClick={() => setSheet("chat")}
                   className="relative flex items-center justify-center gap-2 rounded-full border border-border px-3 py-2.5 text-sm font-semibold transition hover:bg-bg-subtle"
                 >
-                  💬 Écrire{messageCount ? ` (${messageCount})` : ""}
+                  Écrire{messageCount ? ` (${messageCount})` : ""}
                 </button>
               </div>
             ) : null
@@ -578,7 +579,7 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
           ) : (
             <div className="order-rise flex items-center gap-3 rounded-2xl border border-dashed border-border px-4 py-3 [animation-delay:80ms]">
               <span aria-hidden="true" className="text-xl">
-                🔒
+                <Lock size="1em" strokeWidth={1.8} aria-hidden="true" />
               </span>
               <p className="text-xs text-fg-muted">
                 {phase === 0 ? (
@@ -596,7 +597,7 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
           )}
           {courier ? (
             <p className="-mt-2 truncate text-xs text-fg-muted">
-              🛵 <span className="font-medium text-fg">{courier.name}</span> te livre · {formatPhone(courier.phone)}
+              <span className="font-medium text-fg">{courier.name}</span> te livre · {formatPhone(courier.phone)}
               {order.demo ? " (fictif)" : ""}
             </p>
           ) : null}
@@ -619,14 +620,14 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
                 onClick={() => setSheet("details")}
                 className="flex items-center justify-center gap-2 rounded-full border border-border px-3 py-2.5 text-sm font-semibold transition hover:bg-bg-subtle"
               >
-                🧾 Ma commande
+                Ma commande
               </button>
               <button
                 type="button"
                 onClick={() => setSheet("help")}
                 className="flex items-center justify-center gap-2 rounded-full border border-border px-3 py-2.5 text-sm font-semibold transition hover:bg-bg-subtle"
               >
-                🛟 Aide
+                Aide
               </button>
             </div>
             {order.demo ? <p className="text-center text-[10px] text-fg-muted">Démonstration : suivi accéléré et livreur simulé, aucun restaurant n&apos;a reçu cette commande.</p> : null}
@@ -644,7 +645,7 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
             <div className="space-y-4 text-sm">
               <div className="flex items-center gap-3">
                 <span aria-hidden="true" className="grid size-11 place-items-center rounded-2xl bg-bg-subtle text-2xl">
-                  {order.emoji}
+                  <Pictogram of={order.emoji} />
                 </span>
                 <span className="min-w-0">
                   <span className="block font-semibold">{order.restaurant}</span>
@@ -703,7 +704,7 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
                 const content = (
                   <>
                     <span aria-hidden="true" className="grid size-9 shrink-0 place-items-center rounded-xl bg-bg-subtle text-base">
-                      {item.icon}
+                      <Pictogram of={item.icon} />
                     </span>
                     <span className="min-w-0 flex-1">
                       <span className="block font-medium">{item.label}</span>
@@ -825,9 +826,9 @@ function ThanksPill({ order, onDone }: { order: PlacedOrder; onDone: () => void 
       </span>
       <span className="order-thanks-text leading-tight">
         <span className="block text-sm font-semibold">
-          {order.emoji} {order.restaurant} te remercie !
+          {order.restaurant} te remercie !
         </span>
-        <span className="block text-xs text-fg-muted">Merci pour ta commande · bon appétit 😋</span>
+        <span className="block text-xs text-fg-muted">Merci pour ta commande · bon appétit</span>
       </span>
     </div>
   );
@@ -866,7 +867,7 @@ function OrderPill({ order }: { order: PlacedOrder }) {
           aria-hidden="true"
           className={`relative text-lg leading-none ${phase === 0 ? "order-sizzle" : phase === 1 ? "order-scooter-ride" : "order-hop"}`}
         >
-          {clock.waiting ? "⏰" : phase === 0 ? "🍳" : phase === 1 ? "🛵" : "✅"}
+          <Pictogram of={clock.waiting ? "⏰" : phase === 0 ? "🍳" : phase === 1 ? "🛵" : "✅"} />
         </span>
       </button>
       {open ? <OrderPanel order={order} clock={clock} onClose={() => setOpen(false)} /> : null}

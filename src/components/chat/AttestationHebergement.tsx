@@ -1,12 +1,15 @@
 "use client";
 
-import { useEffect, useId, useRef, useState, type ChangeEvent } from "react";
+import { useContext, useEffect, useId, useRef, useState, type ChangeEvent } from "react";
+import { boardDone } from "@/lib/voice-live/stage";
 import { checkFields, EMPTY_FIELDS, todayMayotte, type AttestationFields } from "@/lib/attestation/fields";
-import { SIGNATURE_HELP_EVENT } from "@/lib/attestation/intent";
+import { readOwnInfo, SIGNATURE_HELP_EVENT } from "@/lib/attestation/intent";
 import { pdfBase64 } from "@/lib/attestation/pdf-base64";
+import { applyPrefill, type AttestationPrefill } from "@/lib/attestation/prefill";
 import { DRIVE_UPLOAD_MESSAGES, uploadToDrive } from "@/lib/drive/upload";
 import { removeSignatureBackground, type SignatureProblem } from "@/lib/attestation/signature";
 import { APP_USER_AGENT } from "@/components/ui/ThemeScript";
+import { AttestationAsk } from "./attestation-ask";
 import { AttestationPreview } from "./AttestationPreview";
 
 declare global {
@@ -20,7 +23,7 @@ const PERSONA = "var(--persona,var(--accent))";
 const MAX_PHOTO_SIDE = 1400;
 
 type Person = "hebergeant" | "heberge";
-type Step = "form" | "signatures" | "rappel" | "papier" | "done" | "moved";
+type Step = "role" | "form" | "signatures" | "rappel" | "papier" | "done" | "moved";
 type Signature = { bytes: Uint8Array; url: string };
 
 const PERSON_LABEL: Record<Person, string> = { hebergeant: "L'hébergeant", heberge: "La personne hébergée" };
@@ -70,10 +73,18 @@ type TextKey = Exclude<keyof AttestationFields, "civilite">;
  * Le formulaire, les signatures et le PDF restent sur l'appareil : rien n'est envoyé
  * ni gardé, et le rappel à la loi vient avant que les signatures soient posées.
  */
-export function AttestationHebergement({ resume = false }: { resume?: boolean }) {
+export function AttestationHebergement({ resume = false, mode = "" }: { resume?: boolean; mode?: string }) {
+  // « Mets mes infos » : on remplit avec le compte. Sinon le formulaire reste vide.
+  const own = readOwnInfo(mode, useContext(AttestationAsk));
+  const wantsOwn = Boolean(own) && !resume;
+  const ownSide = wantsOwn ? (own?.role ?? null) : null;
   const uid = useId();
   const [fields, setFields] = useState<AttestationFields>(() => (resume && filled) || { ...EMPTY_FIELDS, faitLe: todayMayotte() });
-  const [step, setStep] = useState<Step>(resume && filled ? "signatures" : "form");
+  const [step, setStep] = useState<Step>(resume && filled ? "signatures" : wantsOwn && !ownSide ? "role" : "form");
+  const [role, setRole] = useState<Person | null>(ownSide);
+  const [fromAccount, setFromAccount] = useState(false);
+  /** Ce que le compte connaît déjà, seulement si la personne a demandé ses infos. */
+  const account = useRef<Promise<AttestationPrefill | null> | null>(null);
   const [touched, setTouched] = useState(false);
   const [signatures, setSignatures] = useState<Partial<Record<Person, Signature>>>({});
   const [photoErrors, setPhotoErrors] = useState<Partial<Record<Person, string>>>({});
@@ -88,6 +99,7 @@ export function AttestationHebergement({ resume = false }: { resume?: boolean })
   const [banked, setBanked] = useState<string | null>(null);
   const [mail, setMail] = useState<{ status: "idle" | "sending" | "sent" | "error"; text?: string }>({ status: "idle" });
   const fileUrl = useRef<string | null>(null);
+  const root = useRef<HTMLElement>(null);
   /** Dernière version rangée : revenir en arrière sans rien changer ne crée pas un doublon sur le Drive. */
   const bankedVersion = useRef<string | null>(null);
   const signatureHelpSent = useRef(resume);
@@ -98,6 +110,33 @@ export function AttestationHebergement({ resume = false }: { resume?: boolean })
     },
     [],
   );
+
+  useEffect(() => {
+    if (!wantsOwn) return;
+    const known = fetch("/api/attestation/prefill", { cache: "no-store" })
+      .then((res) => (res.ok ? (res.json() as Promise<{ prefill: AttestationPrefill }>) : null))
+      .then((data) => data?.prefill ?? null)
+      .catch(() => null);
+    account.current = known;
+    if (!ownSide) return;
+    void known.then((prefill) => {
+      if (!prefill) return;
+      setFields((current) => applyPrefill(current, ownSide, prefill));
+      if (Object.values(prefill).some(Boolean)) setFromAccount(true);
+    });
+  }, [wantsOwn, ownSide]);
+
+  const choose = (person: Person) => {
+    setRole(person);
+    setStep("form");
+    void account.current?.then((known) => {
+      if (!known) return;
+      // Changement de rôle : on repart d'un formulaire vide, sinon son nom resterait des deux côtés.
+      const changed = role !== null && role !== person;
+      setFields((current) => applyPrefill(changed ? { ...EMPTY_FIELDS, faitLe: current.faitLe } : current, person, known));
+      if (Object.values(known).some(Boolean)) setFromAccount(true);
+    });
+  };
 
   const errors = checkFields(fields, todayMayotte());
   const edit = (key: keyof AttestationFields, value: string) => setFields((f) => ({ ...f, [key]: value }));
@@ -145,6 +184,7 @@ export function AttestationHebergement({ resume = false }: { resume?: boolean })
       if (bankedVersion.current !== version) setBanked(null);
       setMail({ status: "idle" });
       setStep("done");
+      boardDone(root.current);
       // Drive relié : la copie part toute seule dans Mes documents (dossier Logement).
       void fetch("/api/drive", { cache: "no-store" })
         .then((res) => (res.ok ? res.json() : null))
@@ -218,18 +258,38 @@ export function AttestationHebergement({ resume = false }: { resume?: boolean })
   );
 
   const shell = (content: React.ReactNode) => (
-    <section aria-label="Attestation d'hébergement" className="not-prose my-3 overflow-hidden rounded-2xl border border-border bg-bg text-sm">
+    <section ref={root} aria-label="Attestation d'hébergement" className="not-prose my-3 overflow-hidden rounded-2xl border border-border bg-bg text-sm">
       {content}
     </section>
   );
 
-  if (step === "form") {
-    const civility = touched ? errors.civilite : undefined;
+  if (step === "role") {
     return shell(
       <>
         {header("Attestation d'hébergement")}
+        <div className="booking-step space-y-2 p-4">
+          <p className="font-medium">Dans cette attestation, tu es…</p>
+          <button type="button" onClick={() => choose("heberge")} className="w-full rounded-full border border-border px-4 py-3 font-medium hover:bg-bg-subtle">
+            Je suis la personne hébergée
+          </button>
+          <button type="button" onClick={() => choose("hebergeant")} className="w-full rounded-full border border-border px-4 py-3 font-medium hover:bg-bg-subtle">
+            Je suis la personne qui héberge
+          </button>
+          <p className="text-center text-[11px] text-fg-muted">Je remplis ton côté avec les informations de ton compte.</p>
+        </div>
+      </>,
+    );
+  }
+
+  if (step === "form") {
+    const civility = touched ? errors.civilite : undefined;
+    const you = (person: Person) => (role === person ? " (toi)" : "");
+    return shell(
+      <>
+        {header("Attestation d'hébergement", wantsOwn ? "role" : undefined)}
         <div className="grid grid-cols-2 gap-2 px-4 pt-3">
-          <p className="col-span-2 text-xs font-semibold tracking-wider text-fg-muted uppercase">La personne qui héberge</p>
+          {fromAccount ? <p className="col-span-2 text-xs text-fg-muted">Rempli avec ton compte : vérifie, puis complète ce qui manque.</p> : null}
+          <p className="col-span-2 text-xs font-semibold tracking-wider text-fg-muted uppercase">La personne qui héberge{you("hebergeant")}</p>
           {input("hebergeantNom", "Nom")}
           {input("hebergeantPrenom", "Prénom")}
           {input("hebergeantNaissanceDate", "Né(e) le", { type: "date" })}
@@ -238,7 +298,7 @@ export function AttestationHebergement({ resume = false }: { resume?: boolean })
           {input("codePostal", "Code postal", { numeric: true })}
           {input("ville", "Ville")}
 
-          <p className="col-span-2 mt-3 text-xs font-semibold tracking-wider text-fg-muted uppercase">La personne hébergée</p>
+          <p className="col-span-2 mt-3 text-xs font-semibold tracking-wider text-fg-muted uppercase">La personne hébergée{you("heberge")}</p>
           <fieldset className="col-span-2">
             <legend className="sr-only">Civilité</legend>
             <div className="flex gap-4">
@@ -276,6 +336,7 @@ export function AttestationHebergement({ resume = false }: { resume?: boolean })
               // La conversation écrit l'explication et remet le bloc dessous ; ailleurs, on reste ici.
               const moved = !window.dispatchEvent(new Event(SIGNATURE_HELP_EVENT, { cancelable: true }));
               setStep(moved ? "moved" : "signatures");
+              if (moved) boardDone(root.current);
             }}
           >
             Continuer

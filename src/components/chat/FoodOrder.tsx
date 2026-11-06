@@ -1,5 +1,7 @@
 "use client";
 
+import { Pictogram } from "@/components/ui/Pictogram";
+import { MapPin } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { FoodResponse } from "@/app/api/food/route";
@@ -8,6 +10,7 @@ import { MAYOTTE_COMMUNES, type GeoPoint } from "@/lib/address-fields";
 import { blockKey as keyOf, moveBlockValue, readBlockValue } from "@/lib/chat/block-key";
 import { DISH_KINDS, dishKindOf, illustrationOf, matchFoodQuery, normalizeFood } from "@/lib/food/match";
 import { COMMUNE_CENTERS, distanceKm, locateMe, PETITE_TERRE } from "@/lib/geo/communes";
+import { boardDone } from "@/lib/voice-live/stage";
 import { formatEuros } from "@/lib/wallet/limits";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { FoodCheckout } from "./FoodCheckout";
@@ -95,7 +98,7 @@ function DishPicture({ dish, className = "" }: { dish: Dish; className?: string 
     >
       <div className="absolute -right-6 -bottom-8 size-24 rounded-full bg-white/10" />
       <span className="text-5xl drop-shadow-lg transition-transform duration-300 group-hover:scale-110">
-        {emojiOf(dish.kind, dish.restaurant.emoji)}
+        <Pictogram of={emojiOf(dish.kind, dish.restaurant.emoji)} className="text-white" />
       </span>
     </div>
   );
@@ -157,7 +160,7 @@ function WhereAreYou({ what, onSpot, onSkip }: { what: string; onSpot: (spot: Sp
     <div className="booking-step space-y-3 p-4">
       <div className="flex items-start gap-3">
         <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center rounded-2xl bg-bg-subtle text-2xl">
-          📍
+          <MapPin size="1em" strokeWidth={1.8} aria-hidden="true" />
         </span>
         <div>
           <p className="text-base font-semibold">Où es-tu ?</p>
@@ -178,7 +181,7 @@ function WhereAreYou({ what, onSpot, onSkip }: { what: string; onSpot: (spot: Sp
         className="flex w-full items-center justify-center gap-2 rounded-full px-4 py-3 font-semibold text-white transition hover:brightness-110 disabled:opacity-60"
         style={{ background: PERSONA }}
       >
-        {locating ? "Recherche de ta position…" : "📍 Utiliser ma position"}
+        {locating ? "Recherche de ta position…" : "Utiliser ma position"}
       </button>
       {problem ? <p className="text-center text-xs text-danger">{problem}</p> : null}
       <label className="flex items-center gap-2 text-xs text-fg-muted">
@@ -403,7 +406,7 @@ export function FoodOrder({ query = "", group = false }: { query?: string; group
 
   const chips = (
     <div className="flex gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none]">
-      {[{ id: null, label: "Tout", emoji: "✨" }, ...kinds].map((k) => {
+      {[{ id: null, label: "Tout" }, ...kinds].map((k) => {
         const selected = kind === k.id;
         return (
           <button
@@ -419,7 +422,7 @@ export function FoodOrder({ query = "", group = false }: { query?: string; group
             }`}
             style={selected ? { background: PERSONA } : undefined}
           >
-            {k.emoji} {k.label}
+            {k.label}
           </button>
         );
       })}
@@ -449,7 +452,7 @@ export function FoodOrder({ query = "", group = false }: { query?: string; group
         <div className="flex items-center gap-2 px-4 pt-4 pb-2">
           <div className="min-w-0 flex-1">
             <p className="text-base font-semibold">
-              {kindInfo?.emoji} {kindInfo?.label} {home ? `près de toi · ${home}` : "à Mayotte"}
+              {kindInfo?.label} {home ? `près de toi · ${home}` : "à Mayotte"}
             </p>
             <p className="truncate text-xs text-fg-muted">
               {shown.length} résultat{shown.length > 1 ? "s" : ""}
@@ -502,7 +505,7 @@ export function FoodOrder({ query = "", group = false }: { query?: string; group
     body = (
       <>
         {header(
-          `${restaurant.emoji} ${restaurant.name}`,
+          restaurant.name,
           `${restaurant.commune} · ${restaurant.etaMinutes[0]}–${restaurant.etaMinutes[1]} min · livraison ${formatEuros(data.deliveryCents)}`,
           () => {
             setRestaurantId(null);
@@ -539,7 +542,7 @@ export function FoodOrder({ query = "", group = false }: { query?: string; group
     body = (
       <>
         {header(
-          kindInfo ? `${kindInfo.emoji} ${kindInfo.label} près de chez toi${home ? ` · ${home}` : ""}` : "Qu'est-ce qui te ferait plaisir ?",
+          kindInfo ? `${kindInfo.label} près de chez toi${home ? ` · ${home}` : ""}` : "Qu'est-ce qui te ferait plaisir ?",
           `${shown.length} plat${shown.length > 1 ? "s" : ""} · payé avec ton portefeuille (solde ${formatEuros(data.balanceCents)})`,
         )}
         {chips}
@@ -610,7 +613,7 @@ export function FoodOrder({ query = "", group = false }: { query?: string; group
               className="flex shrink-0 items-center gap-2 rounded-2xl border border-border px-3 py-2 text-left transition hover:bg-bg-muted"
             >
               <span className="text-xl" aria-hidden="true">
-                {r.emoji}
+                <Pictogram of={r.emoji} />
               </span>
               <span>
                 <span className="block text-xs font-semibold">{r.name}</span>
@@ -632,6 +635,7 @@ export function FoodOrder({ query = "", group = false }: { query?: string; group
     savedKey.current = blockKey(root.current, query);
     localStorage.setItem(savedKey.current, JSON.stringify(order));
     window.dispatchEvent(new Event(ORDER_EVENT));
+    boardDone(root.current);
     setPlaced(order);
     setCheckout(false);
     setCart({ restaurantId: null, items: {} });
@@ -679,7 +683,7 @@ export function FoodOrder({ query = "", group = false }: { query?: string; group
               }}
               className="flex items-center justify-center gap-1.5 rounded-full border border-border px-4 py-2.5 text-sm font-semibold transition hover:bg-bg-subtle active:scale-[0.99]"
             >
-              <span aria-hidden="true">⏰</span> Programmer
+              Programmer
             </button>
             {/* N'encaisse rien : ouvre le récapitulatif, où le vrai bouton « Payer » reste au doigt. */}
             <button

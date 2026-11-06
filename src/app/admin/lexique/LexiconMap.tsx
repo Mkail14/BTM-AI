@@ -1,5 +1,6 @@
 "use client";
 
+import { BranchIcon, Pictogram } from "@/components/ui/Pictogram";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, type CSSProperties } from "react";
 import { nodeRatio, type BranchDef, type KnownEntry, type MapNode } from "@/lib/language/curriculum";
@@ -694,7 +695,7 @@ export function LexiconMap({ tree, branches = [] }: { tree: MapNode; branches?: 
                           <span className="flex flex-col items-center">
                             {p.node.emoji ? (
                               <span aria-hidden="true" className="leading-none" style={{ fontSize: "0.9em" }}>
-                                {p.node.emoji}
+                                <Pictogram of={p.node.emoji} fallback={BranchIcon} />
                               </span>
                             ) : null}
                             <span>

@@ -263,9 +263,10 @@ export function useVoiceConversation(onSend: (text: string) => void) {
 
   // Talkie-walkie et écran épuré : seulement en vocal direct (useLiveVoiceConversation).
   const noPress = undefined as (() => void) | undefined;
+  const noLeave = undefined as (() => void) | undefined;
   const noChoice = undefined as ((mode: TalkMode) => void) | undefined;
   const noStartWith = undefined as ((text: string, fallback: () => void) => void) | undefined;
-  return { live: false, board: false, handsFree: true, choosing: false, choose: noChoice, startWith: noStartWith, press: noPress, release: noPress, supported, state, error, hint, debug, transcript, reply, beat, start, stop, interrupt, say, replied };
+  return { live: false, board: false, stage: false, leaveStage: noLeave, handsFree: true, choosing: false, choose: noChoice, startWith: noStartWith, press: noPress, release: noPress, supported, state, error, hint, debug, transcript, reply, beat, start, stop, interrupt, say, replied };
 }
 
 export type VoiceConversation = ReturnType<typeof useVoiceConversation>;

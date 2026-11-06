@@ -1,3 +1,4 @@
+import { stripEmoji } from "@/lib/chat/no-emoji";
 import dynamic from "next/dynamic";
 import { isValidElement, memo, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
@@ -10,6 +11,7 @@ import { GROUP_BLOCK } from "@/lib/food/group-block";
 import { COMBINED_BLOCK } from "@/lib/voice-live/combined";
 import { parseYouTubeLink } from "@/lib/youtube/link";
 import { UnknownWord } from "./UnknownWord";
+import { VoiceBoard as Board } from "./VoiceBoard";
 import { YouTubeCard } from "./YouTubeCard";
 
 // Tickets de barge, créneaux du code et commande de repas : chargés seulement
@@ -33,9 +35,6 @@ function textOf(node: ReactNode): string {
 export const CODE_EXAM_BLOCK = "creneaux-code";
 /** Bloc ```commande-repas``` : remplacé par la commande de repas (FoodOrder). */
 export const FOOD_BLOCK = "commande-repas";
-
-/** Tableau que Tamilya peut piloter à la voix (lib/voice-live/board.ts). */
-const Board = ({ children }: { children: ReactNode }) => <div data-voice-board>{children}</div>;
 
 // Le HTML brut n'est pas interprété (pas de rehype-raw) : seul le Markdown est rendu.
 const components: Components = {
@@ -88,7 +87,7 @@ const components: Components = {
     if (code === `language-${ATTESTATION_BLOCK}`) {
       return (
         <Board>
-          <AttestationHebergement resume={textOf(children).trim() === SIGNATURES_STEP} />
+          <AttestationHebergement resume={textOf(children).trim() === SIGNATURES_STEP} mode={textOf(children).trim()} />
         </Board>
       );
     }
@@ -138,7 +137,7 @@ export const Markdown = memo(function Markdown({ text }: { text: string }) {
   return (
     <div className="markdown">
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components} urlTransform={safeUrl}>
-        {markUnknownWords(text)}
+        {markUnknownWords(stripEmoji(text))}
       </ReactMarkdown>
     </div>
   );

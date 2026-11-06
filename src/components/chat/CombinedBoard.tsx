@@ -30,7 +30,7 @@ export function CombinedBoard({ text }: { text: string }) {
         <p className="text-xs text-fg-muted">{parts.map((part, index) => `${index + 1}. ${TITLES[part.kind]}`).join(" · ")}</p>
       </div>
       {parts.map((part, index) => (
-        <div key={`${index}-${part.kind}`} className="space-y-1">
+        <div key={`${index}-${part.kind}`} data-board-part className="space-y-1">
           <p className="px-2 text-xs font-semibold tracking-wider text-fg-muted uppercase">
             {index + 1}. {TITLES[part.kind]}
           </p>

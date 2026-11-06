@@ -29,6 +29,11 @@ function pulse(android: number | number[]) {
   return true;
 }
 
+/** Appui sur un bouton : une impulsion nette. */
+export function hapticPress() {
+  pulse(15);
+}
+
 /** Tamilya commence à écrire : une seule petite impulsion. */
 export function hapticWriting() {
   pulse(10);

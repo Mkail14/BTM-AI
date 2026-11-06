@@ -8,6 +8,7 @@ import { ConnectionNotice } from "@/components/layout/ConnectionNotice";
 import { HelpBubble } from "@/components/help/HelpBubble";
 import { EnvBadge } from "@/components/layout/EnvBadge";
 import { DialogHost } from "@/components/ui/ConfirmDialog";
+import { PressHaptics } from "@/components/ui/PressHaptics";
 import { ThemeScript } from "@/components/ui/ThemeScript";
 import { getAuthContext } from "@/lib/auth/session";
 import { getProfile } from "@/lib/conversations/repository";
@@ -79,6 +80,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           <HelpBubble />
         </AuthProvider>
         <ConnectionNotice />
+        <PressHaptics />
         <DialogHost />
         <EnvBadge isAdmin={initialUser?.isAdmin ?? false} />
       </body>

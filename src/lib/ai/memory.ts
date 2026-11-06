@@ -1,4 +1,7 @@
-export type MemoryFact = { kind: string; content: string };
+import { mayotteClock } from "./clock";
+
+/** since : dernière mise à jour du souvenir, quand il vient de la base. */
+export type MemoryFact = { kind: string; content: string; since?: string };
 
 /** Coupe une valeur à la fin de la proposition (« Mamoudzou et je… » → « Mamoudzou »). */
 function clause(value: string, maxChars: number): string {
@@ -48,7 +51,7 @@ export function extractMemories(message: string): MemoryFact[] {
 export type MemoryUpdate = { kind: string; content: string | null };
 
 const MEMORY_KIND = /^[a-z][a-z0-9_]{0,39}$/;
-const LEARN_HINT = /\b(?:je|j|moi|mon|ma|mes|nous|notre|nos|retiens|souviens|rappelle|oublie)\b/i;
+const LEARN_HINT = /\b(?:je|j|moi|mon|ma|mes|nous|notre|nos|retiens|souviens|rappelle|oublie|non|faux|erreur|tromp\w*|plut\w*)\b/i;
 
 /** Vaut-il la peine de demander au modèle ce qu'il faut retenir ? (évite un appel par question ordinaire) */
 export function shouldLearnFrom(message: string): boolean {
@@ -60,6 +63,8 @@ export const MEMORY_SYSTEM_PROMPT = [
   "Tu tiens à jour la mémoire à long terme de Tamilya, l'assistante de BTM AI, sur la personne qui lui parle.",
   "À partir du dernier message de la personne, repère les informations durables qu'elle donne sur elle-même : prénom, lieu, travail, âge, famille, langue préférée, goûts, projets, contraintes d'emploi du temps, façon dont elle veut qu'on lui parle, ou ce qu'elle demande explicitement de retenir.",
   "Ne retiens jamais : santé, religion, orientation sexuelle, opinions politiques, mots de passe, numéros de téléphone ou de carte, adresses e-mail.",
+  "Retiens aussi ce qui l'attend et qui compte pour elle (examen, entretien, voyage, déménagement, naissance), avec sa date exacte calculée depuis la date du jour : kind commençant par evenement_, par exemple « Passe son code le 12 novembre 2026 ».",
+  "Si elle corrige Tamilya sur elle-même, remplace l'ancienne valeur. Si elle la corrige sur un fait précis qu'elle affirme avec certitude, retiens ce qu'elle a dit : kind commençant par correction_, par exemple « A signalé que le marché de Coconi a lieu le dimanche ».",
   "Ignore les questions, les informations sur d'autres sujets, et tout ce qui est passager (humeur du moment, ce qu'elle fait aujourd'hui).",
   "Réponds UNIQUEMENT par un tableau JSON, sans texte autour : [{\"kind\":\"…\",\"content\":\"…\"}].",
   "- kind : identifiant court en minuscules sans accents (lettres, chiffres, _). Réutilise la même sorte qu'une mémoire existante pour la remplacer (prenom, lieu, travail, age… existent déjà).",
@@ -70,9 +75,10 @@ export const MEMORY_SYSTEM_PROMPT = [
 ].join("\n");
 
 /** Message envoyé au modèle de mémoire : mémoire actuelle, dernière réplique de Tamilya et message à analyser. */
-export function buildMemoryRequest(memories: readonly MemoryFact[], previousReply: string | null, message: string): string {
+export function buildMemoryRequest(memories: readonly MemoryFact[], previousReply: string | null, message: string, now: Date = new Date()): string {
   const known = memories.length ? memories.map((m) => `- ${m.kind} : ${m.content}`).join("\n") : "(vide)";
   return [
+    `Date du jour à Mayotte : ${mayotteClock(now)}`,
     `Mémoire actuelle :\n${known}`,
     previousReply ? `Dernière réplique de Tamilya (contexte) :\n${previousReply.slice(0, 600)}` : null,
     `Message de la personne :\n${message.slice(0, 4000)}`,

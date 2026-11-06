@@ -1,12 +1,17 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { getAIProvider } from "@/lib/ai";
 import { loadAwaBrain } from "@/lib/ai/brain";
 import { VOICE_NODE } from "@/lib/ai/flow-events";
 import { startFlowTrace } from "@/lib/ai/flow-trace";
+import { extractMemories } from "@/lib/ai/memory";
+import { getMemories, learnFromMessage, saveMemories } from "@/lib/ai/memory-store";
 import { getAuthContext } from "@/lib/auth/session";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
 import { quickTitle } from "@/lib/chat/title";
-import { createConversation, getConversation, insertMessage } from "@/lib/conversations/repository";
+import { learnWordsFromMessage } from "@/lib/ai/words-store";
+import { createConversation, getConversation, getRecentMessages, insertMessage } from "@/lib/conversations/repository";
 import { buildSnapLexicon, snapToLexicon } from "@/lib/language/snap-lexicon";
 import { isSameOrigin } from "@/lib/security/request";
 import { loadVoiceCorrections } from "@/lib/voice-live/corrections";
@@ -23,6 +28,21 @@ const bodySchema = z.object({
   user: z.string().trim().max(CHAT_LIMITS.maxUserMessageChars),
   tamilya: z.string().trim().max(CHAT_LIMITS.maxStoredMessageChars),
 });
+
+/** Même mémoire qu'à l'écrit : ce qui est dit à la voix sert dès le prochain appel. */
+async function rememberSpoken(supabase: SupabaseClient, userId: string, message: string, previousReply: string | null) {
+  await saveMemories(supabase, userId, extractMemories(message));
+  const ai = await getAIProvider();
+  if (!ai.ok) return;
+  await learnFromMessage(supabase, userId, ai.provider, { message, previousReply, memories: await getMemories(supabase) });
+}
+
+/** Leçon de shimaoré à la voix : le mot va au dictionnaire, comme à l'écrit, et sert dès le prochain appel. */
+async function learnSpokenWords(supabase: SupabaseClient, userId: string, message: string, previousReply: string | null) {
+  const ai = await getAIProvider();
+  if (!ai.ok) return;
+  await learnWordsFromMessage(supabase, userId, ai.provider, { message, previousReply });
+}
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Requête refusée." }, { status: 403 });
@@ -46,8 +66,17 @@ export async function POST(request: NextRequest) {
     // Puis ce que Gemini a écrit à l'oreille est rapproché des mots validés de Tamilya.
     const brain = parsed.data.user ? await loadAwaBrain().catch(() => null) : null;
     const lexicon = buildSnapLexicon(brain?.words.map((word) => word.shimaore) ?? []);
-    const spoken = parsed.data.user ? snapToLexicon(applyVoiceCorrections(parsed.data.user, await loadVoiceCorrections().catch(() => [])), lexicon) : "";
-    if (spoken) await insertMessage(supabase, { conversationId, userId: user.id, role: "user", content: spoken });
+    const heard = parsed.data.user ? applyVoiceCorrections(parsed.data.user, await loadVoiceCorrections().catch(() => [])) : "";
+    const spoken = heard ? snapToLexicon(heard, lexicon) : "";
+    if (spoken) {
+      // La question de Tamilya (« comment on dit chien ? ») donne son sens à une réponse d'un seul mot.
+      const recent = await getRecentMessages(supabase, conversationId, 4).catch(() => []);
+      const previousReply = recent.findLast((message) => message.role === "assistant")?.content ?? null;
+      await insertMessage(supabase, { conversationId, userId: user.id, role: "user", content: spoken });
+      after(() => rememberSpoken(supabase, user.id, spoken, previousReply).catch((error: unknown) => console.error("[vocal direct] Souvenir non enregistré", error)));
+      // Le mot tel qu'il a été entendu, pas rapproché du lexique : un mot nouveau y deviendrait un mot déjà connu.
+      if (user.isAdmin) after(() => learnSpokenWords(supabase, user.id, heard, previousReply).catch((error: unknown) => console.error("[vocal direct] Leçon de shimaoré non enregistrée", error)));
+    }
     if (parsed.data.tamilya) await insertMessage(supabase, { conversationId, userId: user.id, role: "assistant", content: parsed.data.tamilya });
     flow.step("output", true);
     return NextResponse.json({ conversationId });

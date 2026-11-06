@@ -1,5 +1,7 @@
 "use client";
 
+import { Pictogram } from "@/components/ui/Pictogram";
+import { House, MapPin, PhoneCall } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import type { FoodOrderPlaced, FoodResponse } from "@/app/api/food/route";
@@ -313,7 +315,7 @@ export function FoodCheckout({
         <div className="min-w-0 flex-1">
           <p className="text-base font-semibold">Ta commande</p>
           <p className="truncate text-xs text-fg-muted">
-            {restaurant.emoji} {restaurant.name} · {restaurant.etaMinutes[0]}–{restaurant.etaMinutes[1]} min
+            {restaurant.name} · {restaurant.etaMinutes[0]}–{restaurant.etaMinutes[1]} min
           </p>
         </div>
         {data.demo ? (
@@ -385,7 +387,7 @@ export function FoodCheckout({
                   className="sr-only"
                 />
                 <span aria-hidden="true" className="text-lg">
-                  {o.emoji}
+                  <Pictogram of={o.emoji} />
                 </span>
                 <span className="min-w-0">
                   <span className="block font-medium">{o.label}</span>
@@ -449,7 +451,7 @@ export function FoodCheckout({
           >
             <input type="radio" name={`${id}-where`} checked={where === "home"} onChange={() => setWhere("home")} className="sr-only" />
             <span aria-hidden="true" className="text-lg">
-              🏠
+              <House size="1em" strokeWidth={1.8} aria-hidden="true" />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block font-medium">Chez moi</span>
@@ -487,7 +489,7 @@ export function FoodCheckout({
               className="sr-only"
             />
             <span aria-hidden="true" className="text-lg">
-              📍
+              <MapPin size="1em" strokeWidth={1.8} aria-hidden="true" />
             </span>
             <span className="min-w-0 flex-1">
               <span className="block font-medium">Là où je suis</span>
@@ -510,7 +512,7 @@ export function FoodCheckout({
             >
               <input type="radio" name={`${id}-where`} checked={where === a.id} onChange={() => setWhere(a.id)} className="sr-only" />
               <span aria-hidden="true" className="text-lg">
-                {kindOf(a.kind).emoji}
+                <Pictogram of={kindOf(a.kind).emoji} fallback={MapPin} />
               </span>
               <span className="min-w-0 flex-1">
                 <span className="block truncate font-medium">{a.label}</span>
@@ -548,7 +550,7 @@ export function FoodCheckout({
         ) : (
           <p className="flex items-center gap-3 px-1 text-xs text-fg-muted">
             <span aria-hidden="true" className="text-base">
-              📞
+              <PhoneCall size="1em" strokeWidth={1.8} aria-hidden="true" />
             </span>
             <span className="flex-1">
               Le livreur t&apos;appellera au <span className="font-medium text-fg tabular-nums">{data.savedPhone}</span>

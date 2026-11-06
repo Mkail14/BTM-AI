@@ -42,6 +42,18 @@ async function loadWords(admin: NonNullable<ReturnType<typeof getSupabaseAdminCl
   return (data ?? []).map((row) => ({ french: row.french, shimaore: row.shimaore, category: row.category ?? undefined }));
 }
 
+/**
+ * Les derniers mots appris, lus sans passer par le cerveau en cache : un mot appris
+ * à la voix doit être connu dès l'appel suivant, même ouvert juste après.
+ */
+export async function loadRecentWords(limit = 30): Promise<WordEntry[]> {
+  const admin = getSupabaseAdminClient();
+  if (!admin) return [];
+  const { data, error } = await admin.from("awa_words").select("french, shimaore, category").eq("is_active", true).order("created_at", { ascending: false }).limit(limit);
+  if (error) return [];
+  return (data ?? []).map((row) => ({ french: row.french, shimaore: row.shimaore, category: row.category ?? undefined }));
+}
+
 /** Lue à part, comme le dictionnaire : sans la migration, Tamilya garde le reste. */
 async function loadGrammar(admin: NonNullable<ReturnType<typeof getSupabaseAdminClient>>): Promise<GrammarRule[]> {
   const { data, error } = await admin

@@ -35,6 +35,15 @@ export const simplify = (text: string) =>
 /** Bouton qui engage la personne (argent, réservation) : jamais touché à la voix. */
 export const isFingerOnly = (label: string) => FINGER_WORDS.test(simplify(label));
 
+const SMALL_WORDS = new Set(["un", "une", "des", "du", "de", "le", "la", "les", "l", "d", "au", "aux", "mon", "ma", "mes"]);
+
+/** Les mots qui comptent, « ajoute » et « ajouter » étant le même mot. */
+const keyWords = (text: string) =>
+  text
+    .split(" ")
+    .filter((word) => !SMALL_WORDS.has(word))
+    .map((word) => (word.startsWith("ajout") ? "ajouter" : word));
+
 /**
  * Retrouve ce que Tamilya veut toucher : le libellé exact d'abord, sinon le seul
  * qui le contient. Plusieurs possibles : on ne devine pas, elle redemande.
@@ -46,7 +55,14 @@ export function pickControl<T extends { label: string }>(controls: T[], wanted: 
   if (exact.length === 1) return { found: exact[0] };
   if (exact.length > 1) return { choices: exact };
   const close = controls.filter((c) => simplify(c.label).includes(target));
-  return close.length === 1 ? { found: close[0] } : { choices: close };
+  if (close.length) return close.length === 1 ? { found: close[0] } : { choices: close };
+  // « Ajoute un tacos kebab » pour le bouton « Ajouter Tacos kebab » : mêmes mots, sans les petits mots.
+  const asked = keyWords(target);
+  const same = controls.filter((c) => {
+    const words = keyWords(simplify(c.label));
+    return asked.length > 0 && asked.every((word) => words.includes(word));
+  });
+  return same.length === 1 ? { found: same[0] } : { choices: same };
 }
 
 type Control = { el: HTMLElement; label: string; field: boolean };
@@ -88,6 +104,7 @@ export function describeBoard(): string {
   if (!board) return "Aucun tableau à l'écran : actionne d'abord le bon bouton.";
   if (document.querySelector("dialog[open]")) return "Une fenêtre est ouverte par-dessus le tableau : la personne la finit au doigt, puis tu pourras reprendre.";
   const controls = controlsOf(board);
+  if (!controls.length) return `Le tableau se charge encore, relis-le dans un instant avec lire_tableau. Texte affiché : ${clean(board.innerText).slice(0, 300)}`;
   const list = (items: Control[]) => items.slice(0, MAX_LISTED).map((c) => `"${c.label}"`).join(", ") || "aucun";
   const fields = controls.filter((c) => c.field);
   const buttons = controls.filter((c) => !c.field);
@@ -107,15 +124,22 @@ function describeField(c: Control) {
   return `"${c.label}" (au choix : ${options.join(", ")})`;
 }
 
-/** Attend le nouveau tableau (chargé à part, avec ses données) sans faire attendre Tamilya trop longtemps. */
-export async function waitForBoard(before: number, maxMs = 1500) {
+/**
+ * Attend le nouveau tableau, chargé à part avec ses données : Tamilya doit voir ses
+ * boutons pour pouvoir les toucher. `onShown` est appelé dès qu'il existe, même vide.
+ */
+export async function waitForBoard(before: number, onShown?: () => void, maxMs = 8000) {
   const deadline = performance.now() + maxMs;
+  let shown = false;
   while (performance.now() < deadline) {
     const board = boardCount() > before ? currentBoard() : null;
-    if (board && controlsOf(board).length) break;
+    if (board && !shown) {
+      shown = true;
+      onShown?.();
+    }
+    if (board && controlsOf(board).length) return;
     await wait(80);
   }
-  if (boardCount() > before) currentBoard()?.scrollIntoView({ block: "start", behavior: "smooth" });
 }
 
 /** Flash arc-en-ciel sur ce que Tamilya touche : la personne suit son doigt invisible. */

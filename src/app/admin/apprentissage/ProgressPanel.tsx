@@ -100,7 +100,7 @@ export function ProgressPanel({
           Dans ses réponses au maître, semaine par semaine. Plus la barre est courte, mieux elle parle.
           {trend !== null && trend !== 0
             ? trend > 0
-              ? ` ${trend} point${trend > 1 ? "s" : ""} de moins que la semaine d'avant 🎉`
+              ? ` ${trend} point${trend > 1 ? "s" : ""} de moins que la semaine d'avant`
               : ` ${-trend} point${trend < -1 ? "s" : ""} de plus que la semaine d'avant.`
             : ""}
         </p>
@@ -135,7 +135,7 @@ export function ProgressPanel({
           appris. Donnez le shimaoré ici, c&apos;est retenu tout de suite.
         </p>
         {toLearn.length === 0 ? (
-          <p className="mt-3 text-sm text-fg-muted">Rien en attente : tout ce qu&apos;elle a dit en français est déjà appris. 👏</p>
+          <p className="mt-3 text-sm text-fg-muted">Rien en attente : tout ce qu&apos;elle a dit en français est déjà appris.</p>
         ) : (
           <ul className="mt-3 space-y-2">
             {toLearn.map((item) => (

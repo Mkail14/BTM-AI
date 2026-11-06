@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { PDFDocument, StandardFonts } from "pdf-lib";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
-import { attestationBlock, detectAttestation } from "@/lib/attestation/intent";
+import { attestationBlock, attestationOwnBlock, detectAttestation, ownRole, readOwnInfo, wantsOwnInfo } from "@/lib/attestation/intent";
+import { applyPrefill, splitAddressLine, splitDisplayName } from "@/lib/attestation/prefill";
 import { checkFields, dateFr, EMPTY_FIELDS, todayMayotte, type AttestationFields } from "@/lib/attestation/fields";
 import { attestationFileName, buildAttestationPdf, pdfText, splitAddress } from "@/lib/attestation/pdf";
 import { SIGNATURE_HELP, signaturesBlock } from "@/lib/attestation/intent";
@@ -166,5 +167,68 @@ describe("Attestation : PDF", () => {
     assert.equal(pdfText("  Dvořák\n  😀 "), "Dvorák");
     assert.equal(pdfText("Mélanie N’Guyen"), "Mélanie N’Guyen");
     assert.equal(attestationFileName({ ...FILLED, hebergeNom: "Ben Saïd" }), "attestation-hebergement-ben-said.pdf");
+  });
+});
+
+describe("Attestation : remplie avec le compte", () => {
+  const known = { civility: "Mme", firstName: "Awa", lastName: "Madi", birthDate: "1990-02-03", address: "12 rue du Lagon", postalCode: "97600", city: "Mamoudzou" };
+
+  it("remplit le côté choisi, et lui seul", () => {
+    const heberge = applyPrefill(EMPTY_FIELDS, "heberge", known);
+    assert.equal(heberge.hebergeNom, "Madi");
+    assert.equal(heberge.hebergePrenom, "Awa");
+    assert.equal(heberge.hebergeNaissanceDate, "1990-02-03");
+    assert.equal(heberge.civilite, "Mme");
+    assert.equal(heberge.hebergeantNom, "");
+    const hebergeant = applyPrefill(EMPTY_FIELDS, "hebergeant", known);
+    assert.equal(hebergeant.hebergeantNom, "Madi");
+    assert.equal(hebergeant.hebergeNom, "");
+    assert.equal(hebergeant.adresse, "12 rue du Lagon");
+    assert.equal(hebergeant.faitA, "Mamoudzou");
+  });
+
+  it("ne remplace pas ce que la personne a écrit", () => {
+    assert.equal(applyPrefill({ ...EMPTY_FIELDS, hebergeNom: "Said" }, "heberge", known).hebergeNom, "Said");
+  });
+
+  it("sépare le nom affiché et l'adresse sans rien inventer", () => {
+    assert.deepEqual(splitDisplayName("Awa Madi Said"), { firstName: "Awa", lastName: "Madi Said" });
+    assert.deepEqual(splitDisplayName("Awa"), { firstName: "Awa", lastName: undefined });
+    assert.deepEqual(splitAddressLine("12 rue du Lagon, 97600 Mamoudzou"), { address: "12 rue du Lagon", postalCode: "97600" });
+    assert.deepEqual(splitAddressLine("12 rue du Lagon"), { address: "12 rue du Lagon", postalCode: undefined });
+  });
+});
+
+describe("Attestation : remplie seulement si on le demande", () => {
+  it("reste vide sans demande", () => {
+    assert.equal(readOwnInfo("formulaire", "Je veux faire une attestation d'hébergement"), null);
+  });
+
+  it("comprend tout de suite les façons de le dire", () => {
+    for (const phrase of ["mets mes infos", "met mes informations", "fais-la à mon nom", "fais moi un attestation de prenom amon nom", "avec mon nom et mon adresse"]) {
+      assert.equal(wantsOwnInfo(phrase), true, phrase);
+    }
+    assert.equal(wantsOwnInfo("mon nom c'est Ali Madi"), false);
+    assert.equal(wantsOwnInfo("Je veux faire une attestation d'hébergement"), false);
+  });
+
+  it("ouvre l'attestation même sans le mot hébergement, sauf pour un autre papier", () => {
+    assert.equal(detectAttestation("fais moi un attestation de prenom amon nom"), true);
+    assert.equal(detectAttestation("fais-moi une attestation à mon nom"), true);
+    assert.equal(detectAttestation("une attestation de travail à mon nom"), false);
+    assert.equal(detectAttestation("attestation de travail"), false);
+  });
+
+  it("lit le rôle dans la phrase", () => {
+    assert.equal(ownRole("je suis hébergé chez ma tante, mets mes infos"), "heberge");
+    assert.equal(ownRole("j'héberge mon frère, à mon nom"), "hebergeant");
+    assert.equal(ownRole("mets mes infos"), null);
+    assert.deepEqual(readOwnInfo("formulaire", "je suis hébergée, mets mes infos"), { role: "heberge" });
+  });
+
+  it("au vocal, le bloc porte la demande", () => {
+    assert.deepEqual(readOwnInfo("mes-infos:hebergeant", ""), { role: "hebergeant" });
+    assert.deepEqual(readOwnInfo("mes-infos", ""), { role: null });
+    assert.ok(attestationOwnBlock("heberge").includes("mes-infos:heberge"));
   });
 });

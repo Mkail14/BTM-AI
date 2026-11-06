@@ -1,5 +1,5 @@
 import "server-only";
-import { attestationBlock } from "@/lib/attestation/intent";
+import { attestationBlock, attestationOwnBlock } from "@/lib/attestation/intent";
 import { bargeBlockFor } from "@/lib/barge/intent";
 import { btmDevisBlockFor } from "@/lib/btm/intent";
 import { addWhenToBlock, parseCodeExamWhen } from "@/lib/code-exam/when";
@@ -65,8 +65,14 @@ export function liveToolDeclarations(access: LiveAccess) {
     {
       name: "attestation_hebergement",
       description:
-        "Ouvre à l'écran l'attestation d'hébergement à titre gratuit quand la personne veut la faire, puis remplis-la à sa place. Préviens d'abord en une phrase que ce qu'elle dit passe par le vocal et reste écrit dans la conversation. Pose une seule question à la fois, écris chaque réponse avec remplir_tableau, et fais épeler les noms de famille. Champs de date : écris au format AAAA-MM-JJ. Quand tout est rempli, relis le nom des deux personnes et l'adresse. Puis touche « Préparer pour signer à la main », lis le rappel de la loi à voix haute, touche « Créer le PDF à imprimer » et enfin le bouton qui l'enregistre. Tu ne signes jamais, tu ne certifies jamais à la place de quelqu'un, et tu n'inventes aucune information : chaque personne signe elle-même à la main.",
-      parameters: { type: "OBJECT", properties: {} },
+        "Ouvre à l'écran l'attestation d'hébergement à titre gratuit quand la personne veut la faire, puis remplis-la à sa place. Préviens d'abord en une phrase que ce qu'elle dit passe par le vocal et reste écrit dans la conversation. Si elle dit de mettre ses infos ou son nom (« mets mes infos », « à mon nom »), comprends-le tout de suite : passe mes_infos à vrai, avec son rôle s'il est connu ; sinon le tableau le lui demande, demande-le-lui aussi et touche le bouton. Si elle le dit une fois le tableau ouvert, rappelle ce bouton avec mes_infos. Son côté se remplit alors tout seul avec son compte : relis-le avec lire_tableau, ne redemande jamais ce qui est écrit et ne demande jamais son nom. Sans cette demande, ne mets rien de son compte. Pose une seule question à la fois, seulement sur ce qui manque, et écris chaque réponse avec remplir_tableau. Fais épeler le nom de famille de l'autre personne. Champs de date : écris au format AAAA-MM-JJ. Quand tout est rempli, relis le nom des deux personnes et l'adresse. Puis touche « Préparer pour signer à la main », lis le rappel de la loi à voix haute, touche « Créer le PDF à imprimer » et enfin le bouton qui l'enregistre. Tu ne signes jamais, tu ne certifies jamais à la place de quelqu'un, et tu n'inventes aucune information : chaque personne signe elle-même à la main.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          mes_infos: { type: "BOOLEAN", description: "Vrai seulement si elle demande d'y mettre ses infos ou son nom." },
+          role: { type: "STRING", enum: ["heberge", "hebergeant"], description: "Son rôle, si elle l'a dit : heberge (elle est hébergée) ou hebergeant (elle héberge)." },
+        },
+      },
     },
     {
       name: "tableau_combine",
@@ -125,7 +131,7 @@ export function liveToolDeclarations(access: LiveAccess) {
     },
     {
       name: "toucher_tableau",
-      description: "Touche un bouton du tableau affiché, à la place de la personne (elle le voit bouger) : choisir une ville, un jour, une heure, un restaurant, ajouter un ticket ou un plat. Renvoie le tableau après le toucher. Impossible pour payer ou réserver : c'est au doigt.",
+      description: "Touche un bouton du tableau affiché, à la place de la personne (elle le voit bouger) : choisir une ville, un jour, une heure, un restaurant, ajouter un ticket ou un plat. Renvoie le tableau après le toucher. Pour payer ou réserver, seulement si elle te le demande : l'écran affiche alors un avertissement.",
       parameters: { type: "OBJECT", properties: { bouton: text("Le libellé du bouton, exactement comme dans la liste reçue.") }, required: ["bouton"] },
     },
     {
@@ -160,7 +166,8 @@ export function liveToolBlock(name: string, args: Record<string, unknown>, acces
     case "devis_btm":
       return btmDevisBlockFor(arg(args, "demande") || "devis").trim();
     case "attestation_hebergement":
-      return attestationBlock.trim();
+      if (args.mes_infos !== true) return attestationBlock.trim();
+      return attestationOwnBlock(args.role === "heberge" || args.role === "hebergeant" ? args.role : null);
     case "tableau_combine": {
       const tools: Record<string, string> = { repas: "commander_repas", barge: "ticket_barge", code: "reserver_code", devis: "devis_btm" };
       const parties = Array.isArray(args.parties) ? args.parties.slice(0, 4) : [];

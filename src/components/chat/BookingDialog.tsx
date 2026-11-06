@@ -4,6 +4,7 @@ import { useEffect, useId, useRef, useState, type InputHTMLAttributes, type Reac
 import type { BookingPayment, CandidatePrefill } from "@/app/api/code-exam/requests/route";
 import { celebrate } from "@/components/ui/Celebration";
 import { IconClose } from "@/components/ui/icons";
+import { boardDone } from "@/lib/voice-live/stage";
 import { formatEuros } from "@/lib/wallet/limits";
 import { authRequiredPath } from "@/lib/auth/redirect";
 import {
@@ -133,7 +134,6 @@ export function BookingDialog({ slot, onClose }: { slot: BookingSlot; onClose: (
         window.dispatchEvent(new Event("focus"));
         // La fenêtre se ferme et une notification animée annonce la bonne nouvelle.
         celebrate({
-          emoji: "🚗",
           title: "Place réservée !",
           amount: paid ? `${formatEuros(paid)} payés` : undefined,
           subtitle: `La Poste de ${slot.centerName} · ${slot.when}`,
@@ -143,6 +143,7 @@ export function BookingDialog({ slot, onClose }: { slot: BookingSlot; onClose: (
               : "Ta convocation arrive par e-mail."
             : "Simulation : aucune vraie place prise, rien n'est payé.",
         });
+        boardDone(ref.current);
         ref.current?.close();
       } else setServerError(answer.error ?? "Réservation impossible.");
     } catch {

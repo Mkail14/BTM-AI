@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { buildSystemPrompt } from "@/lib/ai";
-import { knowledgeFor, lexiconFor, loadAwaBrain, wordsFor } from "@/lib/ai/brain";
+import { knowledgeFor, lexiconFor, loadAwaBrain, loadRecentWords, wordsFor } from "@/lib/ai/brain";
+import { withRecentWords } from "@/lib/ai/words";
 import { buildDossier } from "@/lib/ai/dossier";
 import { getMemoriesFor } from "@/lib/ai/memory-store";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
@@ -46,8 +47,9 @@ export async function POST(request: NextRequest) {
 
   const admin = getSupabaseAdminClient();
   const sessionUser = { id: ticket.uid, email: null, isAdmin: ticket.admin, isPrincipalAdmin: false };
-  const [brain, profile, voice, memories, dossier, news, food, barge, corrections] = await Promise.all([
+  const [brain, recentWords, profile, voice, memories, dossier, news, food, barge, corrections] = await Promise.all([
     loadAwaBrain(),
+    loadRecentWords().catch(() => []),
     admin ? readChatProfile(admin, ticket.uid).catch(() => null) : Promise.resolve(null),
     loadVoice(),
     admin ? getMemoriesFor(admin, ticket.uid).catch(() => []) : Promise.resolve([]),
@@ -68,7 +70,7 @@ export async function POST(request: NextRequest) {
     rules: brain.rules,
     lexicon: lexiconFor(brain, personality, ""),
     grammar: brain.grammar,
-    words: wordsFor(brain, "", ticket.admin),
+    words: withRecentWords(wordsFor(brain, "", ticket.admin), recentWords),
     knowledge: knowledgeFor(brain, ""),
     memories,
     dossier,

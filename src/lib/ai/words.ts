@@ -146,6 +146,12 @@ export function selectWords<T extends WordEntry>(
   return kept;
 }
 
+/** Les mots les plus récents d'abord : pour un même mot français, la dernière leçon remplace l'ancienne. */
+export function withRecentWords<T extends WordEntry>(words: readonly T[], recent: readonly T[]): T[] {
+  const known = new Set(recent.map((word) => word.french.trim().toLowerCase()));
+  return [...recent, ...words.filter((word) => !known.has(word.french.trim().toLowerCase()))];
+}
+
 export type Gloss = {
   /** Mots shimaoré du message reconnus : tels qu'écrits, et leur entrée du vocabulaire. */
   known: { written: string; french: string; shimaore: string }[];

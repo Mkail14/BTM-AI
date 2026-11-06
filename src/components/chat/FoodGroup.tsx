@@ -116,7 +116,7 @@ export function FoodGroup({
         {kept.map((stop) => (
           <li key={stop.restaurant.id} className="rounded-2xl border border-border p-3">
             <p className="font-semibold">
-              {stop.restaurant.emoji} {stop.restaurant.name}
+              {stop.restaurant.name}
             </p>
             <ul className="mt-1 space-y-0.5">
               {stop.picks.map((pick) => (

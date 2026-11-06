@@ -194,6 +194,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                       key={conversation.id}
                       id={conversation.id}
                       title={conversation.title}
+                      connect={conversation.source === "connect"}
                       active={active}
                       deleting={deletingId === conversation.id}
                       onNavigate={onClose}

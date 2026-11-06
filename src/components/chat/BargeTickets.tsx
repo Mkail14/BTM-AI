@@ -1,7 +1,10 @@
 "use client";
 
+import { Pictogram } from "@/components/ui/Pictogram";
+import { Ship } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { boardDone } from "@/lib/voice-live/stage";
 import type { BargeResponse, BargeTicketBought } from "@/app/api/barge/route";
 import { parseBargeRequest } from "@/lib/barge/intent";
 import { blockKey as keyOf, moveBlockValue, readBlockValue } from "@/lib/chat/block-key";
@@ -75,7 +78,7 @@ function BoughtTicket({ ticket }: { ticket: BargeTicketBought }) {
           {ticket.lines.map((l) => (
             <li key={`${l.label}${l.detail}`} className="flex justify-between gap-2">
               <span>
-                {l.emoji} {l.quantity}× {l.label}
+                {l.quantity}× {l.label}
                 {l.label === "Poids lourd" ? <span className="text-fg-muted"> ({l.detail})</span> : null}
               </span>
             </li>
@@ -177,6 +180,7 @@ export function BargeTickets({ query = "" }: { query?: string }) {
       savedKey.current = blockKey(root.current);
       localStorage.setItem(savedKey.current, JSON.stringify(body));
       setBought(body);
+      boardDone(root.current);
       setCart({});
       // La barre latérale relit le solde.
       window.dispatchEvent(new Event("focus"));
@@ -215,7 +219,7 @@ export function BargeTickets({ query = "" }: { query?: string }) {
       {/* Trajet, en une ligne */}
       <div className="flex items-center gap-3 px-4 pt-4">
         <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-bg-subtle text-xl">
-          ⛴️
+          <Ship size="1em" strokeWidth={1.8} aria-hidden="true" />
         </span>
         <div className="min-w-0 flex-1">
           <p className="truncate font-semibold">
@@ -253,7 +257,7 @@ export function BargeTickets({ query = "" }: { query?: string }) {
             {lines.map(({ ticket, quantity }) => (
               <li key={ticket.id} className="flex items-center gap-3 px-3 py-2.5">
                 <span aria-hidden="true" className="text-xl">
-                  {ticket.emoji}
+                  <Pictogram of={ticket.emoji} fallback={Ship} />
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block font-medium">
@@ -304,7 +308,7 @@ export function BargeTickets({ query = "" }: { query?: string }) {
                   }}
                   className="flex w-full items-center gap-2 rounded-xl border border-border px-2.5 py-2 text-left transition hover:bg-bg-muted"
                 >
-                  <span aria-hidden="true">{ticket.emoji}</span>
+                  <Pictogram of={ticket.emoji} fallback={Ship} />
                   <span className="min-w-0">
                     <span className="block truncate text-xs font-medium">{ticket.label === "Poids lourd" ? `PL ${ticket.detail}` : ticket.label}</span>
                     <span className="block text-[11px] text-fg-muted tabular-nums">{formatEuros(ticket.priceCents)}</span>

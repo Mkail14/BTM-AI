@@ -16,6 +16,7 @@ const LONG_PRESS_MS = 450;
 export function ConversationItem({
   id,
   title,
+  connect = false,
   active,
   deleting,
   onNavigate,
@@ -23,6 +24,8 @@ export function ConversationItem({
 }: {
   id: string;
   title: string;
+  /** Conversation née dans Tamilya Connect : petite marque après le titre. */
+  connect?: boolean;
   active: boolean;
   deleting: boolean;
   onNavigate: () => void;
@@ -83,11 +86,17 @@ export function ConversationItem({
         onContextMenu={(event) => {
           if (window.matchMedia("(pointer: coarse)").matches) event.preventDefault();
         }}
-        className={`block truncate rounded-lg py-2 pr-9 pl-2 text-sm select-none [-webkit-touch-callout:none] ${
+        className={`flex items-center gap-1.5 rounded-lg py-2 pr-9 pl-2 text-sm select-none [-webkit-touch-callout:none] ${
           active || menuOpen ? "bg-bg-muted font-medium" : "hover:bg-bg-muted"
         }`}
       >
-        {title}
+        <span className="min-w-0 truncate">{title}</span>
+        {connect ? <span className="sr-only"> (Tamilya Connect)</span> : null}
+        {connect ? (
+          <span aria-hidden="true" className="shrink-0 rounded-full border border-border px-1.5 py-px text-[10px] font-medium text-fg-muted">
+            Connect
+          </span>
+        ) : null}
       </Link>
 
       <button

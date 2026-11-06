@@ -41,10 +41,14 @@ export type ChatStreamEvent =
   | { type: "done"; finishReason: FinishReason }
   | { type: "error"; code: ChatErrorCode; message: string };
 
+/** Où la conversation a commencé : Tamilya normale ou Tamilya Connect (sans internet). */
+export type ConversationSource = "tamilya" | "connect";
+
 export type ConversationSummary = {
   id: string;
   title: string;
   updatedAt: string;
+  source: ConversationSource;
 };
 
 export type StoredMessage = {

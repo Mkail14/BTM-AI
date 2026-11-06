@@ -26,7 +26,7 @@ import type {
 /** Client d'écriture : la clé secrète si elle est là, sinon celui de la session (développement). */
 const writer = (supabase: SupabaseClient) => getSupabaseAdminClient() ?? supabase;
 
-type ConversationRow = { id: string; title: string; updated_at: string };
+type ConversationRow = { id: string; title: string; updated_at: string; source?: string };
 type MessageRow = {
   id: string;
   role: ChatRole;
@@ -36,7 +36,7 @@ type MessageRow = {
 };
 
 function toSummary(row: ConversationRow): ConversationSummary {
-  return { id: row.id, title: row.title, updatedAt: row.updated_at };
+  return { id: row.id, title: row.title, updatedAt: row.updated_at, source: row.source === "connect" ? "connect" : "tamilya" };
 }
 
 function toMessage(row: MessageRow): StoredMessage {
@@ -52,7 +52,8 @@ function toMessage(row: MessageRow): StoredMessage {
 export async function listConversations(supabase: SupabaseClient, limit = 50) {
   const { data, error } = await supabase
     .from("conversations")
-    .select("id, title, updated_at")
+    // « * » : l'historique reste lisible avant la migration de « source ».
+    .select("*")
     .order("updated_at", { ascending: false })
     .limit(limit);
   if (error) throw error;
@@ -92,6 +93,15 @@ export async function countMessages(supabase: SupabaseClient, conversationId: st
     .eq("conversation_id", conversationId);
   if (error) throw error;
   return count ?? 0;
+}
+
+/**
+ * Marque une conversation née dans Tamilya Connect. À part de la création, et sans
+ * bloquer : avant la migration de « source », le message doit quand même passer.
+ */
+export async function markConnectConversation(supabase: SupabaseClient, id: string) {
+  const { error } = await writer(supabase).from("conversations").update({ source: "connect" }).eq("id", id);
+  if (error) console.warn("[conversations] Marque Connect impossible", error.message);
 }
 
 export async function createConversation(

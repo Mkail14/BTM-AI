@@ -5,7 +5,7 @@ import { getAuthContext } from "@/lib/auth/session";
 import { canOrderFood } from "@/lib/food/access";
 import { canBuyBargeTickets } from "@/lib/barge/access";
 import { BARGE_BLOCK, bargeBlockFor, bargeSpec, detectBargeTicket } from "@/lib/barge/intent";
-import { ATTESTATION_BLOCK, attestationBlock, detectAttestation } from "@/lib/attestation/intent";
+import { ATTESTATION_BLOCK, attestationBlock, detectAttestation, wantsOwnInfo } from "@/lib/attestation/intent";
 import { BTM_DEVIS_BLOCK, btmDevisBlockFor, btmDevisSpec, detectBtmDevis } from "@/lib/btm/intent";
 import { FOOD_CATALOG } from "@/lib/food/catalog";
 import { GROUP_BLOCK, groupBlock } from "@/lib/food/group-block";
@@ -49,7 +49,7 @@ import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
 import { consumeRateLimits, type RateLimitSubject } from "@/lib/rate-limit";
 import { loadRateLimitPolicies } from "@/lib/rate-limit/settings";
 import { getClientIp, hashIdentifier, isSameOrigin } from "@/lib/security/request";
-import { isComplexRequest, needsWebSearch } from "@/lib/ai/depth";
+import { isChallenge, isComplexRequest, needsWebSearch } from "@/lib/ai/depth";
 
 export const maxDuration = 120;
 
@@ -92,7 +92,7 @@ function providerErrorCode(error: unknown): ChatErrorCode {
 /** Réponse de Tamilya à une leçon de shimaoré : ce qu'elle a retenu, et les lignes qu'elle n'a pas comprises. */
 function lessonReply({ words, rejected }: WordList): string {
   const lines = [
-    words.length === 1 ? "C'est noté ✅ J'ai appris ce mot :" : `C'est noté ✅ J'ai appris ces ${words.length} mots :`,
+    words.length === 1 ? "C'est noté. J'ai appris ce mot :" : `C'est noté. J'ai appris ces ${words.length} mots :`,
     ...words.slice(0, 30).map((w) => `- ${w.french} → **${w.shimaore}**`),
   ];
   if (words.length > 30) lines.push(`- … et ${words.length - 30} autres`);
@@ -341,7 +341,7 @@ export async function POST(request: NextRequest) {
         flow.step("output", true);
       } catch (error) {
         console.error("[chat] Leçon non enregistrée", error);
-        reply = "Je n'ai pas réussi à enregistrer ces mots 😕 Le dictionnaire est indisponible : réessaie plus tard.";
+        reply = "Je n'ai pas réussi à enregistrer ces mots. Le dictionnaire est indisponible : réessaie plus tard.";
         flow.step("prompt", false, "leçon non enregistrée");
       }
       try {
@@ -387,8 +387,10 @@ export async function POST(request: NextRequest) {
   const master = Boolean(user?.isAdmin) && body.shimaoreLesson === true;
   // Raisonnement adaptatif (règles, sans appel en plus) : réflexion profonde et recherche Google
   // seulement quand le message le mérite. Pas à l'oral, où la vitesse prime.
-  const deep = !body.voice && isComplexRequest(body.message);
-  const search = !body.voice && needsWebSearch(body.message);
+  // Réponse contestée : Tamilya vérifie (réflexion et recherche), même sur un message très court.
+  const challenged = !master && history.length > 0 && isChallenge(body.message);
+  const deep = !body.voice && (challenged || isComplexRequest(body.message));
+  const search = !body.voice && (challenged || needsWebSearch(body.message));
   const known = master ? knownTranslations(brain) : new Map<string, string>();
   const toShimaore = (reply: string) => fillKnownWords(enforceShimaore(reply), known);
   const messages: ChatTurn[] = [
@@ -414,7 +416,9 @@ export async function POST(request: NextRequest) {
   // Demande de devis BTM (mur, dalle…) reconnue ici : le devis s'ouvre à coup sûr.
   const btmDevis = !body.voice && detectBtmDevis(body.message) ? btmDevisSpec(body.message) : null;
   // Demande d'attestation d'hébergement reconnue ici : le formulaire s'ouvre à coup sûr.
-  const attestation = !body.voice && detectAttestation(body.message);
+  // « Mets mes infos » juste après l'ouverture : c'est la même attestation.
+  const attestationOpen = history.slice(-4).some((turn) => turn.role === "assistant" && turn.content.includes(ATTESTATION_BLOCK));
+  const attestation = !body.voice && (detectAttestation(body.message) || (attestationOpen && wantsOwnInfo(body.message)));
   // Jour voulu pour le code (« demain », « vendredi matin ») : calculé ici, les modèles se trompent de date.
   const codeWhen = parseCodeExamWhen(body.message);
   const system = buildSystemPrompt(DEFAULT_PERSONALITY, {
@@ -432,7 +436,9 @@ export async function POST(request: NextRequest) {
     dossier,
     teacher: master,
     voice: body.voice,
-    deep,
+    // Elle réfléchit plus, mais répond court : pas de longue réponse structurée à « c'est faux ».
+    deep: deep && !challenged,
+    challenged,
     search,
     reportUnknownWords: true,
     home,
@@ -462,8 +468,7 @@ export async function POST(request: NextRequest) {
   let learning: Promise<TaughtWord[]> | null = null;
   if (user && supabase) {
     const previousReply = [...history].reverse().find((turn) => turn.role === "assistant")?.content ?? null;
-    // Un seul appel de fond par message : les API gratuites ont des quotas très bas.
-    // Avec le maître, c'est le relevé du shimaoré (sa mémoire passe par extractMemories, sans appel).
+    // Avec le maître, un seul appel de fond : le relevé du shimaoré (sa mémoire passe par extractMemories).
     if (user.isAdmin) {
       learning = learnWordsFromMessage(supabase, user.id, ai.provider, { message: body.message, previousReply }).catch((error: unknown) => {
         console.error("[chat] Leçon de shimaoré non enregistrée", error);
@@ -471,7 +476,8 @@ export async function POST(request: NextRequest) {
       });
       const pending = learning;
       after(() => pending);
-    } else {
+    }
+    if (!master) {
       after(() =>
         learnFromMessage(supabase, user.id, ai.provider, { message: body.message, previousReply, memories }).catch((error: unknown) =>
           console.error("[chat] Apprentissage de fond non enregistré", error),

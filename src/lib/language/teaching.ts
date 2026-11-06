@@ -76,7 +76,7 @@ export function mayBeTeaching(message: string, previousReply: string | null): bo
 export const TEACHING_SYSTEM_PROMPT = [
   "Un locuteur du shimaoré (langue de Mayotte), membre de GROUPE BTM, apprend sa langue à Tamilya en parlant avec elle en français, souvent à la voix (la dictée peut écrire le shimaoré de façon approximative).",
   "À partir de son dernier message, et de la dernière réplique de Tamilya pour le contexte, relève chaque mot ou phrase qu'il enseigne ou corrige : son sens en français et sa forme en shimaoré, telle qu'il l'écrit.",
-  "Exemples : « chez nous bonjour c'est jéjé » → bonjour / jéjé ; Tamilya demande « comment dit-on maison ? » et il répond « nyumba » → maison / nyumba ; « non, merci se dit marahaba » → merci / marahaba ; « ça s'écrit avec un y : nyumba » → reprends le mot dont il parle avec la bonne orthographe.",
+  "Exemples : « chez nous bonjour c'est jéjé » → bonjour / jéjé ; Tamilya demande « comment dit-on maison ? » et il répond « nyumba » → maison / nyumba ; « non, merci se dit marahaba » → merci / marahaba ; « ça s'écrit avec un y : nyumba » → reprends le mot dont il parle avec la bonne orthographe ; Tamilya redit « maison se dit nyumba, c'est bien ça ? » et il répond « oui » → maison / nyumba.",
   "Tamilya parle shimaoré avec lui et écrit en français entre doubles crochets les mots qu'elle ne connaît pas (ex. [[marché]]) : s'il en donne la traduction, même seule (« bazari »), relève-la pour ce mot.",
   "Ne relève rien que Tamilya a proposé sans qu'il le confirme, et rien qu'il ne donne pas lui-même. N'invente aucune traduction.",
   "Réponds UNIQUEMENT par un tableau JSON, sans texte autour : [{\"french\":\"…\",\"shimaore\":\"…\"}], 80 caractères maximum de chaque côté. Rien d'enseigné : [].",

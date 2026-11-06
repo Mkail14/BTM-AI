@@ -168,8 +168,9 @@ export default function PrivacyPage() {
 
         <Section id="memoire" title="La mémoire de Tamilya">
           <p>
-            Avec un compte, Tamilya retient quelques informations que vous lui donnez sur vous, pour mieux vous répondre la
-            fois suivante : votre prénom, votre commune, votre travail ou votre âge.
+            Avec un compte, Tamilya retient quelques informations que vous lui donnez sur vous, à l&apos;écrit comme à la
+            voix, pour mieux vous répondre la fois suivante : votre prénom, votre commune, votre travail, votre âge, vos
+            goûts, vos projets, vos prochaines échéances et les corrections que vous lui apportez.
           </p>
           <p>
             Elle a l&apos;interdiction de retenir les informations sensibles : santé, religion, orientation sexuelle,

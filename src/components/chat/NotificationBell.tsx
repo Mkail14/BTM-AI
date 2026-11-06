@@ -1,5 +1,7 @@
 "use client";
 
+import { Pictogram } from "@/components/ui/Pictogram";
+import { Bell } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -263,7 +265,7 @@ export function NotificationBell() {
                 {items.length === 0 ? (
                   <div className="px-6 py-12 text-center">
                     <p className="text-3xl" aria-hidden="true">
-                      🔔
+                      <Bell size="1em" strokeWidth={1.8} aria-hidden="true" />
                     </p>
                     <p className="mt-2 text-sm font-medium">Rien pour l&apos;instant</p>
                     <p className="mt-1 text-xs text-fg-muted">Tes livraisons, paiements et réservations s&apos;afficheront ici.</p>
@@ -278,7 +280,7 @@ export function NotificationBell() {
                           const body = (
                             <>
                               <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full bg-bg-subtle text-lg">
-                                {n.emoji}
+                                <Pictogram of={n.emoji} fallback={Bell} />
                               </span>
                               <span className="min-w-0 flex-1">
                                 <span className="flex items-start justify-between gap-2">

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { boardCount, CANCELLED, describeBoard, scrollConversation, touchBoard, waitForBoard, writeBoard } from "@/lib/voice-live/board";
 import { buildSnapLexicon, snapToLexicon, type SnapLexicon } from "@/lib/language/snap-lexicon";
 import { INITIATIVE_NOTE, initiativeDelayMs } from "@/lib/voice-live/initiative";
+import { onBoardDone } from "@/lib/voice-live/stage";
 import { acceptPayment, cancelPayment, enterPin, takePinTurn } from "@/lib/voice-live/voice-pay";
 import { voiceHeard, voiceListenEnd, voiceSpeakEnd, voiceSpeakStart, voiceWord } from "@/lib/chat/voice-level";
 import { isVoiceIdle, VOICE_HANG_UP_EVENT, VOICE_IDLE_CHECK_MS } from "@/lib/voice-live/hang-up";
@@ -34,6 +35,8 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
   const [debug, setDebug] = useState("");
   /** Un tableau est ouvert : le globe se fait petit et laisse voir l'écran jusqu'à la fin de l'appel. */
   const [board, setBoard] = useState(false);
+  /** Le tableau est seul au centre de l'écran (stage.ts) ; une fois fini, il rejoint la conversation. */
+  const [stage, setStage] = useState(false);
   /** Première utilisation : l'écran vocal demande comment parler avant d'ouvrir le micro. */
   const [choosing, setChoosing] = useState(false);
   const [handsFree, setHandsFree] = useState(false);
@@ -72,12 +75,18 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
   const stop = useCallback(() => {
     generation.current++;
     opening.current = false;
+    // Appel fermé pendant qu'elle répond : ce qui vient d'être dit (un mot appris…) n'est pas perdu.
+    const [user, tamilya] = hidePin(userText.current.trim(), tamilyaText.current.trim());
+    if (user || tamilya) turnRef.current(user, tamilya);
+    userText.current = "";
+    tamilyaText.current = "";
     cancelPayment();
     session.current?.stop();
     session.current = null;
     voiceSpeakEnd();
     voiceListenEnd();
     setChoosing(false);
+    setStage(false);
     setState("off");
     giveBackTyped();
   }, [giveBackTyped]);
@@ -89,6 +98,7 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
     setHandsFree(mode === "free");
     setError(null);
     setBoard(false);
+    setStage(false);
     setTranscript("");
     setReply("");
     userText.current = firstMessage ?? "";
@@ -155,17 +165,21 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
         if (data?.time) return data.time;
         if (!data?.block) return data?.error ?? "Ce bouton n'est pas disponible : dis-le à la personne.";
         // Le tableau s'affiche dans la conversation, juste après ce que la personne vient de dire.
+        // L'ancien tableau rejoint d'abord la conversation : le nouveau prend sa place au centre.
+        setStage(false);
+        await new Promise((resolve) => requestAnimationFrame(resolve));
         const before = boardCount();
         turnRef.current(hidePin(userText.current.trim(), "")[0], data.block, true);
         userText.current = "";
         setBoard(true);
-        await waitForBoard(before);
+        await waitForBoard(before, () => setStage(true));
         return `C'est affiché sur l'écran de la personne. Continue toi-même avec ce qu'elle t'a déjà dit.\n${describeBoard()}`;
       },
       onLatency: (ms) => note(`réponse en ${(ms / 1000).toFixed(1)} s`),
       onNote: note,
       onClose: (problem) => {
         session.current = null;
+        setStage(false);
         voiceSpeakEnd();
         voiceListenEnd();
         if (problem) setError(problem);
@@ -213,6 +227,12 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
     };
   }, [state, stop]);
 
+  // Commande payée, ticket acheté… : le tableau repart tout seul dans la conversation.
+  useEffect(() => {
+    if (!stage) return;
+    return onBoardDone(() => setStage(false));
+  }, [stage]);
+
   /** Mode admin : plus aucune interaction pendant l'appel, Tamilya prend la parole d'elle-même (initiative.ts). */
   useEffect(() => {
     if (state !== "listening" || board) return;
@@ -236,6 +256,8 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
       window.removeEventListener("keydown", arm);
     };
   }, [state, board, beat]);
+
+  const leaveStage = useCallback(() => setStage(false), []);
 
   const start = useCallback(() => {
     const mode = readTalkMode();
@@ -288,5 +310,5 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
 
   // say / replied : l'ancien mode lisait les réponses écrites ; en direct, Gemini parle lui-même.
   const nothing = useCallback(() => {}, []);
-  return { live: true, board, handsFree, choosing, choose, startWith, press, release, supported, state, error, hint: null, debug, transcript, reply, beat, start, stop, interrupt, say: nothing, replied: nothing };
+  return { live: true, board, stage, leaveStage, handsFree, choosing, choose, startWith, press, release, supported, state, error, hint: null, debug, transcript, reply, beat, start, stop, interrupt, say: nothing, replied: nothing };
 }

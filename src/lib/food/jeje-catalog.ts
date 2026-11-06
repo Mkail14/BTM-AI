@@ -1320,14 +1320,14 @@ export const JEJE_RESTAURANTS: readonly FoodRestaurant[] = [
           {
             "id": "jeje-kebab-mamoudzou-8",
             "name": "CHEESEBURGER",
-            "description": "PAIN BURGER SALADE, TOMATE, 🍅 , DEUX TRANCHE DE CHEDDAR ET UN steak 100% 🐂BOEUF",
+            "description": "PAIN BURGER SALADE, TOMATE, , DEUX TRANCHE DE CHEDDAR ET UN steak 100%BOEUF",
             "priceCents": 800,
             "photo": "https://jejelivraison.com/uploads/items/cmpf3gxjh0046njw3wulfono9-1669820182nARGO3DkRX.jpg"
           },
           {
             "id": "jeje-kebab-mamoudzou-9",
             "name": "CORDON BURGER",
-            "description": "PAIN BURGER SALADE, TOMATE, 🍅 , DEUX TRANCHE DE CHEDDAR ET UN CORDON BLEU 100% HALAL",
+            "description": "PAIN BURGER SALADE, TOMATE, , DEUX TRANCHE DE CHEDDAR ET UN CORDON BLEU 100% HALAL",
             "priceCents": 800,
             "photo": "https://jejelivraison.com/uploads/items/cmpf3gxk60054njw3rbql6ayt-1669820123UHFrdADS7G.jpg"
           },
@@ -1930,7 +1930,7 @@ export const JEJE_RESTAURANTS: readonly FoodRestaurant[] = [
           },
           {
             "id": "le-finidy-2",
-            "name": "SALADE DE POULPE 🐙",
+            "name": "SALADE DE POULPE",
             "priceCents": 1500,
             "photo": "https://jejelivraison.com/uploads/items/cmpf3mgos02adnj6d1waugdp4-1697875612YHtbTGhfyY.jpg"
           }
@@ -2590,20 +2590,20 @@ export const JEJE_RESTAURANTS: readonly FoodRestaurant[] = [
         "items": [
           {
             "id": "caresse-cream-4",
-            "name": "WAFFLE-BURGER KEBAB 🥙",
+            "name": "WAFFLE-BURGER KEBAB",
             "priceCents": 950
           },
           {
             "id": "caresse-cream-5",
             "name": "WAFFLE-BURGER VÉGÉTARIEN",
-            "description": "Mesdames !!!!messsssssieuuuurs !!! Les grands mangeurs & mangeuses !!ON VOUS A ENTENDU (E) ! On vous présente nos waffle-burger avec toujours le meme savoir-faire, découvrez votre pain en \"gauffres \"💥💥💥 au choix: -1 boueni veggie accompagné d’aubergine, de legumes du jardin et de ses graines de chia et lin. ! Un tourbillon de frissons !",
+            "description": "Mesdames !!!!messsssssieuuuurs !!! Les grands mangeurs & mangeuses !!ON VOUS A ENTENDU (E) ! On vous présente nos waffle-burger avec toujours le meme savoir-faire, découvrez votre pain en \"gauffres \" au choix: -1 boueni veggie accompagné d’aubergine, de legumes du jardin et de ses graines de chia et lin. ! Un tourbillon de frissons !",
             "priceCents": 950,
             "photo": "https://jejelivraison.com/uploads/items/cmpf3gygv01aqnjw35u3lbly1-1648110884Cp25cZV9k7.jpg"
           },
           {
             "id": "caresse-cream-6",
             "name": "WAFFLE-BURGER CHICKEN PILI-PILI",
-            "description": "Mesdames !!!!messsssssieuuuurs !!! Les grands mangeurs & mangeuses !!ON VOUS A ENTENDU (E) ! On vous présente nos waffle-burger avec toujours le meme savoir-faire, découvrez votre pain en \"gauffres \"💥💥💥 au choix: -1 chicken pilli: à base de escalope de poulet ! UN TOURBILLON DE FRISSONS !",
+            "description": "Mesdames !!!!messsssssieuuuurs !!! Les grands mangeurs & mangeuses !!ON VOUS A ENTENDU (E) ! On vous présente nos waffle-burger avec toujours le meme savoir-faire, découvrez votre pain en \"gauffres \" au choix: -1 chicken pilli: à base de escalope de poulet ! UN TOURBILLON DE FRISSONS !",
             "priceCents": 950,
             "photo": "https://jejelivraison.com/uploads/items/cmpf3gyh101aynjw3qdlgvyab-1648110654SKar9z2Vf0.jpg"
           },
@@ -2617,12 +2617,12 @@ export const JEJE_RESTAURANTS: readonly FoodRestaurant[] = [
         ]
       },
       {
-        "title": "Frites 🍟 maison",
+        "title": "Frites maison",
         "items": [
           {
             "id": "caresse-cream-8",
-            "name": "Frites 🍟",
-            "description": "🆕️😍BRAND NEW😍🆕️💥 \"Dites-moi pas que c'est pas vrai ?\" nous vous proposons des 🍟de patate douces à 3,90€ seulement 💥. Appelez-nous🆙️#pronezLeFaitMaison #prendreletemps #lasantépournosclients #avantout",
+            "name": "Frites",
+            "description": "️BRAND NEW️ \"Dites-moi pas que c'est pas vrai ?\" nous vous proposons desde patate douces à 3,90€ seulement. Appelez-nous️#pronezLeFaitMaison #prendreletemps #lasantépournosclients #avantout",
             "priceCents": 350,
             "photo": "https://jejelivraison.com/uploads/items/cmpf3gyg1019mnjw32giuf7rq-1642366370F3cLHRRXE4.jpg"
           },
@@ -2638,7 +2638,7 @@ export const JEJE_RESTAURANTS: readonly FoodRestaurant[] = [
         "items": [
           {
             "id": "caresse-cream-10",
-            "name": "Milk-Shake Tropical Cream à base de fruits 🍌🍓🍍",
+            "name": "Milk-Shake Tropical Cream à base de fruits",
             "description": "Venez déguster un milkshake fruitée",
             "priceCents": 700,
             "photo": "https://jejelivraison.com/uploads/items/cmpf3gyg6019snjw3866hf99i-16952201980mQlNI0NzU.jpg"
@@ -2651,21 +2651,21 @@ export const JEJE_RESTAURANTS: readonly FoodRestaurant[] = [
           {
             "id": "caresse-cream-11",
             "name": "Gaufre au sucre",
-            "description": "N'attendez plus de rêver à nos gaufres sucrées 🧇, sautez le pas.🤯Nos gaufres maison au sucre.",
+            "description": "N'attendez plus de rêver à nos gaufres sucrées, sautez le pas.Nos gaufres maison au sucre.",
             "priceCents": 450,
             "photo": "https://jejelivraison.com/uploads/items/cmpf3gyfx019gnjw3y6z4yhcs-1640035822uaMZOroFV9.jpg"
           },
           {
             "id": "caresse-cream-12",
             "name": "Gaufre sucrée avec fruits de saison",
-            "description": "N'attendez plus de rêver à nos gaufres 🧇 sucrées, sautez le pas.🤯Nos gaufres composées dun coulis aux fruits, ainsi que des morceaux de fruits de saisons.",
+            "description": "N'attendez plus de rêver à nos gaufres sucrées, sautez le pas.Nos gaufres composées dun coulis aux fruits, ainsi que des morceaux de fruits de saisons.",
             "priceCents": 550,
             "photo": "https://jejelivraison.com/uploads/items/cmpf3gyg0019knjw3uvycho2z-1640036069IBY6EzdsD3.jpg"
           },
           {
             "id": "caresse-cream-13",
-            "name": "Gaufre sucrée chocolat maison 🍫 Biscuits 🍪",
-            "description": "N'attendez plus de rêver à nos gaufres sucrées 🧇, sautez le pas.🤯Nos gauffres composées de chocolat maison et de toppings biscuits 🍪",
+            "name": "Gaufre sucrée chocolat maison Biscuits",
+            "description": "N'attendez plus de rêver à nos gaufres sucrées, sautez le pas.Nos gauffres composées de chocolat maison et de toppings biscuits",
             "priceCents": 550,
             "photo": "https://jejelivraison.com/uploads/items/cmpf3gyfy019injw3ezti949z-1640035890dmDzNU9zVw.jpg"
           }
@@ -3522,13 +3522,13 @@ export const JEJE_RESTAURANTS: readonly FoodRestaurant[] = [
           {
             "id": "mayotte-chicken-1",
             "name": "CREVETTES À L’AIL & AU PERSIL",
-            "description": "CREVETTES À L’AIL & AU PERSIL 🦐🧄🌿 Crevettes savoureuses préparées avec de l’ail et du persil frais, pour une recette parfumée et généreuse.",
+            "description": "CREVETTES À L’AIL & AU PERSIL Crevettes savoureuses préparées avec de l’ail et du persil frais, pour une recette parfumée et généreuse.",
             "priceCents": 1900
           },
           {
             "id": "mayotte-chicken-2",
             "name": "TAGLIATELLE",
-            "description": "AU CREVETTES 🦐 Précisez votre choix : AVEC CRÈME 🥛 ou SANS CRÈME",
+            "description": "AU CREVETTES Précisez votre choix : AVEC CRÈME ou SANS CRÈME",
             "priceCents": 1600
           }
         ]

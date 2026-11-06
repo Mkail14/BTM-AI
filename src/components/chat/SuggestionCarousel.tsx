@@ -1,5 +1,6 @@
 "use client";
 
+import { Pictogram } from "@/components/ui/Pictogram";
 import { useEffect, useRef, useState } from "react";
 
 export type Suggestion = { emoji: string; title: string; hint: string; text: string };
@@ -61,7 +62,7 @@ export function SuggestionCarousel({
   const card = (s: Suggestion) => (
     <span className="flex items-center gap-3 rounded-2xl border border-border bg-bg/70 p-3 text-left shadow-[0_10px_30px_-16px_var(--persona,var(--accent))] backdrop-blur">
       <span aria-hidden="true" className="grid size-11 shrink-0 place-items-center rounded-xl bg-[var(--persona-soft,var(--bg-muted))] text-2xl">
-        {s.emoji}
+        <Pictogram of={s.emoji} />
       </span>
       <span className="min-w-0 flex-1">
         <span className="block text-sm font-semibold">{s.title}</span>

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { isFingerOnly, pickControl } from "../src/lib/voice-live/board";
+import { allPartsDone } from "../src/lib/voice-live/stage";
 
 const labels = (...names: string[]) => names.map((label) => ({ label }));
 
@@ -35,4 +36,21 @@ test("plusieurs possibles : Tamilya ne devine pas", () => {
 test("rien de reconnu ou demande vide : aucun bouton touché", () => {
   assert.deepEqual(pickControl(labels("Demain"), "Mardi"), { choices: [] });
   assert.deepEqual(pickControl(labels("Demain"), "  "), { choices: [] });
+});
+
+test("« ajoute un tacos kebab » trouve le bouton « Ajouter Tacos kebab »", () => {
+  const menu = labels("Ajouter Tacos kebab", "Ajouter Tacos poulet");
+  for (const wanted of ["Ajouter un tacos kebab", "ajoute le tacos kebab", "tacos kebab"]) {
+    assert.deepEqual(pickControl(menu, wanted), { found: { label: "Ajouter Tacos kebab" } }, wanted);
+  }
+});
+
+test("mêmes mots sur deux boutons : Tamilya ne devine toujours pas", () => {
+  const picked = pickControl(labels("Ajouter Tacos kebab", "Ajouter Tacos kebab maxi"), "ajoute un tacos");
+  assert.equal("choices" in picked && picked.choices.length, 2);
+});
+
+test("tableau combiné : il revient seulement quand toutes ses parties sont finies", () => {
+  assert.equal(allPartsDone(2, 1), false);
+  assert.equal(allPartsDone(2, 2), true);
 });

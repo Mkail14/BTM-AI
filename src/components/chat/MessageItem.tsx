@@ -1,5 +1,6 @@
 "use client";
 
+import { Pictogram } from "@/components/ui/Pictogram";
 import { memo, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { speak } from "@/lib/chat/voice";
 import { useCurrentPersonality } from "@/components/personality/PersonalityContext";
@@ -8,6 +9,7 @@ import { PERSONALITIES } from "@/lib/ai/personalities";
 import type { ChatRole } from "@/lib/chat/types";
 import { Correctable } from "./Correctable";
 import { Markdown } from "./Markdown";
+import { AttestationAsk } from "./attestation-ask";
 import { useTypewriter } from "./useTypewriter";
 
 export type UiMessageStatus = "complete" | "streaming" | "interrupted" | "error";
@@ -101,7 +103,7 @@ function AwaAvatar({ busy }: { busy: boolean }) {
       aria-hidden="true"
       className={`grid size-8 shrink-0 place-items-center rounded-full bg-[var(--persona-soft,var(--bg-muted))] text-base ring-1 ring-[var(--persona-border,var(--border))] ${busy ? "animate-pulse" : ""}`}
     >
-      {PERSONALITIES[current].emoji}
+      <Pictogram of={PERSONALITIES[current].emoji} />
     </span>
   );
 }
@@ -152,6 +154,7 @@ function AssistantMessage({ message, question }: { message: UiMessage; question?
   const readable = writing ? "" : plainText(message.content);
 
   return (
+    <AttestationAsk value={question ?? ""}>
     <article className="group flex min-w-0 gap-2.5 sm:gap-3" aria-busy={writing}>
       <h3 className="sr-only">Tamilya a répondu :</h3>
       <AwaAvatar busy={waiting} />
@@ -217,5 +220,6 @@ function AssistantMessage({ message, question }: { message: UiMessage; question?
         ) : null}
       </div>
     </article>
+    </AttestationAsk>
   );
 }

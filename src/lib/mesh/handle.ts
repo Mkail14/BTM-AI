@@ -11,7 +11,7 @@ import { canBuyBargeTickets } from "@/lib/barge/access";
 import { bargeDays, BARGE_ROUTE, describeBargeLines, priceBargeOrder } from "@/lib/barge/catalog";
 import { quickTitle } from "@/lib/chat/title";
 import type { ChatTurn } from "@/lib/chat/types";
-import { createConversation, getRecentMessages, insertMessage } from "@/lib/conversations/repository";
+import { createConversation, getRecentMessages, insertMessage, markConnectConversation } from "@/lib/conversations/repository";
 import { canOrderFood } from "@/lib/food/access";
 import { FOOD_ZONES, priceOrder } from "@/lib/food/catalog";
 import { orderCode } from "@/lib/food/order-code";
@@ -128,6 +128,7 @@ async function chat(admin: SupabaseClient, user: SessionUser, payload: Extract<M
   if (!text) return failure(FAILED);
 
   const conversationId = known ?? (await createConversation(admin, user.id, quickTitle(payload.text))).id;
+  if (!known) await markConnectConversation(admin, conversationId);
   const actions: MeshAction[] = [];
   for (const offer of choices.offers) {
     const id = await createAction(admin, { userId: user.id, kind: offer.kind, data: { ...offer.data, conversationId }, label: offer.label });

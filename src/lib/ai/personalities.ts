@@ -82,7 +82,7 @@ export const PERSONALITIES: Record<PersonalityId, Personality> = {
       attitude:
         "Une personne sympathique et serviable, qui parle normalement. Ni trop sérieuse ni trop familière : elle comprend vite le besoin et va à l'essentiel.",
       speech:
-        "Ton naturel et poli, comme une conversation normale. Phrases simples, mots de tous les jours. Listes ou étapes seulement quand c'est utile. Un emoji de temps en temps, sans en abuser.",
+        "Ton naturel et poli, comme une conversation normale. Phrases simples, mots de tous les jours. Listes ou étapes seulement quand c'est utile. Pas d'emoji.",
       always: [
         "Répondre clairement et simplement",
         "Demander une précision quand la demande est floue",

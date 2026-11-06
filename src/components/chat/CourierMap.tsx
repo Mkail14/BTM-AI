@@ -24,7 +24,6 @@ type Props = {
   /** Ce que le livreur a déjà parcouru. */
   trail: readonly Point[];
   courier: Point | null;
-  restaurantEmoji: string;
   /** Le livreur roule : le scooter pulse. */
   moving: boolean;
 };
@@ -52,10 +51,14 @@ function pin(className: string, html: string) {
 }
 
 /** Scooter vu de côté, dessiné au trait blanc. */
+const PIN_SVG = (paths: string) =>
+  `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+const RESTAURANT_SVG = PIN_SVG('<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"/>');
+const HOME_SVG = PIN_SVG('<path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/>');
 const SCOOTER_SVG =
   '<svg viewBox="0 0 64 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="14" cy="36" r="7"/><circle cx="50" cy="36" r="7"/><path d="M21 36h16l6-14h-9"/><path d="M43 22l7 14"/><path d="M38 12h7l-2 10"/><rect x="6" y="14" width="16" height="12" rx="2.5" fill="currentColor" fill-opacity="0.25"/><path d="M6 26h20l4 6"/></svg>';
 
-export function CourierMap({ from, to, route, trail, courier, restaurantEmoji, moving }: Props) {
+export function CourierMap({ from, to, route, trail, courier, moving }: Props) {
   const frame = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const courierMarker = useRef<Marker | null>(null);
@@ -105,11 +108,9 @@ export function CourierMap({ from, to, route, trail, courier, restaurantEmoji, m
         setFree(true);
       });
 
-      const restaurantPin = pin("map-pin", '<span class="map-pin-head"></span><span class="map-pin-tip"></span>');
-      // Emoji posé en texte, jamais en HTML.
-      restaurantPin.querySelector(".map-pin-head")!.textContent = restaurantEmoji;
+      const restaurantPin = pin("map-pin", `<span class="map-pin-head">${RESTAURANT_SVG}</span><span class="map-pin-tip"></span>`);
       new maplibre.Marker({ element: restaurantPin, anchor: "bottom" }).setLngLat(lngLat(a)).addTo(created);
-      new maplibre.Marker({ element: pin("map-pin map-pin-home", '<span class="map-pin-head">🏠</span><span class="map-pin-tip"></span>'), anchor: "bottom" }).setLngLat(lngLat(b)).addTo(created);
+      new maplibre.Marker({ element: pin("map-pin map-pin-home", `<span class="map-pin-head">${HOME_SVG}</span><span class="map-pin-tip"></span>`), anchor: "bottom" }).setLngLat(lngLat(b)).addTo(created);
       courierEl.current = pin("map-courier", `<span class="map-courier-ring"></span><span class="map-courier-dot">${SCOOTER_SVG}</span>`);
       courierMarker.current = new maplibre.Marker({ element: courierEl.current });
 
@@ -139,7 +140,6 @@ export function CourierMap({ from, to, route, trail, courier, restaurantEmoji, m
       map.current = null;
     };
     // La carte est créée une fois ; les tracés suivent par les effets ci-dessous.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Tracés : mis à jour sans recharger la carte.

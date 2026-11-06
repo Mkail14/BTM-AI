@@ -1,5 +1,6 @@
 "use client";
 
+import { Pictogram } from "@/components/ui/Pictogram";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { currentQuality, subscribeQuality, type ConnectionQuality } from "@/lib/hooks/connection-quality";
 
@@ -42,7 +43,7 @@ export function ConnectionNotice() {
           }`}
         >
           <span aria-hidden="true" className="text-lg leading-none">
-            {message.icon}
+            <Pictogram of={message.icon} />
           </span>
           <span className="min-w-0 flex-1">
             <span className="block font-medium">{message.title}</span>

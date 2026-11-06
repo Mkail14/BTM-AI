@@ -24,16 +24,16 @@ export const telLink = (phone: string) => `tel:+262${phone.replace(/^0/, "")}`;
  */
 function demoReply(text: string, phase: number, minutesLeft: number, commune: string): string {
   const t = text.toLowerCase();
-  if (/merci/.test(t)) return "Avec plaisir, bon appétit ! 😊";
-  if (phase === 2) return "Je suis devant chez toi. Prépare ton code, je te le demande en arrivant 😉";
+  if (/merci/.test(t)) return "Avec plaisir, bon appétit !";
+  if (phase === 2) return "Je suis devant chez toi. Prépare ton code, je te le demande en arrivant.";
   if (/o[uù]|quand|combien|temps/.test(t)) {
     return phase === 0
-      ? "Je suis au restaurant, ta commande est en cuisine. Je pars dès qu'elle est prête 👍"
+      ? "Je suis au restaurant, ta commande est en cuisine. Je pars dès qu'elle est prête."
       : `Je suis en route vers ${commune}, j'arrive dans ${minutesLeft} min environ.`;
   }
-  if (/portail|sonne|digicode|porte|étage|etage/.test(t)) return "C'est noté, merci pour l'info 👌";
+  if (/portail|sonne|digicode|porte|étage|etage/.test(t)) return "C'est noté, merci pour l'info.";
   if (/descend|sors|j'arrive/.test(t)) return phase === 1 ? "Pas encore, je te préviens quand je suis là !" : "Super, à tout de suite !";
-  return "Bien reçu ! 👍";
+  return "Bien reçu !";
 }
 
 /** Nombre de messages échangés avec le livreur (pastille du bouton « Message »). */

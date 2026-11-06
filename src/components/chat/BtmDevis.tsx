@@ -1,7 +1,9 @@
 "use client";
 
+import { Pictogram, WorksIcon } from "@/components/ui/Pictogram";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { boardDone } from "@/lib/voice-live/stage";
 import type { BtmDevisInfo, BtmDevisSaved } from "@/app/api/btm-devis/route";
 import { parseBtmDevisSpec } from "@/lib/btm/intent";
 import {
@@ -151,6 +153,7 @@ export function BtmDevis({ query = "" }: { query?: string }) {
         // Stockage plein ou bloqué : le code reste affiché, et il est dans « Mes projets » sur btm.yt.
       }
       setSaved(value);
+      boardDone(root.current);
     } catch {
       setProblem({ reason: "error", message: "Connexion impossible : vérifie ton réseau." });
     } finally {
@@ -193,7 +196,7 @@ export function BtmDevis({ query = "" }: { query?: string }) {
   const header = (
     <div className="flex items-center gap-3 px-4 pt-4">
       <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-bg-subtle text-xl">
-        {ouvrage?.emoji ?? "🏗️"}
+        <Pictogram of={ouvrage?.emoji} fallback={WorksIcon} />
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate font-semibold">{ouvrage ? `Devis BTM · ${ouvrage.libelle}` : "Devis BTM"}</p>
@@ -221,7 +224,7 @@ export function BtmDevis({ query = "" }: { query?: string }) {
                 onClick={() => choose(o.id)}
                 className="flex w-full items-center gap-2 rounded-xl border border-border px-2.5 py-2 text-left transition hover:bg-bg-muted"
               >
-                <span aria-hidden="true">{o.emoji}</span>
+                <Pictogram of={o.emoji} fallback={WorksIcon} />
                 <span className="min-w-0">
                   <span className="block truncate text-xs font-medium">{o.libelle}</span>
                   <span className="block truncate text-[11px] text-fg-muted">{o.accroche}</span>

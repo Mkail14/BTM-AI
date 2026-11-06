@@ -6,6 +6,7 @@ import { AwaBlob, takeLaunchOrigin } from "./AwaBlob";
 import { IconClose, IconMic } from "@/components/ui/icons";
 import { speakableText } from "@/lib/chat/voice";
 import { splitUnknownWords } from "@/lib/language/unknown-words";
+import { returnBoard, showBoard } from "@/lib/voice-live/stage";
 import { TALK_MODES } from "@/lib/voice-live/talk-mode";
 import type { VoiceConversation } from "./useVoiceConversation";
 import { VoicePay } from "./VoicePay";
@@ -21,9 +22,10 @@ const LABELS = {
  * Mode vocal plein écran : le globe de Tamilya écoute, réfléchit et parle.
  * Il pulse à chaque mot entendu ou prononcé.
  * `standalone` (page /voix) : toujours affiché, le globe au repos attend qu'on le touche.
- * Dès qu'elle ouvre un tableau (`voice.board`), le globe rétrécit et monte en haut, le
- * fond sombre s'efface et on touche le tableau au travers : Tamilya reste là jusqu'à
- * la fin de l'appel, et une lueur fondue entoure la conversation.
+ * Dès qu'elle ouvre un tableau (`voice.stage`), il s'affiche seul au centre, Tamilya
+ * floutée derrière, et la conversation ne bouge plus. Une fois le tableau fini, il repart
+ * dans la conversation (`voice.board`) : le globe rétrécit et monte en haut, le fond
+ * s'efface, et une lueur fondue entoure la conversation jusqu'à la fin de l'appel.
  */
 export function VoiceOverlay({
   voice,
@@ -35,8 +37,8 @@ export function VoiceOverlay({
   /** Après l'arrêt (bouton ✕ ou Échap). */
   onClose?: () => void;
 }) {
-  const { state, transcript, reply, error, hint, debug, start, interrupt, live, press, release, handsFree, choosing, choose, board } = voice;
-  const compact = Boolean(board);
+  const { state, transcript, reply, error, hint, debug, start, interrupt, live, press, release, handsFree, choosing, choose, board, stage, leaveStage } = voice;
+  const compact = board && !stage;
   // Talkie-walkie (vocal direct) : bouton maintenu.
   const [holding, setHolding] = useState(false);
   const holdStart = () => {
@@ -59,6 +61,15 @@ export function VoiceOverlay({
   const visible = state !== "off" || standalone || choosing;
   const overlay = useRef<HTMLDivElement>(null);
   const orb = useRef<HTMLDivElement>(null);
+  const slot = useRef<HTMLDivElement>(null);
+
+  // Le tableau vient au centre, puis retourne à sa place dans la conversation.
+  useLayoutEffect(() => {
+    const place = slot.current;
+    if (!stage || !place) return;
+    showBoard(place);
+    return () => returnBoard(place);
+  }, [stage]);
 
   /*
    * Morphose à l'ouverture : le globe de l'accueil glisse et grandit jusqu'au
@@ -143,6 +154,7 @@ export function VoiceOverlay({
       aria-modal={!compact}
       aria-label="Conversation vocale avec Tamilya"
       data-compact={compact || undefined}
+      data-stage={stage || undefined}
       className="voice-overlay fixed inset-0 z-[60] flex flex-col items-center px-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] text-white"
     >
       {surface ? createPortal(edge, surface) : edge}
@@ -197,6 +209,15 @@ export function VoiceOverlay({
           </div>
         )}
       </div>
+
+      {stage ? (
+        <div className="voice-stage flex min-h-0 w-full max-w-md flex-1 flex-col justify-center gap-2 animate-[correct-fade_.18s_ease-out]">
+          <div ref={slot} className="min-h-0 overflow-y-auto rounded-2xl text-sm text-fg [scrollbar-width:none]" />
+          <button type="button" onClick={leaveStage} className="self-center rounded-full px-3 py-1.5 text-xs font-medium text-white/60 hover:text-white">
+            Voir la conversation
+          </button>
+        </div>
+      ) : null}
 
       {/* Paiement par Tamilya : avertissement puis code, au-dessus des boutons. */}
       <VoicePay />

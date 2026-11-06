@@ -15,15 +15,21 @@ import type { AIProvider } from "./types";
 
 const MAX_MEMORIES = 40;
 
+type MemoryRow = { kind: string; content: string; updated_at: string };
+
+/** Souvenirs que le vérificateur accepte, avec leur date. */
+const toFacts = (rows: readonly MemoryRow[] | null): MemoryFact[] =>
+  (rows ?? []).filter((fact) => isMemoryAllowed(fact.content)).map((fact) => ({ kind: fact.kind, content: fact.content, since: fact.updated_at }));
+
 /** Mémoire de l'utilisateur connecté (RLS : uniquement la sienne), sans les souvenirs que le vérificateur refuse. */
 export async function getMemories(supabase: SupabaseClient): Promise<MemoryFact[]> {
   const { data, error } = await supabase
     .from("awa_memories")
-    .select("kind, content")
+    .select("kind, content, updated_at")
     .order("updated_at", { ascending: false })
     .limit(MAX_MEMORIES);
   if (error) throw error;
-  return (data ?? []).filter((fact) => isMemoryAllowed(fact.content));
+  return toFacts(data);
 }
 
 /**
@@ -33,12 +39,12 @@ export async function getMemories(supabase: SupabaseClient): Promise<MemoryFact[
 export async function getMemoriesFor(admin: SupabaseClient, userId: string): Promise<MemoryFact[]> {
   const { data, error } = await admin
     .from("awa_memories")
-    .select("kind, content")
+    .select("kind, content, updated_at")
     .eq("user_id", userId)
     .order("updated_at", { ascending: false })
     .limit(MAX_MEMORIES);
   if (error) throw error;
-  return (data ?? []).filter((fact) => isMemoryAllowed(fact.content));
+  return toFacts(data);
 }
 
 /** Client d'écriture : la clé secrète si elle est là, sinon celui de la session (développement). */

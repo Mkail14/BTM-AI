@@ -17,7 +17,7 @@ import { forgetDemoWallet } from "@/lib/wallet/demo";
 const FAILED: ActionResult = { ok: false, message: "L'enregistrement a échoué (migration site_settings appliquée ?)." };
 
 /** Toute modification exige le mot de passe redemandé il y a moins de 10 minutes (vérifié ici, pas seulement à l'écran). */
-const LOCKED: ActionResult = { ok: false, message: "Modifications verrouillées : confirme ton mot de passe (stylo ✏️)." };
+const LOCKED: ActionResult = { ok: false, message: "Modifications verrouillées : confirme ton mot de passe (bouton stylo)." };
 
 /**
  * Redemande le mot de passe, comme Google avant un réglage sensible. Vérifié

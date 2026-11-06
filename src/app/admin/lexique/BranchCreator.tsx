@@ -1,5 +1,6 @@
 "use client";
 
+import { BranchIcon, Pictogram } from "@/components/ui/Pictogram";
 import { useEffect, useRef, useState, useTransition, type CSSProperties } from "react";
 import type { BranchSuggestion } from "@/lib/language/branches";
 import { createBranchAction, suggestBranchAction } from "./actions";
@@ -107,7 +108,7 @@ export function BranchCreator({ onClose, onCreated }: { onClose: () => void; onC
         <div key={suggestion.label} className="mt-2">
           <div className="branche-entree flex items-center gap-3">
             <span className="branche-emoji grid size-14 shrink-0 place-items-center rounded-2xl bg-white/[0.08] text-3xl ring-1 ring-white/10">
-              {suggestion.emoji}
+              <Pictogram of={suggestion.emoji} fallback={BranchIcon} />
             </span>
             <input
               value={label}
@@ -189,7 +190,7 @@ export function BranchCreator({ onClose, onCreated }: { onClose: () => void; onC
               disabled={pending || label.trim().length < 2 || words.length === 0}
               className="flex-1 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-black transition active:scale-[0.98] disabled:opacity-40"
             >
-              {pending ? "La branche pousse…" : "🌱 Faire pousser la branche"}
+              {pending ? "La branche pousse…" : "Faire pousser la branche"}
             </button>
           </div>
         </div>

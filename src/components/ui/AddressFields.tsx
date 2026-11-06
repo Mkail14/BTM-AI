@@ -106,7 +106,7 @@ export function AddressFields({
         <div className="text-sm" aria-live="polite">
           {value.geo ? (
             <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-fg-muted">
-              <span className="font-medium text-fg">📍 Position GPS ajoutée</span>
+              <span className="font-medium text-fg">Position GPS ajoutée</span>
               <span>(à {value.geo.accuracy} m près)</span>
               <button type="button" onClick={() => onChange({ ...value, geo: null })} className="underline underline-offset-2">
                 Retirer
@@ -119,7 +119,7 @@ export function AddressFields({
               disabled={locating}
               className="inline-flex items-center gap-1.5 rounded-full border border-border px-3 py-1.5 font-medium hover:bg-bg-muted disabled:opacity-60"
             >
-              📍 {locating ? "Localisation…" : "Utiliser ma position actuelle"}
+              {locating ? "Localisation…" : "Utiliser ma position actuelle"}
             </button>
           )}
           {gpsError ? <p className="mt-1 text-xs text-danger">{gpsError}</p> : null}

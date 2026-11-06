@@ -982,7 +982,7 @@ input::-ms-clear {
  * maison, scooter du livreur (il pulse quand il roule), reflet pendant le
  * chargement des premières tuiles.
  */
-/* Épingle droite : rond avec l'emoji, petite pointe dessous posée sur le lieu exact. */
+/* Épingle droite : rond avec une icône, petite pointe dessous posée sur le lieu exact. */
 .map-pin {
   display: flex;
   flex-direction: column;
@@ -998,6 +998,7 @@ input::-ms-clear {
   border: 3px solid #fff;
   border-radius: 9999px;
   background: var(--bg);
+  color: var(--fg);
   font-size: 1.15rem;
   line-height: 1;
 }
@@ -3304,6 +3305,38 @@ html[data-morph]::view-transition-new(root) {
 .voice-overlay[data-compact] .voice-mic {
   width: 3.5rem;
   height: 3.5rem;
+}
+
+/*
+ * Tableau seul au centre pendant le vocal (data-stage) : Tamilya reste derrière,
+ * floutée, la conversation est cachée et ne bouge plus.
+ */
+.voice-overlay[data-stage] {
+  padding-inline: 0.75rem;
+}
+
+.voice-overlay[data-stage] .voice-title {
+  visibility: hidden;
+  height: 0;
+}
+
+.voice-overlay[data-stage] .voice-middle {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.voice-overlay[data-stage] .voice-orb-slot {
+  opacity: 0.45;
+  filter: blur(14px);
+  transition:
+    opacity 400ms ease,
+    filter 400ms ease;
+}
+
+.voice-stage {
+  position: relative;
+  padding-block: 0.75rem;
 }
 
 /* Disque sombre : en petit, il détache le globe du tableau derrière lui. */

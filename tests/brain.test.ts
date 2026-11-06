@@ -1,3 +1,4 @@
+import { stripEmoji } from "@/lib/chat/no-emoji";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { EMPTY_BRAIN, lexiconFor, readVariants } from "@/lib/ai/brain";
@@ -15,7 +16,7 @@ import {
 } from "@/lib/language/unknown-words";
 import { mayotteClock } from "@/lib/ai/clock";
 import { buildSystemPrompt, DEFAULT_IDENTITY, DEFAULT_RULES } from "@/lib/ai/system-prompt";
-import { selectWords } from "@/lib/ai/words";
+import { selectWords, withRecentWords } from "@/lib/ai/words";
 
 describe("extractMemories", () => {
   it("retient le prénom, même avec des fautes", () => {
@@ -268,7 +269,7 @@ describe("mode vocal", () => {
   it("prévient Tamilya que le message est dicté, et finit par lui rappeler qui elle est", () => {
     const prompt = buildSystemPrompt("cool", { voice: true });
     assert.match(prompt, /« chinois »[^\n]*« shimaoré »/);
-    assert.match(prompt, /Rappel : tu es Tamilya, de GROUPE BTM\.[^\n]*$/);
+    assert.match(prompt, /Rappel : tu es Tamilya, de GROUPE BTM, née le 9 juillet 2026[^\n]*$/);
     assert.doesNotMatch(buildSystemPrompt(), /dictée automatique/);
   });
 });
@@ -323,5 +324,23 @@ describe("traduction d'un [[mot]] par le maître", () => {
     const table = translationTable([{ french: "Marché", shimaore: "bazari" }]);
     assert.equal(fillKnownWords("Ngamwenda [[marché]] na [[école]].", table), "Ngamwenda bazari na [[école]].");
     assert.equal(fillKnownWords("Rien à remplacer", table), "Rien à remplacer");
+  });
+});
+
+describe("leçon de shimaoré à la voix", () => {
+  it("un simple « oui » confirme le mot que Tamilya vient de répéter", () => {
+    assert.equal(mayBeTeaching("oui", "Maison se dit nyumba, c'est bien ça ?"), true);
+  });
+
+  it("le mot le plus récent remplace l'ancien pour un même mot français", () => {
+    const kept = withRecentWords([{ french: "Chien", shimaore: "mboi" }, { french: "eau", shimaore: "maji" }], [{ french: "chien", shimaore: "mbwa" }]);
+    assert.deepEqual(kept.map((word) => word.shimaore), ["mbwa", "maji"]);
+  });
+});
+
+describe("réponses sans emoji", () => {
+  it("retire les emojis et garde les symboles de texte", () => {
+    assert.equal(stripEmoji("C'est noté ✅ J'ai appris 😊👨‍👩‍👧"), "C'est noté J'ai appris");
+    assert.equal(stripEmoji("maison → nyumba ✓ ★ ©"), "maison → nyumba ✓ ★ ©");
   });
 });

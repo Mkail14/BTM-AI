@@ -1,5 +1,6 @@
 "use client";
 
+import { Pictogram } from "@/components/ui/Pictogram";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
@@ -140,7 +141,7 @@ function EntryDialog({ initial, onClose }: { initial: Draft; onClose: () => void
                   {TONES.map(({ id, placeholder }) => (
                     <li key={id} className="flex items-center gap-3 py-1.5">
                       <label htmlFor={`lexicon-${id}`} className="flex w-36 shrink-0 items-center gap-2 text-sm">
-                        <span aria-hidden="true">{PERSONALITIES[id].emoji}</span>
+                        <Pictogram of={PERSONALITIES[id].emoji} />
                         {PERSONALITIES[id].label}
                       </label>
                       <input
@@ -294,7 +295,7 @@ export function LexiconEditor({ rows }: { rows: LexiconRow[] }) {
                   {TONES.filter(({ id }) => row.variants[id]).map(({ id }) => (
                     <span key={id} className="flex items-baseline gap-1.5" title={PERSONALITIES[id].label}>
                       <span aria-label={PERSONALITIES[id].label} className="shrink-0 text-xs">
-                        {PERSONALITIES[id].emoji}
+                        <Pictogram of={PERSONALITIES[id].emoji} />
                       </span>
                       <span className="break-words text-accent">{row.variants[id]}</span>
                     </span>
