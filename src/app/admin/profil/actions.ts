@@ -9,7 +9,9 @@ import { lock, unlock, unlockedUntil } from "@/lib/admin/unlock";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 import { isValidBic, isValidIban, normalizeBic, normalizeIban } from "@/lib/site/iban";
+import { addPartner, removePartner, validatePartner } from "@/lib/site/partners";
 import { saveBankDetails, saveSiteFlags, saveSiteStatus } from "@/lib/site/settings";
+import { SITE_STATUSES, type SiteStatus } from "@/lib/site/status";
 import { forgetDemoWallet } from "@/lib/wallet/demo";
 
 const FAILED: ActionResult = { ok: false, message: "L'enregistrement a échoué (migration site_settings appliquée ?)." };
@@ -72,31 +74,78 @@ export async function saveBankAction(input: unknown): Promise<ActionResult> {
 const MESSAGE_MAX = 300;
 
 const statusSchema = z.strictObject({
-  maintenance: z.boolean(),
+  status: z.enum(SITE_STATUSES),
   maintenanceMessage: z.string().trim().max(MESSAGE_MAX, `Message : ${MESSAGE_MAX} caractères au plus.`).optional(),
 });
 
-/**
- * État de la plateforme : en ligne ou en maintenance. Un seul état enregistré
- * (les deux interrupteurs de l'écran en sont les deux faces, jamais contradictoires),
- * inscrit au journal avec l'auteur et l'heure.
- */
+const STATUS_SAVED: Record<SiteStatus, string> = {
+  online: "Site en ligne : tout le monde y a de nouveau accès.",
+  maintenance: "Site en maintenance : les visiteurs voient la page d'attente, partout en moins de 30 secondes. Toi, tu gardes l'accès.",
+  waiting_partner: "Site en attente : il s'ouvrira dès que tu valideras un partenaire. Toi, tu gardes l'accès.",
+};
+
+/** État de la plateforme : un seul état enregistré, inscrit au journal avec l'auteur et l'heure. */
 export async function setPlatformStatusAction(input: unknown): Promise<ActionResult> {
   const auth = await requirePrincipalAdminAction();
   if (!auth) return NOT_PRINCIPAL;
   if (!(await unlockedUntil(auth.user.id))) return LOCKED;
   const parsed = statusSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Données invalides." };
-  const { maintenance, maintenanceMessage } = parsed.data;
-  const saved = await saveSiteStatus(maintenance, maintenanceMessage, { id: auth.user.id, email: auth.user.email ?? null });
-  if (!saved) return { ok: false, message: "Changement non enregistré (migration 20261120010000_journal_etat_plateforme.sql appliquée ?)." };
+  const { status, maintenanceMessage } = parsed.data;
+  const saved = await saveSiteStatus(status, maintenanceMessage, { id: auth.user.id, email: auth.user.email ?? null });
+  if (saved === "partner_already_validated") return { ok: false, message: "Un partenaire est déjà validé : retire-le d'abord pour remettre le site en attente." };
+  if (saved === "failed") return { ok: false, message: "Changement non enregistré (migration 20261202000000_etats_du_site.sql appliquée ?)." };
+  revalidatePath("/", "layout");
+  return { ok: true, message: STATUS_SAVED[status] };
+}
+
+const partnerSchema = z.strictObject({
+  name: z.string().trim().min(2, "Indique le nom du partenaire.").max(120, "Nom : 120 caractères au plus."),
+  activity: z.string().trim().max(120, "Activité : 120 caractères au plus."),
+});
+
+export async function addPartnerAction(input: unknown): Promise<ActionResult> {
+  const auth = await requirePrincipalAdminAction();
+  if (!auth) return NOT_PRINCIPAL;
+  if (!(await unlockedUntil(auth.user.id))) return LOCKED;
+  const parsed = partnerSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Données invalides." };
+  if (!(await addPartner(parsed.data.name, parsed.data.activity))) {
+    return { ok: false, message: "Partenaire non ajouté (migration 20261202000000_etats_du_site.sql appliquée ?)." };
+  }
+  revalidatePath("/admin/profil");
+  return { ok: true, message: "Partenaire ajouté : il reste à le valider." };
+}
+
+const partnerIdSchema = z.strictObject({ id: z.string().uuid() });
+
+/** Validation : si le site attendait un partenaire, il s'ouvre aussitôt. */
+export async function validatePartnerAction(input: unknown): Promise<ActionResult> {
+  const auth = await requirePrincipalAdminAction();
+  if (!auth) return NOT_PRINCIPAL;
+  if (!(await unlockedUntil(auth.user.id))) return LOCKED;
+  const parsed = partnerIdSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Partenaire invalide." };
+  const result = await validatePartner(parsed.data.id, { id: auth.user.id, email: auth.user.email ?? null });
+  if (result === "failed") return { ok: false, message: "Validation non enregistrée, réessaie." };
+  if (result === "unchanged") return { ok: false, message: "Ce partenaire est déjà validé ou n'existe plus." };
   revalidatePath("/", "layout");
   return {
     ok: true,
-    message: maintenance
-      ? "Site en maintenance : les visiteurs voient la page d'attente, partout en moins de 30 secondes. Toi, tu gardes l'accès."
-      : "Site en ligne : tout le monde y a de nouveau accès.",
+    message: result === "opened" ? "Partenaire validé : le site est ouvert, partout en moins de 30 secondes." : "Partenaire validé : l'état du site ne change pas.",
   };
+}
+
+/** Le site ne change pas d'état, même si c'était le dernier partenaire validé. */
+export async function removePartnerAction(input: unknown): Promise<ActionResult> {
+  const auth = await requirePrincipalAdminAction();
+  if (!auth) return NOT_PRINCIPAL;
+  if (!(await unlockedUntil(auth.user.id))) return LOCKED;
+  const parsed = partnerIdSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Partenaire invalide." };
+  if (!(await removePartner(parsed.data.id))) return { ok: false, message: "Partenaire non retiré, réessaie." };
+  revalidatePath("/admin/profil");
+  return { ok: true, message: "Partenaire retiré." };
 }
 
 const flagsSchema = z.strictObject({

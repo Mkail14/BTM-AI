@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { authRequiredPath, isProtectedPath } from "@/lib/auth/redirect";
 import { getSiteFlags } from "@/lib/site/flags";
+import { siteClosure } from "@/lib/site/status";
 import { redirectWithCookies, updateSession } from "@/lib/supabase/proxy";
 
 /**
@@ -8,17 +9,19 @@ import { redirectWithCookies, updateSession } from "@/lib/supabase/proxy";
  * pages privées. Ce n'est pas la seule barrière : chaque page, route d'API et
  * politique RLS vérifie à nouveau les droits.
  *
- * Site en maintenance : page d'attente pour tous sauf les administrateurs.
+ * Site en maintenance ou en attente d'un partenaire : page d'attente pour tous
+ * sauf les administrateurs.
  */
 export async function proxy(request: NextRequest) {
   const { response, userId, isAdmin } = await updateSession(request);
   const { pathname, search } = request.nextUrl;
 
-  if (!isAdmin && !OPEN_DURING_MAINTENANCE.some((p) => pathname.startsWith(p)) && (await getSiteFlags()).maintenance) {
+  const closure = isAdmin || OPEN_WHEN_CLOSED.some((p) => pathname.startsWith(p)) ? null : siteClosure((await getSiteFlags()).status);
+  if (closure) {
     // Jamais mise en cache : la réouverture doit se voir tout de suite.
-    const headers = { "Retry-After": "600", "Cache-Control": "no-store" };
+    const headers = { "Retry-After": closure.retryAfter, "Cache-Control": "no-store" };
     if (pathname.startsWith("/api/")) {
-      return NextResponse.json({ error: "Site en maintenance : réessaie un peu plus tard." }, { status: 503, headers });
+      return NextResponse.json({ error: closure.apiError }, { status: 503, headers });
     }
     // Même adresse (réécriture, pas redirection) : recharger la page suffit quand le site rouvre.
     const page = NextResponse.rewrite(new URL("/maintenance", request.url), { status: 503, headers });
@@ -38,7 +41,7 @@ export async function proxy(request: NextRequest) {
  * Toujours ouverts : la page d'attente, la connexion (un administrateur doit
  * pouvoir se connecter), les tâches planifiées et le retour des paiements Stripe.
  */
-const OPEN_DURING_MAINTENANCE = ["/maintenance", "/auth/", "/api/auth/", "/api/cron/", "/api/ai/relay", "/api/wallet/webhook", "/manifest.webmanifest", "/brand/"];
+const OPEN_WHEN_CLOSED = ["/maintenance", "/auth/", "/api/auth/", "/api/cron/", "/api/ai/relay", "/api/wallet/webhook", "/manifest.webmanifest", "/brand/"];
 
 export const config = {
   matcher: [

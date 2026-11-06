@@ -9,15 +9,20 @@ import { PasswordInput } from "@/components/ui/PasswordInput";
 import type { ActionResult } from "@/lib/admin/action-auth";
 import type { AdminAccount } from "@/lib/admin/delegation";
 import { bankFromBic, bankFromIban, formatIban, isValidBic, isValidIban, normalizeIban, parseRib } from "@/lib/site/iban";
+import type { Partner } from "@/lib/site/partners";
 import type { BankDetails, SiteFlags, StatusChange } from "@/lib/site/settings";
+import { SITE_STATUS_LABELS, type SiteStatus } from "@/lib/site/status";
 import {
+  addPartnerAction,
   grantAdminAction,
   lockAction,
+  removePartnerAction,
   revokeAdminAction,
   saveBankAction,
   saveFlagsAction,
   setPlatformStatusAction,
   unlockAction,
+  validatePartnerAction,
 } from "./actions";
 
 /** Lance une action serveur, montre son résultat et relit la page (verrou compris). */
@@ -401,7 +406,7 @@ function Switch({
 }
 
 /* -------------------------------------------------------------------------- */
-/* Site : maintenance et mode démo                                            */
+/* Site : état, partenaires et mode démo                                      */
 /* -------------------------------------------------------------------------- */
 
 const MESSAGE_MAX = 300;
@@ -414,61 +419,181 @@ const logFormat = new Intl.DateTimeFormat("fr-FR", {
   timeZone: "Indian/Mayotte",
 });
 
-/** Historique des mises en maintenance et réouvertures (auteur, heure, message). */
+const LOG_LABELS: Record<SiteStatus, string> = {
+  online: "Remis en ligne",
+  maintenance: "Mis en maintenance",
+  waiting_partner: "Mis en attente d'un partenaire",
+};
+
+/** Historique des changements d'état (auteur, heure, message ou partenaire qui a ouvert le site). */
 function StatusHistory({ log }: { log: StatusChange[] | null }) {
   if (log === null) {
-    return <p className="text-xs text-fg-muted">Historique indisponible : appliquer la migration 20261120010000_journal_etat_plateforme.sql.</p>;
+    return <p className="text-xs text-fg-muted">Historique indisponible : appliquer la migration 20261202000000_etats_du_site.sql.</p>;
   }
   if (log.length === 0) return <p className="text-xs text-fg-muted">Aucun changement enregistré pour l&apos;instant.</p>;
   return (
     <ol className="space-y-2">
-      {log.map((entry) => (
-        <li key={entry.at} className="flex items-start gap-2.5 text-xs">
-          <span aria-hidden="true" className={`mt-1 size-2 shrink-0 rounded-full ${entry.maintenance ? "bg-warning" : "bg-success"}`} />
-          <div className="min-w-0">
-            <p>
-              <span className="font-medium">{entry.maintenance ? "Mis en maintenance" : "Remis en ligne"}</span>
-              <span className="text-fg-muted"> · {logFormat.format(new Date(entry.at))}</span>
-            </p>
-            <p className="truncate text-fg-muted" title={entry.byEmail ?? undefined}>
-              {entry.byEmail ?? "compte supprimé"}
-              {entry.maintenance && entry.message ? ` · « ${entry.message} »` : ""}
-            </p>
-          </div>
-        </li>
-      ))}
+      {log.map((entry) => {
+        const detail = entry.partnerName ?? (entry.status !== "online" ? entry.message : "");
+        return (
+          <li key={entry.at} className="flex items-start gap-2.5 text-xs">
+            <span aria-hidden="true" className={`mt-1 size-2 shrink-0 rounded-full ${entry.status === "online" ? "bg-success" : "bg-warning"}`} />
+            <div className="min-w-0">
+              <p>
+                <span className="font-medium">{entry.partnerName ? "Ouvert par un partenaire validé" : LOG_LABELS[entry.status]}</span>
+                <span className="text-fg-muted"> · {logFormat.format(new Date(entry.at))}</span>
+              </p>
+              <p className="truncate text-fg-muted" title={entry.byEmail ?? undefined}>
+                {entry.byEmail ?? "compte supprimé"}
+                {detail ? ` · « ${detail} »` : ""}
+              </p>
+            </div>
+          </li>
+        );
+      })}
     </ol>
   );
 }
 
-/**
- * État de la plateforme. Un seul état est enregistré (en ligne ou en
- * maintenance) : « Site en ligne » et « Mode maintenance » en sont les deux
- * faces, ils basculent ensemble et ne peuvent jamais se contredire.
- */
-export function SitePanel({ flags, log }: { flags: SiteFlags; log: StatusChange[] | null }) {
+const STATUS_CHOICES: { status: SiteStatus; hint: string }[] = [
+  { status: "online", hint: "Tout le monde utilise Tamilya normalement." },
+  { status: "maintenance", hint: "Page de travaux, à ouvrir toi-même ensuite." },
+  { status: "waiting_partner", hint: "Page d'attente, le site s'ouvre seul au premier partenaire validé." },
+];
+
+const CLOSE_CONFIRM = {
+  maintenance: {
+    title: "Mettre le site en maintenance ?",
+    message: "Les visiteurs verront la page de maintenance et ne pourront plus utiliser Tamilya. Les administrateurs gardent l'accès.",
+    confirmLabel: "Passer en maintenance",
+  },
+  waiting_partner: {
+    title: "Mettre le site en attente ?",
+    message: "Les visiteurs verront la page d'attente et ne pourront plus utiliser Tamilya jusqu'à la validation d'un partenaire. Les administrateurs gardent l'accès.",
+    confirmLabel: "Mettre en attente",
+  },
+};
+
+/** Liste des partenaires : ajout, validation et retrait en mode modification. */
+function PartnerList({
+  partners,
+  status,
+  canEdit,
+  pending,
+  run,
+}: {
+  partners: Partner[] | null;
+  status: SiteStatus;
+  canEdit: boolean;
+  pending: boolean;
+  run: ReturnType<typeof useAction>["run"];
+}) {
+  const [name, setName] = useState("");
+  const [activity, setActivity] = useState("");
+
+  const validate = (partner: Partner) => {
+    const send = () => run(() => validatePartnerAction({ id: partner.id }));
+    if (status !== "waiting_partner") return send();
+    void confirmDialog({
+      title: `Valider ${partner.name} ?`,
+      message: "Le site s'ouvrira à tout le monde tout de suite.",
+      confirmLabel: "Valider et ouvrir le site",
+    }).then((ok) => ok && send());
+  };
+
+  const remove = (partner: Partner) =>
+    void confirmDialog({
+      title: `Retirer ${partner.name} ?`,
+      message: "L'état du site ne change pas.",
+      confirmLabel: "Retirer",
+      tone: "danger",
+    }).then((ok) => ok && run(() => removePartnerAction({ id: partner.id })));
+
+  return (
+    <div className="space-y-3 rounded-xl border border-border p-4">
+      <p className="text-xs font-medium text-fg-muted">Partenaires à Mayotte</p>
+      {partners === null ? (
+        <p className="text-xs text-fg-muted">Liste indisponible : appliquer la migration 20261202000000_etats_du_site.sql.</p>
+      ) : partners.length === 0 ? (
+        <p className="text-xs text-fg-muted">Aucun partenaire pour l&apos;instant.</p>
+      ) : (
+        <ul className="divide-y divide-border">
+          {partners.map((partner) => (
+            <li key={partner.id} className="flex items-center gap-2 py-2 text-sm first:pt-0 last:pb-0">
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium">{partner.name}</span>
+                {partner.activity ? <span className="block truncate text-xs text-fg-muted">{partner.activity}</span> : null}
+              </span>
+              {partner.validatedAt ? (
+                <span className="shrink-0 text-xs font-medium text-success">Validé</span>
+              ) : canEdit ? (
+                <button type="button" disabled={pending} onClick={() => validate(partner)} className={`${secondaryButton} shrink-0`}>
+                  Valider
+                </button>
+              ) : (
+                <span className="shrink-0 text-xs text-fg-muted">À valider</span>
+              )}
+              {canEdit ? (
+                <button
+                  type="button"
+                  disabled={pending}
+                  onClick={() => remove(partner)}
+                  className="shrink-0 rounded-lg px-2 py-1 text-xs font-medium text-fg-muted hover:bg-bg-muted hover:text-fg"
+                >
+                  Retirer
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      )}
+      {canEdit && partners !== null ? (
+        <form
+          className="space-y-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            run(
+              () => addPartnerAction({ name, activity }),
+              () => {
+                setName("");
+                setActivity("");
+              },
+            );
+          }}
+        >
+          <input aria-label="Nom du partenaire" value={name} onChange={(e) => setName(e.target.value)} maxLength={120} placeholder="Nom du partenaire" className={inputClass} />
+          <div className="flex gap-2">
+            <input aria-label="Activité (facultatif)" value={activity} onChange={(e) => setActivity(e.target.value)} maxLength={120} placeholder="Activité (facultatif)" className={inputClass} />
+            <button type="submit" disabled={pending || name.trim().length < 2} className={`${secondaryButton} shrink-0`}>
+              Ajouter
+            </button>
+          </div>
+        </form>
+      ) : null}
+    </div>
+  );
+}
+
+/** État de la plateforme : un seul état enregistré, choisi parmi trois. */
+export function SitePanel({ flags, log, partners }: { flags: SiteFlags; log: StatusChange[] | null; partners: Partner[] | null }) {
   const { pending, result, run } = useAction();
   const { editing } = useLock();
   const [message, setMessage] = useState(flags.maintenanceMessage);
   const unsaved = message.trim() !== flags.maintenanceMessage;
+  const closed = flags.status !== "online";
+  const hasValidatedPartner = Boolean(partners?.some((p) => p.validatedAt));
 
-  /** Bascule l'état ; le message tapé et pas encore enregistré part avec. */
-  const setMaintenance = (maintenance: boolean) => {
-    if (maintenance === flags.maintenance) return;
-    const save = () =>
-      run(() => setPlatformStatusAction(unsaved ? { maintenance, maintenanceMessage: message } : { maintenance }));
-    if (!maintenance) return save();
-    void confirmDialog({
-      title: "Mettre le site en maintenance ?",
-      message: "Les visiteurs verront la page de maintenance et ne pourront plus utiliser Tamilya. Les administrateurs gardent l'accès.",
-      confirmLabel: "Passer en maintenance",
-      tone: "danger",
-    }).then((ok) => ok && save());
+  /** Change l'état ; le message tapé et pas encore enregistré part avec. */
+  const setStatus = (status: SiteStatus) => {
+    if (status === flags.status) return;
+    const save = () => run(() => setPlatformStatusAction(unsaved ? { status, maintenanceMessage: message } : { status }));
+    if (status === "online") return save();
+    void confirmDialog({ ...CLOSE_CONFIRM[status], tone: "danger" }).then((ok) => ok && save());
   };
 
   const aside = (
     <>
-      <Badge on={flags.maintenance} onLabel="Maintenance" offLabel="En ligne" />
+      <Badge on={closed} onLabel={SITE_STATUS_LABELS[flags.status]} offLabel={SITE_STATUS_LABELS.online} />
       <EditButton section="site" label="État de la plateforme" />
     </>
   );
@@ -477,14 +602,16 @@ export function SitePanel({ flags, log }: { flags: SiteFlags; log: StatusChange[
     return (
       <Panel icon={IconSettings} title="État de la plateforme" subtitle="Accès du public et démonstration" aside={aside} status={result}>
         <div className="divide-y divide-border rounded-xl border border-border">
-          <Row label="Site en ligne">{flags.maintenance ? <span className="text-warning">Non</span> : <span className="text-success">Oui</span>}</Row>
-          <Row label="Mode maintenance">{flags.maintenance ? <span className="text-warning">Activé</span> : "Désactivé"}</Row>
+          <Row label="État du site">
+            <span className={closed ? "text-warning" : "text-success"}>{SITE_STATUS_LABELS[flags.status]}</span>
+          </Row>
           <Row label="Message aux visiteurs">
             {flags.maintenanceMessage ? flags.maintenanceMessage : <span className="font-normal text-fg-muted">Aucun</span>}
           </Row>
           <Row label="Mode démo">{flags.demoMode ? <span className="text-accent">Allumé</span> : "Éteint"}</Row>
         </div>
         {flags.demoMode ? <p className="text-xs text-warning">Mode démo allumé : pense à l&apos;éteindre après la présentation.</p> : null}
+        <PartnerList partners={partners} status={flags.status} canEdit={false} pending={pending} run={run} />
         <div className="rounded-xl border border-border p-4">
           <p className="mb-3 text-xs font-medium text-fg-muted">Derniers changements</p>
           <StatusHistory log={log} />
@@ -496,22 +623,31 @@ export function SitePanel({ flags, log }: { flags: SiteFlags; log: StatusChange[
   return (
     <Panel icon={IconSettings} title="État de la plateforme" subtitle="Accès du public et démonstration" aside={aside} status={result} editing>
       <div className="space-y-4 rounded-xl border border-border p-4">
-        <Switch
-          label="Site en ligne"
-          hint="Allumé : tout le monde utilise Tamilya normalement. Éteint : le site passe en maintenance."
-          checked={!flags.maintenance}
-          disabled={pending}
-          tone="success"
-          onChange={(online) => setMaintenance(!online)}
-        />
-        <Switch
-          label="Mode maintenance"
-          hint="Allumé : les visiteurs voient la page de maintenance, l'API leur est fermée. Les administrateurs gardent l'accès."
-          checked={flags.maintenance}
-          disabled={pending}
-          tone="warning"
-          onChange={setMaintenance}
-        />
+        <fieldset className="space-y-2">
+          <legend className={`${labelClass} mb-2`}>État du site</legend>
+          {STATUS_CHOICES.map(({ status, hint }) => {
+            const locked = status === "waiting_partner" && hasValidatedPartner;
+            return (
+              <label
+                key={status}
+                className={`flex items-start gap-3 rounded-lg border p-3 ${flags.status === status ? "border-accent" : "border-border"} ${locked ? "opacity-60" : "cursor-pointer"}`}
+              >
+                <input
+                  type="radio"
+                  name="site-status"
+                  checked={flags.status === status}
+                  disabled={pending || locked}
+                  onChange={() => setStatus(status)}
+                  className="mt-0.5 accent-[var(--accent)]"
+                />
+                <span className="min-w-0">
+                  <span className="block text-sm font-medium">{SITE_STATUS_LABELS[status]}</span>
+                  <span className="block text-xs text-fg-muted">{locked ? "Impossible : un partenaire est déjà validé." : hint}</span>
+                </span>
+              </label>
+            );
+          })}
+        </fieldset>
         <form
           onSubmit={(e) => {
             e.preventDefault();
@@ -535,7 +671,7 @@ export function SitePanel({ flags, log }: { flags: SiteFlags; log: StatusChange[
             </button>
           </div>
         </form>
-        {flags.maintenance ? (
+        {closed ? (
           <a
             href="/maintenance"
             target="_blank"
@@ -546,6 +682,8 @@ export function SitePanel({ flags, log }: { flags: SiteFlags; log: StatusChange[
           </a>
         ) : null}
       </div>
+
+      <PartnerList partners={partners} status={flags.status} canEdit pending={pending} run={run} />
 
       <div className="space-y-3 rounded-xl border border-border p-4">
         <Switch

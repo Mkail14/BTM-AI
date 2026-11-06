@@ -1,6 +1,7 @@
 import "server-only";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { forgetSiteFlags, getSiteFlags, type SiteFlags } from "./flags";
+import type { SiteStatus } from "./status";
 
 /**
  * Réglages du site (table site_settings, une ligne), lus avec la clé secrète :
@@ -21,8 +22,8 @@ export async function getLastChange(): Promise<SettingsChange | null> {
   return { at: data.updated_at, by: data.updated_by };
 }
 
-/** Une ligne du journal de l'état de la plateforme (mise en maintenance ou réouverture). */
-export type StatusChange = { at: string; byEmail: string | null; maintenance: boolean; message: string };
+/** Une ligne du journal de l'état de la plateforme. partnerName : partenaire dont la validation a ouvert le site. */
+export type StatusChange = { at: string; byEmail: string | null; status: SiteStatus; message: string; partnerName: string | null };
 
 /** Derniers changements d'état, du plus récent au plus ancien. null : journal illisible (migration absente ?). */
 export async function getStatusLog(limit = 8): Promise<StatusChange[] | null> {
@@ -30,55 +31,51 @@ export async function getStatusLog(limit = 8): Promise<StatusChange[] | null> {
   if (!admin) return null;
   const { data, error } = await admin
     .from("site_status_log")
-    .select("changed_at, changed_by_email, maintenance, message")
+    .select("changed_at, changed_by_email, status, message, partner_name")
     .order("changed_at", { ascending: false })
     .limit(limit);
   if (error) {
     console.error("[site] Journal de l'état illisible", error.message);
     return null;
   }
-  return data.map((row) => ({ at: row.changed_at, byEmail: row.changed_by_email, maintenance: row.maintenance, message: row.message }));
+  return data.map((row) => ({
+    at: row.changed_at,
+    byEmail: row.changed_by_email,
+    status: row.status,
+    message: row.message,
+    partnerName: row.partner_name,
+  }));
 }
 
 /**
- * Met le site en maintenance ou le rouvre, et l'inscrit au journal (auteur,
- * date, message) dans la même transaction : fonction set_site_status, que
- * seul le serveur peut appeler. message undefined : le message actuel est gardé.
+ * Change l'état du site et l'inscrit au journal (auteur, date, message) dans la
+ * même transaction : fonction set_site_status, que seul le serveur peut appeler.
+ * message undefined : le message actuel est gardé.
  */
 export async function saveSiteStatus(
-  maintenance: boolean,
+  status: SiteStatus,
   message: string | undefined,
   by: { id: string; email: string | null },
-): Promise<boolean> {
+): Promise<"saved" | "partner_already_validated" | "failed"> {
   const admin = getSupabaseAdminClient();
-  if (!admin) return false;
+  if (!admin) return "failed";
   const { error } = await admin.rpc("set_site_status", {
-    p_maintenance: maintenance,
+    p_status: status,
     p_message: message ?? null,
     p_by: by.id,
     p_by_email: by.email,
   });
   if (error) {
-    // Fonction absente (migration du journal pas encore appliquée) : l'état est quand même
-    // changé, sans journal ; la page des réglages signale que l'historique est indisponible.
-    if (error.code === "PGRST202") {
-      console.error("[site] set_site_status absente : état changé sans journal (migration 20261120010000 à appliquer)");
-      const row: Record<string, unknown> = { maintenance, updated_at: new Date().toISOString(), updated_by: by.id };
-      if (message !== undefined) row.maintenance_message = message;
-      const { data, error: updateError } = await admin.from("site_settings").update(row).eq("id", 1).select("id");
-      if (updateError || !data?.length) return false;
-      forgetSiteFlags();
-      return true;
-    }
+    if (error.message.includes("partner_already_validated")) return "partner_already_validated";
     console.error("[site] État de la plateforme non enregistré", error.message);
-    return false;
+    return "failed";
   }
   forgetSiteFlags();
-  return true;
+  return "saved";
 }
 
-/** Message aux visiteurs et mode démo. L'état (maintenance) passe par saveSiteStatus, pour le journal. */
-export async function saveSiteFlags(changes: Partial<Omit<SiteFlags, "maintenance">>, userId: string): Promise<boolean> {
+/** Message aux visiteurs et mode démo. L'état passe par saveSiteStatus, pour le journal. */
+export async function saveSiteFlags(changes: Partial<Omit<SiteFlags, "status">>, userId: string): Promise<boolean> {
   const admin = getSupabaseAdminClient();
   if (!admin) return false;
   const row: Record<string, unknown> = { updated_at: new Date().toISOString(), updated_by: userId };

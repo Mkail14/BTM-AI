@@ -4,6 +4,7 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { MigrationWarning } from "@/components/admin/form";
 import { listAdmins } from "@/lib/admin/delegation";
 import { requirePrincipalAdmin } from "@/lib/auth/session";
+import { listPartners } from "@/lib/site/partners";
 import { getBankDetails, getLastChange, getSiteFlags, getStatusLog } from "@/lib/site/settings";
 import { unlockedUntil } from "@/lib/admin/unlock";
 import { BankForm, Delegation, LockBar, ProfileLock, SitePanel } from "./ProfileForms";
@@ -27,7 +28,7 @@ const changeFormat = new Intl.DateTimeFormat("fr-FR", {
 /** Profil de GROUPE BTM : réservé à l'administrateur principal (404 pour les autres, délégués compris). */
 export default async function AdminProfilePage() {
   const { user } = await requirePrincipalAdmin("/admin/profil");
-  const [flags, bank, admins, change, statusLog] = await Promise.all([getSiteFlags({ fresh: true }), getBankDetails(), listAdmins(), getLastChange(), getStatusLog()]);
+  const [flags, bank, admins, change, statusLog, partners] = await Promise.all([getSiteFlags({ fresh: true }), getBankDetails(), listAdmins(), getLastChange(), getStatusLog(), listPartners()]);
   const until = await unlockedUntil(user.id);
   const author = change?.by ? (admins?.find((a) => a.id === change.by)?.email ?? null) : null;
 
@@ -57,7 +58,7 @@ export default async function AdminProfilePage() {
         <LockBar />
         {bank ? null : <MigrationWarning file="20261114000000_site_settings.sql" />}
         <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-3">
-          <SitePanel flags={flags} log={statusLog} />
+          <SitePanel flags={flags} log={statusLog} partners={partners} />
           <BankForm bank={bank ?? { holder: "", bankName: "", iban: "", bic: "" }} />
           <Delegation admins={admins} selfId={user.id} />
         </div>

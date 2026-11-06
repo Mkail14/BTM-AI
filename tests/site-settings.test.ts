@@ -2,6 +2,15 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { hasAdminRole, hasPrincipalAdminRole } from "@/lib/auth/roles";
 import { formatIban, isValidBic, isValidIban, parseRib } from "@/lib/site/iban";
+import { siteClosure } from "@/lib/site/status";
+
+describe("États du site", () => {
+  it("ferme le site au public en maintenance et en attente d'un partenaire, pas en ligne", () => {
+    assert.equal(siteClosure("online"), null);
+    assert.match(siteClosure("maintenance")?.apiError ?? "", /maintenance/);
+    assert.match(siteClosure("waiting_partner")?.apiError ?? "", /bientôt/);
+  });
+});
 
 describe("Profil de l'entreprise", () => {
   it("vérifie la clé d'un IBAN, espaces et minuscules compris", () => {

@@ -3,12 +3,13 @@ import { BrandLogo } from "@/components/brand/BrandLogo";
 import { IconMessage, IconMic } from "@/components/ui/icons";
 import { getAuthContext } from "@/lib/auth/session";
 import { getSiteFlags } from "@/lib/site/settings";
+import { SITE_STATUS_LABELS } from "@/lib/site/status";
 import { AdminAccountMenu } from "./AdminAccountMenu";
 import { AdminMenu, AdminTabs } from "./AdminMenu";
 
 /**
  * Barre du haut de toutes les pages d'administration, sur deux étages.
- * En haut : marque, état du site (maintenance, mode démo), accès à Tamilya et
+ * En haut : marque, état du site (fermé au public, mode démo), accès à Tamilya et
  * compte. En dessous, sur grand écran : les rubriques en onglets. Sur petit
  * écran, les onglets laissent place au menu ☰ et au nom de la rubrique.
  */
@@ -16,7 +17,7 @@ export async function AdminHeader({ section }: { section?: string; email?: strin
   const [{ user }, flags] = await Promise.all([getAuthContext(), getSiteFlags()]);
   const principal = Boolean(user?.isPrincipalAdmin);
   const status = [
-    flags.maintenance ? { label: "Maintenance", dot: "bg-warning" } : null,
+    flags.status !== "online" ? { label: SITE_STATUS_LABELS[flags.status], dot: "bg-warning" } : null,
     flags.demoMode ? { label: "Mode démo", dot: "bg-accent" } : null,
   ].filter((s) => s !== null);
   const ghost = "inline-flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium text-fg-muted hover:bg-bg-muted hover:text-fg";

@@ -123,8 +123,11 @@ select tests.check('Alice : ne lit pas les secrets des sites partenaires', tests
 select tests.check('Alice : ne lit pas les appareils connus', tests.visible('select * from public.known_devices') <= 0);
 select tests.check('Alice : ne lit pas les réglages du site (IBAN)', tests.visible('select * from public.site_settings') <= 0);
 select tests.check('Alice : ne lit pas le journal de la maintenance', tests.visible('select * from public.site_status_log') <= 0);
-select tests.denied('Alice : met le site en maintenance', $$select public.set_site_status(true, 'piraté', tests.alice(), 'a@exemple.test')$$);
-select tests.denied('Alice : écrit dans le journal de la maintenance', $$insert into public.site_status_log (maintenance) values (false)$$);
+select tests.denied('Alice : met le site en maintenance', $$select public.set_site_status('maintenance', 'piraté', tests.alice(), 'a@exemple.test')$$);
+select tests.check('Alice : ne lit pas les partenaires', tests.visible('select * from public.partners') <= 0);
+select tests.denied('Alice : valide un partenaire', $$select public.validate_partner(gen_random_uuid(), tests.alice(), 'a@exemple.test')$$);
+select tests.denied('Alice : ajoute un partenaire', $$insert into public.partners (name) values ('Pirate')$$);
+select tests.denied('Alice : écrit dans le journal de la maintenance', $$insert into public.site_status_log (status) values ('online')$$);
 select tests.check('Alice : ne lit pas les réglages de Tamilya', tests.visible('select * from public.awa_settings') <= 0);
 select tests.denied('Alice : modifie le caractère de Tamilya', $$update public.awa_settings set identity = 'x'$$);
 select tests.denied('Alice : ajoute un mot au dictionnaire', $$insert into public.awa_words (french, shimaore) values ('x', 'y')$$);
@@ -184,18 +187,42 @@ select tests.check('Admin : ne lit pas les conversations des autres', tests.visi
 select tests.check('Admin : ne lit pas la mémoire des autres par l''API', tests.visible($$select * from public.awa_memories$$) = 0);
 select tests.check('Admin : ne lit pas les clés d''API par l''API', tests.visible('select * from public.ai_providers') <= 0);
 select tests.denied('Admin : modifie un solde', $$update public.wallets set balance_cents = 0$$);
-select tests.denied('Admin : change l''état du site par l''API (seul le serveur le peut)', $$select public.set_site_status(true, 'x', '00000000-0000-4000-8000-0000000000ad', 'admin@exemple.test')$$);
+select tests.denied('Admin : change l''état du site par l''API (seul le serveur le peut)', $$select public.set_site_status('maintenance', 'x', '00000000-0000-4000-8000-0000000000ad', 'admin@exemple.test')$$);
 rollback;
 
--- Serveur : la mise en maintenance et son inscription au journal vont ensemble.
+-- Serveur : le changement d'état et son inscription au journal vont ensemble.
 begin;
 set local role service_role;
-select public.set_site_status(true, 'Retour à 14 h', '00000000-0000-4000-8000-0000000000ad', 'admin@exemple.test');
-select tests.check('Serveur : maintenance enregistrée', (select maintenance from public.site_settings where id = 1));
+select public.set_site_status('maintenance', 'Retour à 14 h', '00000000-0000-4000-8000-0000000000ad', 'admin@exemple.test');
+select tests.check('Serveur : maintenance enregistrée', (select status = 'maintenance' from public.site_settings where id = 1));
 select tests.check('Serveur : changement inscrit au journal (auteur, état, message)',
-  exists (select 1 from public.site_status_log where maintenance and message = 'Retour à 14 h' and changed_by_email = 'admin@exemple.test'));
-select public.set_site_status(false, null, '00000000-0000-4000-8000-0000000000ad', 'admin@exemple.test');
-select tests.check('Serveur : réouverture, message gardé', (select not maintenance and maintenance_message = 'Retour à 14 h' from public.site_settings where id = 1));
+  exists (select 1 from public.site_status_log where status = 'maintenance' and message = 'Retour à 14 h' and changed_by_email = 'admin@exemple.test'));
+select public.set_site_status('online', null, '00000000-0000-4000-8000-0000000000ad', 'admin@exemple.test');
+select tests.check('Serveur : réouverture, message gardé', (select status = 'online' and maintenance_message = 'Retour à 14 h' from public.site_settings where id = 1));
+rollback;
+
+-- Serveur : en attente, le premier partenaire validé ouvre le site (et le suivant ne change rien).
+begin;
+set local role service_role;
+insert into public.partners (id, name) values
+  ('00000000-0000-4000-8000-0000000000a1', 'Partenaire A'),
+  ('00000000-0000-4000-8000-0000000000a2', 'Partenaire B');
+select public.set_site_status('waiting_partner', null, '00000000-0000-4000-8000-0000000000ad', 'admin@exemple.test');
+select tests.check('Serveur : site en attente d''un partenaire', (select status = 'waiting_partner' from public.site_settings where id = 1));
+select tests.check('Serveur : un partenaire non validé n''ouvre pas le site', (select status = 'waiting_partner' from public.site_settings where id = 1));
+select tests.check('Serveur : la validation annonce l''ouverture',
+  public.validate_partner('00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000ad', 'admin@exemple.test') = 'opened');
+select tests.check('Serveur : la validation ouvre le site', (select status = 'online' from public.site_settings where id = 1));
+select tests.check('Serveur : ouverture inscrite au journal avec le partenaire',
+  exists (select 1 from public.site_status_log where status = 'online' and partner_name = 'Partenaire A'));
+select tests.check('Serveur : une deuxième validation du même partenaire ne fait rien',
+  public.validate_partner('00000000-0000-4000-8000-0000000000a1', '00000000-0000-4000-8000-0000000000ad', 'admin@exemple.test') = 'unchanged');
+select tests.denied('Serveur : refuse l''attente quand un partenaire est déjà validé',
+  $$select public.set_site_status('waiting_partner', null, '00000000-0000-4000-8000-0000000000ad', 'admin@exemple.test')$$);
+select public.set_site_status('maintenance', null, '00000000-0000-4000-8000-0000000000ad', 'admin@exemple.test');
+select tests.check('Serveur : en maintenance, la validation est enregistrée',
+  public.validate_partner('00000000-0000-4000-8000-0000000000a2', '00000000-0000-4000-8000-0000000000ad', 'admin@exemple.test') = 'validated');
+select tests.check('Serveur : une validation ne lève jamais une maintenance', (select status = 'maintenance' from public.site_settings where id = 1));
 rollback;
 
 -- ===========================================================================
