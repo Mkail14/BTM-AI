@@ -169,8 +169,8 @@ export function VoiceOverlay({
             onActivate={talk}
             immediate
             busy={state === "waiting"}
-            size={compact ? "min(26vw, 6.5rem)" : "min(60vw, 16rem)"}
-            goo={compact ? 5 : 13}
+            size={compact || stage ? "min(26vw, 6.5rem)" : "min(60vw, 16rem)"}
+            goo={compact || stage ? 5 : 13}
           />
         </div>
 

@@ -3734,3 +3734,51 @@ html[data-app] .landing-home .landing-nav {
 html[data-app] .landing-home .landing-content {
   padding-top: env(safe-area-inset-top);
 }
+
+/*
+ * Tableau au centre (data-stage) : le globe rapetisse en haut et laisse toute la
+ * place au tableau, centré entre le globe et les boutons.
+ */
+/*
+ * Tous les tableaux : Tamilya fixée en petit tout en haut, toujours visible ; le tableau
+ * prend la place restante en dessous, centré, et défile s'il est trop long.
+ * Rien ne peut faire défiler l'écran entier (sinon un tableau long pousse le globe dehors).
+ */
+.voice-overlay[data-stage] {
+  overflow: clip;
+  padding-top: calc(env(safe-area-inset-top) + 8rem);
+}
+
+.voice-overlay[data-stage] .voice-middle {
+  position: absolute;
+  inset: calc(env(safe-area-inset-top) + 0.75rem) 0 auto 0;
+  flex: none;
+  justify-content: flex-start;
+  gap: 0;
+  padding: 0;
+  pointer-events: none;
+}
+
+.voice-overlay[data-stage] .voice-orb-slot {
+  opacity: 1;
+  filter: none;
+  pointer-events: auto;
+}
+
+.voice-overlay[data-stage] .voice-stage {
+  justify-content: safe center;
+}
+
+/*
+ * Tableau reparti dans la conversation (data-compact) : Tamilya reste en haut, et la
+ * conversation commence sous elle. Ce qui défile est coupé sous le globe, jamais dessus.
+ */
+body:has(.voice-overlay[data-compact]) [data-chat-scroll] {
+  padding-top: calc(env(safe-area-inset-top) + 8rem);
+  clip-path: inset(calc(env(safe-area-inset-top) + 8rem) 0 0 0);
+}
+
+/* Le texte sous le globe est vide pendant le tableau : il ne prend pas de place. */
+.voice-overlay[data-stage] .voice-middle > :not(.voice-orb-slot) {
+  display: none;
+}
