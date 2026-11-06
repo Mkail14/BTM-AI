@@ -233,6 +233,25 @@ html[data-theme="dark"] {
   }
 }
 
+/*
+ * Pages à grand fond, sur grand écran : à droite, les traits arrivent sur la côte et
+ * dessinent Mayotte (public/fond/mayotte.svg, généré par scripts/fond-mayotte.ts,
+ * mêmes courbes que le motif). Le motif est calé à droite et cède sa place à ce
+ * dessin, en fondu sur 100 px à gauche pour que les traits se raccordent.
+ * Résultat : en-tête ∩ (Mayotte + centre ∩ (motif − emplacement de Mayotte)).
+ */
+@media (min-width: 1400px) and (min-height: 760px) {
+  .fond-lagon--page {
+    mask:
+      linear-gradient(to bottom, transparent 3.5rem, #000 10rem) no-repeat,
+      url("/fond/mayotte.svg") 100% 0 / 640px 1280px no-repeat,
+      radial-gradient(ellipse 50% 60% at 50% 46%, transparent 45%, #000 100%) no-repeat,
+      url("/fond/lagon.svg") 100% 0 / 640px repeat,
+      linear-gradient(to right, transparent, #000 100px) 100% 0 / 640px 1280px no-repeat;
+    mask-composite: intersect, add, intersect, subtract;
+  }
+}
+
 @media (prefers-contrast: more), (forced-colors: active), print {
   .fond-lagon {
     display: none;
@@ -3597,8 +3616,8 @@ body:has([data-voice-touch]) .voice-edge[data-on] {
 }
 
 
-/* Pas de rond d'aide flottant pendant une conversation. */
-body:has([data-chat-view]) [data-help-bubble] {
+/* Pas de rond d'aide flottant pendant une conversation. Sur l'accueil, la conversation se charge déjà dessous : le rond reste. */
+body:has([data-chat-view]):not(:has(.landing-home)) [data-help-bubble] {
   display: none;
 }
 
