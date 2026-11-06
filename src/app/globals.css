@@ -3734,3 +3734,28 @@ html[data-app] .landing-home .landing-nav {
 html[data-app] .landing-home .landing-content {
   padding-top: env(safe-area-inset-top);
 }
+
+/*
+ * Tableau au centre (data-stage) : le globe rapetisse en haut et laisse toute la
+ * place au tableau, centré entre le globe et les boutons.
+ */
+.voice-overlay[data-stage] .voice-middle {
+  /* Annule l'ancienne mise en plein écran derrière le tableau : le globe reste au-dessus, à sa place. */
+  position: static;
+  inset: auto;
+  flex: none;
+  justify-content: flex-start;
+  gap: 0.5rem;
+  padding-top: 0.5rem;
+  pointer-events: auto;
+}
+
+.voice-overlay[data-stage] .voice-orb-slot {
+  opacity: 1;
+  filter: none;
+}
+
+/* Le texte sous le globe est vide pendant le tableau : il ne prend pas de place. */
+.voice-overlay[data-stage] .voice-middle > :not(.voice-orb-slot) {
+  display: none;
+}
