@@ -119,6 +119,8 @@ export function describeBoard(): string {
 }
 
 function describeField(c: Control) {
+  if (c.el instanceof HTMLInputElement && c.el.type === "date") return `"${c.label}" (date${c.el.value ? `, déjà rempli : ${c.el.value}` : ""})`;
+  if (c.el instanceof HTMLInputElement && c.el.value) return `"${c.label}" (déjà rempli : ${c.el.value.slice(0, 60)})`;
   if (!(c.el instanceof HTMLSelectElement)) return `"${c.label}"`;
   const options = [...c.el.options].map((o) => clean(o.text)).filter(Boolean).slice(0, 20);
   return `"${c.label}" (au choix : ${options.join(", ")})`;
@@ -212,6 +214,25 @@ export async function scrollConversation(target: string): Promise<string> {
   return `Affiché à l'écran : ${clean(found.innerText).slice(0, 300)}`;
 }
 
+const MONTHS = ["janvier", "fevrier", "mars", "avril", "mai", "juin", "juillet", "aout", "septembre", "octobre", "novembre", "decembre"];
+
+/**
+ * Date dite à l'oral ou écrite à la française → « AAAA-MM-JJ », le seul format
+ * qu'accepte un champ date (sinon il reste vide). null si ce n'est pas une vraie date.
+ */
+export function toIsoDate(spoken: string): string | null {
+  const text = simplify(spoken).replace(/\b1er\b/, "1");
+  let year: number, month: number, day: number;
+  let m = /^(\d{4}) (\d{1,2}) (\d{1,2})$/.exec(text);
+  if (m) [year, month, day] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  else if ((m = /^(\d{1,2}) (\d{1,2}) (\d{4})$/.exec(text))) [day, month, year] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  else if ((m = /^(?:[a-z]+ )*(\d{1,2}) ([a-z]+) (\d{4})$/.exec(text)) && MONTHS.includes(m[2])) [day, month, year] = [Number(m[1]), MONTHS.indexOf(m[2]) + 1, Number(m[3])];
+  else return null;
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (year < 1900 || year > 2100 || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return null;
+  return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
 /** Écrit dans un champ comme le ferait le clavier (React doit voir chaque changement). */
 function setValue(el: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement, value: string) {
   const proto = el instanceof HTMLTextAreaElement ? HTMLTextAreaElement : el instanceof HTMLSelectElement ? HTMLSelectElement : HTMLInputElement;
@@ -227,7 +248,11 @@ export async function writeBoard(wanted: string, value: string, signal?: AbortSi
   await flash(el, FLASH_MS);
   if (signal?.aborted) return CANCELLED;
   if (!el.isConnected) return describeBoard();
-  if (el instanceof HTMLSelectElement) {
+  if (el instanceof HTMLInputElement && el.type === "date") {
+    const iso = toIsoDate(value);
+    if (!iso) return `« ${value} » n'est pas une date complète : demande le jour, le mois et l'année.\n${describeBoard()}`;
+    setValue(el, iso);
+  } else if (el instanceof HTMLSelectElement) {
     const option = pickControl([...el.options].map((o) => ({ label: o.text, value: o.value })), value);
     if (!("found" in option)) return `« ${value} » n'est pas dans ce choix.\n${describeBoard()}`;
     setValue(el, option.found.value);

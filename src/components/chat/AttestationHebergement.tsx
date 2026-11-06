@@ -223,7 +223,8 @@ export function AttestationHebergement({ resume = false, mode = "" }: { resume?:
     else setMail({ status: "error", text: data?.error ?? "Le mail n'est pas parti. Réessaie." });
   };
 
-  const input = (key: TextKey, label: string, options: { type?: "text" | "date"; wide?: boolean; numeric?: boolean } = {}) => {
+  // Nom complet de chaque champ : « Nom » existe deux fois, Tamilya doit savoir lequel elle remplit à la voix.
+  const input = (key: TextKey, label: string, options: { type?: "text" | "date"; wide?: boolean; numeric?: boolean; full?: string } = {}) => {
     const id = `${uid}-${key}`;
     const error = touched ? errors[key] : undefined;
     return (
@@ -234,6 +235,7 @@ export function AttestationHebergement({ resume = false, mode = "" }: { resume?:
           type={options.type ?? "text"}
           inputMode={options.numeric ? "numeric" : undefined}
           autoComplete="off"
+          aria-label={options.full}
           value={fields[key]}
           onChange={(e) => edit(key, e.target.value)}
           aria-invalid={Boolean(error)}
@@ -290,11 +292,11 @@ export function AttestationHebergement({ resume = false, mode = "" }: { resume?:
         <div className="grid grid-cols-2 gap-2 px-4 pt-3">
           {fromAccount ? <p className="col-span-2 text-xs text-fg-muted">Rempli avec ton compte : vérifie, puis complète ce qui manque.</p> : null}
           <p className="col-span-2 text-xs font-semibold tracking-wider text-fg-muted uppercase">La personne qui héberge{you("hebergeant")}</p>
-          {input("hebergeantNom", "Nom")}
-          {input("hebergeantPrenom", "Prénom")}
-          {input("hebergeantNaissanceDate", "Né(e) le", { type: "date" })}
-          {input("hebergeantNaissanceLieu", "À")}
-          {input("adresse", "Adresse", { wide: true })}
+          {input("hebergeantNom", "Nom", { full: "Nom de l'hébergeant" })}
+          {input("hebergeantPrenom", "Prénom", { full: "Prénom de l'hébergeant" })}
+          {input("hebergeantNaissanceDate", "Né(e) le", { type: "date", full: "Date de naissance de l'hébergeant" })}
+          {input("hebergeantNaissanceLieu", "À", { full: "Lieu de naissance de l'hébergeant" })}
+          {input("adresse", "Adresse", { wide: true, full: "Adresse du logement" })}
           {input("codePostal", "Code postal", { numeric: true })}
           {input("ville", "Ville")}
 
@@ -311,15 +313,15 @@ export function AttestationHebergement({ resume = false, mode = "" }: { resume?:
             </div>
             {civility ? <span className="mt-0.5 block text-[11px] text-danger">{civility}</span> : null}
           </fieldset>
-          {input("hebergeNom", "Nom")}
-          {input("hebergePrenom", "Prénom")}
-          {input("hebergeNaissanceDate", "Né(e) le", { type: "date" })}
-          {input("hebergeNaissanceLieu", "À")}
+          {input("hebergeNom", "Nom", { full: "Nom de la personne hébergée" })}
+          {input("hebergePrenom", "Prénom", { full: "Prénom de la personne hébergée" })}
+          {input("hebergeNaissanceDate", "Né(e) le", { type: "date", full: "Date de naissance de la personne hébergée" })}
+          {input("hebergeNaissanceLieu", "À", { full: "Lieu de naissance de la personne hébergée" })}
           {input("depuis", "Hébergé(e) depuis le", { type: "date", wide: true })}
 
           <p className="col-span-2 mt-3 text-xs font-semibold tracking-wider text-fg-muted uppercase">Le document</p>
           {input("faitA", "Fait à")}
-          {input("faitLe", "Le", { type: "date" })}
+          {input("faitLe", "Le", { type: "date", full: "Date du document" })}
         </div>
         <div className="p-4">
           <button

@@ -34,7 +34,10 @@ export function showBoard(slot: HTMLElement) {
   if (board) slot.replaceChildren(board);
 }
 
-/** Retour à la conversation, à sa place, sous les yeux de la personne. */
+/**
+ * Retour à la conversation, sous le dernier message : la discussion a pu continuer
+ * pendant que le tableau était au centre, il revient en bas, sous les yeux de la personne.
+ */
 export function returnBoard(slot: HTMLElement) {
   for (const board of [...slot.children] as HTMLElement[]) {
     const home = homes.get(board);
@@ -42,7 +45,10 @@ export function returnBoard(slot: HTMLElement) {
       board.remove();
       continue;
     }
-    home.appendChild(board);
+    const messages = [...document.querySelectorAll<HTMLElement>("[data-chat-scroll] article")].filter((el) => !el.closest("[data-voice-board]"));
+    const last = messages[messages.length - 1];
+    if (last && !last.contains(home) && last.compareDocumentPosition(home) & Node.DOCUMENT_POSITION_PRECEDING) last.after(board);
+    else home.appendChild(board);
     board.scrollIntoView({ block: "center" });
   }
 }
