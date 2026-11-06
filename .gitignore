@@ -20,3 +20,7 @@ tamilya_mobile/env/*.json
 # Configuration locale (valeurs publiques mais propres à l environnement)
 tamilya_mobile/config/*.json
 !tamilya_mobile/config/*.example.json
+
+# Gradle (fichiers de compilation et réglages du poste)
+.gradle/
+local.properties

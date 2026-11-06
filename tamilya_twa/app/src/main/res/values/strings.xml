@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Tamilya</string>
+    <!-- Lien app <-> site (Digital Asset Links). Sans assetlinks.json en ligne, Chrome affiche une barre d'adresse. -->
+    <string name="asset_statements" translatable="false">[{\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://tamilya.yt\"}}]</string>
+    <!-- Couleur « ink » du site (manifest.webmanifest : #111111). -->
+    <color name="ink">#111111</color>
+</resources>

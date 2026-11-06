@@ -1,5 +1,6 @@
 package yt.tamilya.app.connect;
 
+import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
@@ -16,6 +17,8 @@ final class ConnectApi {
     static final String BASE = "https://tamilya.yt";
     private static final int TIMEOUT_MS = 20_000;
     private static final int MAX_RESPONSE = 64 * 1024;
+    /** Une conversation entière pèse plus qu'une enveloppe du relais. */
+    private static final int MAX_HISTORY_RESPONSE = 1024 * 1024;
 
     private ConnectApi() {}
 
@@ -25,6 +28,16 @@ final class ConnectApi {
         JSONObject answer = new JSONObject(call("POST", "/api/mesh/device", body.toString(), cookies));
         if (answer.optString("deviceId").isEmpty()) throw new IOException("deviceId absent");
         return answer;
+    }
+
+    /** Historique du compte (cookies de la WebView), le même que sur le site. */
+    static JSONArray conversations(String cookies) throws IOException, JSONException {
+        return new JSONObject(call("GET", "/api/conversations", null, cookies, MAX_HISTORY_RESPONSE)).getJSONArray("conversations");
+    }
+
+    /** Messages d'une conversation du compte. */
+    static JSONArray messages(String id, String cookies) throws IOException, JSONException {
+        return new JSONObject(call("GET", "/api/conversations/" + id, null, cookies, MAX_HISTORY_RESPONSE)).getJSONArray("messages");
     }
 
     /** Clé publique du serveur : { keyId, publicKey }. */
@@ -67,6 +80,10 @@ final class ConnectApi {
     }
 
     private static String call(String method, String path, String body, String cookies) throws IOException {
+        return call(method, path, body, cookies, MAX_RESPONSE);
+    }
+
+    private static String call(String method, String path, String body, String cookies, int maxResponse) throws IOException {
         HttpURLConnection connection = (HttpURLConnection) new URL(BASE + path).openConnection();
         try {
             connection.setRequestMethod(method);
@@ -92,25 +109,25 @@ final class ConnectApi {
                 String text = "";
                 if (error != null) {
                     try (InputStream in = error) {
-                        text = read(in);
+                        text = read(in, maxResponse);
                     }
                 }
                 throw new HttpError(status, text);
             }
             try (InputStream in = connection.getInputStream()) {
-                return read(in);
+                return read(in, maxResponse);
             }
         } finally {
             connection.disconnect();
         }
     }
 
-    private static String read(InputStream in) throws IOException {
+    private static String read(InputStream in, int maxResponse) throws IOException {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         byte[] buffer = new byte[4096];
         for (int n; (n = in.read(buffer)) > 0; ) {
             out.write(buffer, 0, n);
-            if (out.size() > MAX_RESPONSE) throw new IOException("réponse trop longue");
+            if (out.size() > maxResponse) throw new IOException("réponse trop longue");
         }
         return out.toString("UTF-8");
     }

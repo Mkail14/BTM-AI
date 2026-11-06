@@ -37,8 +37,6 @@ final class ConnectStore {
     boolean permissionsAsked() { return prefs.getBoolean("permissionsAsked", false); }
     void setPermissionsAsked() { prefs.edit().putBoolean("permissionsAsked", true).apply(); }
 
-    boolean notificationsAsked() { return prefs.getBoolean("notificationsAsked", false); }
-    void setNotificationsAsked() { prefs.edit().putBoolean("notificationsAsked", true).apply(); }
 
     boolean batteryAsked() { return prefs.getBoolean("batteryAsked", false); }
     void setBatteryAsked() { prefs.edit().putBoolean("batteryAsked", true).apply(); }
@@ -48,12 +46,41 @@ final class ConnectStore {
         return !deviceId().isEmpty() && !keyId().isEmpty() && !serverKey().isEmpty();
     }
 
-    JSONArray messages() {
+    /** Historique du compte, gardé pour le relire sans internet. */
+    JSONArray history() {
+        return array("history");
+    }
+
+    void saveHistory(JSONArray history) {
+        prefs.edit().putString("history", history.toString()).apply();
+    }
+
+    boolean hasThread(String id) { return prefs.contains("thread:" + id); }
+    /** Date de la dernière version gardée : inutile de relire une conversation qui n'a pas bougé. */
+    String threadStamp(String id) { return prefs.getString("stamp:" + id, ""); }
+
+    void saveThread(String id, JSONArray messages, String stamp) {
+        prefs.edit().putString("thread:" + id, messages.toString()).putString("stamp:" + id, stamp).apply();
+    }
+
+    /** Ouvre une conversation (vide : une nouvelle) et range celle qui était à l'écran. */
+    void switchTo(String id) {
+        String current = conversationId();
+        SharedPreferences.Editor edit = prefs.edit();
+        if (!current.isEmpty()) edit.putString("thread:" + current, messages().toString()).remove("stamp:" + current);
+        edit.putString("conversationId", id).putString("messages", id.isEmpty() ? "[]" : array("thread:" + id).toString()).apply();
+    }
+
+    private JSONArray array(String key) {
         try {
-            return new JSONArray(prefs.getString("messages", "[]"));
+            return new JSONArray(prefs.getString(key, "[]"));
         } catch (JSONException e) {
             return new JSONArray();
         }
+    }
+
+    JSONArray messages() {
+        return array("messages");
     }
 
     void saveMessages(JSONArray messages) {

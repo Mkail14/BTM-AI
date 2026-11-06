@@ -15,9 +15,18 @@ import android.os.PowerManager;
 import android.provider.Settings;
 import android.text.InputFilter;
 import android.text.InputType;
+import android.graphics.Color;
+import android.graphics.Typeface;
+import android.graphics.drawable.ColorDrawable;
+import android.graphics.drawable.GradientDrawable;
+import android.util.TypedValue;
+import android.view.Gravity;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -37,6 +46,11 @@ import java.util.concurrent.Executors;
 public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.Actions {
     /** Une journée : la clé du serveur est relue au plus une fois par jour. */
     private static final long KEY_REFRESH_MS = 24 * 60 * 60 * 1000L;
+    private static final int FADE_MS = 200;
+    /** Historique relu au plus une fois par minute. */
+    private static final long HISTORY_REFRESH_MS = 60_000L;
+    /** Conversations récentes gardées sur le téléphone pour les relire sans internet. */
+    private static final int THREADS_KEPT = 10;
 
     public interface Host {
         void requestConnectPermissions(String[] permissions);
@@ -47,6 +61,8 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
     private final Host host;
     private final ConnectStore store;
     private final ExecutorService io = Executors.newSingleThreadExecutor();
+    /** À part : lire l'historique ne doit pas retarder un message. */
+    private final ExecutorService historyIo = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
     private final ConnectScreen screen;
     private final MeshRelay mesh;
@@ -99,17 +115,19 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         return true;
     }
 
+    /** Avancée du geste de fermeture : le fond change, le reste ne bouge pas. */
+    public void setPull(float progress) {
+        screen.setPull(progress);
+    }
+
     public void open() {
-        // Apparition douce : l'écran monte un peu, grandit et s'éclaire.
+        // Simple fondu, sur place : rien ne monte.
         closing = false;
         screen.animate().cancel();
+        screen.setPull(0f);
         screen.setAlpha(0f);
-        screen.setScaleX(0.94f);
-        screen.setScaleY(0.94f);
-        screen.setTranslationY(screen.getResources().getDisplayMetrics().density * 56);
         screen.setVisibility(View.VISIBLE);
-        screen.animate().alpha(1f).scaleX(1f).scaleY(1f).translationY(0f).setDuration(420)
-                .setInterpolator(new android.view.animation.OvershootInterpolator(0.8f)).withEndAction(null).start();
+        screen.animate().alpha(1f).setDuration(FADE_MS).withEndAction(null).start();
         render();
         if (!store.ready()) {
             screen.setNotice("Pour activer Tamilya Connect, ouvre l'app une fois avec internet, en étant connecté à ton compte.");
@@ -134,18 +152,14 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         if (!isOpen()) return;
         InputMethodManager keyboard = (InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
         if (keyboard != null) keyboard.hideSoftInputFromWindow(screen.getWindowToken(), 0);
-        // Départ doux : l'écran s'envole vers le haut et s'efface (depuis là où le doigt l'a laissé).
+        // Simple fondu, sur place, comme à l'ouverture.
         closing = true;
         screen.animate().cancel();
-        float density = screen.getResources().getDisplayMetrics().density;
-        screen.animate().alpha(0f).scaleX(0.94f).scaleY(0.94f).translationY(-density * 72).setDuration(300)
-                .setInterpolator(new android.view.animation.AccelerateInterpolator(1.4f))
+        screen.animate().alpha(0f).setDuration(FADE_MS)
                 .withEndAction(() -> {
                     screen.setVisibility(View.GONE);
                     screen.setAlpha(1f);
-                    screen.setScaleX(1f);
-                    screen.setScaleY(1f);
-                    screen.setTranslationY(0f);
+                    screen.setPull(0f);
                     closing = false;
                 })
                 .start();
@@ -156,14 +170,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
     private void startRelay() {
         mesh.start();
         RelayService.start(activity);
-        // Sans cette autorisation le relais marche, mais sa notification reste cachée.
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !store.notificationsAsked()
-                && activity.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            store.setNotificationsAsked();
-            host.requestConnectPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS});
-        } else {
-            askBatteryFreedom();
-        }
+        askBatteryFreedom();
     }
 
     /**
@@ -203,6 +210,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         mesh.clearListener(this);
         if (!RelayService.isRunning()) mesh.stop();
         io.shutdown();
+        historyIo.shutdown();
     }
 
     public void setOnline(boolean online) {
@@ -214,6 +222,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
      * du serveur pour le hors ligne. Silencieux en cas d'échec (on réessaie à la prochaine page).
      */
     public void syncAccount(String cookies) {
+        refreshHistory(cookies);
         if (syncing) return;
         boolean signedIn = cookies != null && cookies.contains("-auth-token");
         boolean needKey = store.serverKey().isEmpty() || System.currentTimeMillis() - store.keyFetchedAt() > KEY_REFRESH_MS;
@@ -249,6 +258,108 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         });
     }
 
+    // --- Historique
+
+    private volatile String cookies;
+    private boolean historySyncing;
+    private long historySyncedAt;
+    private boolean historyShown;
+
+    /** En ligne et connecté : garde la liste du compte et les dernières conversations pour le hors ligne. */
+    private void refreshHistory(String accountCookies) {
+        if (accountCookies == null || !accountCookies.contains("-auth-token")) return;
+        cookies = accountCookies;
+        long now = System.currentTimeMillis();
+        if (historySyncing || now - historySyncedAt < HISTORY_REFRESH_MS) return;
+        historySyncing = true;
+        historyIo.execute(() -> {
+            try {
+                JSONArray server = ConnectApi.conversations(accountCookies);
+                store.saveHistory(ConnectHistory.merge(server, store.history()));
+                for (int i = 0; i < Math.min(server.length(), THREADS_KEPT); i++) {
+                    JSONObject item = server.getJSONObject(i);
+                    String id = item.getString("id");
+                    String stamp = item.optString("updatedAt");
+                    if (id.equals(store.conversationId()) || stamp.equals(store.threadStamp(id))) continue;
+                    store.saveThread(id, ConnectHistory.toLocal(ConnectApi.messages(id, accountCookies)), stamp);
+                }
+            } catch (Exception ignored) {
+                // Réseau faible : on garde la dernière liste connue.
+            } finally {
+                main.post(() -> {
+                    historySyncing = false;
+                    historySyncedAt = System.currentTimeMillis();
+                    if (historyShown && isOpen()) render();
+                });
+            }
+        });
+    }
+
+    /** Une réponse attendue revient dans la conversation à l'écran : on n'en change pas d'ici là. */
+    private boolean waitingForReply() {
+        JSONArray messages = store.messages();
+        for (int i = 0; i < messages.length(); i++) {
+            JSONObject message = messages.optJSONObject(i);
+            if (message == null) continue;
+            String status = message.optString("status");
+            if ("searching".equals(status) || "relayed".equals(status) || "retry".equals(status)) return true;
+        }
+        return false;
+    }
+
+    private void showConversation(String id) {
+        store.switchTo(id);
+        historyShown = false;
+        screen.setNotice(null);
+        render();
+    }
+
+    @Override
+    public void history() {
+        historyShown = !historyShown;
+        render();
+    }
+
+    @Override
+    public void newConversation() {
+        if (waitingForReply()) {
+            screen.setNotice("Attends la réponse de Tamilya avant de changer de conversation.");
+            return;
+        }
+        showConversation("");
+    }
+
+    @Override
+    public void openConversation(String id) {
+        if (id.equals(store.conversationId())) {
+            historyShown = false;
+            render();
+            return;
+        }
+        if (waitingForReply()) {
+            screen.setNotice("Attends la réponse de Tamilya avant de changer de conversation.");
+            return;
+        }
+        if (store.hasThread(id)) {
+            showConversation(id);
+            return;
+        }
+        String account = cookies;
+        if (account == null) {
+            screen.setNotice("Cette conversation s'ouvrira quand tu auras internet.");
+            return;
+        }
+        historyIo.execute(() -> {
+            try {
+                JSONArray messages = ConnectHistory.toLocal(ConnectApi.messages(id, account));
+                store.saveThread(id, messages, "");
+                main.post(() -> showConversation(id));
+            } catch (Exception e) {
+                main.post(() -> screen.setNotice("Cette conversation s'ouvrira quand tu auras internet."));
+            }
+        });
+    }
+
     // --- Messages
 
     @Override
@@ -269,21 +380,106 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
             sendAction(actionId, label, null);
             return;
         }
+        showPinDialog(actionId, label);
+    }
+
+    /** Fenêtre du code de paiement, aux couleurs de Connect (fini la boîte grise du système). */
+    private void showPinDialog(String actionId, String label) {
+        int ink = Color.parseColor("#17191B");
+        int cream = Color.parseColor("#F5F0E6");
+        int muted = Color.parseColor("#8E9398");
+        int accent = Color.parseColor("#F06A9B");
+
+        LinearLayout card = new LinearLayout(activity);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(24), dp(24), dp(24), dp(20));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(ink);
+        bg.setCornerRadius(dp(26));
+        card.setBackground(bg);
+
+        TextView title = new TextView(activity);
+        title.setText(label);
+        title.setTextColor(cream);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+        title.setTypeface(title.getTypeface(), Typeface.BOLD);
+        card.addView(title);
+
+        TextView sub = new TextView(activity);
+        sub.setText("Entre ton code de paiement (le même que pour payer à la voix).");
+        sub.setTextColor(muted);
+        sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        sub.setPadding(0, dp(8), 0, dp(18));
+        card.addView(sub);
+
         EditText pin = new EditText(activity);
         pin.setInputType(InputType.TYPE_CLASS_NUMBER | InputType.TYPE_NUMBER_VARIATION_PASSWORD);
         pin.setFilters(new InputFilter[]{new InputFilter.LengthFilter(4)});
-        pin.setHint("Code à 4 chiffres");
-        new AlertDialog.Builder(activity)
-                .setTitle(label)
-                .setMessage("Ton code de paiement (le même que pour payer à la voix).")
-                .setView(pin)
-                .setNegativeButton("Annuler", null)
-                .setPositiveButton("Payer", (dialog, which) -> {
-                    String code = pin.getText().toString();
-                    if (code.matches("\\d{4}")) sendAction(actionId, label, code);
-                    else screen.setNotice("Le code fait 4 chiffres.");
-                })
-                .show();
+        pin.setHint("••••");
+        pin.setHintTextColor(muted);
+        pin.setTextColor(cream);
+        pin.setGravity(Gravity.CENTER);
+        pin.setTextSize(TypedValue.COMPLEX_UNIT_SP, 28);
+        pin.setLetterSpacing(0.5f);
+        pin.setPadding(dp(16), dp(14), dp(16), dp(14));
+        GradientDrawable field = new GradientDrawable();
+        field.setColor(Color.parseColor("#1D1F21"));
+        field.setCornerRadius(dp(16));
+        pin.setBackground(field);
+        card.addView(pin, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        AlertDialog dialog = new AlertDialog.Builder(activity).setView(card).create();
+        if (dialog.getWindow() != null) dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+
+        LinearLayout row = new LinearLayout(activity);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.END);
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        rowParams.topMargin = dp(18);
+        card.addView(row, rowParams);
+
+        TextView cancel = pillButton("Annuler", muted, Color.TRANSPARENT);
+        cancel.setOnClickListener(v -> dialog.dismiss());
+        row.addView(cancel);
+
+        TextView confirm = pillButton("Payer", Color.WHITE, accent);
+        LinearLayout.LayoutParams confirmParams = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        confirmParams.leftMargin = dp(8);
+        confirm.setOnClickListener(v -> {
+            String code = pin.getText().toString();
+            if (code.matches("\\d{4}")) {
+                sendAction(actionId, label, code);
+                dialog.dismiss();
+            } else {
+                screen.setNotice("Le code fait 4 chiffres.");
+            }
+        });
+        row.addView(confirm, confirmParams);
+
+        dialog.show();
+        pin.requestFocus();
+    }
+
+    private TextView pillButton(String text, int textColor, int fill) {
+        TextView button = new TextView(activity);
+        button.setText(text);
+        button.setTextColor(textColor);
+        button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        button.setTypeface(button.getTypeface(), Typeface.BOLD);
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(dp(22), dp(11), dp(22), dp(11));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(fill);
+        bg.setCornerRadius(dp(22));
+        button.setBackground(bg);
+        button.setClickable(true);
+        return button;
+    }
+
+    private int dp(int value) {
+        return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value,
+                activity.getResources().getDisplayMetrics()));
     }
 
     private void sendAction(String actionId, String label, String pin) {
@@ -382,7 +578,9 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
             }
         }
         store.saveMessages(messages);
-        if (isOpen()) screen.render(messages);
+        if (!isOpen()) return;
+        if (historyShown) screen.renderHistory(store.history(), store.conversationId());
+        else screen.render(messages);
     }
 
     // --- Réseau
@@ -425,7 +623,13 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
             JSONArray choices = answer.optJSONArray("actions");
             if (choices != null) theirs.put("actions", choices);
             messages.put(theirs);
-            if (!answer.optString("conversationId").isEmpty()) store.setConversationId(answer.optString("conversationId"));
+            String conversationId = answer.optString("conversationId");
+            if (!conversationId.isEmpty()) {
+                if (!conversationId.equals(store.conversationId())) {
+                    store.saveHistory(ConnectHistory.addLocal(store.history(), conversationId, mine.optString("text", "Conversation")));
+                }
+                store.setConversationId(conversationId);
+            }
             store.saveMessages(messages);
             render();
         } catch (Exception ignored) {

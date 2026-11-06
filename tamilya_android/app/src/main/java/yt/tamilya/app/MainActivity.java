@@ -26,6 +26,7 @@ import android.speech.RecognizerIntent;
 import android.speech.SpeechRecognizer;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
+import android.util.Base64;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -50,6 +51,7 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.credentials.Credential;
 import androidx.credentials.CredentialManager;
@@ -68,6 +70,8 @@ import org.json.JSONObject;
 
 import yt.tamilya.app.connect.TamilyaConnect;
 
+import java.io.IOException;
+import java.io.OutputStream;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Locale;
@@ -90,9 +94,14 @@ public class MainActivity extends Activity {
     private static final int REQ_LOCATION = 3;
     private static final int REQ_FILE = 4;
     private static final int REQ_CONNECT = 5;
+    private static final int REQ_SAVE_PDF = 6;
+    /** Environ 8 Mo de PDF, bien plus qu'un document d'une page avec deux signatures. */
+    private static final int MAX_PDF_BASE64 = 11_000_000;
 
     /** Geste vers le haut qui ouvre et ferme Tamilya Connect. */
-    private static final int SWIPE_DP = 120;
+    private static final int SWIPE_DP = 160;
+    /** Durée du fondu de Tamilya Connect, un peu plus pour rendre le fond à la conversation. */
+    private static final int PAGE_PULL_RESET_MS = 260;
 
     private final Handler main = new Handler(Looper.getMainLooper());
 
@@ -108,6 +117,7 @@ public class MainActivity extends Activity {
     private GeolocationPermissions.Callback pendingGeo;
     private String pendingGeoOrigin;
     private ValueCallback<Uri[]> pendingFile;
+    private byte[] pendingPdf;
 
     private SpeechRecognizer recognizer;
     private String pendingSpeechLang;
@@ -125,12 +135,19 @@ public class MainActivity extends Activity {
     private ConnectivityManager connectivity;
     private ConnectivityManager.NetworkCallback networkCallback;
     private boolean online = true;
+    /** Tamilya Connect ouvert avec internet : il reste ouvert tant que la personne ne le ferme pas. */
+    private boolean openedOnline;
 
     private float swipeX;
     private float swipeY;
     private boolean swipeDone;
     /** La page sous le doigt est déjà tout en bas (demandé à la page au début du geste). */
     private boolean webAtBottom;
+    /** Dernier état envoyé par la page à chaque défilement : connu dès que le doigt se pose. */
+    private volatile boolean pageAtBottom;
+    /** Un dessin du geste est en cours dans la page : on n'envoie que le plus récent. */
+    private boolean pullInFlight;
+    private float pullSent = -1f, pullWanted;
 
     @Override
     protected void onCreate(Bundle state) {
@@ -154,23 +171,12 @@ public class MainActivity extends Activity {
 
             @Override
             public void onConnectClosed() {
+                openedOnline = false;
                 // Internet revenu pendant Tamilya Connect : on retrouve la page normale.
                 if (online && pageFailed) retry();
             }
         });
-        // Voile sombre et rond du geste (au-dessus de la page, sous Tamilya Connect).
-        dim = new View(this);
-        dim.setBackgroundColor(Color.BLACK);
-        dim.setAlpha(0f);
-        dim.setClickable(false);
-        content.addView(dim, match());
         content.addView(connect.view(), match());
-        pull = new PullIndicator(this);
-        pull.setVisibility(View.GONE);
-        FrameLayout.LayoutParams pullParams = new FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT, dp(110), Gravity.BOTTOM);
-        pullParams.bottomMargin = dp(36);
-        content.addView(pull, pullParams);
         splash = buildSplashView();
         content.addView(splash, match());
         root.addView(content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
@@ -215,31 +221,62 @@ public class MainActivity extends Activity {
         box.setOrientation(LinearLayout.VERTICAL);
         box.setGravity(Gravity.CENTER);
         box.setBackgroundColor(Color.parseColor("#111111"));
+        box.setPadding(dp(32), dp(24), dp(32), dp(24));
 
+        // Pastille douce autour du logo, pour ne pas faire « page d'erreur de navigateur ».
+        android.graphics.drawable.GradientDrawable halo = new android.graphics.drawable.GradientDrawable();
+        halo.setShape(android.graphics.drawable.GradientDrawable.OVAL);
+        halo.setColor(Color.parseColor("#1D1F21"));
         ImageView icon = new ImageView(this);
         icon.setImageResource(R.mipmap.ic_launcher);
-        box.addView(icon, new LinearLayout.LayoutParams(dp(96), dp(96)));
+        icon.setBackground(halo);
+        icon.setPadding(dp(22), dp(22), dp(22), dp(22));
+        box.addView(icon, new LinearLayout.LayoutParams(dp(112), dp(112)));
 
         TextView title = new TextView(this);
         title.setText(R.string.offline_title);
         title.setTextColor(Color.parseColor("#F5F0E6"));
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 20);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 23);
+        title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
         title.setGravity(Gravity.CENTER);
-        title.setPadding(0, dp(24), 0, dp(24));
+        title.setPadding(0, dp(28), 0, dp(10));
         box.addView(title);
 
-        Button retry = new Button(this);
+        TextView message = new TextView(this);
+        message.setText(R.string.offline_message);
+        message.setTextColor(Color.parseColor("#8E9398"));
+        message.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        message.setLineSpacing(dp(4), 1f);
+        message.setGravity(Gravity.CENTER);
+        box.addView(message, new LinearLayout.LayoutParams(dp(300), LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        // Action principale : ouvrir Tamilya Connect. Bouton rose plein, comme l'app.
+        TextView write = new TextView(this);
+        write.setText(R.string.offline_write);
+        write.setTextColor(Color.WHITE);
+        write.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
+        write.setTypeface(write.getTypeface(), android.graphics.Typeface.BOLD);
+        write.setGravity(Gravity.CENTER);
+        write.setPadding(dp(30), dp(15), dp(30), dp(15));
+        android.graphics.drawable.GradientDrawable pink = new android.graphics.drawable.GradientDrawable();
+        pink.setColor(Color.parseColor("#F06A9B"));
+        pink.setCornerRadius(dp(28));
+        write.setBackground(pink);
+        write.setOnClickListener(v -> connect.open());
+        LinearLayout.LayoutParams writeParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT);
+        writeParams.topMargin = dp(32);
+        box.addView(write, writeParams);
+
+        // Réessayer : discret, sous le bouton.
+        TextView retry = new TextView(this);
         retry.setText(R.string.offline_retry);
+        retry.setTextColor(Color.parseColor("#8E9398"));
+        retry.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+        retry.setGravity(Gravity.CENTER);
+        retry.setPadding(dp(16), dp(18), dp(16), dp(8));
         retry.setOnClickListener(v -> retry());
         box.addView(retry);
-
-        TextView hint = new TextView(this);
-        hint.setText("↑  Tire vers le haut pour écrire à Tamilya sans internet");
-        hint.setTextColor(Color.parseColor("#8E9398"));
-        hint.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        hint.setGravity(Gravity.CENTER);
-        hint.setPadding(dp(24), dp(40), dp(24), 0);
-        box.addView(hint);
         return box;
     }
 
@@ -275,15 +312,17 @@ public class MainActivity extends Activity {
         online = value;
         connect.setOnline(value);
         if (!changed || !value) return;
-        // Internet revenu : Tamilya Connect se ferme tout seul, retour à la page normale.
-        if (connect.isOpen()) connect.close();
-        else if (pageFailed) retry();
+        // Internet revenu : Tamilya Connect se ferme tout seul, sauf si la personne l'a ouvert avec internet.
+        if (connect.isOpen()) {
+            if (!openedOnline) connect.close();
+        } else if (pageFailed) retry();
     }
 
     /**
-     * Glisser vers le haut, comme le mode éphémère d'Instagram : un rond se remplit pendant
-     * qu'on tire, rien ne s'active tant qu'il n'est pas complet ; plein, on lâche et Tamilya
-     * Connect s'ouvre (ou se ferme) en animation. Lâché trop tôt, tout revient en place.
+     * Glisser vers le haut, comme le mode éphémère d'Instagram, avec ou sans internet, dans
+     * la conversation : les messages montent, un petit rond se remplit au-dessus de la barre
+     * d'écriture, qui ne bouge pas. Rond complet : ça vibre et Tamilya Connect s'ouvre.
+     * Lâché avant, tout redescend.
      */
     @Override
     public boolean dispatchTouchEvent(MotionEvent event) {
@@ -292,17 +331,18 @@ public class MainActivity extends Activity {
                 swipeX = event.getRawX();
                 swipeY = event.getRawY();
                 swipeDone = false;
+                pullFired = false;
                 touching = true;
-                webAtBottom = false;
-                if (!connect.isOpen() && offline.getVisibility() != View.VISIBLE) askPageAtBottom(event);
+                // Avec internet, la page répond plus lentement : on part de ce qu'elle a déjà dit.
+                webAtBottom = pageAtBottom;
+                if (!connect.isOpen() && offline.getVisibility() != View.VISIBLE) askConversationAtBottom(event);
                 break;
             case MotionEvent.ACTION_MOVE: {
                 float up = swipeY - event.getRawY();
                 float side = Math.abs(event.getRawX() - swipeX);
                 if (!touching) break;
                 if (!swipeDone) {
-                    boolean eligible = connect.isOpen() ? connect.atBottom()
-                            : offline.getVisibility() == View.VISIBLE || webAtBottom;
+                    boolean eligible = connect.isOpen() ? connect.atBottom() : webAtBottom;
                     if (!eligible || up < dp(18) || up < side * 2) break;
                     // C'est bien le geste : la page ne reçoit plus le doigt.
                     swipeDone = true;
@@ -313,7 +353,7 @@ public class MainActivity extends Activity {
                     cancel.recycle();
                     up = 0;
                 }
-                dragTo(Math.max(0f, up));
+                if (!pullFired) dragTo(Math.max(0f, up));
                 return true;
             }
             case MotionEvent.ACTION_UP:
@@ -321,9 +361,11 @@ public class MainActivity extends Activity {
                 touching = false;
                 if (swipeDone) {
                     swipeDone = false;
-                    release(event.getActionMasked() == MotionEvent.ACTION_UP);
+                    if (!pullFired) release();
+                    pullFired = false;
                     return true;
                 }
+                if (event.getActionMasked() == MotionEvent.ACTION_UP && pressedNativeButton(event)) feedback("key");
                 break;
             default:
                 break;
@@ -331,60 +373,86 @@ public class MainActivity extends Activity {
         return super.dispatchTouchEvent(event);
     }
 
-    private PullIndicator pull;
-    private View dim;
-    private boolean pullFull;
+    /** Appui sans glisser sur un bouton de Tamilya Connect ou de l'écran hors ligne. */
+    private boolean pressedNativeButton(MotionEvent event) {
+        if (Math.abs(event.getRawX() - swipeX) > dp(12) || Math.abs(event.getRawY() - swipeY) > dp(12)) return false;
+        View screen = connect.isOpen() ? connect.view() : offline.getVisibility() == View.VISIBLE ? offline : null;
+        return screen instanceof ViewGroup && hitsButton((ViewGroup) screen, event.getRawX(), event.getRawY());
+    }
+
+    private boolean hitsButton(ViewGroup parent, float x, float y) {
+        int[] at = new int[2];
+        for (int i = parent.getChildCount() - 1; i >= 0; i--) {
+            View child = parent.getChildAt(i);
+            if (child.getVisibility() != View.VISIBLE) continue;
+            child.getLocationOnScreen(at);
+            if (x < at[0] || y < at[1] || x >= at[0] + child.getWidth() || y >= at[1] + child.getHeight()) continue;
+            if (child.isClickable()) return true;
+            if (child instanceof ViewGroup && hitsButton((ViewGroup) child, x, y)) return true;
+        }
+        return false;
+    }
+
+    /** Le rond a été complété pendant ce geste : la suite du doigt est ignorée. */
+    private boolean pullFired;
+    private float pullProgress;
     /** Un doigt est posé : seul un vrai geste (posé, glissé, levé) peut ouvrir ou fermer. */
     private boolean touching;
 
-    /** Le doigt monte : l'écran suit (avec résistance), le rond se remplit. */
+    /** Le doigt monte : les messages suivent, le rond se remplit. */
     private void dragTo(float distance) {
         float progress = Math.min(1f, distance / dp(SWIPE_DP));
-        // Résistance : plus on tire, moins ça bouge (sensation élastique).
-        float follow = dp(90) * (1f - (float) Math.exp(-distance / dp(140)));
-        View moving = connect.isOpen() ? connect.view() : (offline.getVisibility() == View.VISIBLE ? offline : web);
-        moving.setTranslationY(-follow);
-        if (!connect.isOpen()) dim.setAlpha(0.55f * progress);
-        pull.setVisibility(View.VISIBLE);
-        pull.setAlpha(Math.min(1f, progress * 2.5f));
-        pull.setTranslationY(-follow * 0.6f);
-        pull.set(progress, connect.isOpen() ? "Fermer Tamilya Connect" : "Tamilya Connect");
-        boolean full = progress >= 1f;
-        if (full && !pullFull) {
-            pull.performHapticFeedback(android.view.HapticFeedbackConstants.CONTEXT_CLICK);
-            pull.animate().scaleX(1.12f).scaleY(1.12f).setDuration(120)
-                    .withEndAction(() -> pull.animate().scaleX(1f).scaleY(1f).setDuration(140).start()).start();
-        }
-        pullFull = full;
+        setPull(progress);
+        if (progress < 1f) return;
+        pullFired = true;
+        haptic(VibrationEffect.EFFECT_HEAVY_CLICK, 0, 40);
+        release();
     }
 
-    /** Doigt levé : rond complet, on active ; sinon tout revient en place. */
-    private void release(boolean lifted) {
-        boolean activate = lifted && pullFull;
+    private void setPull(float progress) {
+        pullProgress = progress;
+        if (connect.isOpen()) connect.setPull(progress);
+        else setPagePull(progress);
+    }
+
+    /** Messages et rond de la conversation : dessinés dans la page, la barre d'écriture reste en place. */
+    private void setPagePull(float progress) {
+        pullWanted = progress;
+        if (pullInFlight || progress == pullSent) return;
+        pullInFlight = true;
+        pullSent = progress;
+        web.evaluateJavascript("window.__tcPull&&__tcPull(" + progress + ")", ignored -> {
+            pullInFlight = false;
+            if (pullWanted != pullSent) setPagePull(pullWanted);
+        });
+    }
+
+    /** Rond complet : on active. Sinon, tout redescend. */
+    private void release() {
         boolean closing = connect.isOpen();
-        pullFull = false;
-        android.view.animation.Interpolator spring = new android.view.animation.OvershootInterpolator(1.2f);
-        pull.animate().alpha(0f).translationY(0f).setDuration(220)
-                .withEndAction(() -> pull.setVisibility(View.GONE)).start();
-        web.animate().translationY(0f).setDuration(380).setInterpolator(spring).start();
-        offline.animate().translationY(0f).setDuration(380).setInterpolator(spring).start();
-        dim.animate().alpha(0f).setDuration(activate && !closing ? 520 : 260).start();
-        if (!activate) {
-            if (closing) connect.view().animate().translationY(0f).setDuration(380).setInterpolator(spring).start();
-            return;
+        if (pullProgress < 1f) {
+            android.animation.ValueAnimator back = android.animation.ValueAnimator.ofFloat(pullProgress, 0f).setDuration(220);
+            back.addUpdateListener(a -> setPull((float) a.getAnimatedValue()));
+            back.start();
+        } else if (closing) {
+            connect.close();
+        } else {
+            openedOnline = online;
+            connect.open();
+            web.postDelayed(() -> setPagePull(0f), PAGE_PULL_RESET_MS);
         }
-        if (closing) connect.close();
-        else connect.open();
     }
 
-    /** La zone qui défile sous le doigt (ou la page) est-elle déjà tout en bas ? */
-    private void askPageAtBottom(MotionEvent event) {
+    /** Dans la conversation, la zone sous le doigt est-elle déjà tout en bas ? */
+    private void askConversationAtBottom(MotionEvent event) {
         int[] origin = new int[2];
         web.getLocationOnScreen(origin);
         float density = getResources().getDisplayMetrics().density;
         float x = (event.getRawX() - origin[0]) / density;
         float y = (event.getRawY() - origin[1]) / density;
         String js = "(function(x,y){function end(e){return e.scrollTop+e.clientHeight>=e.scrollHeight-2;}"
+                // L'accueil garde la conversation préparée dessous : ce n'est pas encore la conversation.
+                + "if(!document.querySelector('[data-chat-view]')||document.querySelector('.landing-home'))return false;"
                 + "for(var e=document.elementFromPoint(x,y);e&&e!==document.body&&e!==document.documentElement;e=e.parentElement){"
                 + "var s=getComputedStyle(e).overflowY;if((s==='auto'||s==='scroll')&&e.scrollHeight>e.clientHeight+1)return end(e);}"
                 + "return end(document.scrollingElement||document.documentElement);})(" + x + "," + y + ")";
@@ -422,6 +490,7 @@ public class MainActivity extends Activity {
 
         web.addJavascriptInterface(new NativeBridge(), "TamilyaNative");
         web.addJavascriptInterface(new GoogleBridge(), "TamilyaGoogle");
+        web.addJavascriptInterface(new FileBridge(), "TamilyaFiles");
         web.setWebViewClient(new AppWebViewClient());
         web.setWebChromeClient(new AppChromeClient());
         web.setDownloadListener((url, agent, disposition, mime, length) -> openExternally(Uri.parse(url)));
@@ -463,6 +532,39 @@ public class MainActivity extends Activity {
     private void injectPageSupport(WebView view) {
         if (!isSiteOrigin(Uri.parse(String.valueOf(view.getUrl())))) return;
         view.evaluateJavascript(pageScript(), null);
+        view.evaluateJavascript(connectPullScript(), null);
+    }
+
+    /** Pendant le geste : les messages montent et un petit rond se remplit au-dessus de la barre d'écriture. */
+    private String connectPullScript() {
+        return "(function(token){if(window.__tcPull)return;"
+                // À chaque défilement : la conversation est-elle tout en bas ? (envoyé seulement quand ça change)
+                + "var lastEnd=null;function tcEnd(){var v=!!document.querySelector('[data-chat-view]')&&!document.querySelector('.landing-home');"
+                + "if(v){var m=document.querySelector('[data-chat-view]'),s=null;for(var e of m.querySelectorAll('*')){var o=getComputedStyle(e).overflowY;if((o==='auto'||o==='scroll')&&e.scrollHeight>e.clientHeight+1){s=e;break;}}"
+                + "s=s||document.scrollingElement||document.documentElement;v=s.scrollTop+s.clientHeight>=s.scrollHeight-2;}"
+                + "if(v!==lastEnd){lastEnd=v;TamilyaNative.atBottom(token,v);}}"
+                + "var tcWait=0;function tcSoon(){if(!tcWait)tcWait=requestAnimationFrame(function(){tcWait=0;tcEnd();});}"
+                + "document.addEventListener('scroll',tcSoon,{capture:true,passive:true});window.addEventListener('resize',tcSoon);"
+                + "new MutationObserver(tcSoon).observe(document.documentElement,{childList:true,subtree:true});tcSoon();"
+                + "var st=document.createElement('style');"
+                + "st.textContent='#tc-rond{position:fixed;left:0;right:0;z-index:30;pointer-events:none;text-align:center;color:#8E9398;font-size:14px}"
+                + "#tc-rond svg{display:block;margin:0 auto 10px;width:36px;height:36px;transform:rotate(-90deg)}"
+                + "#tc-rond circle{fill:none;stroke:#8E9398;stroke-width:2.5;stroke-linecap:round}"
+                + "html.tc-pull [data-chat-view]>:not(header):not(.composer-dock){transform:translateY(var(--tc-up))}';"
+                + "(document.head||document.documentElement).appendChild(st);"
+                + "var ring=null,arc=null,root=document.documentElement,LONG=113.1;"
+                + "window.__tcPull=function(p){"
+                + "if(!(p>0)){root.classList.remove('tc-pull');if(ring)ring.remove();ring=null;return;}"
+                + "var dock=document.querySelector('.composer-dock');if(!dock)return;"
+                // Doigt resté posé : la sélection de texte ne doit pas rester à l'écran.
+                + "var sel=window.getSelection();if(sel)sel.removeAllRanges();"
+                + "if(!ring||!ring.isConnected){ring=document.createElement('div');ring.id='tc-rond';"
+                + "ring.innerHTML='<svg viewBox=\"0 0 40 40\"><circle cx=\"20\" cy=\"20\" r=\"18\"/></svg>Balaye vers le haut pour activer Tamilya Connect';"
+                + "arc=ring.querySelector('circle');document.body.appendChild(ring);}"
+                + "root.classList.add('tc-pull');root.style.setProperty('--tc-up',(-112*p)+'px');"
+                + "ring.style.top=(dock.getBoundingClientRect().top-76)+'px';"
+                + "ring.style.opacity=String(Math.min(1,p*3));"
+                + "arc.style.strokeDasharray=(LONG*p)+' '+LONG;};})(" + JSONObject.quote(bridgeToken) + ")";
     }
 
     /**
@@ -478,8 +580,12 @@ public class MainActivity extends Activity {
                 + "html:has(.voice-edge) .voice-overlay[data-compact]::after{display:none!important}';"
                 + "(document.head||document.documentElement).appendChild(st);"
                 // Vibration et sons : /voix garde son écran ouvert, sa session commence à la première écoute.
+                // Vibrations du site (écriture de Tamilya, réponse prête) : celles du téléphone, sans la limite du navigateur.
+                + "navigator.vibrate=function(p){TamilyaNative.feedback(token,Array.isArray(p)?'ready':'tick');return true;};"
                 + "document.addEventListener('click',function(e){var t=e.target;"
-                + "if(t&&t.closest&&t.closest('.awa-blob,.voice-orb-slot'))TamilyaNative.feedback(token,'tap');},true);"
+                + "if(!t||!t.closest)return;if(t.closest('.awa-blob,.voice-orb-slot'))TamilyaNative.feedback(token,'tap');"
+                // Tous les boutons du site : petite vibration, sans son.
+                + "else if(t.closest('button,a,summary,label,select,[role=button],[role=tab],[role=menuitem],[role=switch],[role=option],input[type=checkbox],input[type=radio]'))TamilyaNative.feedback(token,'key');},true);"
                 + "var voiceOn=false;function watchVoice(){var o=document.querySelector('.voice-overlay'),s=document.querySelector('.voice-orb-slot');"
                 + "var on=!!o&&(voiceOn||location.pathname!=='/voix'||(!!s&&s.dataset.state!=='off'));"
                 + "if(on!==voiceOn){voiceOn=on;TamilyaNative.feedback(token,on?'start':'end');}}"
@@ -587,21 +693,41 @@ public class MainActivity extends Activity {
         }
     }
 
-    /** Toucher du globe, ouverture et fermeture du vocal. */
+    /** Vibration nette du téléphone (comme le clavier ou les boutons du système), pas un bourdonnement. */
+    private void haptic(int effect, long... fallback) {
+        Vibrator vibrator = getSystemService(Vibrator.class);
+        if (vibrator == null || !vibrator.hasVibrator()) return;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) vibrator.vibrate(VibrationEffect.createPredefined(effect));
+        else vibrate(fallback);
+    }
+
+    /** Boutons, globe, écriture de Tamilya, vocal. Le son reste réservé au vocal. */
     private void feedback(String kind) {
         long now = SystemClock.elapsedRealtime();
         switch (kind) {
             case "tap":
                 lastTap = now;
-                vibrate(0, 22);
+                haptic(VibrationEffect.EFFECT_CLICK, 0, 30);
+                break;
+            case "tick":
+                haptic(VibrationEffect.EFFECT_TICK, 0, 12);
+                break;
+            case "ready":
+                haptic(VibrationEffect.EFFECT_DOUBLE_CLICK, 0, 25, 70, 25);
+                break;
+            case "key":
+                // Un même appui peut arriver deux fois : par la page et par l'écran natif.
+                if (now - lastTap < 120) break;
+                lastTap = now;
+                haptic(VibrationEffect.EFFECT_CLICK, 0, 30);
                 break;
             case "start":
                 sounds.play(soundStart, 0.8f, 0.8f, 1, 0, 1f);
-                if (now - lastTap > 500) vibrate(0, 22);
+                if (now - lastTap > 500) haptic(VibrationEffect.EFFECT_CLICK, 0, 30);
                 break;
             case "end":
                 sounds.play(soundEnd, 0.8f, 0.8f, 1, 0, 1f);
-                vibrate(0, 18, 70, 28);
+                haptic(VibrationEffect.EFFECT_DOUBLE_CLICK, 0, 25, 70, 25);
                 break;
             default:
                 break;
@@ -688,6 +814,11 @@ public class MainActivity extends Activity {
     /** Appelé depuis la page : tout est vérifié par le jeton, puis exécuté sur le fil principal. */
     private final class NativeBridge {
         @JavascriptInterface
+        public void atBottom(String token, boolean value) {
+            if (bridgeToken.equals(token)) pageAtBottom = value;
+        }
+
+        @JavascriptInterface
         public void startListening(String token, String lang) {
             if (!bridgeToken.equals(token)) return;
             main.post(() -> startSpeech(lang));
@@ -735,6 +866,62 @@ public class MainActivity extends Activity {
         public void googleSignIn(String request, String hashedNonce) {
             if (request == null || hashedNonce == null || request.length() > 64 || hashedNonce.length() > 128) return;
             main.post(() -> MainActivity.this.googleSignIn(request, hashedNonce));
+        }
+    }
+
+    /** Appelé par le site pour un PDF créé dans la page : un lien blob: ne peut pas partir dans le navigateur. */
+    private final class FileBridge {
+        @JavascriptInterface
+        public void savePdf(String name, String base64) {
+            if (name == null || base64 == null || base64.length() > MAX_PDF_BASE64) return;
+            main.post(() -> MainActivity.this.savePdf(name, base64));
+        }
+    }
+
+    /** La personne choisit où ranger le fichier : aucune permission de stockage n'est nécessaire. */
+    private void savePdf(String name, String base64) {
+        String page = web == null ? null : web.getUrl();
+        if (page == null || !isSiteOrigin(Uri.parse(page))) return;
+        byte[] pdf;
+        try {
+            pdf = Base64.decode(base64, Base64.DEFAULT);
+        } catch (IllegalArgumentException e) {
+            return;
+        }
+        if (!isPdf(pdf)) return;
+        pendingPdf = pdf;
+        Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT)
+                .addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("application/pdf")
+                .putExtra(Intent.EXTRA_TITLE, safePdfName(name));
+        try {
+            startActivityForResult(intent, REQ_SAVE_PDF);
+        } catch (ActivityNotFoundException e) {
+            pendingPdf = null;
+            Toast.makeText(this, R.string.pdf_failed, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private static boolean isPdf(byte[] bytes) {
+        return bytes.length > 4 && bytes[0] == '%' && bytes[1] == 'P' && bytes[2] == 'D' && bytes[3] == 'F' && bytes[4] == '-';
+    }
+
+    private static String safePdfName(String name) {
+        String clean = name.replaceAll("[^A-Za-z0-9._-]", "-");
+        if (clean.length() > 80) clean = clean.substring(0, 80);
+        return clean.toLowerCase(Locale.ROOT).endsWith(".pdf") ? clean : clean + ".pdf";
+    }
+
+    private void writePendingPdf(Uri target) {
+        byte[] pdf = pendingPdf;
+        pendingPdf = null;
+        if (target == null) return;
+        try (OutputStream out = getContentResolver().openOutputStream(target)) {
+            if (pdf == null || out == null) throw new IOException("Fichier indisponible");
+            out.write(pdf);
+            Toast.makeText(this, R.string.pdf_saved, Toast.LENGTH_LONG).show();
+        } catch (IOException | SecurityException e) {
+            Toast.makeText(this, R.string.pdf_failed, Toast.LENGTH_LONG).show();
         }
     }
 
@@ -920,6 +1107,10 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int code, int result, Intent data) {
         super.onActivityResult(code, result, data);
+        if (code == REQ_SAVE_PDF) {
+            writePendingPdf(result == RESULT_OK && data != null ? data.getData() : null);
+            return;
+        }
         if (code != REQ_FILE || pendingFile == null) return;
         pendingFile.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(result, data));
         pendingFile = null;

@@ -24,11 +24,15 @@ import yt.tamilya.app.MainActivity;
 
 /**
  * Relais en arrière-plan : garde Tamilya Connect actif quand l'app n'est plus à l'écran.
- * Android l'exige visible, d'où la notification, qui permet aussi de l'arrêter.
+ * Android exige une notification, mais la personne sait déjà que le relais tourne : elle
+ * ne doit pas être dérangée. Sans l'autorisation des notifications (retirée du manifeste),
+ * Android 13 et plus la cachent ; avant, elle est au niveau le plus discret.
  */
 public final class RelayService extends Service {
     private static final String TAG = "TamilyaConnect";
-    private static final String CHANNEL = "relais";
+    private static final String CHANNEL = "relais_discret";
+    /** Ancien canal, plus visible : retiré des téléphones déjà installés. */
+    private static final String OLD_CHANNEL = "relais";
     private static final String ACTION_STOP = "yt.tamilya.app.STOP_RELAY";
     private static final String ACTION_REVIVE = "yt.tamilya.app.REVIVE_RELAY";
     private static final int NOTIFICATION_ID = 7;
@@ -114,8 +118,9 @@ public final class RelayService extends Service {
 
     private void show() {
         NotificationManager manager = getSystemService(NotificationManager.class);
-        NotificationChannel channel = new NotificationChannel(CHANNEL, "Relais Tamilya Connect", NotificationManager.IMPORTANCE_LOW);
-        channel.setDescription("Fait passer les messages des téléphones autour de toi");
+        manager.deleteNotificationChannel(OLD_CHANNEL);
+        NotificationChannel channel = new NotificationChannel(CHANNEL, "Relais Tamilya Connect", NotificationManager.IMPORTANCE_MIN);
+        channel.setShowBadge(false);
         manager.createNotificationChannel(channel);
 
         int flags = PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE;
@@ -125,9 +130,10 @@ public final class RelayService extends Service {
         Notification notification = new Notification.Builder(this, CHANNEL)
                 .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
                 .setContentTitle("Tamilya Connect")
-                .setContentText("Aide les téléphones autour de toi à joindre Tamilya")
                 .setContentIntent(open)
                 .setOngoing(true)
+                .setShowWhen(false)
+                .setVisibility(Notification.VISIBILITY_SECRET)
                 .addAction(new Notification.Action.Builder(null, "Arrêter", stop).build())
                 .build();
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {

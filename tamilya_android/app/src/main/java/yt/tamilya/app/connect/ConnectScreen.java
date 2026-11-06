@@ -1,7 +1,10 @@
 package yt.tamilya.app.connect;
 
 import android.content.Context;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.RectF;
 import android.graphics.drawable.GradientDrawable;
 import android.text.InputFilter;
 import android.text.InputType;
@@ -29,6 +32,9 @@ final class ConnectScreen extends LinearLayout {
         void send(String text);
         void action(String actionId, String label, boolean pay);
         void close();
+        void history();
+        void newConversation();
+        void openConversation(String id);
     }
 
     private static final int INK = Color.parseColor("#111111");
@@ -37,6 +43,7 @@ final class ConnectScreen extends LinearLayout {
     private static final int ACCENT = Color.parseColor("#F06A9B");
     private static final int MINE = Color.parseColor("#3A1626");
     private static final int THEIRS = Color.parseColor("#1D1F21");
+    private static final int SURFACE = Color.parseColor("#2B2E33");
 
     private final Actions actions;
     private final TextView peers;
@@ -45,6 +52,11 @@ final class ConnectScreen extends LinearLayout {
     private final LinearLayout list;
     private final EditText input;
     private final GreyGlobe globe;
+    private final LinearLayout bar;
+    private final Paint ringPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final Paint hintPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+    private final RectF ringBounds = new RectF();
+    private float pull;
 
     ConnectScreen(Context context, Actions actions) {
         super(context);
@@ -52,6 +64,13 @@ final class ConnectScreen extends LinearLayout {
         setOrientation(VERTICAL);
         setBackground(new LagonDrawable(context, INK));
         setClickable(true);
+        ringPaint.setStyle(Paint.Style.STROKE);
+        ringPaint.setStrokeCap(Paint.Cap.ROUND);
+        ringPaint.setStrokeWidth(dp(2));
+        ringPaint.setColor(MUTED);
+        hintPaint.setColor(MUTED);
+        hintPaint.setTextAlign(Paint.Align.CENTER);
+        hintPaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14, getResources().getDisplayMetrics()));
 
         LinearLayout header = new LinearLayout(context);
         header.setOrientation(HORIZONTAL);
@@ -65,6 +84,8 @@ final class ConnectScreen extends LinearLayout {
         peers = text("Sans internet · par les téléphones autour", 13, MUTED);
         titles.addView(peers);
         header.addView(titles, new LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        header.addView(headerButton("☰", "Historique des conversations", v -> actions.history()), new LayoutParams(dp(44), dp(48)));
+        header.addView(headerButton("+", "Nouvelle conversation", v -> actions.newConversation()), new LayoutParams(dp(44), dp(48)));
         Button close = new Button(context);
         close.setText("✕");
         close.setTextColor(CREAM);
@@ -87,10 +108,11 @@ final class ConnectScreen extends LinearLayout {
         scroll.addView(list);
         addView(scroll, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        LinearLayout bar = new LinearLayout(context);
+        bar = new LinearLayout(context);
         bar.setOrientation(HORIZONTAL);
         bar.setGravity(Gravity.CENTER_VERTICAL);
-        bar.setPadding(dp(12), dp(8), dp(12), dp(12));
+        // Même hauteur que la barre d'écriture de la conversation : elle ne saute pas à l'ouverture.
+        bar.setPadding(dp(12), dp(8), dp(12), dp(38));
         input = new EditText(context);
         input.setHint("Écris à Tamilya…");
         input.setHintTextColor(MUTED);
@@ -132,6 +154,29 @@ final class ConnectScreen extends LinearLayout {
         actions.send(text);
     }
 
+    /** Geste de fermeture : les messages montent, le rond se remplit, la barre ne bouge pas. */
+    void setPull(float progress) {
+        pull = progress;
+        list.setTranslationY(-dp(112) * progress);
+        invalidate();
+    }
+
+    @Override
+    protected void dispatchDraw(Canvas canvas) {
+        super.dispatchDraw(canvas);
+        if (pull <= 0f) return;
+        int alpha = Math.round(255 * Math.min(1f, pull * 3));
+        ringPaint.setAlpha(alpha);
+        hintPaint.setAlpha(alpha);
+        float cx = getWidth() / 2f;
+        float textY = bar.getTop() - dp(8);
+        float radius = dp(16);
+        float cy = textY - dp(30) - radius;
+        ringBounds.set(cx - radius, cy - radius, cx + radius, cy + radius);
+        canvas.drawArc(ringBounds, -90, 360 * pull, false, ringPaint);
+        canvas.drawText("Balaye vers le haut pour fermer Tamilya Connect", cx, textY, hintPaint);
+    }
+
     /** Fermeture par le même geste : seulement si la discussion est déjà tout en bas. */
     boolean atBottom() {
         return !scroll.canScrollVertically(1);
@@ -145,6 +190,57 @@ final class ConnectScreen extends LinearLayout {
     void setNotice(String message) {
         notice.setText(message == null ? "" : message);
         notice.setVisibility(message == null || message.isEmpty() ? GONE : VISIBLE);
+    }
+
+    private Button headerButton(String label, String description, OnClickListener click) {
+        Button button = new Button(getContext());
+        button.setText(label);
+        button.setTextColor(CREAM);
+        button.setBackgroundColor(Color.TRANSPARENT);
+        button.setContentDescription(description);
+        button.setOnClickListener(click);
+        return button;
+    }
+
+    /** Le même historique que sur le site, avec la marque de chaque conversation. */
+    void renderHistory(JSONArray history, String currentId) {
+        list.removeAllViews();
+        list.setGravity(Gravity.TOP);
+        list.addView(text("Historique", 17, CREAM));
+        if (history.length() == 0) {
+            TextView empty = text("Tes conversations apparaîtront ici. Il faut internet une première fois pour les récupérer.", 15, MUTED);
+            empty.setPadding(0, dp(12), 0, dp(12));
+            list.addView(empty);
+        }
+        for (int i = 0; i < history.length(); i++) {
+            JSONObject item = history.optJSONObject(i);
+            if (item != null) list.addView(historyRow(item, item.optString("id").equals(currentId)));
+        }
+        scroll.post(() -> scroll.scrollTo(0, 0));
+    }
+
+    private View historyRow(JSONObject item, boolean current) {
+        boolean connect = ConnectHistory.CONNECT.equals(item.optString("source"));
+        LinearLayout row = new LinearLayout(getContext());
+        row.setOrientation(HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(14), dp(12), dp(14), dp(12));
+        row.setBackground(round(current ? MINE : THEIRS, 14));
+        row.setClickable(true);
+        row.setOnClickListener(v -> actions.openConversation(item.optString("id")));
+
+        TextView title = text(item.optString("title", "Conversation"), 15, CREAM);
+        title.setSingleLine(true);
+        title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        row.addView(title, new LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        TextView tag = text(connect ? "Connect" : "Tamilya", 12, connect ? ACCENT : MUTED);
+        tag.setPadding(dp(10), 0, 0, 0);
+        row.addView(tag);
+
+        LinearLayout box = new LinearLayout(getContext());
+        box.setPadding(0, dp(4), 0, dp(4));
+        box.addView(row, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        return box;
     }
 
     void render(JSONArray messages) {
@@ -197,17 +293,22 @@ final class ConnectScreen extends LinearLayout {
         for (int i = 0; choices != null && !used && i < choices.length(); i++) {
             JSONObject choice = choices.optJSONObject(i);
             if (choice == null) continue;
-            Button button = new Button(getContext());
             String label = choice.optString("label");
             boolean pay = choice.optBoolean("pay");
-            button.setText(pay ? label + "  · payer" : label);
-            button.setAllCaps(false);
-            button.setTextColor(CREAM);
-            button.setBackground(round(MINE, 16));
+            // Choix de commande : pastille pleine, pleine largeur ; le choix qui paie passe en rose.
+            TextView button = new TextView(getContext());
+            button.setText(label);
+            button.setTextColor(pay ? Color.WHITE : CREAM);
+            button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
+            if (pay) button.setTypeface(button.getTypeface(), android.graphics.Typeface.BOLD);
+            button.setGravity(Gravity.CENTER_VERTICAL | Gravity.START);
+            button.setPadding(dp(16), dp(13), dp(16), dp(13));
+            button.setBackground(round(pay ? ACCENT : SURFACE, 16));
+            button.setClickable(true);
             String actionId = choice.optString("id");
             button.setOnClickListener(v -> actions.action(actionId, label, pay));
-            LayoutParams params = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            params.topMargin = dp(6);
+            LayoutParams params = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            params.topMargin = dp(8);
             box.addView(button, params);
         }
         return box;

@@ -36,11 +36,19 @@ _L'environnement ne donne pas à l'orchestrateur la consommation exacte de chaqu
 | 2026-11-04 | 3 UI/UX (repris) | sonnet | C2b spec visuelle (captures) | 178 149 tokens (23 outils, 4 min 27) | ✅ |
 | 2026-11-05 | 2 Flutter (repris) | sonnet | C2b refonte visuelle (4 itérations de captures) | 298 457 tokens (85 outils, 28 min 29) | ✅ |
 
-**Total communiqué : 1 949 029 tokens** (A 418 596 + B 130 060 + C1 145 347 + revue C1 184 264 + corrections C1 194 239 + C2 133 308 + revue C2 103 709 + corrections C2 162 900 + spec C2b 178 149 + refonte C2b 298 457) (la part consommée avant l'interruption n'est pas connue).
+| 2026-11-05 | 2 Flutter (repris) | sonnet | C3a connexion réelle | 416 508 tokens (89 outils, 25 min 50) | ✅ |
+| 2026-11-05 | 5 Sécurité (repris) | opus | C3a revue (interrompue par la limite de 5 h, reprise) | 219 148 tokens pour la reprise (11 outils, 2 min 33) | ✅ |
+| 2026-11-05 | 2 Flutter (nouvel agent, brief court) | sonnet | C3b chat réel + corrections sécurité C3a | 165 110 tokens (59 outils, 12 min 19) | ✅ |
+| 2026-11-05 | 2 Flutter (nouvel agent) | sonnet | C4a orbe + portefeuille + écran rouge + œil mot de passe | 243 013 tokens (81 outils, 24 min 06) | ✅ |
+
+**Total communiqué : 2 992 808 tokens** (A 418 596 + B 130 060 + C1 145 347 + revue C1 184 264 + corrections C1 194 239 + C2 133 308 + revue C2 103 709 + corrections C2 162 900 + spec C2b 178 149 + refonte C2b 298 457 + C3a 416 508 + revue C3a 219 148 + C3b 165 110 + C4a 243 013) (la part consommée avant l'interruption n'est pas connue).
 
 ## Incidents
 - 2026-11-04 : les 4 agents d'audit se sont arrêtés sur la limite d'usage de 5 h du compte (HTTP 429). Avant la reprise, aucun rapport n'était écrit. À 18 h, ils ont été repris avec leur contexte (SendMessage) plutôt que relancés à neuf, pour ne pas refaire les lectures déjà faites.
 - Leçon : 2 agents opus + 2 sonnet en parallèle ont épuisé la fenêtre de 5 h. Pour les phases suivantes, lancer au plus 2 agents à la fois et réserver opus aux tâches critiques.
+
+- 2026-11-05 : 2e arrêt sur la limite de 5 h (revue Sécurité C3a), alors qu'un seul agent tournait. Cause probable : le contexte de l'agent Flutter est devenu très long à force de reprises (416 k pour C3a). Optimisation retenue : pour C3b, lancer un **nouvel** agent Flutter avec un brief court (ARCHITECTURE + rapports C2/C3a) plutôt que de reprendre l'agent actuel. Résultat : C3b en 165 k (contre 416 k pour C3a).
+- 2026-11-05 : le système a arrêté les serveurs de dev en arrière-plan faute de mémoire (Next :3100, proxy :8090, Flutter :8091, anciens serveurs :8098/:8099, Chrome de démonstration). Non relancés sans demande de l'utilisateur.
 
 ## Appels évités
 - Agents 2, 6, 7, 8 non lancés en phase A (aucun code mobile à construire, tester, mesurer ou documenter) : 4 lancements évités.

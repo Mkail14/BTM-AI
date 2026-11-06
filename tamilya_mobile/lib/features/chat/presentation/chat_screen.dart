@@ -15,6 +15,7 @@ import 'chat_controller.dart';
 import 'composer.dart';
 import 'message_bubble.dart';
 import 'suggestion_carousel.dart';
+import 'tamilya_connect.dart';
 
 /// Écran racine : conversation plein écran + tiroir (pas de barre d'onglets).
 ///
@@ -121,6 +122,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
     final id = widget.conversationId;
     final state = ref.watch(chatControllerProvider(id));
     final controller = ref.read(chatControllerProvider(id).notifier);
+    final connect = ref.watch(tamilyaConnectProvider);
     final p = context.palette;
 
     // Fin d'une réponse : recharger la liste, puis 5 s plus tard pour le titre
@@ -197,11 +199,19 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             Positioned.fill(
               child: LagonBackground(
                 style: LagonStyle.persona,
-                colors: [
-                  TamilyaPalette.persona,
-                  p.isDark ? const Color(0xFF2AD1C4) : const Color(0xFF14A89E),
-                ],
-                opacity: p.isDark ? 0.20 : 0.12,
+                // Tamilya Connect allumé : les traits passent en gris sombre.
+                colors: connect
+                    ? [
+                        p.isDark ? const Color(0xFF52525B) : const Color(0xFF3F3F46),
+                        p.isDark ? const Color(0xFF52525B) : const Color(0xFF3F3F46),
+                      ]
+                    : [
+                        TamilyaPalette.persona,
+                        p.isDark ? const Color(0xFF2AD1C4) : const Color(0xFF14A89E),
+                      ],
+                opacity: connect
+                    ? (p.isDark ? 0.55 : 0.30)
+                    : (p.isDark ? 0.20 : 0.12),
                 topClear: 0,
               ),
             ),
@@ -227,11 +237,13 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
             Column(
               children: [
                 Expanded(
-                  child: _MessageList(
-                    state: state,
-                    onRetry: controller.retry,
-                    onReload: controller.reload,
-                    onPick: _send,
+                  child: PullUpConnect(
+                    child: _MessageList(
+                      state: state,
+                      onRetry: controller.retry,
+                      onReload: controller.reload,
+                      onPick: _send,
+                    ),
                   ),
                 ),
                 SafeArea(

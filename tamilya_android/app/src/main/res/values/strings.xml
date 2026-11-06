@@ -2,7 +2,11 @@
 <resources>
     <string name="app_name">Tamilya</string>
     <string name="offline_title">Pas de connexion</string>
+    <string name="offline_message">Pas de réseau ni de wifi. Tu peux quand même écrire à Tamilya : ton message passe par les téléphones autour de toi.</string>
+    <string name="offline_write">Écrire à Tamilya</string>
     <string name="offline_retry">Réessayer</string>
+    <string name="pdf_saved">Document enregistré</string>
+    <string name="pdf_failed">Enregistrement impossible. Réessaie.</string>
     <color name="ink">#111111</color>
     <color name="cream">#F5F0E6</color>
 </resources>
