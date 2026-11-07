@@ -39,6 +39,8 @@ Les personnages : un id court (ex. « vieil-homme », « fillette »), son nom s
 
 L'intro : une ou deux phrases à toi, dans tes mots, qui donnent envie : tu invites la personne à mettre ses écouteurs, à fermer les yeux, et tu plantes le décor sans rien dévoiler. Ton caractère, chaleureux et vivant ; pas de formule toute faite.
 
+La fin (fin) : une phrase à toi, dite juste après l'histoire, quand la personne rouvre les yeux : tu prends de ses nouvelles ou tu lui demandes ce qu'elle en a pensé, avec tes mots, comme une amie ; pas de formule toute faite.
+
 La scène en 3D, c'est le plus important : joue BEAUCOUP avec l'espace.
 - Le lieu (lieu) donne l'écho de toute la scène : ${PLACES.join(", ")}. Choisis celui où se passe la page (dans une case : maison ; sous les arbres : foret ; au bord du lagon : plage).
 - Les places sont des angles autour de la tête : 0 devant, 90 à droite, -90 à gauche, 180 derrière (et entre les deux : 45, -135…). Distances : ${DISTANCES.join(", ")}. Hauteur (hauteur) : ${HEIGHTS.join(", ")} ; sers-t'en (un oiseau en haut dans l'arbre, quelqu'un qui appelle d'en bas, l'orage au-dessus).
@@ -61,6 +63,7 @@ export const SCRIPT_SCHEMA = {
     titre: { type: "STRING" },
     lieu: { type: "STRING", enum: [...PLACES] },
     intro: { type: "STRING" },
+    fin: { type: "STRING" },
     decor: {
       type: "ARRAY",
       items: {
@@ -115,7 +118,7 @@ export const SCRIPT_SCHEMA = {
       },
     },
   },
-  required: ["lisible", "titre", "lieu", "intro", "decor", "personnages", "repliques"],
+  required: ["lisible", "titre", "lieu", "intro", "fin", "decor", "personnages", "repliques"],
   // Ordre imposé : tout le début d'abord, les répliques en dernier (lues au fil de l'eau, stream.ts).
-  propertyOrdering: ["lisible", "raison", "titre", "lieu", "intro", "decor", "personnages", "repliques"],
+  propertyOrdering: ["lisible", "raison", "titre", "lieu", "intro", "fin", "decor", "personnages", "repliques"],
 } as const;

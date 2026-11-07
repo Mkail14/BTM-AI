@@ -102,6 +102,15 @@ describe("Lecture en 3D : histoire inventée par Tamilya", () => {
     assert.deepEqual(parseReadingSpec("page"), { kind: "page" });
   });
 
+  it("à la fin, Tamilya prend des nouvelles avec une phrase écrite avec l'histoire, avant les répliques", () => {
+    const meta = buildMeta({ ...script, fin: "Alors, tu es encore sur la plage avec eux ?" }, "Leda");
+    assert.ok(meta.ok);
+    assert.equal(meta.meta.outro, "Alors, tu es encore sur la plage avec eux ?");
+    const order = SCRIPT_SCHEMA.propertyOrdering as readonly string[];
+    assert.ok(order.indexOf("fin") < order.indexOf("repliques"), "la phrase de fin arrive avec le début, prête à temps");
+    assert.match(scriptPrompt("histoire"), /La fin \(fin\)/);
+  });
+
   it("la consigne de Gemini lui fait inventer l'histoire, déjà découpée en répliques", () => {
     assert.match(scriptPrompt("histoire"), /Invente une histoire originale/);
     assert.doesNotMatch(scriptPrompt("histoire"), /Recopie le texte/);

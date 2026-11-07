@@ -31,6 +31,15 @@ let cursor = 0;
 let lastWordAt = 0;
 let lastFallbackAt = 0;
 const listeners = new Set<() => void>();
+/** Son réel qui fait parler le globe (lecture en 3D : niveau mesuré du son joué). */
+let source: (() => number) | null = null;
+
+/** Le globe suit ce son-là (null : retour aux syllabes estimées). */
+export function setVoiceLevelSource(next: (() => number) | null) {
+  source = next;
+  if (next) setMood("speaking");
+  else setMood("idle");
+}
 
 const now = () => performance.now();
 
@@ -128,7 +137,7 @@ function fallback(t: number) {
 export function voiceLevel(): number {
   const t = now();
   fallback(t);
-  let level = 0;
+  let level = source ? source() : 0;
   pulses = pulses.filter((p) => t - p.at < ATTACK_MS + DECAY_MS * 3);
   for (const p of pulses) {
     const dt = t - p.at;

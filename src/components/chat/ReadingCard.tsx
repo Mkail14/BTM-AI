@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BookOpen, Camera, Headphones, Pause, Play, RotateCcw, Square } from "lucide-react";
+import { createPortal } from "react-dom";
+import { BookOpen, Camera, Headphones, Pause, Play, RotateCcw, Square, X } from "lucide-react";
+import { setVoiceLevelSource } from "@/lib/chat/voice-level";
 import type { GeminiVoiceId } from "@/lib/ai/voice/voices";
 import { parseReadingSpec } from "@/lib/lecture/intent";
 import { announceReadingDone, takeReadingAutoStart } from "@/lib/lecture/auto";
@@ -14,6 +16,10 @@ import { AwaBlob } from "./AwaBlob";
  * conversation : le serveur le glisse dans le bloc, « texte » puis le texte), Gemini la met en scène
  * (/api/lecture), et Tamilya la lit dans les écouteurs, avec une voix par personnage et des
  * bruits qui tournent autour de la tête (src/lib/lecture/soundscape.ts).
+ *
+ * Lancée d'elle-même (« lis-moi une histoire ») : le grand globe de Tamilya s'ouvre en plein écran,
+ * comme le vocal, et raconte ; aucun texte de chargement (demande de l'utilisateur). À la fin, elle
+ * prend des nouvelles, puis le vocal écoute 4 s la réponse avant de revenir à l'écrit.
  */
 
 type State =
@@ -75,9 +81,20 @@ export function ReadingCard({ spec }: { spec: string }) {
   const voices = useRef(new Map<number, Promise<AudioBuffer | null>>());
   const items = useRef<Voiced[]>([]);
   const wakeLock = useRef<WakeLockSentinel | null>(null);
+  /** Plein écran avec le grand globe : seulement quand l'histoire démarre d'elle-même. */
+  const [stage, setStage] = useState(false);
+  // Lu à la fin de l'histoire, bien après le démarrage : la valeur à jour, pas celle du démarrage.
+  const onStageRef = useRef(false);
+  useEffect(() => {
+    onStageRef.current = stage;
+  });
+  /** Écran fermé pendant la préparation : l'histoire ne démarre pas toute seule derrière. */
+  const cancelled = useRef(false);
+  const outroVoice = useRef<Promise<AudioBuffer | null> | null>(null);
 
   useEffect(
     () => () => {
+      setVoiceLevelSource(null);
       player.current?.stop();
       void wakeLock.current?.release().catch(() => {});
       if (!player.current) void ctx.current?.close().catch(() => {});
@@ -90,6 +107,21 @@ export function ReadingCard({ spec }: { spec: string }) {
     if (!ctx.current || ctx.current.state === "closed") ctx.current = new AudioContext();
     void ctx.current.resume().catch(() => {});
     return ctx.current;
+  }
+
+  function speak(item: Voiced): Promise<AudioBuffer | null> {
+    const load = async () => {
+      const response = await fetch("/api/voice/speak", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(item.voice ? { text: item.text, voice: item.voice } : { text: item.text }),
+        signal: AbortSignal.timeout(45_000),
+      });
+      if (!response.ok) throw new Error(String(response.status));
+      return audio().decodeAudioData(await response.arrayBuffer());
+    };
+    // Un essai de plus si la connexion a sauté.
+    return load().catch(() => load().catch(() => null));
   }
 
   function voiceOf(index: number): Promise<AudioBuffer | null> {
@@ -189,6 +221,8 @@ export function ReadingCard({ spec }: { spec: string }) {
           wake(current);
         } else if (event.type === "end") {
           finish(current);
+          const outro = current?.script.outro;
+          if (outro && !outroVoice.current) outroVoice.current = speak({ text: outro, voice: null });
         } else if (event.type === "error") {
           fail(event.message ?? "Je n'arrive pas à préparer la page : réessaie.");
         }
@@ -222,6 +256,7 @@ export function ReadingCard({ spec }: { spec: string }) {
    */
   async function startPlaying(script: SceneScript) {
     setState({ status: "ready", script });
+    if (cancelled.current) return;
     const context = audio();
     await Promise.race([context.resume().catch(() => {}), new Promise((resolve) => window.setTimeout(resolve, 800))]);
     if (context.state === "running") void play(script);
@@ -238,6 +273,7 @@ export function ReadingCard({ spec }: { spec: string }) {
     }
     const offset = script.intro ? 1 : 0;
     setState({ status: "playing", script, index: -1, paused: false });
+    setVoiceLevelSource(() => scene.level());
 
     // Le décor monte tout de suite, pendant que la voix de Tamilya arrive.
     scene.startAmbiences(script.ambiences, 3);
@@ -275,16 +311,25 @@ export function ReadingCard({ spec }: { spec: string }) {
 
     if (!scene.isStopped) {
       scene.fadeOutAmbiences(5);
-      await scene.wait(5.2);
+      await scene.wait(1.6);
+      // Elle prend des nouvelles, à sa façon (phrase écrite par Gemini avec l'histoire).
+      const outro = onStageRef.current && script.outro ? await (outroVoice.current ??= speak({ text: script.outro, voice: null })) : null;
+      if (outro && !scene.isStopped) await scene.playLine({ voice: null, side: 0, distance: "tout-pres", height: "milieu", from: null }, outro);
+      await scene.wait(outro ? 0.4 : 3.6);
+      const completed = !scene.isStopped;
       scene.stop();
+      setVoiceLevelSource(null);
       setState({ status: "done", script });
-      announceReadingDone();
+      setStage(false);
+      announceReadingDone({ converse: completed && Boolean(outro) });
     }
     void wakeLock.current?.release().catch(() => {});
     wakeLock.current = null;
   }
 
   function stop(script: SceneScript) {
+    setVoiceLevelSource(null);
+    setStage(false);
     player.current?.stop();
     void wakeLock.current?.release().catch(() => {});
     wakeLock.current = null;
@@ -305,6 +350,8 @@ export function ReadingCard({ spec }: { spec: string }) {
   useEffect(() => {
     if (spec !== firstSpec.current) live.current = true;
     if (!live.current || started.current || !source) return;
+    cancelled.current = false;
+    setStage(true);
     void prepare(source);
     // prepare lit l'état à jour à chaque rendu.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -317,6 +364,48 @@ export function ReadingCard({ spec }: { spec: string }) {
 
   const playing = state.status === "playing" && !state.paused;
   const line = state.status === "playing" && state.index >= 0 ? state.script.lines[state.index] : null;
+
+  const onStage = stage && (state.status === "preparing" || state.status === "ready" || state.status === "playing");
+  const stageScreen =
+    onStage && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Tamilya raconte une histoire"
+            className="voice-overlay fixed inset-0 z-[60] flex flex-col items-center px-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] text-white"
+          >
+            <p className="text-sm font-medium tracking-[0.3em] text-white/50 uppercase">Tamilya</p>
+            <div className="flex w-full flex-1 items-center justify-center">
+              {/* Le grand globe raconte : il gonfle au rythme de ce qu'on entend. Le toucher met en pause. */}
+              <AwaBlob
+                label={state.status === "playing" && state.paused ? "Reprendre l'histoire" : "Mettre l'histoire en pause"}
+                onActivate={() => void togglePause()}
+                immediate
+                busy={state.status !== "playing"}
+                size="min(60vw, 16rem)"
+                goo={13}
+              />
+            </div>
+            <span className="sr-only" aria-live="polite">
+              {state.status === "playing" ? (state.paused ? "En pause" : "Tamilya raconte") : "Tamilya se prépare"}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                if ("script" in state) return stop(state.script);
+                cancelled.current = true;
+                setStage(false);
+              }}
+              aria-label="Arrêter l'histoire"
+              className="grid size-12 place-items-center rounded-full bg-white/10 transition hover:bg-white/20"
+            >
+              <X size={20} aria-hidden="true" />
+            </button>
+          </div>,
+          document.body,
+        )
+      : null;
 
   return (
     <figure className="not-prose my-3 flex flex-col gap-3 rounded-2xl border border-border bg-bg-subtle p-4">
@@ -432,6 +521,7 @@ export function ReadingCard({ spec }: { spec: string }) {
           {line.text}
         </p>
       ) : null}
+      {stageScreen}
     </figure>
   );
 }

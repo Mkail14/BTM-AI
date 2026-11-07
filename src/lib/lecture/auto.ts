@@ -20,6 +20,12 @@ export function takeReadingAutoStart(spec: string): boolean {
   return pending.delete(key(spec));
 }
 
-export function announceReadingDone() {
-  if (typeof window !== "undefined") window.dispatchEvent(new Event(READING_DONE_EVENT));
+/**
+ * converse : l'histoire est allée au bout et Tamilya vient de prendre des nouvelles ; le vocal
+ * s'ouvre pour écouter la réponse, et se referme après 4 s de silence (retour à l'écrit).
+ */
+export type ReadingDone = { converse: boolean };
+
+export function announceReadingDone(detail: ReadingDone = { converse: false }) {
+  if (typeof window !== "undefined") window.dispatchEvent(new CustomEvent<ReadingDone>(READING_DONE_EVENT, { detail }));
 }

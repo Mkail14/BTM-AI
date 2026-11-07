@@ -139,6 +139,8 @@ export function preloadResonance() {
 export class ScenePlayer {
   readonly ctx: BaseAudioContext;
   private master: GainNode;
+  private analyser: AnalyserNode;
+  private levels = new Uint8Array(512);
   private stereo: GainNode;
   private scene: ResonanceScene | null;
   private beds = new Map<GainNode, number>();
@@ -156,6 +158,9 @@ export class ScenePlayer {
     limiter.connect(ctx.destination);
     this.master = new GainNode(ctx, { gain: 1 });
     this.master.connect(limiter);
+    // Niveau du son : le globe de Tamilya gonfle au rythme de ce qu'on entend.
+    this.analyser = new AnalyserNode(ctx, { fftSize: 512 });
+    limiter.connect(this.analyser);
     // Ce qui ne passe pas par Resonance : la narratrice et le renfort gauche/droite.
     this.stereo = new GainNode(ctx, { gain: 1 });
     this.stereo.connect(this.master);
@@ -343,6 +348,14 @@ export class ScenePlayer {
 
   resume() {
     return (this.ctx as AudioContext).resume();
+  }
+
+  /** Niveau de ce qu'on entend, de 0 à 1 (à lire à chaque image). */
+  level(): number {
+    this.analyser.getByteTimeDomainData(this.levels);
+    let sum = 0;
+    for (const v of this.levels) sum += ((v - 128) / 128) ** 2;
+    return Math.min(1, Math.sqrt(sum / this.levels.length) * 4);
   }
 
   get isStopped() {

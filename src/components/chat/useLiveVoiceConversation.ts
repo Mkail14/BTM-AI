@@ -1,6 +1,6 @@
 "use client";
 
-import { markReadingAutoStart, READING_DONE_EVENT } from "@/lib/lecture/auto";
+import { markReadingAutoStart, READING_DONE_EVENT, type ReadingDone } from "@/lib/lecture/auto";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { boardCount, CANCELLED, describeBoard, scrollConversation, touchBoard, waitForBoard, writeBoard } from "@/lib/voice-live/board";
 import { buildSnapLexicon, snapToLexicon, type SnapLexicon } from "@/lib/language/snap-lexicon";
@@ -27,6 +27,9 @@ const hidePin = (user: string, tamilya: string): [string, string] => (takePinTur
  * Tamilya a répondu, pour l'afficher et l'enregistrer dans la conversation
  * (`board` : ce qu'elle « répond » est un tableau à afficher).
  */
+/** Silence accepté après la question de fin d'une histoire, avant de revenir à l'écrit. */
+const BRIEF_SILENCE_MS = 4_000;
+
 export function useLiveVoiceConversation(
   onTurn: (user: string, tamilya: string, board?: boolean) => void,
   conversationId?: string | null,
@@ -66,6 +69,17 @@ export function useLiveVoiceConversation(
   const unanswered = useRef<(() => void) | null>(null);
   /** L'appel a été mis en pause pour une lecture en 3D : il reprend quand elle est finie. */
   const pausedForReading = useRef(false);
+  /**
+   * Après une histoire, Tamilya a pris des nouvelles : le vocal s'ouvre pour écouter la réponse.
+   * Sans un mot pendant 4 s, il se referme et on revient à l'écrit (demande de l'utilisateur).
+   */
+  const brief = useRef(false);
+  const briefTimer = useRef(0);
+  const endBrief = () => {
+    brief.current = false;
+    window.clearTimeout(briefTimer.current);
+    briefTimer.current = 0;
+  };
   const stopRef = useRef<() => void>(() => {});
   const turnRef = useRef(onTurn);
   useEffect(() => {
@@ -126,9 +140,21 @@ export function useLiveVoiceConversation(
         else if (live === "écoute") {
           voiceSpeakEnd();
           setState("listening");
-        } else setState("speaking");
+          if (brief.current && !briefTimer.current) {
+            briefTimer.current = window.setTimeout(() => {
+              const silent = brief.current;
+              endBrief();
+              if (silent) stopRef.current();
+            }, BRIEF_SILENCE_MS);
+          }
+        } else {
+          // Elle parle : la conversation a repris, plus de fermeture au bout de 4 s.
+          endBrief();
+          setState("speaking");
+        }
       },
       onUserText: (text) => {
+        endBrief();
         initiatives.current = 0;
         // Nouvelle phrase de la personne après une réponse : on repart de zéro.
         if (tamilyaText.current) {
@@ -329,10 +355,18 @@ export function useLiveVoiceConversation(
 
   // Lecture en 3D finie (ou arrêtée) : l'appel mis en pause reprend tout seul.
   useEffect(() => {
-    const resume = () => {
-      if (!pausedForReading.current) return;
-      pausedForReading.current = false;
-      start();
+    const resume = (event: Event) => {
+      if (pausedForReading.current) {
+        pausedForReading.current = false;
+        start();
+        return;
+      }
+      // Histoire lancée à l'écrit et allée au bout : le vocal écoute la réponse 4 s.
+      const converse = (event as CustomEvent<ReadingDone>).detail?.converse;
+      if (converse && !session.current && !opening.current && isLiveVoiceSupported()) {
+        brief.current = true;
+        start();
+      }
     };
     window.addEventListener(READING_DONE_EVENT, resume);
     return () => window.removeEventListener(READING_DONE_EVENT, resume);

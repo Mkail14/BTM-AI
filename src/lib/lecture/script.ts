@@ -75,6 +75,8 @@ export const rawScriptSchema = z.object({
   titre: z.string().trim().max(120).catch(""),
   lieu: z.enum(PLACES).catch("plein-air"),
   intro: z.string().trim().max(400).catch(""),
+  /** Après l'histoire : Tamilya prend des nouvelles de la personne (puis l'écoute 4 s). */
+  fin: z.string().trim().max(300).catch("").optional().default(""),
   decor: z.array(ambienceSchema.nullable().catch(null)).max(10).catch([]).optional().default([]),
   personnages: z.array(characterSchema.nullable().catch(null)).max(20).catch([]).optional().default([]),
   repliques: z.array(lineSchema.nullable().catch(null)).max(200).catch([]).optional().default([]),
@@ -93,7 +95,7 @@ export type SceneLine = {
   cues: SoundCue[];
 };
 export type SceneAmbience = { sound: Ambience; side: number; distance: Distance; height: Height; volume: number; moving: boolean };
-export type SceneScript = { title: string; place: ScenePlace; intro: string; ambiences: SceneAmbience[]; lines: SceneLine[] };
+export type SceneScript = { title: string; place: ScenePlace; intro: string; outro: string; ambiences: SceneAmbience[]; lines: SceneLine[] };
 
 /** Hauteur par défaut d'un bruit quand Gemini ne la donne pas. */
 const DEFAULT_HEIGHT: Partial<Record<Ambience | Effect, Height>> = { tonnerre: "haut", pluie: "haut", oiseaux: "haut", pas: "bas", eclaboussure: "bas", galop: "bas" };
@@ -156,7 +158,7 @@ export function buildMeta(raw: unknown, narrator: GeminiVoiceId): MetaResult {
     .filter((a, i, all) => all.findIndex((b) => b.son === a.son) === i)
     .slice(0, READING_LIMITS.ambiences)
     .map((a) => ({ sound: a.son, side: a.cote, distance: a.distance, height: a.hauteur ?? DEFAULT_HEIGHT[a.son] ?? "milieu", volume: a.volume, moving: a.bouge }));
-  return { ok: true, meta: { title: data.titre, place: data.lieu, intro: data.intro, ambiences }, cast: { voices, names } };
+  return { ok: true, meta: { title: data.titre, place: data.lieu, intro: data.intro, outro: data.fin, ambiences }, cast: { voices, names } };
 }
 
 /** Une réplique, rangée dès qu'elle arrive. Null si elle est mal formée ou vide. */
