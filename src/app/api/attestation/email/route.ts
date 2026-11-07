@@ -31,9 +31,11 @@ export async function POST(request: NextRequest) {
   if (!limit) return fail(503, "Service momentanément indisponible : réessaie dans un instant.");
   if (!limit.allowed) return fail(429, "Trop d'envois : réessaie dans un moment.");
 
+  // Signée dans l'appli par les deux personnes (dit par la page) : change seulement les mots du mail et le nom du fichier.
+  const signed = request.nextUrl.searchParams.get("signee") === "1";
   try {
-    await sendEmail(user.email, attestationEmail(siteOrigin(request.nextUrl.origin)), {
-      attachments: [{ filename: "attestation-hebergement.pdf", content: pdf, contentType: "application/pdf" }],
+    await sendEmail(user.email, attestationEmail(siteOrigin(request.nextUrl.origin), { signed }), {
+      attachments: [{ filename: signed ? "attestation-hebergement-signee.pdf" : "attestation-hebergement.pdf", content: pdf, contentType: "application/pdf" }],
     });
     return NextResponse.json({ to: user.email }, { headers: NO_STORE });
   } catch (error) {

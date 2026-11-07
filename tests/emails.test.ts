@@ -6,6 +6,7 @@ import { verifyHookSignature, verifyLink } from "../src/lib/email/hook";
 import { escapeHtml } from "../src/lib/email/layout";
 import {
   accountChangeEmail,
+  attestationEmail,
   accountDeletedEmail,
   formatWhen,
   newDeviceEmail,
@@ -95,4 +96,14 @@ describe("e-mails", () => {
     assert.equal(link.searchParams.get("type"), "recovery");
     assert.equal(link.searchParams.get("redirect_to"), "https://btm.yt/auth/callback?next=%2F");
   });
+});
+
+it("attestation par mail : modèle dédié, signée ou à signer à la main", () => {
+  const signed = attestationEmail("https://btm.yt", { signed: true, at: new Date("2026-11-07T10:00:00Z") });
+  assert.match(signed.subject, /signée/);
+  assert.match(signed.text, /signée par l'hébergeant et la personne hébergée/);
+  assert.match(signed.text, /pièce d'identité de l'hébergeant/);
+  const paper = attestationEmail("https://btm.yt");
+  assert.match(paper.subject, /à signer/);
+  assert.match(paper.text, /signer à la main/);
 });

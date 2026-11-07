@@ -217,7 +217,8 @@ export function AttestationHebergement({ resume = false, mode = "" }: { resume?:
   const sendByMail = async () => {
     if (!file) return;
     setMail({ status: "sending" });
-    const response = await fetch("/api/attestation/email", { method: "POST", headers: { "Content-Type": "application/pdf" }, body: file.blob }).catch(() => null);
+    // Pas la version papier : signée dans l'appli par les deux personnes (le mail le dit).
+    const response = await fetch(`/api/attestation/email${onPaper ? "" : "?signee=1"}`, { method: "POST", headers: { "Content-Type": "application/pdf" }, body: file.blob }).catch(() => null);
     const data = (await response?.json().catch(() => null)) as { to?: string; error?: string } | null | undefined;
     if (response?.ok) setMail({ status: "sent", text: `Envoyée à ${data?.to}` });
     else setMail({ status: "error", text: data?.error ?? "Le mail n'est pas parti. Réessaie." });

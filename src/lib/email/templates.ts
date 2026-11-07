@@ -206,20 +206,34 @@ export function accountChangeEmail(email: string, change: AccountChange, ctx: Em
   );
 }
 
-/** Attestation d'hébergement demandée depuis la conversation, en pièce jointe. */
-export function attestationEmail(origin: string) {
+/**
+ * Attestation d'hébergement, envoyée par le bouton « Envoyer par mail » : le PDF
+ * en pièce jointe. `signed` : signée dans l'appli par les deux personnes ; sinon
+ * version papier, à signer à la main avant de la remettre.
+ */
+export function attestationEmail(origin: string, { signed = false, at = new Date() }: { signed?: boolean; at?: Date } = {}) {
   return render(
-    "Votre attestation d'hébergement",
+    signed ? "Votre attestation d'hébergement signée" : "Votre attestation d'hébergement à signer",
     {
-      preheader: "Votre attestation est en pièce jointe.",
-      eyebrow: "Vos documents",
-      title: "Votre attestation est prête",
+      preheader: signed ? "Le PDF signé est en pièce jointe, prêt à être remis." : "Le PDF est en pièce jointe : à imprimer et à signer à la main.",
+      eyebrow: "Attestation d'hébergement",
+      title: signed ? "Votre attestation signée est prête" : "Votre attestation est prête à signer",
       paragraphs: [
         "Bonjour,",
-        "Vous trouverez votre attestation d'hébergement en pièce jointe, au format PDF.",
-        "Joignez-y la copie de la pièce d'identité et un justificatif de domicile de l'hébergeant.",
+        signed
+          ? "Voici votre attestation d'hébergement **signée par l'hébergeant et la personne hébergée**, en pièce jointe au format PDF. Vous pouvez la remettre telle quelle, ou l'imprimer."
+          : "Voici votre attestation d'hébergement en pièce jointe, au format PDF. **Imprimez-la, puis faites-la signer à la main** par l'hébergeant et la personne hébergée avant de la remettre.",
       ],
-      reason: "Vous recevez cet e-mail parce que vous avez demandé votre attestation à Tamilya.",
+      details: [
+        { label: "Document", value: "Attestation d'hébergement (PDF)" },
+        { label: "Signatures", value: signed ? "Hébergeant et hébergé" : "À faire à la main" },
+        { label: "Envoyée le", value: formatWhen(at) },
+      ],
+      after: [
+        "À joindre à l'attestation : la **copie de la pièce d'identité de l'hébergeant** et un **justificatif de domicile récent** à son nom (facture d'eau ou d'électricité, quittance de loyer, taxe foncière).",
+        "Nous ne gardons pas ce document : conservez cet e-mail, ou rangez le PDF dans « Mes documents » sur le site.",
+      ],
+      reason: "Vous recevez cet e-mail parce que vous avez demandé à recevoir votre attestation d'hébergement depuis Tamilya, à l'adresse de votre compte.",
     },
     origin,
   );
