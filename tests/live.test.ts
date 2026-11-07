@@ -17,9 +17,10 @@ describe("sources en direct", () => {
   });
 
   it("repère une question sur l'emploi ou l'actualité", () => {
-    assert.deepEqual(liveIntent("Il y a des offres d'emploi à Mamoudzou ?"), { jobs: true, news: false, weather: false, communes: false });
-    assert.deepEqual(liveIntent("Quoi de neuf à Mayotte aujourd'hui ?"), { jobs: false, news: true, weather: false, communes: false });
-    assert.deepEqual(liveIntent("Comment on dit merci ?"), { jobs: false, news: false, weather: false, communes: false });
+    assert.deepEqual(liveIntent("Il y a des offres d'emploi à Mamoudzou ?"), { jobs: true, news: false, weather: false, cyclones: false, communes: false });
+    assert.deepEqual(liveIntent("Quoi de neuf à Mayotte aujourd'hui ?"), { jobs: false, news: true, weather: false, cyclones: false, communes: false });
+    assert.deepEqual(liveIntent("Comment on dit merci ?"), { jobs: false, news: false, weather: false, cyclones: false, communes: false });
+    assert.equal(liveIntent("Il y a un cyclone qui arrive ?").cyclones, true);
     assert.equal(liveIntent("Il se passe quoi à Mayotte ?").news, true);
     assert.equal(liveIntent("Les dernières nouvelles ?").news, true);
   });

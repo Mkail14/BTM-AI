@@ -101,6 +101,8 @@ export type PromptContext = {
   btmDevis?: string | null;
   /** Ce message demande un trajet (detectTrip) : contenu du bloc itineraire. */
   trip?: TripSpec | null;
+  /** Ce message parle des cyclones (detectCyclone) : la carte des cyclones s'ouvre. */
+  cyclone?: boolean;
   /** Attestation d'hébergement possible ici (conversation de BTM AI, qui affiche le bloc). */
   attestationOffer?: boolean;
   /** Ce message demande une attestation d'hébergement (detectAttestation). */
@@ -501,6 +503,17 @@ export function buildSystemPrompt(
         "Réponds en UNE phrase courte, sans donner toi-même de durée, de distance ni de prix (tu ne les connais pas), puis ce bloc exactement, seul sur ses lignes :",
         `\`\`\`itineraire\n${tripSpec(context.trip)}\n\`\`\``,
         "La carte du trajet, les temps en voiture, en taxi et à pied, et les boutons Google Maps et Waze s'affichent dans ce bloc. Le prix des taxis et les bus ne sont pas encore disponibles.",
+      ].join("\n"),
+    );
+  }
+  // Cyclones demandés : la carte des cyclones s'ouvre.
+  if (context.cyclone && !context.site && !context.voice) {
+    sections.push(
+      [
+        "POUR CE MESSAGE : la personne veut savoir s'il y a des cyclones (en cours ou en formation).",
+        "Réponds en une ou deux phrases courtes avec seulement ce que disent les informations en direct sur les cyclones (nom, distance de Mayotte, au plus près), sans rien inventer, puis ce bloc exactement, seul sur ses lignes :",
+        "```carte-cyclones\nocean-indien\n```",
+        "La carte de l'océan Indien, les trajets faits et prévus et la zone où chaque système peut passer s'affichent dans ce bloc. Pour les alertes officielles, renvoie vers la préfecture de Mayotte.",
       ].join("\n"),
     );
   }

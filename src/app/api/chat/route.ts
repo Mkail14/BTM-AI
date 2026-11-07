@@ -4,6 +4,7 @@ import { AIProviderError, buildSystemPrompt, getAIProvider } from "@/lib/ai";
 import { getAuthContext } from "@/lib/auth/session";
 import { canOrderFood } from "@/lib/food/access";
 import { canBuyBargeTickets } from "@/lib/barge/access";
+import { CYCLONE_BLOCK, cycloneBlock, detectCyclone } from "@/lib/cyclone/intent";
 import { BARGE_BLOCK, bargeBlockFor, bargeSpec, detectBargeTicket } from "@/lib/barge/intent";
 import { ATTESTATION_BLOCK, attestationBlock, detectAttestation, wantsOwnInfo } from "@/lib/attestation/intent";
 import { BTM_DEVIS_BLOCK, btmDevisBlockFor, btmDevisSpec, detectBtmDevis } from "@/lib/btm/intent";
@@ -418,6 +419,8 @@ export async function POST(request: NextRequest) {
   const btmDevis = !body.voice && detectBtmDevis(body.message) ? btmDevisSpec(body.message) : null;
   // Trajet demandé (« combien de temps de chez moi à la CSSM ») : la carte du trajet s'ouvre à coup sûr (compte requis).
   const trip = user && !body.voice && !foodQuery && !foodGroup && !btmDevis ? detectTrip(body.message) : null;
+  // Cyclones demandés (« il y a un cyclone ? ») : la carte des cyclones s'ouvre à coup sûr.
+  const cyclone = !body.voice && detectCyclone(body.message);
   // Demande d'attestation d'hébergement reconnue ici : le formulaire s'ouvre à coup sûr.
   // « Mets mes infos » juste après l'ouverture : c'est la même attestation.
   const attestationOpen = history.slice(-4).some((turn) => turn.role === "assistant" && turn.content.includes(ATTESTATION_BLOCK));
@@ -454,6 +457,7 @@ export async function POST(request: NextRequest) {
     btmDevisOffer: true,
     btmDevis,
     trip,
+    cyclone,
     attestationOffer: true,
     attestation,
     codeExamDay: codeWhen.day ? formatWhenDay(codeWhen.day) : null,
@@ -639,6 +643,12 @@ export async function POST(request: NextRequest) {
         // Trajet demandé mais pas de bloc dans la réponse : on l'ajoute.
         if (trip && text && !text.includes("```" + TRIP_BLOCK)) {
           const block = tripBlock(trip);
+          text += block;
+          send({ type: "delta", text: block });
+        }
+        // Cyclones demandés mais pas de bloc dans la réponse : on l'ajoute.
+        if (cyclone && text && !text.includes("```" + CYCLONE_BLOCK)) {
+          const block = cycloneBlock();
           text += block;
           send({ type: "delta", text: block });
         }

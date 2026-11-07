@@ -1066,6 +1066,51 @@ input::-ms-clear {
   animation: map-courier-bump 0.6s ease-in-out infinite;
 }
 
+/*
+ * Cyclone (CycloneMap) : pastille blanche, symbole du cyclone aux couleurs de
+ * Tamilya qui tourne doucement (sens des aiguilles : hémisphère sud), et un
+ * anneau qui respire autour.
+ */
+.map-cyclone {
+  position: relative;
+  width: 2.4rem;
+  height: 2.4rem;
+}
+
+.map-cyclone-dot {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  border-radius: 9999px;
+  background: #fff;
+  color: var(--persona, var(--accent));
+  box-shadow:
+    0 0 0 2px var(--persona, var(--accent)),
+    0 4px 10px -2px rgb(0 0 0 / 0.35);
+}
+
+.map-cyclone-dot svg {
+  width: 1.5rem;
+  height: 1.5rem;
+  animation: map-cyclone-spin 3s linear infinite;
+}
+
+.map-cyclone-ring {
+  position: absolute;
+  inset: -4px;
+  border: 2px solid var(--persona, var(--accent));
+  border-radius: 9999px;
+  opacity: 0;
+  animation: map-courier-ring 2s ease-out infinite;
+}
+
+@keyframes map-cyclone-spin {
+  to {
+    rotate: 360deg;
+  }
+}
+
 .map-loading {
   background: linear-gradient(110deg, transparent 30%, rgb(255 255 255 / 0.35) 50%, transparent 70%) 0 0 / 200% 100%;
   animation: map-shimmer 1.2s linear infinite;
@@ -1118,7 +1163,9 @@ input::-ms-clear {
   .order-subsheet,
   .map-loading,
   .map-courier.is-moving .map-courier-ring,
-  .map-courier.is-moving .map-courier-dot svg {
+  .map-courier.is-moving .map-courier-dot svg,
+  .map-cyclone-dot svg,
+  .map-cyclone-ring {
     animation: none;
   }
 }

@@ -136,6 +136,12 @@ export function liveToolDeclarations(access: LiveAccess) {
       },
     },
     {
+      name: "carte_cyclones",
+      description:
+        "Ouvre à l'écran la carte des cyclones de l'océan Indien (en cours et en formation) : leur position, le trajet fait et prévu, la distance de Mayotte. À utiliser dès que la personne parle de cyclone, de tempête ou de dépression tropicale. Renvoie aussi ce qu'il faut dire.",
+      parameters: { type: "OBJECT", properties: {} },
+    },
+    {
       name: "videos_youtube",
       description:
         "Montre des vidéos YouTube à l'écran : dès que la personne veut voir, regarder ou écouter quelque chose (vidéos drôles, clips, musique, recette, tutoriel, sport, un artiste), appelle-le tout de suite, sans rien demander ni dire avant : les plus vues s'affichent d'elles-mêmes. Après, une petite phrase à toi, courte et chaque fois différente (ne décris pas les vidéos, ne les lis pas).",

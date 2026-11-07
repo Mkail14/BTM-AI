@@ -7,6 +7,7 @@ import { markUnknownWords } from "@/lib/language/unknown-words";
 import { ATTESTATION_BLOCK, SIGNATURES_STEP } from "@/lib/attestation/intent";
 import { BARGE_BLOCK } from "@/lib/barge/intent";
 import { BTM_DEVIS_BLOCK } from "@/lib/btm/intent";
+import { CYCLONE_BLOCK } from "@/lib/cyclone/intent";
 import { GROUP_BLOCK } from "@/lib/food/group-block";
 import { TRIP_BLOCK } from "@/lib/trip/intent";
 import { COMBINED_BLOCK } from "@/lib/voice-live/combined";
@@ -21,6 +22,7 @@ const AttestationHebergement = dynamic(() => import("./AttestationHebergement").
 const BargeTickets = dynamic(() => import("./BargeTickets").then((m) => m.BargeTickets));
 const BtmDevis = dynamic(() => import("./BtmDevis").then((m) => m.BtmDevis));
 const CombinedBoard = dynamic(() => import("./CombinedBoard").then((m) => m.CombinedBoard));
+const CycloneCard = dynamic(() => import("./CycloneCard").then((m) => m.CycloneCard));
 const CodeExamSlots = dynamic(() => import("./CodeExamSlots").then((m) => m.CodeExamSlots));
 const FoodOrder = dynamic(() => import("./FoodOrder").then((m) => m.FoodOrder));
 const TripCard = dynamic(() => import("./TripCard").then((m) => m.TripCard));
@@ -98,6 +100,8 @@ const components: Components = {
       const block = textOf(children).trim();
       return <TripCard key={block} spec={block} />;
     }
+    // Bloc ```carte-cyclones``` : carte des cyclones de l'océan Indien (en cours et en formation).
+    if (code === `language-${CYCLONE_BLOCK}`) return <CycloneCard />;
     // Bloc ```tableau-combine``` : plusieurs services en un tableau, créé par Tamilya sur demande.
     if (code === `language-${COMBINED_BLOCK}`) {
       const block = textOf(children).trim();

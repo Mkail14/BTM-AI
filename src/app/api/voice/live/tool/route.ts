@@ -3,6 +3,8 @@ import { z } from "zod";
 import { mayotteClock } from "@/lib/ai/clock";
 import { getAuthContext } from "@/lib/auth/session";
 import { canBuyBargeTickets } from "@/lib/barge/access";
+import { cyclonesText } from "@/lib/cyclone/gdacs";
+import { cycloneBlock } from "@/lib/cyclone/intent";
 import { canOrderFood } from "@/lib/food/access";
 import { liveContextFor } from "@/lib/live";
 import { getProfileContact } from "@/lib/profile-contact";
@@ -59,6 +61,16 @@ export async function POST(request: NextRequest) {
             ? "Le calcul du trajet n'a pas marché : dis-lui de réessayer dans un instant."
             : `${describeTrip(plan)} Dis seulement le temps en voiture et, si c'est utile, à pied, en une phrase.`;
     return NextResponse.json({ trip: plan === "no_destination" ? null : tripBlock({ to, from }).trim(), info: said });
+  }
+  // Carte des cyclones : elle s'ajoute à la conversation, et Tamilya dit l'essentiel à voix haute.
+  if (parsed.data.name === "carte_cyclones") {
+    const said = await cyclonesText().catch(() => null);
+    return NextResponse.json({
+      trip: cycloneBlock().trim(),
+      info: said
+        ? `${said}\n\nLa carte est à l'écran. Dis en une ou deux phrases s'il y a un cyclone et à quelle distance de Mayotte, sans rien inventer.`
+        : "La carte est à l'écran, mais les données des cyclones ne répondent pas : dis-le simplement.",
+    });
   }
   const [food, barge] = await Promise.all([canOrderFood(user).catch(() => false), canBuyBargeTickets(user).catch(() => false)]);
   const block = liveToolBlock(parsed.data.name, parsed.data.args, { food, barge });
