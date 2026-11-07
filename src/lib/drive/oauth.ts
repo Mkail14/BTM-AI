@@ -29,8 +29,11 @@ export const driveRedirectUri = (origin: string) => `${origin}/documents/connexi
 
 type DriveState = { user: string; redirectUri: string; expires: number };
 
-/** loginHint : l'adresse du compte Tamilya, que Google propose en premier s'il la connaît. */
-export function buildDriveAuthUrl(userId: string, origin: string, now = Date.now(), key?: string, loginHint?: string | null): string | null {
+/**
+ * loginHint : l'adresse que Google propose en premier s'il la connaît.
+ * sameAccount : c'est le Google de connexion au site ; Google va droit à « Autoriser », sans écran de choix du compte.
+ */
+export function buildDriveAuthUrl(userId: string, origin: string, now = Date.now(), key?: string, loginHint?: string | null, sameAccount = false): string | null {
   const redirectUri = driveRedirectUri(origin);
   const state = signJson(STATE_PURPOSE, { user: userId, redirectUri, expires: now + STATE_LIFETIME_MS } satisfies DriveState, key);
   if (!state) return null;
@@ -41,7 +44,7 @@ export function buildDriveAuthUrl(userId: string, origin: string, now = Date.now
     scope: DRIVE_SCOPES,
     access_type: "offline",
     // Sans consentement redemandé, Google ne redonne pas de jeton durable à une reconnexion.
-    prompt: "select_account consent",
+    prompt: sameAccount ? "consent" : "select_account consent",
     state,
   });
   if (loginHint) params.set("login_hint", loginHint);

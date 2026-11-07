@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { DRIVE_FOLDER_MIME, formatBytes, guessDriveFolder, organizeDrive, type DriveItem } from "@/lib/drive/folders";
 import { buildDriveAuthUrl, DRIVE_SCOPE, readDriveState } from "@/lib/drive/oauth";
+import { googleLoginEmail } from "@/lib/drive/identity";
 
 const folder = (id: string, mark: string): DriveItem => ({ id, name: id, mimeType: DRIVE_FOLDER_MIME, appProperties: { tamilya: mark } });
 
@@ -65,6 +66,20 @@ describe("connexion à Google Drive", () => {
     assert.equal(url.searchParams.get("access_type"), "offline");
     assert.match(url.searchParams.get("prompt")!, /consent/);
     assert.equal(url.searchParams.get("redirect_uri"), `${origin}/documents/connexion`);
+  });
+
+  it("connecté au site avec Gmail : Google va droit à « Autoriser », sans écran de choix du compte", () => {
+    const same = new URL(buildDriveAuthUrl("compte-1", origin, 1_000, key, "ali@gmail.com", true)!);
+    assert.equal(same.searchParams.get("prompt"), "consent");
+    assert.equal(same.searchParams.get("login_hint"), "ali@gmail.com");
+    const other = new URL(buildDriveAuthUrl("compte-1", origin, 1_000, key, "ali@exemple.fr")!);
+    assert.equal(other.searchParams.get("prompt"), "select_account consent");
+  });
+
+  it("trouve le Gmail avec lequel la personne se connecte, et rien sans compte Google", () => {
+    assert.equal(googleLoginEmail([{ provider: "email" }, { provider: "google", identity_data: { sub: "1", email: "ali@gmail.com" } }]), "ali@gmail.com");
+    assert.equal(googleLoginEmail([{ provider: "email", identity_data: { email: "ali@exemple.fr" } }]), null);
+    assert.equal(googleLoginEmail(null), null);
   });
 
   it("accepte le retour du compte qui a lancé la demande", () => {

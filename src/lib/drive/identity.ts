@@ -25,3 +25,14 @@ export function ownsGoogleIdentity(identities: readonly Identity[] | null | unde
   if (!sub || !identities) return false;
   return identities.some((identity) => identity.provider === "google" && (identity.id === sub || identity.identity_data?.sub === sub));
 }
+
+type IdentityWithEmail = Identity & { identity_data?: { sub?: unknown; email?: unknown } | null };
+
+/**
+ * Adresse du compte Google avec lequel la personne se connecte au site (« Continuer avec Google »),
+ * ou null si elle n'en a pas relié : son Drive peut alors s'ouvrir directement sur ce même compte.
+ */
+export function googleLoginEmail(identities: readonly IdentityWithEmail[] | null | undefined): string | null {
+  const email = identities?.find((identity) => identity.provider === "google")?.identity_data?.email;
+  return typeof email === "string" && email.includes("@") ? email : null;
+}
