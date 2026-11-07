@@ -5,10 +5,12 @@ import { useRouter } from "next/navigation";
 import { createContext, use, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { PersonalityId } from "@/lib/ai/personalities";
 import { clearAnonymousDraft } from "@/lib/chat/anonymous-draft";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { APP_USER_AGENT } from "@/components/ui/ThemeScript";
 import dynamic from "next/dynamic";
 import type { AuthDialogOptions } from "./AuthDialog";
+
+/** Client Supabase du navigateur, chargé à la demande (hors du premier chargement de chaque page). */
+const loadSupabase = () => import("@/lib/supabase/client").then((m) => m.getSupabaseBrowserClient());
 
 // Fenêtre de connexion / inscription : chargée à sa première ouverture
 // (formulaires, adresse, validation), pas sur chaque page.
@@ -114,10 +116,14 @@ export function AuthProvider({
   }
 
   // Synchronisation avec les changements de session (autre onglet, expiration…).
+  // Le client Supabase (≈ 70 Ko compressés) est chargé après l'affichage de la page, pas avec elle :
+  // à Mayotte, chaque Ko compte avant de pouvoir lire la page.
   useEffect(() => {
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
-    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+    let stop = () => {};
+    let cancelled = false;
+    void loadSupabase().then((supabase) => {
+      if (!supabase || cancelled) return;
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === "SIGNED_OUT") {
         clearAnonymousDraft();
         setUser(null);
@@ -137,8 +143,13 @@ export function AuthProvider({
           };
         });
       }
+      });
+      stop = () => data.subscription.unsubscribe();
     });
-    return () => data.subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      stop();
+    };
   }, [router]);
 
   const openAuthDialog = useCallback((options: AuthDialogOptions = {}) => {
@@ -146,7 +157,7 @@ export function AuthProvider({
   }, []);
 
   const signOut = useCallback(async () => {
-    const supabase = getSupabaseBrowserClient();
+    const supabase = await loadSupabase();
     await supabase?.auth.signOut();
     // Rien du compte ne doit rester proposé au visiteur suivant sur cet appareil.
     clearAnonymousDraft();
