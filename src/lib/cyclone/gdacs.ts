@@ -139,8 +139,22 @@ async function readCyclone(event: Feature): Promise<Cyclone | null> {
     cone,
     distanceKm: kmBetween(MAYOTTE, now),
     closest: nearest,
+    mayotteInCone: cone ? inside(MAYOTTE, cone) : null,
     link: url.report?.startsWith("https://www.gdacs.org/") ? url.report : "https://www.gdacs.org/",
   };
+}
+
+/** Le point est-il dans le polygone (anneaux en [lng, lat]) ? Règle du rayon qui croise les bords. */
+function inside(p: { lat: number; lng: number }, rings: [number, number][][]): boolean {
+  let hit = false;
+  for (const ring of rings) {
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const [xi, yi] = ring[i];
+      const [xj, yj] = ring[j];
+      if (yi > p.lat !== yj > p.lat && p.lng < ((xj - xi) * (p.lat - yi)) / (yj - yi) + xi) hit = !hit;
+    }
+  }
+  return hit;
 }
 
 /** Lecture chez GDACS (lente), sans mémoire. */
@@ -162,14 +176,17 @@ async function readCyclones(zone: CycloneZone): Promise<Cyclone[]> {
 }
 
 /** Gardée 15 minutes et partagée par tout le site (cache de données de Next). */
-const cachedCyclones = unstable_cache(readCyclones, ["cyclones-gdacs-v2"], { revalidate: CACHE_S });
+const cachedCyclones = unstable_cache(readCyclones, ["cyclones-gdacs-v3"], { revalidate: CACHE_S });
 
 /** Cyclones en cours (océan Indien par défaut, ou le monde), du plus proche de Mayotte au plus loin. */
 export async function getCyclones(zone: CycloneZone = "ocean-indien"): Promise<Cyclone[]> {
   const kept = memory.get(zone);
   if (kept && Date.now() - kept.at < CACHE_MS) return kept.cyclones;
   try {
-    const cyclones = await cachedCyclones(zone);
+    // Hors du site (tests, scripts), le cache de Next n'existe pas : lecture directe.
+    const cyclones = await cachedCyclones(zone).catch((error: unknown) =>
+      String(error).includes("incrementalCache missing") ? readCyclones(zone) : Promise.reject(error),
+    );
     memory.set(zone, { at: Date.now(), cyclones });
     return cyclones;
   } catch (error) {
@@ -181,20 +198,45 @@ export async function getCyclones(zone: CycloneZone = "ocean-indien"): Promise<C
 
 const day = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", month: "long", hour: "numeric", timeZone: "Indian/Mayotte" });
 
-/** Les cyclones en quelques lignes, pour que Tamilya en parle sans rien inventer. */
+const clock = new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Indian/Mayotte" });
+
+/**
+ * Ce que disent les données pour Mayotte, en mots de probabilité. Calculé ici,
+ * pas laissé au modèle : la zone d'incertitude (cône) et la distance prévue
+ * au plus près suffisent à dire si c'est sûr, possible ou peu probable.
+ */
+function riskFor(c: Cyclone): string {
+  const near = c.closest?.km ?? c.distanceKm;
+  if (c.mayotteInCone) return "Mayotte est DANS la zone où il peut passer : un passage près de Mayotte est possible, à surveiller de près";
+  if (near <= 300) return "Mayotte est hors de la zone où il peut passer, mais il devrait passer assez près : approche possible, à surveiller";
+  if (near <= 700) return "Mayotte est hors de la zone où il peut passer et il devrait rester loin : peu probable qu'il touche Mayotte directement";
+  return "très loin de Mayotte selon la prévision : très peu probable qu'il touche Mayotte";
+}
+
+/**
+ * Les cyclones en quelques lignes, pour que Tamilya en parle sans rien
+ * inventer : ce qui est mesuré (sûr), ce qui est prévu (moins sûr), et le
+ * niveau de risque pour Mayotte. Les effets (pluie, vent, houle, alertes)
+ * ne sont pas dans ces données : seuls les journaux ou les sources officielles
+ * peuvent les donner.
+ */
 export async function cyclonesText(): Promise<string> {
   const cyclones = await getCyclones();
   if (!cyclones.length) {
-    return "Cyclones (GDACS, d'après Météo-France La Réunion) : aucun cyclone ni système en formation suivi en ce moment dans le sud-ouest de l'océan Indien.";
+    return "Cyclones (GDACS, d'après Météo-France La Réunion) : sûr, aucun cyclone ni système en formation suivi en ce moment dans le sud-ouest de l'océan Indien.";
   }
   return [
     "Cyclones en cours dans le sud-ouest de l'océan Indien (GDACS, d'après Météo-France La Réunion) :",
-    ...cyclones.map(
-      (c) =>
-        `- ${c.name}${c.forming ? " (en formation, pas encore nommé)" : ""} : ${c.status.toLowerCase()}` +
-        `${c.windKmh ? `, vents jusqu'à ${c.windKmh} km/h` : ""}, à ${c.distanceKm} km de Mayotte` +
-        (c.closest ? ` ; au plus près selon la prévision : ${c.closest.km} km, le ${day.format(new Date(c.closest.at))}` : ""),
+    ...cyclones.map((c) =>
+      [
+        `- ${c.name}${c.forming ? " (en formation, pas encore nommé)" : ""}.`,
+        `  Mesuré (sûr), le ${clock.format(new Date(c.now.at))} : ${c.status.toLowerCase()}${c.windKmh ? `, vents jusqu'à ${c.windKmh} km/h` : ""}, à ${c.distanceKm} km de Mayotte.`,
+        c.closest
+          ? `  Prévu (moins sûr, d'autant plus loin dans le temps) : au plus près de Mayotte ${c.closest.km} km, le ${day.format(new Date(c.closest.at))}.`
+          : "  Pas de trajet prévu donné.",
+        `  Risque pour Mayotte selon ces données : ${riskFor(c)}.`,
+      ].join("\n"),
     ),
-    "Ce sont des prévisions : pour les alertes officielles, la préfecture de Mayotte et Météo-France.",
+    "Ces données ne disent rien de la pluie, du vent ou de la mer à Mayotte, ni des alertes : seuls les articles des journaux ci-dessous (s'il y en a) ou la préfecture et Météo-France peuvent le dire.",
   ].join("\n");
 }

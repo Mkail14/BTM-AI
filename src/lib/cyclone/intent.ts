@@ -48,6 +48,8 @@ export type Cyclone = {
   distanceKm: number;
   /** Plus proche de Mayotte selon la prévision. */
   closest: { km: number; at: string } | null;
+  /** Mayotte est dans la zone où il peut passer (cône d'incertitude) ; null : pas de zone donnée. */
+  mayotteInCone: boolean | null;
   /** Fiche détaillée sur GDACS. */
   link: string;
 };

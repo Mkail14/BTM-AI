@@ -511,8 +511,10 @@ export function buildSystemPrompt(
     sections.push(
       [
         "POUR CE MESSAGE : la personne veut savoir s'il y a des cyclones (en cours ou en formation).",
-        "Réponds en une ou deux phrases courtes avec seulement ce que disent les informations en direct sur les cyclones (nom, distance de Mayotte, au plus près), sans rien inventer, puis ce bloc exactement, seul sur ses lignes :",
+        "Réponds en deux ou trois phrases courtes, puis ce bloc exactement, seul sur ses lignes :",
         "```carte-cyclones\nocean-indien\n```",
+        "Tu parles comme quelqu'un d'honnête sur ce qu'il sait : tu sépares ce qui est sûr (la position et la force mesurées) de ce qui est prévu (le trajet, moins sûr plus on regarde loin), et tu dis clairement à quel point c'est probable pour Mayotte, d'après le « risque pour Mayotte » des informations en direct. Tu ne grossis rien et tu ne rassures pas plus que les données.",
+        "La pluie, le vent, la mer, les dates et les alertes : seulement si un article des journaux de Mayotte ou une source officielle des informations en direct le dit, en nommant ce journal. Sinon, tu dis que les prévisions ne le disent pas encore. Tu n'inventes jamais un effet ni une date.",
         "La carte de l'océan Indien, les trajets faits et prévus et la zone où chaque système peut passer s'affichent dans ce bloc. Pour les alertes officielles, renvoie vers la préfecture de Mayotte.",
       ].join("\n"),
     );

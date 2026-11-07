@@ -3,7 +3,6 @@ import { z } from "zod";
 import { mayotteClock } from "@/lib/ai/clock";
 import { getAuthContext } from "@/lib/auth/session";
 import { canBuyBargeTickets } from "@/lib/barge/access";
-import { cyclonesText } from "@/lib/cyclone/gdacs";
 import { cycloneBlock } from "@/lib/cyclone/intent";
 import { canOrderFood } from "@/lib/food/access";
 import { liveContextFor } from "@/lib/live";
@@ -21,6 +20,8 @@ import { liveToolBlock } from "@/lib/voice-live/tools";
 
 /** Au vocal, on n'attend pas plus : une source trop lente est laissée de côté. */
 const VOICE_INFO_WAIT_MS = 3_000;
+/** Cyclones : la toute première lecture de GDACS prend quelques secondes de plus (ensuite, elle est gardée). */
+const CYCLONE_INFO_WAIT_MS = 8_000;
 
 const bodySchema = z.object({
   name: z.string().max(40),
@@ -64,11 +65,12 @@ export async function POST(request: NextRequest) {
   }
   // Carte des cyclones : elle s'ajoute à la conversation, et Tamilya dit l'essentiel à voix haute.
   if (parsed.data.name === "carte_cyclones") {
-    const said = await cyclonesText().catch(() => null);
+    // Les cyclones (GDACS) et les articles des journaux de Mayotte qui en parlent, ensemble.
+    const said = await liveContextFor("cyclone", { maxWaitMs: CYCLONE_INFO_WAIT_MS }).catch(() => null);
     return NextResponse.json({
       trip: cycloneBlock().trim(),
       info: said
-        ? `${said}\n\nLa carte est à l'écran. Dis en une ou deux phrases s'il y a un cyclone et à quelle distance de Mayotte, sans rien inventer.`
+        ? `${said}\n\nLa carte est à l'écran. Dis en une ou deux phrases ce qui est sûr, ce qui est prévu et à quel point c'est probable pour Mayotte ; un effet (pluie, vent, mer) seulement si un journal le dit, en le nommant.`
         : "La carte est à l'écran, mais les données des cyclones ne répondent pas : dis-le simplement.",
     });
   }
