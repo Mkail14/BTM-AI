@@ -172,10 +172,11 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
           body: JSON.stringify({ name, args }),
           signal,
         });
-        const data = (await response.json().catch(() => null)) as { block?: string; time?: string; error?: string } | null;
+        const data = (await response.json().catch(() => null)) as { block?: string; time?: string; info?: string; error?: string } | null;
         // Annulée pendant le chargement : pas de nouveau tableau, la personne a changé d'avis.
         if (signal.aborted) return CANCELLED;
         if (data?.time) return data.time;
+        if (data?.info) return data.info;
         if (!data?.block) return data?.error ?? "Ce bouton n'est pas disponible : dis-le à la personne.";
         // Le tableau s'affiche dans la conversation, juste après ce que la personne vient de dire.
         // L'ancien tableau rejoint d'abord la conversation : le nouveau prend sa place au centre.

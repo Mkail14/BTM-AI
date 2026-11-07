@@ -3,6 +3,9 @@ import { getMayotteJobs } from "./jobs";
 import { liveIntent } from "./intent";
 import { matchNews } from "./match";
 import { getMayotteNews, type NewsItem } from "./news";
+import { communesBlock } from "./communes";
+import { servicesAsked, servicesBlock } from "./services";
+import { getMayotteWeather } from "./weather";
 
 const MAX_WAIT_MS = 3_500;
 /** Question sur l'actu : on attend les journaux plus longtemps (ils sont lents). */
@@ -52,7 +55,13 @@ async function newsBlock(message: string, asked: boolean): Promise<string | null
  */
 export async function liveContextFor(message: string, { maxWaitMs }: { maxWaitMs?: number } = {}): Promise<string | null> {
   const intent = liveIntent(message);
-  const tasks = [intent.jobs ? jobsBlock() : null, newsBlock(message, intent.news)].filter(
+  const tasks = [
+    intent.jobs ? jobsBlock() : null,
+    newsBlock(message, intent.news),
+    intent.weather ? getMayotteWeather() : null,
+    intent.communes ? communesBlock() : null,
+    servicesAsked(message) ? servicesBlock(message) : null,
+  ].filter(
     (task): task is Promise<string | null> => task !== null,
   );
   if (!tasks.length) return null;

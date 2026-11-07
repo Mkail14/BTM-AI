@@ -105,6 +105,18 @@ export function liveToolDeclarations(access: LiveAccess) {
       parameters: { type: "OBJECT", properties: {} },
     },
     {
+      name: "infos_mayotte",
+      description:
+        "Cherche des informations officielles et à jour sur Mayotte : météo, services publics (mairie, CSSM, préfecture, gendarmerie, France services, impôts… avec adresse, téléphone et horaires), communes (codes postaux, habitants), offres d'emploi, actualité. À utiliser avant de répondre à ce genre de question, sans rien inventer.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          question: text("La question de la personne, dans ses mots, avec la commune si elle l'a dite (ex. « horaires de la mairie de Sada »)."),
+        },
+        required: ["question"],
+      },
+    },
+    {
       name: "videos_youtube",
       description:
         "Montre des vidéos YouTube à l'écran : dès que la personne veut voir, regarder ou écouter quelque chose (vidéos drôles, clips, musique, recette, tutoriel, sport, un artiste), appelle-le tout de suite, sans rien demander ni dire avant : les plus vues s'affichent d'elles-mêmes. Après, dis seulement « Voilà ! ».",
