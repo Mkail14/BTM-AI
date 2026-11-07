@@ -83,19 +83,19 @@ export async function forgetDemoWallet() {
 /** Ajoute (recharge) ou retire (paiement) une somme fictive. null si le solde ne suffit pas (ou rien n'a pu être gardé). */
 export async function recordDemoOperation(
   userId: string,
-  kind: "topup" | "payment",
+  kind: "topup" | "payment" | "refund",
   amountCents: number,
   label: string,
 ): Promise<DemoState | null> {
   const state = await readDemoWallet(userId);
-  const balanceCents = state.balanceCents + (kind === "topup" ? amountCents : -amountCents);
+  const balanceCents = state.balanceCents + (kind === "payment" ? -amountCents : amountCents);
   if (balanceCents < 0) return null;
   const operation: WalletTransaction = {
     id: randomUUID(),
     kind,
     amountCents,
     status: "succeeded",
-    label: label || (kind === "topup" ? `Recharge de ${formatEuros(amountCents)}` : "Paiement"),
+    label: label || (kind === "topup" ? `Recharge de ${formatEuros(amountCents)}` : kind === "refund" ? "Remboursement" : "Paiement"),
     method: "Démo",
     createdAt: new Date().toISOString(),
   };

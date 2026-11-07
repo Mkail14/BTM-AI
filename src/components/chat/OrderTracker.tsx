@@ -9,6 +9,7 @@ import { FLY_MS, flyToBell, notify } from "@/lib/notifications";
 import { hangUpVoice } from "@/lib/voice-live/hang-up";
 import { formatEuros } from "@/lib/wallet/limits";
 import type { Courier } from "@/lib/food/courier";
+import { canCancel, cancelDeadline } from "@/lib/food/cancel";
 import { dayLabel } from "@/lib/food/schedule";
 import { deliveryPoint, positionAt, remainingFrom, restaurantPoint, routeKm, routePath, travelledPart, type Point } from "@/lib/food/route";
 import dynamic from "next/dynamic";
@@ -78,7 +79,7 @@ const zigzag = (top: boolean) => {
 };
 const TEAR_STYLE = { "--tear-top": zigzag(true), "--tear-bottom": zigzag(false) } as CSSProperties;
 
-type StoredOrder = PlacedOrder & { receivedAt?: string };
+type StoredOrder = PlacedOrder & { receivedAt?: string; cancelledAt?: string };
 
 /** Commande en cours la plus récente (pas encore reçue), et sa clé. */
 function activeOrder(now = Date.now()): { key: string; order: PlacedOrder } | null {
@@ -119,6 +120,27 @@ function markReceived(code: string) {
 
 /** Commande tout juste reçue : la pastille dit merci avant de partir. */
 const THANKS_EVENT = "btm-food-thanks";
+/** Commande annulée : sa carte dans la conversation disparaît. */
+const CANCEL_EVENT = "btm-food-cancelled";
+
+/** Annulée et remboursée : traitée comme terminée (pastille et carte s'effacent), sans remerciement. */
+function markCancelled(code: string) {
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (!key?.startsWith(ORDER_KEY)) continue;
+    try {
+      const order = JSON.parse(localStorage.getItem(key) ?? "null") as StoredOrder | null;
+      if (order?.code === code) {
+        const at = new Date().toISOString();
+        localStorage.setItem(key, JSON.stringify({ ...order, receivedAt: at, cancelledAt: at }));
+      }
+    } catch {
+      // Valeur illisible : ignorée.
+    }
+  }
+  window.dispatchEvent(new Event(ORDER_EVENT));
+  window.dispatchEvent(new CustomEvent<string>(CANCEL_EVENT, { detail: code }));
+}
 
 /** « 3 min », « 40 s ». */
 function remaining(ms: number) {
@@ -264,8 +286,13 @@ export function OrderTracker({ order }: { order: PlacedOrder }) {
   const [received, setReceived] = useState(() => Boolean((order as StoredOrder).receivedAt));
   useEffect(() => {
     const onThanks = (e: Event) => (e as CustomEvent<PlacedOrder>).detail.code === order.code && setReceived(true);
+    const onCancel = (e: Event) => (e as CustomEvent<string>).detail === order.code && setReceived(true);
     window.addEventListener(THANKS_EVENT, onThanks);
-    return () => window.removeEventListener(THANKS_EVENT, onThanks);
+    window.addEventListener(CANCEL_EVENT, onCancel);
+    return () => {
+      window.removeEventListener(THANKS_EVENT, onThanks);
+      window.removeEventListener(CANCEL_EVENT, onCancel);
+    };
   }, [order.code]);
   // Code validé par le livreur pendant que le suivi est fermé : livrée directement (ouvert, le billet se déchire d'abord).
   useEffect(() => {
@@ -365,7 +392,82 @@ function ArrivalCode({ order, courierName, torn }: { order: PlacedOrder; courier
 /** Contact de GROUPE BTM pour l'aide sur une commande. */
 const SUPPORT_EMAIL = "contact@btm.yt";
 
-type Sheet = "code" | "details" | "help" | "chat";
+type Sheet = "code" | "details" | "help" | "chat" | "cancel";
+
+/**
+ * Volet d'annulation : jusqu'à 4 h avant la préparation, un bouton annule et
+ * rembourse tout de suite (le serveur revérifie l'heure) ; après, BTM ne peut
+ * plus rien annuler et renvoie vers le restaurant.
+ */
+function CancelOrder({ order, now, onCancelled }: { order: PlacedOrder; now: number; onCancelled: () => void }) {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const deadline = cancelDeadline(order.placedAt);
+
+  if (!canCancel(order, now)) {
+    return (
+      <div className="space-y-3 text-sm">
+        <p>
+          <span className="font-semibold">L&apos;annulation n&apos;est plus possible chez BTM.</span> La préparation commence dans moins de 4 h.
+        </p>
+        <p className="text-fg-muted">
+          Pour annuler, contacte directement <span className="font-semibold text-fg">{order.restaurant}</span>.
+        </p>
+      </div>
+    );
+  }
+
+  const cancel = async () => {
+    setPending(true);
+    setError(null);
+    try {
+      const response = await fetch("/api/food/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: order.code }),
+      });
+      const data = (await response.json().catch(() => null)) as { error?: string; refundedCents?: number } | null;
+      if (!response.ok) throw new Error(data?.error ?? "Annulation impossible pour le moment.");
+      notify({
+        id: `${order.code}:cancelled`,
+        emoji: "↩️",
+        title: "Commande annulée",
+        subtitle: `${formatEuros(data?.refundedCents ?? order.totalCents)} remboursés · ${order.restaurant}`,
+        at: new Date().toISOString(),
+      });
+      onCancelled();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Annulation impossible pour le moment.");
+      setPending(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4 text-sm">
+      <p>
+        Tu peux annuler jusqu&apos;à{" "}
+        <span className="font-semibold">
+          {dayLabel(deadline).toLowerCase()} {time.format(new Date(deadline))}
+        </span>
+        , soit 4 h avant la préparation.
+      </p>
+      <p className="text-fg-muted">
+        Tu es remboursé tout de suite de <span className="font-semibold text-fg">{formatEuros(order.totalCents)}</span> sur ton moyen de paiement
+        {order.demo ? " (portefeuille de démonstration)" : ""}.
+      </p>
+      {error ? <p className="rounded-2xl bg-bg-subtle px-4 py-3 text-xs">{error}</p> : null}
+      <button
+        type="button"
+        onClick={cancel}
+        disabled={pending}
+        className="w-full rounded-full px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.99] disabled:opacity-60"
+        style={{ background: PERSONA }}
+      >
+        {pending ? "Annulation…" : "Annuler et être remboursé"}
+      </button>
+    </div>
+  );
+}
 
 /** Volet qui monte par-dessus le panneau (code agrandi, détails, aide, messages). */
 function SubSheet({ title, onClose, tall, children }: { title: string; onClose: () => void; tall?: boolean; children: ReactNode }) {
@@ -768,7 +870,18 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
                   : []),
                 { icon: "⏱️", label: "Ma commande est en retard", hint: "On regarde avec le restaurant", href: help("en retard") },
                 { icon: "🍽️", label: "Il manque un plat ou il y a une erreur", hint: "Remboursement si besoin", href: help("plat manquant ou erreur") },
-                ...(phase === 0 ? [{ icon: "✋", label: "Annuler ma commande", hint: "Possible tant qu'elle est en préparation", href: help("annulation") }] : []),
+                ...(phase === 0
+                  ? [
+                      {
+                        icon: "✋",
+                        label: "Annuler ma commande",
+                        hint: canCancel(order, now)
+                          ? `Remboursée tout de suite · jusqu'à ${time.format(new Date(cancelDeadline(order.placedAt)))}`
+                          : `Plus possible chez BTM : voir avec ${order.restaurant}`,
+                        onClick: () => setSheet("cancel"),
+                      },
+                    ]
+                  : []),
                 { icon: "✉️", label: "Écrire à GROUPE BTM", hint: SUPPORT_EMAIL, href: help("question") },
               ].map((item) => {
                 const content = (
@@ -802,6 +915,19 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
               })}
             </ul>
             {order.demo ? <p className="mt-3 text-center text-[11px] text-fg-muted">Démonstration : le message part vers GROUPE BTM, pas vers le restaurant.</p> : null}
+          </SubSheet>
+        ) : null}
+
+        {sheet === "cancel" ? (
+          <SubSheet title="Annuler ma commande" onClose={() => setSheet("help")}>
+            <CancelOrder
+              order={order}
+              now={now}
+              onCancelled={() => {
+                close();
+                window.setTimeout(() => markCancelled(order.code), 320);
+              }}
+            />
           </SubSheet>
         ) : null}
 
