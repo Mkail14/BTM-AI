@@ -102,3 +102,25 @@ test("avec Silero : l'écho de Tamilya ne coupe pas sa voix", () => {
   // Son écho est une voix (Silero 0,9) mais pas plus forte qu'elle.
   for (let i = 0; i < 10; i++) assert.ok(silent(gate(voice(0.04), true, 0.9)), `paquet ${i}`);
 });
+
+const rmsOf = (packets: Float32Array[]) => Math.sqrt(packets.flatMap((p) => [...p]).reduce((s, v) => s + v * v, 0) / (packets.length * SIZE || 1));
+
+test("chuchotement dans une pièce calme : il passe même si Silero hésite, et monte au niveau d'une voix normale", () => {
+  const gate = createNoiseGate();
+  for (let i = 0; i < 30; i++) gate(noise(0.001), false, 0.01);
+  const during = Array.from({ length: 10 }, () => gate(voice(0.012, 0.001), false, 0.3));
+  assert.ok(during.slice(2).every((packets) => !silent(packets)), "le chuchotement passe");
+  assert.ok(rmsOf(during.slice(3).flat()) > 0.025, "volume monté");
+});
+
+test("chuchotement : un souffle que Silero ne prend pas pour une voix reste bloqué", () => {
+  const gate = createNoiseGate();
+  for (let i = 0; i < 30; i++) gate(noise(0.001), false, 0.01);
+  for (let i = 0; i < 10; i++) assert.ok(silent(gate(noise(0.02), false, 0.05)), `paquet ${i}`);
+});
+
+test("chuchotement : refusé dans le bruit, où il se confondrait avec lui", () => {
+  const gate = createNoiseGate();
+  for (let i = 0; i < 30; i++) gate(noise(0.05), false, 0.01);
+  for (let i = 0; i < 10; i++) assert.ok(silent(gate(voice(0.03, 0.05), false, 0.3)), `paquet ${i}`);
+});

@@ -38,6 +38,20 @@ const NOISE_WINDOW = 30;
 /** Silero : au-dessus, c'est une voix ; une fois la porte ouverte, un peu moins suffit pour la garder (réglages conseillés par Silero). */
 const VOICE_OPEN = 0.5;
 const VOICE_KEEP = 0.35;
+/*
+ * Chuchotement : pas de son de gorge, donc faible et mal noté par Silero (souvent 0,1 à 0,4).
+ * Accepté seulement dans un endroit calme (dans le bruit, il se confondrait avec lui),
+ * s'il dépasse nettement le fond sonore, puis monté au niveau d'une voix normale pour Gemini.
+ */
+/** Fond sonore en dessous duquel l'endroit est calme. */
+const CALM_FLOOR = 0.006;
+/** Le chuchotement doit dépasser ce facteur du fond sonore… */
+const WHISPER_OVER_NOISE = 2.5;
+/** …et Silero (obligatoire : sans lui, un bruit sec passerait) doit y voir au moins un peu de voix. */
+const WHISPER_VOICE = 0.15;
+/** Niveau d'une voix normale, visé quand on monte un chuchotement ; jamais plus de 4 fois plus fort. */
+const WHISPER_TARGET = 0.05;
+const MAX_BOOST = 4;
 
 const level = (samples: Float32Array) => {
   let sum = 0;
@@ -53,6 +67,10 @@ export function createNoiseGate() {
   let quiet = 0;
   /** Début de phrase : gardé le temps de savoir si c'est de la parole, pour ne pas couper le premier mot. */
   let pending: Float32Array[] = [];
+  /** Volume ajouté à la phrase en cours (1 = inchangé). */
+  let boost = 1;
+  const amplify = (samples: Float32Array) =>
+    boost === 1 ? samples : samples.map((value) => Math.max(-1, Math.min(1, value * boost)));
 
   /**
    * `voice` : probabilité de voix donnée par Silero (0 à 1), absente tant qu'il n'est pas chargé
@@ -64,7 +82,7 @@ export function createNoiseGate() {
     if (recent.length > NOISE_WINDOW) recent.shift();
     const floor = Math.min(...recent);
     const loudEnough = rms > (tamilyaTalking ? Math.max(ECHO_LEVEL, floor * OVER_ECHO) : Math.max(MIN_LEVEL, floor * OVER_NOISE));
-    const over =
+    const normal =
       voice === undefined
         ? loudEnough
         : tamilyaTalking
@@ -72,12 +90,19 @@ export function createNoiseGate() {
             loudEnough && voice > VOICE_OPEN
           : // Silero reconnaît la voix, même près du bruit : le volume ne sert plus qu'à écarter un murmure lointain.
             rms > MIN_LEVEL / 2 && voice > (open ? VOICE_KEEP : VOICE_OPEN);
+    const whisper =
+      !tamilyaTalking &&
+      floor < CALM_FLOOR &&
+      rms > Math.max(MIN_LEVEL / 4, floor * WHISPER_OVER_NOISE) &&
+      voice !== undefined && voice > WHISPER_VOICE;
+    const over = normal || whisper;
 
     if (open) {
       quiet = over ? 0 : quiet + 1;
-      if (quiet < PACKETS_TO_CLOSE) return [samples];
+      if (quiet < PACKETS_TO_CLOSE) return [amplify(samples)];
       open = false;
       loud = 0;
+      boost = 1;
       return [new Float32Array(samples.length)];
     }
     loud = over ? loud + 1 : 0;
@@ -89,7 +114,12 @@ export function createNoiseGate() {
     if (loud < (tamilyaTalking ? ECHO_PACKETS_TO_OPEN : PACKETS_TO_OPEN)) return [new Float32Array(samples.length)];
     open = true;
     quiet = 0;
-    const flush = pending;
+    // Phrase dite tout bas dans un endroit calme (chuchotement) : même volume monté pour toute
+    // la phrase (pas de « pompage »), que Silero ait hésité ou non. Jamais pendant que Tamilya parle.
+    const speech = pending.slice(1);
+    const average = speech.reduce((sum, packet) => sum + level(packet), 0) / (speech.length || 1);
+    if (!tamilyaTalking && floor < CALM_FLOOR && average > 0) boost = Math.min(MAX_BOOST, Math.max(1, WHISPER_TARGET / average));
+    const flush = pending.map(amplify);
     pending = [];
     return flush;
   };
