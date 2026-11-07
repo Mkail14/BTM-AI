@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `d261983` (2026-11-08)**
+**Dernier commit noté : `74f8a60` (2026-11-08)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -87,6 +87,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-08
+- **Lecture en 3D : « me lise cette page », « en vocal », « avec les effets »** (`74f8a60`). Conversation « Lecture d’un conte à Moya » relue dans la base : « Je veux que tu me lise cette page… » non reconnu (seulement lis/lire), « En vocal » seul non plus, « Lance la lecture 3d » a demandé une photo (l’histoire était deux messages plus haut), puis Tamilya a dit n’avoir pas de lecture 3D. Maintenant : « lise », « vivre la page » reconnus ; un message court (« en vocal », « avec les effets spéciaux », « lance la lecture », « lis-le à voix haute ») juste après une histoire collée la lit, en cherchant dans les deux derniers messages ; phrase de demande et guillemets retirés du texte ; ce cas passe avant le vocal simple ; consigne : ne jamais nier la lecture 3D. Vérifié : 533 tests, types, lint. Pas encore essayé sur la tablette.
 - **Lecture en 3D : démarre toute seule** (`d261983`). Vu sur la tablette : l'utilisateur a écrit « Los moi cette histoire » (faute de frappe, non reconnue), puis collé l'histoire seule ; Tamilya l'a recopiée et a dit de toucher le haut-parleur. Demande de l'utilisateur : aucun bouton, Tamilya parle d'elle-même avec tous les effets. Fautes de frappe courantes acceptées devant « moi » ; texte collé juste après une demande de lecture lu ; lecture lancée dès que la page est prête (l'app permet le son sans geste : setMediaPlaybackRequiresUserGesture(false)). Vérifié : tests, types, lint.
 - **Lecture en 3D : bruits courts demandés à chaque réplique** (`bc7d604`). Essai fait par Claude sur la Pad 6, dans l'app, avec la session de l'utilisateur (appels directs à /api/lecture et /api/voice/speak, rien écrit dans ses conversations) : la page 1 de l'histoire de test était bien préparée (13 s, plage, 4 décors, une voix par personnage, voix en ~3 s) mais sans aucun bruit court ni arrivée du pêcheur, ces champs étant facultatifs pour Gemini. Rendus obligatoires : après correction, rafale de -90 à 90 puis tonnerre au-dessus, pas qui viennent de derrière, arrivée de Bacar, galop de -80 à 80. Pas encore entendu par l'utilisateur.
 - **Lecture en 3D d'un texte de la conversation** (`d92adaa`). Plainte de l'utilisateur : histoire collée, « lis-moi ce message », et Tamilya a écrit une histoire au lieu de la lire (la phrase n'était pas reconnue, et seule la photo était prévue). Maintenant « lis-moi ce message / ce texte / cette histoire / ça » est reconnu (jamais « raconte-moi une histoire ») ; le texte (ce message sans la demande, sinon le précédent, 150 à 6 000 caractères) est glissé dans le bloc par le serveur, Tamilya n'a pas à le recopier ; Gemini ignore la mise en forme et les consignes autour de l'histoire ; la carte prépare la lecture d'elle-même. Vérifié : 530 tests, types, lint. Envoyé sur develop et main (demande de l'utilisateur).
