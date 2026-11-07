@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -35,7 +36,8 @@ const POINTS = [
   {
     title: "Elle n'invente pas",
     text: "Elle n'utilise que des mots vérifiés. Quand elle ne connaît pas un mot, elle le dit au lieu de deviner.",
-    tag: "✓ Mots vérifiés",
+    tag: "Mots vérifiés",
+    checked: true,
   },
   {
     title: "Elle apprend chaque jour",
@@ -305,7 +307,10 @@ export function GuestLanding({
                     <h3 className="mt-2 text-lg font-semibold tracking-tight md:text-base">{point.title}</h3>
                     <p className="mt-1 text-[15px] leading-relaxed text-fg-muted md:text-sm">{point.text}</p>
                     <p className="mt-auto pt-3">
-                      <span className="inline-block rounded-full bg-white/60 px-3 py-1 text-xs font-medium dark:bg-white/[0.08]">{point.tag}</span>
+                      <span className="inline-block rounded-full bg-white/60 px-3 py-1 text-xs font-medium dark:bg-white/[0.08]">
+                        {"checked" in point && point.checked ? <Check aria-hidden="true" className="mr-1 inline size-3.5 align-[-2px]" /> : null}
+                        {point.tag}
+                      </span>
                     </p>
                   </Reveal>
                 </li>

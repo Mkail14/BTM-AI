@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { useState } from "react";
 import { CodeView, type CodeLang } from "./highlight";
 
@@ -83,7 +84,13 @@ export function CodeExamples({ endpoint, className = "" }: { endpoint: string; c
         </span>
         <span className="flex-1 text-center font-mono text-[11px] text-[#cccccc]/70">tamilya — {FILES[tab]}</span>
         <button type="button" onClick={copy} className="-my-1 rounded px-3 py-2 text-[11px] text-[#cccccc] transition hover:bg-white/10">
-          {copied ? "Copié ✓" : "Copier"}
+          {copied ? (
+            <span className="inline-flex items-center gap-1">
+              Copié <Check aria-hidden="true" className="size-3.5" />
+            </span>
+          ) : (
+            "Copier"
+          )}
         </button>
       </div>
       <div role="tablist" aria-label="Langage" className="flex shrink-0 bg-[#252526]">

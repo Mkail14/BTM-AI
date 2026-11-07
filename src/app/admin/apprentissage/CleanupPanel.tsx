@@ -1,10 +1,12 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ActionStatus, inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import type { ActionResult } from "@/lib/admin/action-auth";
+import { lostOk } from "@/lib/safe-action";
 import type { Issue, IssueKind, LexEntry } from "@/lib/language/cleanup";
 import {
   checkSpellingAction,
@@ -41,7 +43,7 @@ function EntryRow({ entry, onDone }: { entry: LexEntry; onDone: (result: ActionR
 
   const remove = async () => {
     if (!(await confirmDialog({ title: `Supprimer « ${entry.french} → ${entry.shimaore} » ?`, confirmLabel: "Supprimer", tone: "danger" }))) return;
-    startTransition(async () => onDone(await deleteEntryAction({ table: entry.table, id: entry.id })));
+    startTransition(async () => onDone(await deleteEntryAction({ table: entry.table, id: entry.id }).catch(lostOk)));
   };
 
   return (
@@ -58,7 +60,7 @@ function EntryRow({ entry, onDone }: { entry: LexEntry; onDone: (result: ActionR
         <button
           type="button"
           disabled={pending || !changed}
-          onClick={() => startTransition(async () => onDone(await updateEntryAction({ table: entry.table, id: entry.id, french, shimaore })))}
+          onClick={() => startTransition(async () => onDone(await updateEntryAction({ table: entry.table, id: entry.id, french, shimaore }).catch(lostOk)))}
           className={primaryButton}
         >
           Corriger
@@ -113,7 +115,10 @@ export function CleanupPanel({ issues, total }: { issues: Issue[]; total: number
         </div>
         {fixes ? (
           fixes.length === 0 ? (
-            <p className="mt-3 text-sm text-success">Aucune faute trouvée dans le français. ✓</p>
+            <p className="mt-3 text-sm text-success">
+              <Check aria-hidden="true" className="mr-1 inline size-4 align-[-3px]" />
+              Aucune faute trouvée dans le français.
+            </p>
           ) : (
             <ul className="mt-3 space-y-2">
               {fixes.map((fix) => (
@@ -127,7 +132,7 @@ export function CleanupPanel({ issues, total }: { issues: Issue[]; total: number
                       disabled={pending}
                       onClick={() =>
                         startTransition(async () => {
-                          const result = await updateEntryAction({ table: fix.table, id: fix.id, french: fix.fix, shimaore: fix.shimaore });
+                          const result = await updateEntryAction({ table: fix.table, id: fix.id, french: fix.fix, shimaore: fix.shimaore }).catch(lostOk);
                           done(result);
                           if (result.ok) setFixes((list) => list?.filter((f) => f.id !== fix.id) ?? null);
                         })
@@ -151,7 +156,8 @@ export function CleanupPanel({ issues, total }: { issues: Issue[]; total: number
 
       {issues.length === 0 ? (
         <p className="rounded-xl border border-dashed border-border p-6 text-center text-sm text-fg-muted">
-          Rien à nettoyer : le lexique est propre. ✓
+          <Check aria-hidden="true" className="mr-1 inline size-4 align-[-3px] text-success" />
+          Rien à nettoyer : le lexique est propre.
         </p>
       ) : (
         ORDER.map((kind) => {
@@ -167,7 +173,7 @@ export function CleanupPanel({ issues, total }: { issues: Issue[]; total: number
                   <button
                     type="button"
                     disabled={pending}
-                    onClick={() => startTransition(async () => done(await fixAllSpacesAction()))}
+                    onClick={() => startTransition(async () => done(await fixAllSpacesAction().catch(lostOk)))}
                     className={secondaryButton}
                   >
                     Tout nettoyer ({spaces})
@@ -185,7 +191,7 @@ export function CleanupPanel({ issues, total }: { issues: Issue[]; total: number
                       <button
                         type="button"
                         disabled={pending}
-                        onClick={() => startTransition(async () => done(await ignoreIssueAction({ kind: issue.kind, ref: issue.ref })))}
+                        onClick={() => startTransition(async () => done(await ignoreIssueAction({ kind: issue.kind, ref: issue.ref }).catch(lostOk)))}
                         className="text-sm font-medium text-fg-muted underline-offset-2 hover:text-fg hover:underline"
                       >
                         C&apos;est voulu, ne plus le signaler

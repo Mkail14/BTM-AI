@@ -58,7 +58,7 @@ function NotificationRow({ onRemove, children }: { onRemove: () => void; childre
         {/* Fond révélé par le glissement. */}
         <div
           aria-hidden="true"
-          className="absolute inset-0 flex items-center justify-end rounded-2xl bg-danger px-5 text-xs font-semibold text-white"
+          className="absolute inset-0 flex items-center justify-end rounded-2xl bg-danger px-5 text-xs font-semibold text-danger-fg"
           style={{ opacity: Math.min(1, -dx / SWIPE_DELETE_PX) }}
         >
           Supprimer
@@ -243,8 +243,13 @@ export function NotificationBell() {
               <div
                 role="dialog"
                 aria-label="Notifications"
-                style={{ top: place.top, right: place.right }}
-                className="notif-panel scrollbar-none fixed z-[61] max-h-[min(32rem,calc(100dvh-6rem))] w-[min(23rem,calc(100vw-1.5rem))] origin-top-right overflow-y-auto overscroll-contain rounded-3xl border border-border bg-bg shadow-2xl"
+                style={{
+                  top: place.top,
+                  right: place.right,
+                  // Jusqu'au bas de l'écran visible, au-dessus de la barre d'accueil de l'iPhone.
+                  maxHeight: `min(32rem, calc(100dvh - ${place.top}px - max(0.75rem, env(safe-area-inset-bottom))))`,
+                }}
+                className="notif-panel scrollbar-none fixed z-[61] w-[min(23rem,calc(100vw-1.5rem))] origin-top-right overflow-y-auto overscroll-contain rounded-3xl border border-border bg-bg shadow-2xl"
               >
                 <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-bg/95 px-5 py-3.5 backdrop-blur">
                   <p className="font-semibold">Notifications</p>

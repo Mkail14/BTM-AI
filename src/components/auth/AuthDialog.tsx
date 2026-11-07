@@ -1,6 +1,7 @@
 "use client";
 
 import type { AuthError } from "@supabase/supabase-js";
+import { Check } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode } from "react";
 import { IconClose } from "@/components/ui/icons";
@@ -16,11 +17,10 @@ import {
   passwordChecks,
   suggestEmailCorrection,
 } from "@/lib/auth/signup";
-import { hasNativeGoogle, nativeGoogleSignIn, renderGoogleButton, watchGoogleButton } from "@/lib/auth/google-identity";
+import { hasNativeGoogle, nativeGoogleSignIn, renderGoogleButton, subscribeNativeGoogle, watchGoogleButton } from "@/lib/auth/google-identity";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { AuthUser } from "./AuthProvider";
 
-const noSubscribe = () => () => {};
 
 export type AuthDialogOptions = {
   /** Explique pourquoi un compte est nécessaire (affiché en tête). */
@@ -240,7 +240,7 @@ function AuthPanel({
           <GoogleButton next={next} isSignup={isSignup} onSignedIn={onSignedIn} />
         </div>
         <div className="mt-[clamp(12px,2.4vh,22px)]">{switchLine}</div>
-        <p className="mt-2.5 max-w-[320px] text-xs leading-normal text-fg-muted/80">
+        <p className="mt-2.5 max-w-[320px] text-xs leading-normal text-fg-muted">
           En continuant, tu acceptes les{" "}
           <Link href="/confidentialite" target="_blank" className="underline underline-offset-2">
             règles de confidentialité
@@ -349,7 +349,7 @@ function GoogleButton({ next, isSignup, onSignedIn }: { next: string; isSignup: 
   });
 
   // Application Android : notre bouton seul, qui ouvre le sélecteur de compte du téléphone (on ne quitte pas l'app).
-  const native = useSyncExternalStore(noSubscribe, hasNativeGoogle, () => false);
+  const native = useSyncExternalStore(subscribeNativeGoogle, hasNativeGoogle, () => false);
 
   useEffect(() => {
     const element = slot.current;
@@ -865,8 +865,8 @@ function SignUpForm({
                 check.ok ? "text-accent" : submitted ? "text-danger" : "text-fg-muted"
               }`}
             >
-              <span aria-hidden="true" className="w-3 text-center">
-                {check.ok ? "✓" : "•"}
+              <span aria-hidden="true" className="grid w-3.5 place-items-center">
+                {check.ok ? <Check className="size-3.5" strokeWidth={3} /> : "•"}
               </span>
               {check.label}
               <span className="sr-only">{check.ok ? " : respecté" : " : non respecté"}</span>
@@ -998,7 +998,7 @@ function ResendConfirmation({
     status === "sending"
       ? "Envoi…"
       : status === "sent" && cooldown > 0
-        ? "E-mail renvoyé ✓"
+        ? "E-mail renvoyé"
         : status === "error" && cooldown > 0
           ? "Échec, réessaie plus tard"
           : cooldown > 0

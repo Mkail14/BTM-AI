@@ -71,7 +71,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <SplashReady />
         <a
           href="#contenu"
-          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-lg focus:bg-bg focus:px-3 focus:py-2"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-[calc(0.5rem+env(safe-area-inset-top))] focus:left-2 focus:z-50 focus:rounded-lg focus:bg-bg focus:px-3 focus:py-2"
         >
           Aller au contenu
         </a>

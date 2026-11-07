@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useId, useState } from "react";
+import { lostStatus } from "@/lib/safe-action";
 import { savePhoneAction, updateProfileAction, type ProfileFormState } from "./actions";
 import { Feedback, INPUT_CLASS, PRIMARY, RowEditor, SECONDARY, SettingsRow, useSave } from "./ui";
 
@@ -9,7 +10,7 @@ export function NameRow({ displayName }: { displayName: string | null }) {
   const [editing, setEditing] = useState(false);
   const [state, formAction, pending] = useActionState<ProfileFormState, FormData>(
     async (previous, formData) => {
-      const result = await updateProfileAction(previous, formData);
+      const result = await updateProfileAction(previous, formData).catch(lostStatus);
       if (result.status === "saved") setEditing(false);
       return result;
     },

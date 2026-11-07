@@ -111,7 +111,7 @@ export function UnknownWord({ french, children }: { french: string; children: Re
               {saving ? "…" : "OK"}
             </button>
           </span>
-          {error ? <span className="block px-1 pt-1.5 text-xs text-danger">{error}</span> : null}
+          {error ? <span role="alert" className="block px-1 pt-1.5 text-xs text-danger">{error}</span> : null}
         </span>
       ) : null}
     </span>

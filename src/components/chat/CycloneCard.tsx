@@ -1,6 +1,6 @@
 "use client";
 
-import { Info, Navigation, Wind } from "lucide-react";
+import { Info, Navigation, Wind, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -157,9 +157,9 @@ function CyclonePanel({ cyclones: nearby, updatedAt, onClose }: { cyclones: Cycl
               type="button"
               onClick={close}
               aria-label="Fermer la carte des cyclones"
-              className="grid size-10 place-items-center rounded-full bg-bg/90 text-xl leading-none shadow-lg backdrop-blur hover:bg-bg"
+              className="grid size-11 place-items-center rounded-full bg-bg/90 shadow-lg backdrop-blur hover:bg-bg"
             >
-              ×
+              <X aria-hidden="true" className="size-5" />
             </button>
             {/* Plusieurs systèmes : on choisit celui à regarder. */}
             {cyclones.length > 1 ? (

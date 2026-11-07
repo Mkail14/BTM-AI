@@ -6,6 +6,7 @@ import { ActionStatus, inputClass, primaryButton, secondaryButton } from "@/comp
 import type { ActionResult } from "@/lib/admin/action-auth";
 import { CORRECTION_MAX_CHARS } from "@/lib/voice-live/listening";
 import type { VoiceCorrectionRow } from "@/lib/voice-live/corrections";
+import { lostOk } from "@/lib/safe-action";
 import { addCorrectionAction, removeCorrectionAction } from "./actions";
 
 /** Ce que Tamilya entend de travers et ce qui a vraiment été dit. */
@@ -18,7 +19,7 @@ export function ListeningCorrections({ corrections }: { corrections: VoiceCorrec
 
   const run = (action: () => Promise<ActionResult>, after?: () => void) =>
     start(async () => {
-      const res = await action();
+      const res = await action().catch(lostOk);
       setResult(res);
       if (res.ok) after?.();
       router.refresh();

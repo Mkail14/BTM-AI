@@ -136,7 +136,7 @@ export function DialogHost() {
               type="button"
               onClick={() => finish(true)}
               className={`rounded-xl px-4 py-2.5 text-sm font-medium transition-[background-color,transform] active:scale-[0.97] ${
-                danger ? "bg-danger text-white hover:opacity-90" : "bg-accent text-accent-fg hover:bg-accent-hover"
+                danger ? "bg-danger text-danger-fg hover:opacity-90" : "bg-accent text-accent-fg hover:bg-accent-hover"
               }`}
             >
               {request.confirmLabel ?? (request.kind === "alert" ? "Compris" : "Confirmer")}

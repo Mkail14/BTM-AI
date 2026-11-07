@@ -265,7 +265,7 @@ export function BtmDevis({ query = "" }: { query?: string }) {
                   ))}
                 </select>
               ) : (
-                <span className={`mt-1 flex items-center rounded-xl border bg-bg px-3 ${error ? "border-danger" : "border-border"}`}>
+                <span className={`mt-1 flex items-center rounded-xl border bg-bg px-3 transition focus-within:border-accent focus-within:ring-4 focus-within:ring-accent-soft ${error ? "border-danger" : "border-border"}`}>
                   <input
                     id={id}
                     inputMode="decimal"

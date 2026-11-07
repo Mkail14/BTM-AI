@@ -7,6 +7,7 @@ import { ActionStatus, Counter, inputClass, primaryButton, secondaryButton } fro
 import { IconPlus } from "@/components/ui/icons";
 import type { ActionResult } from "@/lib/admin/action-auth";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
+import { lostOk } from "@/lib/safe-action";
 import { deleteKnowledgeAction, saveKnowledgeAction } from "./actions";
 import { KNOWLEDGE_LIMITS, type KnowledgeRow } from "./limits";
 
@@ -53,7 +54,7 @@ function EntryDialog({ initial, onClose }: { initial: Draft; onClose: () => void
 
   function save() {
     startTransition(async () => {
-      const result = await saveKnowledgeAction({ ...draft, keywords });
+      const result = await saveKnowledgeAction({ ...draft, keywords }).catch(lostOk);
       setStatus(result);
       if (result.ok) {
         router.refresh();
@@ -72,7 +73,7 @@ function EntryDialog({ initial, onClose }: { initial: Draft; onClose: () => void
     });
     if (!ok) return;
     startTransition(async () => {
-      const result = await deleteKnowledgeAction(draft.id);
+      const result = await deleteKnowledgeAction(draft.id).catch(lostOk);
       setStatus(result);
       if (result.ok) {
         router.refresh();

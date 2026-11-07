@@ -1,5 +1,6 @@
 "use client";
 
+import { X } from "lucide-react";
 import { Pictogram } from "@/components/ui/Pictogram";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { currentQuality, subscribeQuality, type ConnectionQuality } from "@/lib/hooks/connection-quality";
@@ -50,8 +51,8 @@ export function ConnectionNotice() {
             <span className="block text-fg-muted">{message.detail}</span>
           </span>
           {quality !== "offline" ? (
-            <button type="button" onClick={() => setHidden(quality)} aria-label="Fermer" className="text-fg-muted hover:text-fg">
-              ✕
+            <button type="button" onClick={() => setHidden(quality)} aria-label="Fermer le message" className="-my-2.5 -mr-2.5 grid size-11 shrink-0 place-items-center rounded-full text-fg-muted hover:text-fg">
+              <X aria-hidden="true" className="size-4" />
             </button>
           ) : null}
         </div>

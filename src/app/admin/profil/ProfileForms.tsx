@@ -1,5 +1,6 @@
 "use client";
 
+import { Check, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useRef, useState, useTransition, type ComponentType, type ReactNode } from "react";
 import { ActionStatus, inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
@@ -7,6 +8,7 @@ import { IconExternal, IconLock, IconPencil, IconSettings, IconUsers, IconWallet
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import type { ActionResult } from "@/lib/admin/action-auth";
+import { lostOk } from "@/lib/safe-action";
 import type { AdminAccount } from "@/lib/admin/delegation";
 import { bankFromBic, bankFromIban, formatIban, isValidBic, isValidIban, normalizeIban, parseRib } from "@/lib/site/iban";
 import type { Partner } from "@/lib/site/partners";
@@ -25,6 +27,16 @@ import {
   validatePartnerAction,
 } from "./actions";
 
+/** « Copié » suivi d'une coche (icône, pas de symbole texte). */
+function Copied({ text }: { text: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      {text}
+      <Check aria-hidden="true" className="size-4" />
+    </span>
+  );
+}
+
 /** Lance une action serveur, montre son résultat et relit la page (verrou compris). */
 function useAction() {
   const router = useRouter();
@@ -32,7 +44,7 @@ function useAction() {
   const [result, setResult] = useState<ActionResult | null>(null);
   const run = (action: () => Promise<ActionResult>, after?: () => void) =>
     start(async () => {
-      const res = await action();
+      const res = await action().catch(lostOk);
       setResult(res);
       if (res.ok) after?.();
       router.refresh();
@@ -102,7 +114,7 @@ export function ProfileLock({ until: serverUntil, children }: { until: number | 
     relock: () => {
       setUntil(null);
       setEditing(null);
-      void lockAction().then(() => router.refresh());
+      void lockAction().catch(lostOk).then(() => router.refresh());
     },
   };
 
@@ -149,7 +161,7 @@ function PasswordDialog({ onClose, onUnlocked }: { onClose: () => void; onUnlock
         onSubmit={(e) => {
           e.preventDefault();
           start(async () => {
-            const res = await unlockAction({ password });
+            const res = await unlockAction({ password }).catch(lostOk);
             if (res.ok) onUnlocked();
             else {
               setError(res.message);
@@ -233,8 +245,8 @@ function LockToast({ until }: { until: number }) {
               Verrouiller maintenant
             </button>
           </div>
-          <button type="button" onClick={() => setOpen(false)} aria-label="Réduire" className="-mt-1 -mr-1 rounded-lg px-1.5 text-fg-muted hover:bg-bg-muted hover:text-fg">
-            ×
+          <button type="button" onClick={() => setOpen(false)} aria-label="Réduire" className="-mt-3 -mr-3 grid size-11 shrink-0 place-items-center rounded-lg text-fg-muted hover:bg-bg-muted hover:text-fg">
+            <X aria-hidden="true" className="size-4" />
           </button>
         </div>
       ) : (
@@ -812,14 +824,14 @@ function BankCard({
 
       <div className="mt-auto flex flex-wrap justify-center gap-2 pt-4">
         <button type="button" className={primaryButton} onClick={() => copy("all", full)}>
-          {copied === "all" ? "RIB copié ✓" : "Copier le RIB"}
+          {copied === "all" ? <Copied text="RIB copié" /> : "Copier le RIB"}
         </button>
         <button type="button" className={secondaryButton} onClick={() => copy("iban", normalizeIban(bank.iban))}>
-          {copied === "iban" ? "IBAN copié ✓" : "Copier l'IBAN"}
+          {copied === "iban" ? <Copied text="IBAN copié" /> : "Copier l'IBAN"}
         </button>
         {bank.bic ? (
           <button type="button" className={secondaryButton} onClick={() => copy("bic", bank.bic)}>
-            {copied === "bic" ? "BIC copié ✓" : "Copier le BIC"}
+            {copied === "bic" ? <Copied text="BIC copié" /> : "Copier le BIC"}
           </button>
         ) : null}
       </div>

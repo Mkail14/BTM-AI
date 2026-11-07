@@ -174,7 +174,7 @@ export function AdminMenu({ principal = false }: { principal?: boolean }) {
                 aria-label="Menu d'administration"
                 className="scrollbar-none fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col overflow-y-auto border-r border-border bg-bg-subtle shadow-xl"
               >
-                <div className="flex items-center justify-between px-4 pt-4 pb-2">
+                <div className="flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-2">
                   <span className="flex items-center gap-2">
                     <BrandLogo size="sm" />
                     <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-medium text-accent">Admin</span>

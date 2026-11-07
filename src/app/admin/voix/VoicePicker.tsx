@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { ActionStatus, inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
 import type { ActionResult } from "@/lib/admin/action-auth";
 import { GEMINI_VOICES, type GeminiVoiceId } from "@/lib/ai/voice/voices";
+import { lostOk } from "@/lib/safe-action";
 import { saveVoiceAction } from "./actions";
 
 const SAMPLE = "Bonjour, je suis Tamilya ! Karibu, marahaba d'être là. Qu'est-ce que je peux faire pour toi aujourd'hui ?";
@@ -71,7 +72,7 @@ export function VoicePicker({ saved }: { saved: GeminiVoiceId }) {
 
   function choose(voice: GeminiVoiceId) {
     startSaving(async () => {
-      const result = await saveVoiceAction(voice);
+      const result = await saveVoiceAction(voice).catch(lostOk);
       setStatus(result);
       if (result.ok) setCurrent(voice);
     });

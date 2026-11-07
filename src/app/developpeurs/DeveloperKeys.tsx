@@ -1,9 +1,11 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { inputClass, secondaryButton } from "@/components/admin/form";
 import type { DeveloperKey } from "@/lib/developers/keys";
+import { lostOk } from "@/lib/safe-action";
 import { createDeveloperKeyAction, revokeDeveloperKeyAction } from "./actions";
 
 const date = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", year: "numeric", timeZone: "Indian/Mayotte" });
@@ -20,7 +22,7 @@ export function DeveloperKeys({ keys, max }: { keys: DeveloperKey[]; max: number
   const create = () =>
     startTransition(async () => {
       setError(null);
-      const result = await createDeveloperKeyAction(label);
+      const result = await createDeveloperKeyAction(label).catch(lostOk);
       if (!result.ok) return setError(result.message);
       setCreated(result.key);
       setCopied(false);
@@ -31,7 +33,7 @@ export function DeveloperKeys({ keys, max }: { keys: DeveloperKey[]; max: number
   const revoke = (key: DeveloperKey) => {
     if (!window.confirm(`Supprimer le code « ${key.label} » ? Les applications qui l'utilisent ne marcheront plus.`)) return;
     startTransition(async () => {
-      const result = await revokeDeveloperKeyAction(key.id);
+      const result = await revokeDeveloperKeyAction(key.id).catch(lostOk);
       if (!result.ok) setError("La suppression a échoué. Réessayez.");
       router.refresh();
     });
@@ -56,7 +58,13 @@ export function DeveloperKeys({ keys, max }: { keys: DeveloperKey[]; max: number
           <div className="mt-3 flex flex-col gap-2 sm:flex-row">
             <code className="min-w-0 flex-1 overflow-x-auto rounded-lg bg-bg px-3 py-2 font-mono text-xs">{created}</code>
             <button type="button" onClick={copy} className={secondaryButton}>
-              {copied ? "Copié ✓" : "Copier"}
+              {copied ? (
+                <span className="inline-flex items-center gap-1">
+                  Copié <Check aria-hidden="true" className="size-4" />
+                </span>
+              ) : (
+                "Copier"
+              )}
             </button>
           </div>
         </div>

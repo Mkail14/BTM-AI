@@ -112,7 +112,7 @@ export function HelpBubble() {
   };
 
   // Bornée à l'écran visible, au-dessus de la barre d'accueil de l'iPhone.
-  const top = `max(${EDGE}px, min(${spot.y}px, calc(100dvh - ${size + EDGE}px - env(safe-area-inset-bottom))))`;
+  const top = `max(calc(${EDGE}px + env(safe-area-inset-top)), min(${spot.y}px, calc(100dvh - ${size + EDGE}px - env(safe-area-inset-bottom))))`;
   const style = drag
     ? { left: drag.x, top: drag.y }
     : spot.side === "left"

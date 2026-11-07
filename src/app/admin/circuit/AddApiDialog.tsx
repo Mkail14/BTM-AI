@@ -1,11 +1,13 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { Field, inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
 import { IconClose } from "@/components/ui/icons";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import type { ActionResult } from "@/lib/admin/action-auth";
+import { lostOk } from "@/lib/safe-action";
 import { addApiAction, listModelsAction } from "./actions";
 import { API_LIMITS, API_PRESETS, detectPreset } from "./presets";
 
@@ -40,7 +42,7 @@ export function AddApiDialog({ onClose }: { onClose: () => void }) {
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       setList({ state: "loading" });
-      const result = await listModelsAction({ provider: preset.provider, baseUrl, apiKey });
+      const result = await listModelsAction({ provider: preset.provider, baseUrl, apiKey }).catch(lostOk);
       if (cancelled) return;
       if (!result.ok) return setList({ state: "error", message: result.message });
       setList({ state: "ready", models: result.models, freeOnly: result.freeOnly });
@@ -93,7 +95,7 @@ export function AddApiDialog({ onClose }: { onClose: () => void }) {
 
   function submit() {
     startTransition(async () => {
-      const result = await addApiAction({ label, provider: preset.provider, baseUrl, model, apiKey });
+      const result = await addApiAction({ label, provider: preset.provider, baseUrl, model, apiKey }).catch(lostOk);
       setStatus(result);
       if (result.ok) {
         router.refresh();
@@ -144,7 +146,10 @@ export function AddApiDialog({ onClose }: { onClose: () => void }) {
               className={`${inputClass} font-mono text-xs`}
             />
             <p className="mt-1 text-xs text-fg-muted">
-              {detected ? <span className="font-medium text-success">✓ Clé {preset.label} reconnue. </span> : null}
+              {detected ? <span className="font-medium text-success">
+                  <Check aria-hidden="true" className="mr-0.5 inline size-3.5 align-[-2px]" />
+                  Clé {preset.label} reconnue.{" "}
+                </span> : null}
               Vérifiée puis chiffrée.
               {preset.keyUrl ? (
                 <>
@@ -242,7 +247,7 @@ export function AddApiDialog({ onClose }: { onClose: () => void }) {
                       ? "Compte OpenRouter sans crédit : seuls les modèles « :free » marchent (50 messages par jour)."
                       : preset.id === "openrouter"
                         ? "« anthropic/… » = Claude, « openai/… » = GPT, « google/… » = Gemini : passés par OpenRouter, avec la même clé."
-                        : `✓ ${list.models.length} modèle${list.models.length > 1 ? "s" : ""} trouvé${list.models.length > 1 ? "s" : ""} pour cette clé${preset.preferred ? " ; le plus adapté à Tamilya est déjà choisi, vous pouvez en changer" : " : choisissez-en un dans la liste"}.`
+                        : `${list.models.length} modèle${list.models.length > 1 ? "s" : ""} trouvé${list.models.length > 1 ? "s" : ""} pour cette clé${preset.preferred ? " ; le plus adapté à Tamilya est déjà choisi, vous pouvez en changer" : " : choisissez-en un dans la liste"}.`
                     : "Collez d'abord la clé : la liste de ses modèles s'affichera ici."}
             </p>
           </Field>

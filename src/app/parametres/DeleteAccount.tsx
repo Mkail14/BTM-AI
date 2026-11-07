@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useId, useState, useTransition } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
+import { lostStatus } from "@/lib/safe-action";
 import { deleteAccountAction } from "./actions";
 import { DELETE_CONFIRMATION } from "./confirmation";
 import { DANGER, INPUT_CLASS, RowEditor, SECONDARY, SettingsGroup, SettingsRow } from "./ui";
@@ -29,7 +30,7 @@ export function DeleteAccount({ email, isAdmin }: { email: string | null; isAdmi
     if (!ready) return;
     setError(null);
     startTransition(async () => {
-      const result = await deleteAccountAction(DELETE_CONFIRMATION);
+      const result = await deleteAccountAction(DELETE_CONFIRMATION).catch(lostStatus);
       if (result.status === "error") {
         setError(result.message ?? "La suppression a échoué.");
         return;
@@ -90,7 +91,7 @@ export function DeleteAccount({ email, isAdmin }: { email: string | null; isAdmi
               <button
                 type="submit"
                 disabled={!ready || pending}
-                className="inline-flex h-10 items-center justify-center rounded-full bg-danger px-5 text-sm font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+                className="inline-flex h-10 items-center justify-center rounded-full bg-danger px-5 text-sm font-medium text-danger-fg transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {pending ? "Suppression…" : "Supprimer définitivement"}
               </button>

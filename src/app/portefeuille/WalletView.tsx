@@ -1,5 +1,6 @@
 "use client";
 
+import { X } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ReactNode } from "react";
@@ -254,8 +255,8 @@ export function WalletView({
           {shownNotice ? (
             <p role="status" className={`booking-step flex items-start gap-3 rounded-2xl border px-4 py-3 text-sm ${NOTICES[shownNotice].tone}`}>
               <span className="flex-1">{NOTICES[shownNotice].text}</span>
-              <button type="button" onClick={() => setShownNotice(null)} aria-label="Masquer" className="opacity-70 hover:opacity-100">
-                ✕
+              <button type="button" onClick={() => setShownNotice(null)} aria-label="Masquer le message" className="-my-2.5 -mr-2.5 grid size-11 shrink-0 place-items-center rounded-full opacity-70 hover:opacity-100">
+                <X aria-hidden="true" className="size-4" />
               </button>
             </p>
           ) : null}

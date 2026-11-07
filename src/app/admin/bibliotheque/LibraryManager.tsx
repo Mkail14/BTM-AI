@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { ActionStatus, inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
 import type { ActionResult } from "@/lib/admin/action-auth";
 import type { LibraryDocument } from "@/lib/library/store";
+import { lostOk } from "@/lib/safe-action";
 import { addDocumentAction, deleteDocumentAction, setDocumentStatusAction } from "./actions";
 
 const TRUST: Record<LibraryDocument["trust"], string> = { officiel: "Officiel", media: "Média", autre: "Autre" };
@@ -21,7 +22,7 @@ export function LibraryManager({ documents }: { documents: LibraryDocument[] }) 
 
   const run = (action: () => Promise<ActionResult>, after?: () => void) =>
     start(async () => {
-      const result = await action();
+      const result = await action().catch(lostOk);
       setStatus(result);
       if (result.ok) {
         after?.();

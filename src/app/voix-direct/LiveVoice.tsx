@@ -252,8 +252,8 @@ export function LiveVoice() {
       <button
         type="button"
         onClick={() => (running ? stopRef.current?.() : void start())}
-        className={`h-32 w-32 rounded-full text-base font-semibold text-white shadow-lg transition active:scale-95 ${
-          running ? "bg-danger" : "bg-accent"
+        className={`h-32 w-32 rounded-full text-base font-semibold shadow-lg transition active:scale-95 ${
+          running ? "bg-danger text-danger-fg" : "bg-accent text-white"
         } ${state === "parle" ? "animate-pulse" : ""}`}
       >
         {running ? "Arrêter" : "Parler"}

@@ -1,9 +1,11 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { inputClass, primaryButton } from "@/components/admin/form";
 import type { ActionResult } from "@/lib/admin/action-auth";
+import { lostOk } from "@/lib/safe-action";
 import { ignoreRequestAction, translateRequestAction } from "./actions";
 import { WORD_LIMITS, type WordRequestRow } from "./limits";
 
@@ -16,7 +18,7 @@ function RequestItem({ row, onResult }: { row: WordRequestRow; onResult: (result
 
   const run = (action: () => Promise<ActionResult>) =>
     startTransition(async () => {
-      const result = await action();
+      const result = await action().catch(lostOk);
       onResult(result);
       if (result.ok) router.refresh();
     });
@@ -99,7 +101,7 @@ export function WordRequests({ rows, unavailable }: { rows: WordRequestRow[]; un
       )}
       {status ? (
         <p role="status" className={`mt-2 text-sm ${status.ok ? "text-success" : "text-danger"}`}>
-          {status.ok ? "✓ " : ""}
+          {status.ok ? <Check aria-hidden="true" className="mr-1 inline size-4 align-[-3px]" /> : null}
           {status.message}
         </p>
       ) : null}

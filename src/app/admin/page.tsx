@@ -93,7 +93,7 @@ function Unavailable({ children }: { children: ReactNode }) {
 /* -------------------------------------------------------------------------- */
 
 const ALERT_STYLES: Record<AdminAlert["level"], { label: string; icon: string; box: string; badge: string }> = {
-  critical: { label: "Bloquant", icon: "!", box: "border-danger/40 bg-danger-soft", badge: "bg-danger text-white" },
+  critical: { label: "Bloquant", icon: "!", box: "border-danger/40 bg-danger-soft", badge: "bg-danger text-danger-fg" },
   warning: { label: "À vérifier", icon: "!", box: "border-border bg-warning-soft", badge: "bg-fg text-bg" },
   info: { label: "Info", icon: "i", box: "border-border bg-bg-subtle", badge: "bg-fg-muted text-bg" },
 };
@@ -110,7 +110,7 @@ function AlertsSummary({ alerts }: { alerts: AdminAlert[] }) {
       >
         <span
           aria-hidden="true"
-          className={`grid size-5 place-items-center rounded-full text-[11px] font-bold ${critical ? "bg-danger text-white" : "bg-fg text-bg"}`}
+          className={`grid size-5 place-items-center rounded-full text-[11px] font-bold ${critical ? "bg-danger text-danger-fg" : "bg-fg text-bg"}`}
         >
           !
         </span>

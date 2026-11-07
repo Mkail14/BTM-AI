@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
@@ -7,6 +8,7 @@ import { IconBook, IconClose, IconPlus, IconTrash } from "@/components/ui/icons"
 import type { ActionResult } from "@/lib/admin/action-auth";
 import { parseWordList } from "@/lib/language/teaching";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
+import { lostOk } from "@/lib/safe-action";
 import { deleteWordAction, importWordsAction, saveWordAction } from "./actions";
 import { WORD_LIMITS, type WordRow } from "./limits";
 
@@ -52,7 +54,7 @@ function WordDialog({
 
   function save() {
     startTransition(async () => {
-      const result = await saveWordAction(draft);
+      const result = await saveWordAction(draft).catch(lostOk);
       setStatus(result);
       if (!result.ok) return;
       router.refresh();
@@ -77,7 +79,7 @@ function WordDialog({
     });
     if (!ok) return;
     startTransition(async () => {
-      const result = await deleteWordAction(draft.id);
+      const result = await deleteWordAction(draft.id).catch(lostOk);
       setStatus(result);
       if (result.ok) {
         router.refresh();
@@ -205,7 +207,7 @@ function WordDialog({
                 role={status.ok ? "status" : "alert"}
                 className={`rounded-lg px-3 py-2 text-sm ${status.ok ? "bg-success-soft" : "bg-danger-soft"}`}
               >
-                {status.ok ? "✓ " : ""}
+                {status.ok ? <Check aria-hidden="true" className="mr-1 inline size-4 align-[-3px]" /> : null}
                 {status.message}
               </p>
             ) : null}
@@ -265,7 +267,7 @@ function ImportDialog({ categories, onClose }: { categories: string[]; onClose: 
 
   function submit() {
     startTransition(async () => {
-      const result = await importWordsAction({ text, category });
+      const result = await importWordsAction({ text, category }).catch(lostOk);
       setStatus(result);
       if (!result.ok) return;
       router.refresh();
@@ -365,7 +367,7 @@ function ImportDialog({ categories, onClose }: { categories: string[]; onClose: 
                 role={status.ok ? "status" : "alert"}
                 className={`rounded-lg px-3 py-2 text-sm ${status.ok ? "bg-success-soft" : "bg-danger-soft"}`}
               >
-                {status.ok ? "✓ " : ""}
+                {status.ok ? <Check aria-hidden="true" className="mr-1 inline size-4 align-[-3px]" /> : null}
                 {status.message}
               </p>
             ) : null}

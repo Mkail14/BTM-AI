@@ -55,6 +55,15 @@ declare global {
 export const hasNativeGoogle = () => typeof window !== "undefined" && typeof window.TamilyaGoogle?.googleSignIn === "function";
 
 /**
+ * L'app (1.2.1 et après) pose le pont une fois la page affichée, puis envoie « tamilya-native-ready » :
+ * une fenêtre de connexion déjà ouverte passe alors au bouton Google du téléphone.
+ */
+export const subscribeNativeGoogle = (onChange: () => void) => {
+  window.addEventListener("tamilya-native-ready", onChange);
+  return () => window.removeEventListener("tamilya-native-ready", onChange);
+};
+
+/**
  * Demande un compte au téléphone : le panneau de Google s'ouvre par-dessus l'app,
  * on ne la quitte pas. Même contrat que le bouton web : jeton d'identité et nonce
  * en clair. « cancelled » : la personne a fermé le panneau, rien à signaler.

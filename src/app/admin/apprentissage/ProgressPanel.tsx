@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { teachUnknownWordAction } from "@/app/(chat)/actions";
 import { inputClass, primaryButton } from "@/components/admin/form";
 import type { ActionResult } from "@/lib/admin/action-auth";
+import { lostOk } from "@/lib/safe-action";
 import type { ToLearn, WeekProgress } from "@/lib/language/progress";
 
 export type ProgressTotals = { words: number; phrases: number; grammar: number; learnedThisWeek: number };
@@ -29,7 +30,7 @@ function TeachRow({ item }: { item: ToLearn }) {
 
   const save = () =>
     startTransition(async () => {
-      const result = await teachUnknownWordAction({ french: item.french, shimaore: value.trim() });
+      const result = await teachUnknownWordAction({ french: item.french, shimaore: value.trim() }).catch(lostOk);
       setStatus(result);
       if (result.ok) router.refresh();
     });

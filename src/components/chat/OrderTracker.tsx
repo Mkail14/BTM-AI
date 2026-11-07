@@ -1,6 +1,6 @@
 "use client";
 
-import { Lock } from "lucide-react";
+import { Check, Lock, X } from "lucide-react";
 import { Pictogram } from "@/components/ui/Pictogram";
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -455,7 +455,11 @@ function CancelOrder({ order, now, onCancelled }: { order: PlacedOrder; now: num
         Tu es remboursé tout de suite de <span className="font-semibold text-fg">{formatEuros(order.totalCents)}</span> sur ton moyen de paiement
         {order.demo ? " (portefeuille de démonstration)" : ""}.
       </p>
-      {error ? <p className="rounded-2xl bg-bg-subtle px-4 py-3 text-xs">{error}</p> : null}
+      {error ? (
+        <p role="alert" className="rounded-2xl bg-bg-subtle px-4 py-3 text-xs">
+          {error}
+        </p>
+      ) : null}
       <button
         type="button"
         onClick={cancel}
@@ -478,8 +482,8 @@ function SubSheet({ title, onClose, tall, children }: { title: string; onClose: 
         <span aria-hidden="true" className="mx-auto mb-3 h-1 w-10 shrink-0 rounded-full bg-border" />
         <div className="mb-3 flex shrink-0 items-center justify-between">
           <h3 className="text-base font-semibold">{title}</h3>
-          <button type="button" onClick={onClose} aria-label="Fermer" className="grid size-8 place-items-center rounded-full bg-bg-muted text-lg leading-none text-fg-muted pointer-coarse:size-10 hover:text-fg">
-            ×
+          <button type="button" onClick={onClose} aria-label="Fermer" className="relative grid size-8 place-items-center rounded-full bg-bg-muted text-fg-muted after:absolute after:-inset-1.5 pointer-coarse:size-10 pointer-coarse:after:-inset-0.5 hover:text-fg">
+            <X aria-hidden="true" className="size-4" />
           </button>
         </div>
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">{children}</div>
@@ -647,9 +651,9 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
               type="button"
               onClick={close}
               aria-label="Fermer le suivi"
-              className="grid size-10 place-items-center rounded-full bg-bg/90 text-xl leading-none shadow-lg backdrop-blur hover:bg-bg"
+              className="grid size-11 place-items-center rounded-full bg-bg/90 shadow-lg backdrop-blur hover:bg-bg"
             >
-              ×
+              <X aria-hidden="true" className="size-5" />
             </button>
             {order.demo ? <span className="rounded-full bg-warning-soft px-2.5 py-1 text-[11px] font-semibold text-warning shadow">Démo</span> : null}
             {arrived ? null : (
@@ -783,7 +787,10 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
                 className="w-full rounded-full px-4 py-3 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.99] disabled:opacity-60"
                 style={{ background: PERSONA }}
               >
-                ✓ J&apos;ai reçu ma commande
+                <span className="inline-flex items-center justify-center gap-1.5">
+                  <Check aria-hidden="true" className="size-4" strokeWidth={2.5} />
+                  J&apos;ai reçu ma commande
+                </span>
               </button>
             ) : null}
             <div className="grid grid-cols-2 gap-2">

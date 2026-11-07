@@ -27,6 +27,7 @@ import {
   IconTrash,
 } from "@/components/ui/icons";
 import type { ActionResult } from "@/lib/admin/action-auth";
+import { lostOk } from "@/lib/safe-action";
 import { deleteApiAction, restoreApisAction, setFlowCutAction, testSlotAction } from "./actions";
 import type { RateLimitSettings } from "@/lib/rate-limit/settings";
 import { AddApiDialog } from "./AddApiDialog";
@@ -290,7 +291,7 @@ export function AIFlow({
     if (!ok) return;
     const apiId = node.apiId;
     startTransition(async () => {
-      const result = await deleteApiAction(apiId);
+      const result = await deleteApiAction(apiId).catch(lostOk);
       setToolbarStatus(result);
       if (result.ok) {
         setSelectedId(null);
@@ -302,7 +303,7 @@ export function AIFlow({
 
   function restoreApis() {
     startTransition(async () => {
-      setToolbarStatus(await restoreApisAction());
+      setToolbarStatus(await restoreApisAction().catch(lostOk));
       router.refresh();
     });
   }
@@ -610,7 +611,7 @@ export function AIFlow({
                 style={{ left: dot.at[0], top: dot.at[1] }}
               >
                 <span className="flow-blocked absolute size-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-bg bg-danger" />
-                <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-md bg-danger px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap text-white shadow-md">
+                <span className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-md bg-danger px-2 py-0.5 text-[11px] font-semibold whitespace-nowrap text-danger-fg shadow-md">
                   Bloqué : {dot.blocked}
                 </span>
               </div>

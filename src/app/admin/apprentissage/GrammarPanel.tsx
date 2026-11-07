@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { ActionStatus, Counter, inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import type { ActionResult } from "@/lib/admin/action-auth";
+import { lostOk } from "@/lib/safe-action";
 import { deleteGrammarAction, reorderGrammarAction, saveGrammarAction } from "./actions";
 import { GRAMMAR_LIMITS, type GrammarRow } from "./limits";
 
@@ -32,7 +33,7 @@ export function GrammarPanel({ rows, unavailable }: { rows: GrammarRow[]; unavai
 
   const run = (action: () => Promise<ActionResult>, after?: () => void) =>
     startTransition(async () => {
-      const result = await action();
+      const result = await action().catch(lostOk);
       setStatus(result);
       if (result.ok) {
         after?.();

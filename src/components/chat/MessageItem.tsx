@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { memo, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { speak } from "@/lib/chat/voice";
 import { IconCheck, IconCopy, IconRetry, IconSpeaker, IconStop } from "@/components/ui/icons";
@@ -215,9 +216,7 @@ function AssistantMessage({ message, question }: { message: UiMessage; question?
                 key={`${w.french}=${w.shimaore}`}
                 className="inline-flex items-center gap-1.5 rounded-full border border-success/30 bg-success-soft px-2.5 py-1 text-xs"
               >
-                <span aria-hidden="true" className="font-bold text-success">
-                  ✓
-                </span>
+                <Check aria-hidden="true" className="size-3.5 text-success" strokeWidth={3} />
                 <span className="text-fg-muted">Retenu :</span>
                 <span className="font-medium">{w.french}</span>
                 <span aria-hidden="true" className="text-fg-muted">

@@ -3,6 +3,8 @@
 import { BranchIcon, Pictogram } from "@/components/ui/Pictogram";
 import { useEffect, useRef, useState, useTransition, type CSSProperties } from "react";
 import type { BranchSuggestion } from "@/lib/language/branches";
+import { lostOk } from "@/lib/safe-action";
+import { X } from "lucide-react";
 import { createBranchAction, suggestBranchAction } from "./actions";
 
 const THOUGHTS = [
@@ -31,7 +33,7 @@ export function BranchCreator({ onClose, onCreated }: { onClose: () => void; onC
   const asked = useRef(false);
 
   const request = () =>
-    suggestBranchAction(avoid.current).then((result) => {
+    suggestBranchAction(avoid.current).catch(lostOk).then((result) => {
       setThinking(false);
       if (!result.ok) return setError(result.message);
       setSuggestion(result.suggestion);
@@ -65,7 +67,7 @@ export function BranchCreator({ onClose, onCreated }: { onClose: () => void; onC
 
   const grow = () =>
     start(async () => {
-      const result = await createBranchAction({ label, emoji: suggestion?.emoji, reason: suggestion?.reason, words });
+      const result = await createBranchAction({ label, emoji: suggestion?.emoji, reason: suggestion?.reason, words }).catch(lostOk);
       if (!result.ok) return setError(result.message);
       onCreated(result.id);
     });
@@ -73,7 +75,7 @@ export function BranchCreator({ onClose, onCreated }: { onClose: () => void; onC
   return (
     <div className="flex flex-col">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-[13px] font-medium text-white/45">Nouvelle branche</p>
+        <p className="text-[13px] font-medium text-white/60">Nouvelle branche</p>
         <button
           type="button"
           onClick={onClose}
@@ -126,7 +128,7 @@ export function BranchCreator({ onClose, onCreated }: { onClose: () => void; onC
                   {w}&nbsp;
                 </span>
               ))}
-              <footer className="mt-2 text-[12px] font-medium text-white/40">Tamilya</footer>
+              <footer className="mt-2 text-[12px] font-medium text-white/60">Tamilya</footer>
             </blockquote>
           ) : null}
 
@@ -142,9 +144,9 @@ export function BranchCreator({ onClose, onCreated }: { onClose: () => void; onC
                     type="button"
                     onClick={() => setWords((list) => list.filter((x) => x !== w))}
                     aria-label={`Retirer ${w}`}
-                    className="grid size-5 place-items-center rounded-full text-white/45 transition hover:bg-white/15 hover:text-white"
+                    className="relative grid size-5 place-items-center rounded-full text-white/70 transition after:absolute after:-inset-3 hover:bg-white/15 hover:text-white"
                   >
-                    ×
+                    <X aria-hidden="true" className="size-3.5" />
                   </button>
                 </span>
               </li>
@@ -163,7 +165,7 @@ export function BranchCreator({ onClose, onCreated }: { onClose: () => void; onC
                   maxLength={60}
                   placeholder="+ un mot"
                   aria-label="Ajouter un mot"
-                  className="w-28 rounded-full bg-transparent px-3 py-1.5 text-sm text-white ring-1 ring-white/15 ring-dashed outline-none placeholder:text-white/35 focus:w-40 focus:ring-white/35"
+                  className="w-28 rounded-full bg-transparent px-3 py-1.5 text-sm text-white ring-1 ring-white/15 ring-dashed outline-none placeholder:text-white/55 focus:w-40 focus:ring-white/35"
                 />
               </form>
             </li>

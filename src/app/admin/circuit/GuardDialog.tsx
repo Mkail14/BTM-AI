@@ -6,6 +6,7 @@ import { inputClass, primaryButton, secondaryButton } from "@/components/admin/f
 import { IconClose } from "@/components/ui/icons";
 import type { ActionResult } from "@/lib/admin/action-auth";
 import type { RateLimitSettings, RateLimitSubjectName } from "@/lib/rate-limit/settings";
+import { lostOk } from "@/lib/safe-action";
 import { saveRateLimitsAction } from "./actions";
 
 const ROWS: { id: RateLimitSubjectName; label: string; hint: string }[] = [
@@ -38,7 +39,7 @@ export function GuardDialog({ limits, onClose }: { limits: RateLimitSettings; on
 
   function submit() {
     startTransition(async () => {
-      const result = await saveRateLimitsAction(values);
+      const result = await saveRateLimitsAction(values).catch(lostOk);
       setStatus(result);
       if (result.ok) {
         router.refresh();

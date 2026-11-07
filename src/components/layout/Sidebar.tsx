@@ -125,7 +125,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         role={open ? "dialog" : undefined}
         aria-modal={open ? true : undefined}
       >
-        <div className={`flex items-center justify-between px-4 pt-4 pb-3 ${collapsed ? "md:justify-center md:px-0" : ""}`}>
+        <div className={`flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 ${collapsed ? "md:justify-center md:px-0" : ""}`}>
           <Link href="/" onClick={onClose} aria-label="BTM AI — accueil" className={`rounded ${wide}`}>
             <BrandLogo size="md" />
           </Link>

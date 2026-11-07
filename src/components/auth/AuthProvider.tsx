@@ -1,5 +1,6 @@
 "use client";
 
+import { Check, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createContext, use, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import type { PersonalityId } from "@/lib/ai/personalities";
@@ -174,23 +175,23 @@ export function AuthProvider({
   return (
     <AuthContext value={value}>
       {children}
-      <div aria-live="polite" className="pointer-events-none fixed inset-x-0 top-4 z-50 flex justify-center px-4">
+      <div aria-live="polite" className="pointer-events-none fixed inset-x-0 top-[calc(1rem+env(safe-area-inset-top))] z-50 flex justify-center px-4">
         {notice ? (
           <p
             role="status"
             className="pointer-events-auto flex items-center gap-3 rounded-xl border border-border bg-bg px-4 py-3 text-sm shadow-lg"
           >
-            <span className="grid size-6 place-items-center rounded-full bg-accent text-accent-fg" aria-hidden="true">
-              ✓
+            <span className="grid size-6 shrink-0 place-items-center rounded-full bg-accent text-accent-fg" aria-hidden="true">
+              <Check className="size-3.5" strokeWidth={3} />
             </span>
             {notice}
             <button
               type="button"
               onClick={() => setNotice(null)}
-              className="ml-1 text-fg-muted hover:text-fg"
+              className="-my-2.5 -mr-2.5 grid size-11 shrink-0 place-items-center rounded-full text-fg-muted hover:text-fg"
               aria-label="Fermer le message"
             >
-              ✕
+              <X aria-hidden="true" className="size-4" />
             </button>
           </p>
         ) : null}

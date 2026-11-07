@@ -57,7 +57,7 @@ function Field({ id, label, error, children }: { id: string; label: string; erro
       {children}
       {/* Message affiché sous le champ, apparition douce. */}
       {error ? (
-        <p id={`${id}-error`} className="booking-shake mt-1 text-xs text-danger">
+        <p id={`${id}-error`} role="alert" className="booking-shake mt-1 text-xs text-danger">
           {error}
         </p>
       ) : null}

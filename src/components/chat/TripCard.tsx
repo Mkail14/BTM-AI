@@ -1,6 +1,6 @@
 "use client";
 
-import { Bus, CarFront, CarTaxiFront, Clock, Footprints, House, LocateFixed, MapPin, Phone, Ship } from "lucide-react";
+import { Bus, CarFront, CarTaxiFront, Clock, Footprints, House, LocateFixed, MapPin, Phone, Ship, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -247,9 +247,9 @@ function TripPanel({
               type="button"
               onClick={close}
               aria-label="Fermer le trajet"
-              className="grid size-10 place-items-center rounded-full bg-bg/90 text-xl leading-none shadow-lg backdrop-blur hover:bg-bg"
+              className="grid size-11 place-items-center rounded-full bg-bg/90 shadow-lg backdrop-blur hover:bg-bg"
             >
-              ×
+              <X aria-hidden="true" className="size-5" />
             </button>
           </div>
         </div>

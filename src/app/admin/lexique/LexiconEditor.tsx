@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
 import { IconClose, IconLanguage, IconPlus, IconTrash } from "@/components/ui/icons";
 import type { ActionResult } from "@/lib/admin/action-auth";
+import { lostOk } from "@/lib/safe-action";
 import { deleteLexiconAction, saveLexiconAction } from "./actions";
 import { PERSONALITIES, type PersonalityId } from "@/lib/ai/personalities";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
@@ -57,7 +58,7 @@ function EntryDialog({ initial, onClose }: { initial: Draft; onClose: () => void
 
   function save() {
     startTransition(async () => {
-      const result = await saveLexiconAction(draft);
+      const result = await saveLexiconAction(draft).catch(lostOk);
       setStatus(result);
       if (result.ok) {
         router.refresh();
@@ -76,7 +77,7 @@ function EntryDialog({ initial, onClose }: { initial: Draft; onClose: () => void
     });
     if (!ok) return;
     startTransition(async () => {
-      const result = await deleteLexiconAction(draft.id);
+      const result = await deleteLexiconAction(draft.id).catch(lostOk);
       setStatus(result);
       if (result.ok) {
         router.refresh();

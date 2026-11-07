@@ -4,6 +4,7 @@ import { BranchIcon, Pictogram } from "@/components/ui/Pictogram";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, type CSSProperties } from "react";
 import { nodeRatio, type BranchDef, type KnownEntry, type MapNode } from "@/lib/language/curriculum";
+import { lostOk } from "@/lib/safe-action";
 import { deleteBranchAction, saveWordAction } from "./actions";
 import { BranchCreator } from "./BranchCreator";
 
@@ -161,7 +162,7 @@ function AddWord({
             source?.id
               ? { id: source.id, french: source.french, shimaore, category: source.category || category, isActive: true }
               : { id: null, french, shimaore, category, isActive: true },
-          );
+          ).catch(lostOk);
           if (!result.ok) return setError(result.message);
           router.refresh();
           onDone?.();
@@ -178,7 +179,7 @@ function AddWord({
           }}
           placeholder="En shimaoré…"
           aria-label={`Traduction de ${french} en shimaoré`}
-          className="min-w-0 flex-1 bg-transparent text-[15px] text-white outline-none placeholder:text-white/35"
+          className="min-w-0 flex-1 bg-transparent text-[15px] text-white outline-none placeholder:text-white/55"
         />
         <button
           type="submit"
@@ -203,7 +204,7 @@ function WordSheet({ node, trail, onClose }: { node: MapNode; trail: string; onC
   return (
     <div className="flex flex-col">
       <div className="flex items-start justify-between gap-3">
-        <p className="min-w-0 truncate text-[13px] font-medium text-white/45">{trail}</p>
+        <p className="min-w-0 truncate text-[13px] font-medium text-white/60">{trail}</p>
         <button
           type="button"
           onClick={onClose}
@@ -220,7 +221,7 @@ function WordSheet({ node, trail, onClose }: { node: MapNode; trail: string; onC
         <div className="mt-5">
           <p className="mb-2.5 text-[13px] text-white/50">Corrige la traduction :</p>
           <AddWord key={`${node.id}-edit`} french={word.french} category={word.category} source={word.source} onDone={() => setEditing(false)} />
-          <button type="button" onClick={() => setEditing(false)} className="mt-2 px-1 text-[13px] text-white/45 hover:text-white">
+          <button type="button" onClick={() => setEditing(false)} className="mt-2 px-1 text-[13px] text-white/60 hover:text-white">
             Annuler
           </button>
         </div>
@@ -230,7 +231,7 @@ function WordSheet({ node, trail, onClose }: { node: MapNode; trail: string; onC
           onClick={() => setEditing(true)}
           className="carte-apparait group mt-5 block w-full rounded-2xl bg-white/[0.06] p-4 text-left transition hover:bg-white/[0.1] active:scale-[0.99]"
         >
-          <span className="flex items-center justify-between text-[13px] text-white/45">
+          <span className="flex items-center justify-between text-[13px] text-white/60">
             En shimaoré
             <span className="font-medium text-white/60 group-hover:text-white">Modifier</span>
           </span>
@@ -464,7 +465,7 @@ export function LexiconMap({ tree, branches = [] }: { tree: MapNode; branches?: 
           </h2>
           {trail.map((node, depth) => (
             <span key={node.id} className="flex items-center gap-1">
-              {depth > 0 ? <span className="text-white/25">›</span> : null}
+              {depth > 0 ? <span className="text-white/60">›</span> : null}
               {depth < trail.length - 1 ? (
                 <button type="button" onClick={() => goTo(depth)} className="rounded-md px-1 text-white/50 hover:text-white">
                   {depth === 0 ? "Carte du shimaoré" : node.label}
@@ -479,7 +480,7 @@ export function LexiconMap({ tree, branches = [] }: { tree: MapNode; branches?: 
         </nav>
         <p className="mt-1 px-1 text-4xl font-semibold tracking-tight tabular-nums">
           {current.learned}
-          <span className="text-xl font-medium text-white/35"> / {current.total} mots</span>
+          <span className="text-xl font-medium text-white/60"> / {current.total} mots</span>
         </p>
         {branchHere ? (
           <div className="carte-apparait mt-2 max-w-md px-1">
@@ -488,13 +489,13 @@ export function LexiconMap({ tree, branches = [] }: { tree: MapNode; branches?: 
               type="button"
               onClick={async () => {
                 if (!window.confirm(`Retirer la branche « ${branchHere.label} » ? Les traductions déjà données restent dans le dictionnaire.`)) return;
-                const result = await deleteBranchAction(branchHere.id);
+                const result = await deleteBranchAction(branchHere.id).catch(lostOk);
                 if (result.ok) {
                   goTo(0);
                   router.refresh();
                 }
               }}
-              className="mt-1.5 text-[12px] font-medium text-white/35 hover:text-red-300"
+              className="mt-1.5 text-[12px] font-medium text-white/60 hover:text-red-300"
             >
               Retirer cette branche
             </button>
@@ -618,7 +619,7 @@ export function LexiconMap({ tree, branches = [] }: { tree: MapNode; branches?: 
                 <span className="line-clamp-2 text-[2.1cqw] leading-tight font-medium text-white/60">{current.label}</span>
                 <span className="mt-[0.4cqw] text-[5cqw] leading-none font-semibold tracking-tight tabular-nums">
                   {pct(ratio)}
-                  <span className="text-[2.6cqw] text-white/40">%</span>
+                  <span className="text-[2.6cqw] text-white/60">%</span>
                 </span>
               </span>
             </button>
@@ -700,7 +701,7 @@ export function LexiconMap({ tree, branches = [] }: { tree: MapNode; branches?: 
                             ) : null}
                             <span>
                             {pct(r)}
-                            <span className="text-white/40" style={{ fontSize: "0.6em" }}>
+                            <span className="text-white/60" style={{ fontSize: "0.6em" }}>
                               %
                             </span>
                             </span>
@@ -738,7 +739,7 @@ export function LexiconMap({ tree, branches = [] }: { tree: MapNode; branches?: 
 
       {missing.length && !word && !creating ? (
         <div className="relative z-10 flex items-center gap-2 overflow-x-auto px-5 pb-5 [scrollbar-width:none] sm:px-6 sm:pb-6">
-          <span className="shrink-0 text-[13px] text-white/45">À apprendre ici · {missing.length}</span>
+          <span className="shrink-0 text-[13px] text-white/60">À apprendre ici · {missing.length}</span>
           {missing.slice(0, 8).map((n) => (
             <button
               key={n.id}

@@ -18,10 +18,13 @@
   --accent-fg: #ffffff;
   --accent-soft: #fceaf1;
   --danger: #b42318;
+  --danger-fg: #ffffff;
   --danger-soft: #fdecea;
   --warning-soft: #fff6e0;
   --warning: #b45309;
+  --warning-fg: #ffffff;
   --success: #15803d;
+  --success-fg: #ffffff;
   --success-soft: #e8f6ed;
   --focus: #c8295f;
   /* Graphiques : teinte validée (outil dataviz) pour chaque thème */
@@ -41,10 +44,13 @@
   --accent-fg: #2a0815;
   --accent-soft: #3a1626;
   --danger: #f97066;
+  --danger-fg: #2a0a07;
   --danger-soft: #3a1b18;
   --warning-soft: #352c14;
   --warning: #f5b84a;
+  --warning-fg: #2a1a03;
   --success: #4ccb7a;
+  --success-fg: #06200f;
   --success-soft: #14301f;
   --focus: #f58bb2;
   --chart-1: #e8588f;
@@ -62,10 +68,13 @@
   --color-accent-fg: var(--accent-fg);
   --color-accent-soft: var(--accent-soft);
   --color-danger: var(--danger);
+  --color-danger-fg: var(--danger-fg);
   --color-danger-soft: var(--danger-soft);
   --color-warning-soft: var(--warning-soft);
   --color-warning: var(--warning);
+  --color-warning-fg: var(--warning-fg);
   --color-success: var(--success);
+  --color-success-fg: var(--success-fg);
   --color-success-soft: var(--success-soft);
   --color-chart-1: var(--chart-1);
   --font-sans: var(--font-geist-sans);

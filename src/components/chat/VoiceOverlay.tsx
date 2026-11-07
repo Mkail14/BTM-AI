@@ -267,7 +267,7 @@ export function VoiceOverlay({
           type="button"
           onClick={close}
           aria-label="Terminer la conversation vocale"
-          className="grid size-14 place-items-center rounded-full bg-danger text-white transition hover:brightness-110"
+          className="grid size-14 place-items-center rounded-full bg-danger text-danger-fg transition hover:brightness-110"
         >
           <IconClose width={24} height={24} />
         </button>

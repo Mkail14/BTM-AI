@@ -1,5 +1,6 @@
 "use client";
 
+import { Check } from "lucide-react";
 import { createContext, use, useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { guessFrenchAction } from "@/app/(chat)/actions";
@@ -203,7 +204,7 @@ export function Correctable({
             onClick={() => open(selection.text, "approve")}
             className="inline-flex shrink-0 items-center gap-1.5 rounded-full py-1 pr-3 pl-1 transition-colors hover:bg-bg-muted"
           >
-            <span className="grid size-7 place-items-center rounded-full bg-success text-white">
+            <span className="grid size-7 place-items-center rounded-full bg-success text-success-fg">
               <IconCheck width={14} height={14} />
             </span>
             C&apos;est juste
@@ -236,7 +237,7 @@ export function Correctable({
               >
                 <div className="flex items-start gap-3">
                   <span
-                    className={`grid size-10 shrink-0 place-items-center rounded-2xl shadow-sm ${mode === "approve" ? "bg-success text-white" : "bg-accent text-accent-fg"}`}
+                    className={`grid size-10 shrink-0 place-items-center rounded-2xl shadow-sm ${mode === "approve" ? "bg-success text-success-fg" : "bg-accent text-accent-fg"}`}
                   >
                     {mode === "approve" ? <IconCheck width={18} height={18} /> : <IconPencil width={18} height={18} />}
                   </span>
@@ -376,7 +377,7 @@ export function Correctable({
                     role="status"
                     className={`mt-5 rounded-xl px-3.5 py-2.5 text-sm ${status.ok ? "bg-success-soft text-success" : "bg-danger-soft text-danger"}`}
                   >
-                    {status.ok ? "✓ " : ""}
+                    {status.ok ? <Check aria-hidden="true" className="mr-1 inline size-4 align-[-3px]" /> : null}
                     {status.message}
                   </p>
                 ) : null}

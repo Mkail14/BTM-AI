@@ -32,6 +32,7 @@ import { VoiceOverlay } from "./VoiceOverlay";
 import { SuggestionCarousel } from "./SuggestionCarousel";
 import { TeachWordContext } from "./UnknownWord";
 import { correctInContextAction, teachUnknownWordAction } from "@/app/(chat)/actions";
+import { lostOk } from "@/lib/safe-action";
 import { CorrectContext, type Correction } from "./Correctable";
 import { replacePassage } from "@/lib/language/replace-passage";
 import { fillKnownWords, translationTable } from "@/lib/language/unknown-words";
@@ -157,7 +158,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   // Clic du maître sur un [[mot]] orange : la traduction est retenue pour
   // toujours, et le mot est remplacé partout dans la conversation affichée.
   const teachWord = useCallback(async (french: string, shimaore: string) => {
-    const result = await teachUnknownWordAction({ french, shimaore });
+    const result = await teachUnknownWordAction({ french, shimaore }).catch(lostOk);
     if (result.ok) {
       const table = translationTable([{ french, shimaore }]);
       setMessages((current) =>
@@ -171,7 +172,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   // remplacée tout de suite dans la réponse affichée.
   const correctPassage = useCallback(async (messageId: string, correction: Correction) => {
     const { shimaore, french, context, wrote } = correction;
-    const result = await correctInContextAction({ shimaore, french, context });
+    const result = await correctInContextAction({ shimaore, french, context }).catch(lostOk);
     if (result.ok && wrote && wrote !== shimaore) {
       setMessages((current) =>
         current.map((m) => (m.id === messageId ? { ...m, content: replacePassage(m.content, wrote, shimaore) } : m)),

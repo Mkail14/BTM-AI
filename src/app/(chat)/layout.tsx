@@ -16,7 +16,7 @@ export default async function ChatLayout({ children }: LayoutProps<"/">) {
       {flags?.demoMode || (flags && flags.status !== "online") ? (
         <Link
           href={user?.isPrincipalAdmin ? "/admin/profil" : "/admin"}
-          className="fixed top-2 left-1/2 z-50 -translate-x-1/2 rounded-full bg-warning px-3 py-1 text-[11px] font-semibold text-white shadow-md hover:brightness-110"
+          className="fixed top-[calc(0.5rem+env(safe-area-inset-top))] left-1/2 z-50 -translate-x-1/2 rounded-full bg-warning px-3 py-1 text-[11px] font-semibold text-warning-fg shadow-md hover:brightness-110"
         >
           {[flags.demoMode ? "Mode démo" : null, flags.status !== "online" ? SITE_STATUS_LABELS[flags.status] : null].filter(Boolean).join(" · ")}
         </Link>

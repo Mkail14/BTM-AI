@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { IconChip, IconClose, IconRetry, IconTrash } from "@/components/ui/icons";
+import { Check, X } from "lucide-react";
+import { CONNECTION_LOST, orFallback } from "@/lib/safe-action";
 import { testSlotAction, type SlotTestResult } from "./actions";
 import { STATUS_STYLES, formatSeconds, speedColor, type FlowNode } from "./flow";
 
@@ -100,7 +102,7 @@ export function ApiPanel({
 
   function test() {
     startTesting(async () => {
-      setResult(await testSlotAction(node.apiId));
+      setResult(await testSlotAction(node.apiId).catch(orFallback({ ok: false, message: CONNECTION_LOST, latencyMs: null })));
       router.refresh();
     });
   }
@@ -168,7 +170,10 @@ export function ApiPanel({
               role="status"
               className={`mt-2 rounded-lg px-3 py-2 text-sm break-words ${result.ok ? "bg-success-soft" : "bg-danger-soft"}`}
             >
-              <span className="font-medium">{result.ok ? "✓ Répond" : "✕ Échec"}</span>
+              <span className="inline-flex items-center gap-1 font-medium">
+                {result.ok ? <Check aria-hidden="true" className="size-4" /> : <X aria-hidden="true" className="size-4" />}
+                {result.ok ? "Répond" : "Échec"}
+              </span>
               {result.latencyMs !== null ? ` en ${formatSeconds(result.latencyMs)}` : ""} — {result.message}
             </p>
           ) : null}

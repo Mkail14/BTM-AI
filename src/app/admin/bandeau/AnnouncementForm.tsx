@@ -6,6 +6,7 @@ import { ActionStatus, Counter, inputClass, primaryButton, secondaryButton } fro
 import { AnnouncementBar } from "@/components/landing/AnnouncementBar";
 import type { ActionResult } from "@/lib/admin/action-auth";
 import { ANNOUNCEMENT_LIMITS, isSafeAnnouncementLink, type Announcement } from "@/lib/site/announcement-rules";
+import { lostOk } from "@/lib/safe-action";
 import { saveAnnouncementAction } from "./actions";
 
 const same = (a: Announcement, b: Announcement) =>
@@ -29,7 +30,7 @@ export function AnnouncementForm({ saved }: { saved: Announcement }) {
 
   function save() {
     startSaving(async () => {
-      const result = await saveAnnouncementAction(draft);
+      const result = await saveAnnouncementAction(draft).catch(lostOk);
       setStatus(result);
       if (!result.ok) return;
       // Le serveur enregistre les textes sans espaces au bout : le brouillon suit, sinon il resterait « modifié ».

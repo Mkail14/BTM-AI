@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type ReactNode } from "react";
+import { lostStatus } from "@/lib/safe-action";
 import type { ProfileFormState } from "./actions";
 
 /** Styles communs des Paramètres : tous les champs et boutons de la page viennent d'ici. */
@@ -31,7 +32,7 @@ export function useSave() {
   const [state, setState] = useState<ProfileFormState | null>(null);
   const run = (action: () => Promise<ProfileFormState>, after?: () => void) =>
     start(async () => {
-      const result = await action();
+      const result = await action().catch(lostStatus);
       setState(result);
       if (result.status === "saved") {
         after?.();

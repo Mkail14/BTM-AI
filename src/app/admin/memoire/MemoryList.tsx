@@ -6,6 +6,7 @@ import { ActionStatus } from "@/components/admin/form";
 import { IconTrash } from "@/components/ui/icons";
 import type { ActionResult } from "@/lib/admin/action-auth";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
+import { lostOk } from "@/lib/safe-action";
 import { deleteMemoryAction } from "./actions";
 
 export type MemoryAccount = {
@@ -24,7 +25,7 @@ export function MemoryList({ accounts, total }: { accounts: MemoryAccount[]; tot
   async function remove(input: { memoryId: string } | { userId: string }, question: string) {
     if (!(await confirmDialog({ title: question, confirmLabel: "Effacer", tone: "danger" }))) return;
     startTransition(async () => {
-      const result = await deleteMemoryAction(input);
+      const result = await deleteMemoryAction(input).catch(lostOk);
       setStatus(result);
       if (result.ok) router.refresh();
     });
