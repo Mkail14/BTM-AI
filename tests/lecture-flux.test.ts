@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { markReadingAutoStart, takeReadingAutoStart } from "../src/lib/lecture/auto";
-import { SCRIPT_SCHEMA } from "../src/lib/lecture/prompt";
+import { parseReadingSpec, readingMode, withSceneBlock } from "../src/lib/lecture/intent";
+import { SCRIPT_SCHEMA, scriptPrompt } from "../src/lib/lecture/prompt";
 import { buildLine, buildMeta } from "../src/lib/lecture/script";
 import { createScriptStream } from "../src/lib/lecture/stream";
 import { LIVE_RULES } from "../src/lib/voice-live/rules";
@@ -72,6 +73,39 @@ describe("Lecture en 3D au fil de l'eau : distribution puis répliques", () => {
 
   it("refuse dès le début une page illisible", () => {
     assert.deepEqual(buildMeta({ ...script, lisible: false, raison: "La photo est floue." }, "Leda"), { ok: false, reason: "La photo est floue." });
+  });
+});
+
+describe("Lecture en 3D : histoire inventée par Tamilya", () => {
+  const story = "La nuit était tombée sur la plage de Moya. Les vagues roulaient dans le noir. « Grand-père, tu entends le vent ? » demanda Zaïna. Le vieil homme sourit et regarda la mer, longtemps, sans rien dire.";
+
+  it("« lis-moi une histoire » : Tamilya l'invente, sans page ni photo", () => {
+    for (const message of ["lis moi une histoire", "Raconte-moi une histoire", "raconte moi un conte de pêcheur à Mamoudzou", "invente une histoire qui fait peur", "los moi une histoire", "lis-moi cette histoire"]) {
+      const mode = readingMode(message, null);
+      assert.equal(mode?.kind, "histoire", message);
+    }
+    assert.deepEqual(readingMode("raconte-moi un conte de pêcheur", null), { kind: "histoire", request: "raconte-moi un conte de pêcheur" });
+  });
+
+  it("un texte donné est lu tel quel ; une page de livre demande une photo ; le reste ne lance rien", () => {
+    assert.equal(readingMode(`Lis moi ce teste en 3d "${story}"`, null)?.kind, "texte", "faute « teste »");
+    assert.equal(readingMode("lis moi cette histoire", [story])?.kind, "texte", "histoire collée juste avant");
+    assert.deepEqual(readingMode("lis-moi cette page de mon livre", null), { kind: "page" });
+    for (const message of ["c'est quoi ton livre préféré ?", "j'ai lu une histoire hier", "chante-moi une chanson"]) assert.equal(readingMode(message, null), null, message);
+  });
+
+  it("le serveur glisse la demande dans le bloc ; la carte attend qu'elle y soit", () => {
+    const reply = withSceneBlock("Mets ton casque.\n\n```lecture-3d\nhistoire\n```", { kind: "histoire", request: "une histoire de maki" });
+    assert.equal(reply, "Mets ton casque.\n\n```lecture-3d\nhistoire\nune histoire de maki\n```");
+    assert.deepEqual(parseReadingSpec("histoire\nune histoire de maki\n"), { kind: "histoire", request: "une histoire de maki" });
+    assert.equal(parseReadingSpec("histoire"), null, "bloc encore en train de s'écrire");
+    assert.deepEqual(parseReadingSpec("page"), { kind: "page" });
+  });
+
+  it("la consigne de Gemini lui fait inventer l'histoire, déjà découpée en répliques", () => {
+    assert.match(scriptPrompt("histoire"), /Invente une histoire originale/);
+    assert.doesNotMatch(scriptPrompt("histoire"), /Recopie le texte/);
+    assert.match(scriptPrompt("texte"), /Recopie le texte/);
   });
 });
 

@@ -7,7 +7,7 @@ import { canBuyBargeTickets } from "@/lib/barge/access";
 import { cycloneBlock } from "@/lib/cyclone/intent";
 import { canOrderFood } from "@/lib/food/access";
 import { getRecentMessages } from "@/lib/conversations/repository";
-import { readingBlock, readingText } from "@/lib/lecture/intent";
+import { readingSpec, readingText, READING_BLOCK, type ReadingMode } from "@/lib/lecture/intent";
 import { liveContextFor } from "@/lib/live";
 import { getProfileContact } from "@/lib/profile-contact";
 import { tripBlock } from "@/lib/trip/intent";
@@ -74,14 +74,19 @@ export async function POST(request: NextRequest) {
   // Lecture en 3D : l'histoire écrite ou collée plus haut dans la conversation est lue avec les voix
   // et les bruits ; l'appel se met en pause pendant la lecture (useLiveVoiceConversation).
   if (parsed.data.name === "lecture_3d") {
-    const recent = parsed.data.conversationId && supabase ? await getRecentMessages(supabase, parsed.data.conversationId, 8).catch(() => []) : [];
-    const asked = recent.filter((m) => m.role === "user").map((m) => m.content).reverse();
-    const story = asked.length ? readingText(asked[0], asked.slice(1)) : null;
+    // Une histoire demandée (sujet) est inventée ; sans sujet, le texte écrit plus haut est lu ;
+    // sans texte non plus, c'est une histoire inventée (jamais de photo à prendre en plein appel).
+    const subject = String(parsed.data.args.sujet ?? "").replace(/s+/g, " ").trim().slice(0, 300);
+    let mode: ReadingMode = { kind: "histoire", request: subject || "Une histoire" };
+    if (!subject) {
+      const recent = parsed.data.conversationId && supabase ? await getRecentMessages(supabase, parsed.data.conversationId, 8).catch(() => []) : [];
+      const asked = recent.filter((m) => m.role === "user").map((m) => m.content).reverse();
+      const story = asked.length ? readingText(asked[0], asked.slice(1)) : null;
+      if (story) mode = { kind: "texte", text: story };
+    }
     return NextResponse.json({
-      reading: readingBlock(story).trim(),
-      info: story
-        ? "La lecture en 3D démarre à l'écran et dans ses écouteurs : ne dis rien, l'appel se met en pause et reprendra après."
-        : "Il n'y a pas d'histoire écrite dans la conversation : la page s'ouvre pour qu'elle la prenne en photo. Dis-lui en une phrase de prendre la page en photo, de mettre ses écouteurs et de fermer les yeux.",
+      reading: "```" + READING_BLOCK + "\n" + readingSpec(mode) + "\n```",
+      info: "La lecture en 3D démarre à l'écran et dans ses écouteurs : ne dis rien, l'appel se met en pause et reprendra après.",
     });
   }
   // Carte des cyclones : elle s'ajoute à la conversation, et Tamilya dit l'essentiel à voix haute.

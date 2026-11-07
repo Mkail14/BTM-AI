@@ -6,7 +6,7 @@ import { canOrderFood } from "@/lib/food/access";
 import { canBuyBargeTickets } from "@/lib/barge/access";
 import { CYCLONE_BLOCK, cycloneBlock, detectCyclone } from "@/lib/cyclone/intent";
 import { detectSong } from "@/lib/music/intent";
-import { isReadingRequest, readingText, withReadingBlock } from "@/lib/lecture/intent";
+import { readingMode, withSceneBlock } from "@/lib/lecture/intent";
 import { BARGE_BLOCK, bargeBlockFor, bargeSpec, detectBargeTicket } from "@/lib/barge/intent";
 import { ATTESTATION_BLOCK, attestationBlock, detectAttestation, wantsOwnInfo } from "@/lib/attestation/intent";
 import { BTM_DEVIS_BLOCK, btmDevisBlockFor, btmDevisSpec, detectBtmDevis } from "@/lib/btm/intent";
@@ -432,9 +432,9 @@ export async function POST(request: NextRequest) {
   // essai réservé aux administrateurs.
   // Ses deux derniers messages : « en vocal » peut suivre une histoire collée un peu plus haut.
   const previousAsks = [...history].reverse().filter((turn) => turn.role === "user").map((turn) => turn.content).slice(0, 2);
-  const reading = Boolean(user?.isAdmin) && !body.voice && isReadingRequest(body.message, previousAsks);
-  // Texte écrit ou collé (dans ce message ou les deux précédents) : lu tel quel, sans photo.
-  const readingSource = reading ? readingText(body.message, previousAsks) : null;
+  // Texte écrit ou collé (dans ce message ou les deux précédents) : lu tel quel ; sinon « lis-moi une
+  // histoire » : Tamilya l'invente et la joue en 3D ; une page en photo seulement s'il en parle.
+  const reading = Boolean(user?.isAdmin) && !body.voice ? readingMode(body.message, previousAsks) : null;
   // Demande d'attestation d'hébergement reconnue ici : le formulaire s'ouvre à coup sûr.
   // « Mets mes infos » juste après l'ouverture : c'est la même attestation.
   const attestationOpen = history.slice(-4).some((turn) => turn.role === "assistant" && turn.content.includes(ATTESTATION_BLOCK));
@@ -474,7 +474,7 @@ export async function POST(request: NextRequest) {
     trip,
     cyclone,
     song,
-    reading: reading ? (readingSource ? "texte" : "photo") : undefined,
+    reading: reading ? (reading.kind === "page" ? "photo" : reading.kind) : undefined,
     readingOffer: Boolean(user?.isAdmin),
     attestationOffer: true,
     attestation,
@@ -675,10 +675,10 @@ export async function POST(request: NextRequest) {
           text += attestationBlock;
           send({ type: "delta", text: attestationBlock });
         }
-        // Lecture en 3D : le texte à lire est glissé dans le bloc par le serveur (Tamilya n'a pas à le recopier) ;
-        // bloc ajouté s'il manque.
+        // Lecture en 3D : le texte à lire (ou la demande d'histoire) est glissé dans le bloc par le serveur
+        // (Tamilya n'a pas à le recopier) ; bloc ajouté s'il manque.
         if (reading && text) {
-          const withBlock = withReadingBlock(text, readingSource);
+          const withBlock = withSceneBlock(text, reading);
           if (withBlock !== text) {
             text = withBlock;
             send({ type: "replace", text });

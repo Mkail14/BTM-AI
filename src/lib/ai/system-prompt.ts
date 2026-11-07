@@ -110,9 +110,10 @@ export type PromptContext = {
   song?: boolean;
   /**
    * Ce message demande une lecture en 3D (detectReading) : la carte ReadingCard s'ouvre.
-   * « photo » : la personne va photographier la page ; « texte » : elle a déjà écrit ou collé le texte.
+   * « photo » : la personne va photographier la page ; « texte » : elle a déjà écrit ou collé le texte ;
+   * « histoire » : elle veut une histoire, que Tamilya invente et joue en 3D.
    */
-  reading?: "photo" | "texte";
+  reading?: "photo" | "texte" | "histoire";
   /** La lecture en 3D existe pour cette personne (essai des administrateurs) : Tamilya ne la nie jamais. */
   readingOffer?: boolean;
   /** Attestation d'hébergement possible ici (conversation de BTM AI, qui affiche le bloc). */
@@ -568,20 +569,22 @@ export function buildSystemPrompt(
   // Lecture en 3D pas demandée ici : elle sait qu'elle existe (conte de Moya, 2026-11-08 : « je n'ai pas de fonction de lecture 3D »).
   if (context.readingOffer && !context.reading && !context.site && !context.voice) {
     sections.push(
-      "Lecture en 3D : tu sais lire une page ou une histoire comme un spectacle dans les écouteurs, avec ta voix, une voix par personnage et des bruits autour de la tête. Elle s'ouvre quand la personne écrit par exemple « lis-moi cette histoire » avec le texte, ou « lecture 3D ». Si elle la demande et que rien ne s'ouvre sous ton message, dis-lui d'écrire « lis-moi cette histoire » suivi du texte. Ne dis jamais que tu ne sais pas le faire, et ne la renvoie pas vers le bouton haut-parleur à la place.",
+      "Lecture en 3D : tu sais raconter une histoire (que tu inventes) ou lire un texte comme un spectacle dans les écouteurs, avec ta voix, une voix par personnage et des bruits autour de la tête. Elle s'ouvre d'elle-même quand la personne te demande une histoire ou de lire un texte. Ne dis jamais que tu ne sais pas le faire, ne lui demande pas de reformuler sa demande, et ne la renvoie pas vers le bouton haut-parleur à la place.",
     );
   }
   // Lecture en 3D : la personne photographie une page, Tamilya la lit avec des voix et des bruits autour de la tête.
   if (context.reading && !context.site && !context.voice) {
     sections.push(
       [
-        context.reading === "texte"
+        context.reading === "histoire"
+          ? "POUR CE MESSAGE : la personne veut une histoire. Tu vas l'inventer et la jouer juste sous ton message, dans ses écouteurs, comme un spectacle : ta voix raconte, chaque personnage a sa voix et sa place autour de sa tête, le vent, la pluie ou les pas bougent autour d'elle. N'écris pas l'histoire ici et ne pose aucune question : elle commence d'elle-même sous ton message."
+          : context.reading === "texte"
           ? "POUR CE MESSAGE : la personne t'a donné un texte et veut que tu le lui lises. Juste sous ton message, tu vas le lire dans ses écouteurs, comme un spectacle : ta voix raconte, chaque personnage a sa voix et sa place autour de sa tête, le vent, la pluie ou les pas bougent autour d'elle. Ne réécris pas le texte, ne le résume pas et n'invente pas d'histoire : la lecture se fait sous ton message."
           : "POUR CE MESSAGE : la personne veut que tu lui lises une page de livre. Juste sous ton message, elle pourra prendre la page en photo ; ensuite tu la liras dans ses écouteurs, comme un spectacle : ta voix raconte, chaque personnage a sa voix et sa place autour de sa tête, le vent, la pluie ou les pas bougent de gauche à droite.",
-        context.reading === "texte"
+        context.reading !== "photo"
           ? "Réponds avec une ou deux phrases à toi, chaleureuses, sans question : invite-la à mettre ses écouteurs et à fermer les yeux. Puis ce bloc exactement, seul sur ses lignes :"
           : "Réponds avec une ou deux phrases à toi, chaleureuses, sans question : invite-la à photographier la page bien à plat, à mettre ses écouteurs et à fermer les yeux. Puis ce bloc exactement, seul sur ses lignes :",
-        `\`\`\`${READING_BLOCK}\n${context.reading === "texte" ? "texte" : "page"}\n\`\`\``,
+        `\`\`\`${READING_BLOCK}\n${context.reading === "photo" ? "page" : context.reading}\n\`\`\``,
       ].join("\n"),
     );
   }

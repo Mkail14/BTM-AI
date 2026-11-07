@@ -206,7 +206,7 @@ export function useLiveVoiceConversation(
           userText.current = "";
           setBoard(true);
           requestAnimationFrame(() => scrollConversation("bas"));
-          if (spec.startsWith("texte")) {
+          if (spec.startsWith("texte") || spec.startsWith("histoire")) {
             pausedForReading.current = true;
             window.setTimeout(() => stopRef.current(), 300);
           }

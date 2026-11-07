@@ -138,8 +138,13 @@ export function liveToolDeclarations(access: LiveAccess) {
     {
       name: "lecture_3d",
       description:
-        "Lit en 3D, dans les écouteurs de la personne, une page, une histoire, un texte ou un message : ta voix raconte, chaque personnage a sa voix et sa place autour de sa tête, avec le vent, la pluie, des pas qui bougent. À appeler tout de suite dès qu'elle veut que tu lui lises quelque chose (« lis-moi cette histoire », « lis-moi la page », « lecture 3D »), sans rien lire toi-même. L'appel se met en pause pendant la lecture et reprend après.",
-      parameters: { type: "OBJECT", properties: {} },
+        "Joue en 3D, dans les écouteurs de la personne, une histoire : ta voix raconte, chaque personnage a sa voix et sa place autour de sa tête, avec le vent, la pluie, des pas qui bougent. À appeler tout de suite, sans rien dire avant, dès qu'elle veut une histoire (« lis-moi une histoire », « raconte-moi un conte ») ou que tu lui lises un texte qu'elle a écrit. L'histoire est inventée d'après sujet ; sans sujet, c'est le texte de la conversation qui est lu. L'appel se met en pause pendant la lecture et reprend après.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          sujet: text("Pour une nouvelle histoire : sa demande dans ses mots (sujet, style, pour qui ; ex. « une histoire de pêcheur à Mamoudzou qui fait peur »), ou « une histoire » si elle ne précise rien. Vide seulement si elle veut que tu lises un texte déjà écrit dans la conversation."),
+        },
+      },
     },
     {
       name: "carte_cyclones",

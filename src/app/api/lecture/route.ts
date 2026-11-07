@@ -36,6 +36,8 @@ const bodySchema = z.union([
     mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]).default("image/jpeg"),
   }),
   z.object({ text: z.string().trim().min(20).max(READING_TEXT.max) }),
+  // Histoire inventée par Tamilya : la demande de la personne (sujet, style), sur une ligne.
+  z.object({ story: z.string().trim().min(1).max(400) }),
 ]);
 
 function pickModels(available: string[]): string[] {
@@ -60,7 +62,9 @@ export async function POST(request: NextRequest) {
   const parts =
     "image" in input
       ? [{ inlineData: { mimeType: input.mimeType, data: input.image } }, { text: scriptPrompt("photo") }]
-      : [{ text: `Texte :\n\n${input.text}` }, { text: scriptPrompt("texte") }];
+      : "text" in input
+        ? [{ text: `Texte :\n\n${input.text}` }, { text: scriptPrompt("texte") }]
+        : [{ text: `Demande de la personne : « ${input.story} »` }, { text: scriptPrompt("histoire") }];
 
   const signal = AbortSignal.any([request.signal, AbortSignal.timeout(TIMEOUT_MS)]);
   let upstream: Response | null = null;

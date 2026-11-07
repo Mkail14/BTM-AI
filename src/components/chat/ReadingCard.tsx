@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { BookOpen, Camera, Headphones, Pause, Play, RotateCcw, Square } from "lucide-react";
 import type { GeminiVoiceId } from "@/lib/ai/voice/voices";
-import { parseReadingBlock } from "@/lib/lecture/intent";
+import { parseReadingSpec } from "@/lib/lecture/intent";
 import { announceReadingDone, takeReadingAutoStart } from "@/lib/lecture/auto";
 import type { SceneLine, SceneMeta, SceneScript } from "@/lib/lecture/script";
 import { preloadResonance, ScenePlayer } from "@/lib/lecture/soundscape";
@@ -24,6 +24,7 @@ type State =
   | { status: "done"; script: SceneScript }
   | { status: "error"; message: string };
 
+type Source = { text: string } | { story: string };
 type Voiced = { text: string; voice: GeminiVoiceId | null };
 /** Page qui arrive au fil de l'eau : les répliques s'ajoutent, la lecture les attend si besoin. */
 type Feed = { script: SceneScript; done: boolean; waiters: (() => void)[] };
@@ -51,9 +52,12 @@ async function shrinkPhoto(file: File): Promise<string> {
 }
 
 export function ReadingCard({ spec }: { spec: string }) {
-  const text = parseReadingBlock(spec);
-  // « texte » sans le texte : le serveur va le glisser dans le bloc à la fin de la réponse.
-  const waiting = !text && spec.trim() === "texte";
+  const mode = parseReadingSpec(spec);
+  // « texte » ou « histoire » seuls : le serveur va y glisser le texte ou la demande à la fin de la réponse.
+  const waiting = mode === null;
+  // Ce qu'on envoie à /api/lecture : le texte collé, ou la demande d'histoire inventée (sinon, une photo).
+  const source: Source | null = mode?.kind === "texte" ? { text: mode.text } : mode?.kind === "histoire" ? { story: mode.request } : null;
+  const invented = mode?.kind === "histoire";
   const [state, setState] = useState<State>({ status: "idle" });
   const firstSpec = useRef(spec);
   // Lancée depuis le vocal en direct (auto.ts) : elle démarre seule dès son ouverture.
@@ -139,7 +143,7 @@ export function ReadingCard({ spec }: { spec: string }) {
    * La page arrive au fil de l'eau (/api/lecture) : le décor et l'intro dès le début du script,
    * puis chaque réplique. La lecture démarre tout de suite, sans attendre la page entière.
    */
-  async function prepare(source: File | string) {
+  async function prepare(source: File | Source) {
     started.current = true;
     setState({ status: "preparing" });
     // Le son s'ouvre maintenant (geste ou app Android) ; le moteur 3D se télécharge pendant que Gemini lit.
@@ -154,7 +158,7 @@ export function ReadingCard({ spec }: { spec: string }) {
       }
     };
     try {
-      const payload = typeof source === "string" ? { text: source } : { image: await shrinkPhoto(source), mimeType: "image/jpeg" };
+      const payload = source instanceof File ? { image: await shrinkPhoto(source), mimeType: "image/jpeg" } : source;
       const response = await fetch("/api/lecture", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -300,11 +304,11 @@ export function ReadingCard({ spec }: { spec: string }) {
   // (pour ne pas refaire la mise en scène à chaque visite).
   useEffect(() => {
     if (spec !== firstSpec.current) live.current = true;
-    if (!live.current || started.current || !text) return;
-    void prepare(text);
+    if (!live.current || started.current || !source) return;
+    void prepare(source);
     // prepare lit l'état à jour à chaque rendu.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spec, text]);
+  }, [spec]);
 
   function takePhoto() {
     audio();
@@ -337,18 +341,20 @@ export function ReadingCard({ spec }: { spec: string }) {
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <figcaption className="text-sm font-medium">
             {state.status === "preparing" || waiting
-              ? text || waiting
-                ? "Je prépare ton histoire…"
+              ? source || waiting
+                ? invented
+                  ? "J'invente ton histoire…"
+                  : "Je prépare ton histoire…"
                 : "Je découvre ta page…"
               : state.status === "ready" || state.status === "playing" || state.status === "done"
-                ? state.script.title || "Ta page"
+                ? state.script.title || (invented ? "Ton histoire" : "Ta page")
                 : "Lecture en 3D"}
           </figcaption>
 
           {(state.status === "idle" || state.status === "error") && !waiting ? (
-            text ? (
-              <button type="button" onClick={() => void prepare(text)} className="btn-rose inline-flex h-11 items-center gap-2 self-start rounded-full px-5 text-sm font-medium">
-                <BookOpen size={18} aria-hidden="true" /> Préparer la lecture
+            source ? (
+              <button type="button" onClick={() => void prepare(source)} className="btn-rose inline-flex h-11 items-center gap-2 self-start rounded-full px-5 text-sm font-medium">
+                <BookOpen size={18} aria-hidden="true" /> {invented ? "Écouter une histoire" : "Préparer la lecture"}
               </button>
             ) : (
               <button type="button" onClick={takePhoto} className="btn-rose inline-flex h-11 items-center gap-2 self-start rounded-full px-5 text-sm font-medium">
@@ -398,7 +404,7 @@ export function ReadingCard({ spec }: { spec: string }) {
               <button type="button" onClick={() => void play(state.script)} className="zone-appui inline-flex items-center gap-1 text-sm font-medium text-accent">
                 <RotateCcw size={14} aria-hidden="true" /> Réécouter
               </button>
-              {text ? null : (
+              {source ? null : (
                 <button type="button" onClick={takePhoto} className="zone-appui inline-flex items-center gap-1 text-sm font-medium text-accent">
                   <Camera size={14} aria-hidden="true" /> Une autre page
                 </button>

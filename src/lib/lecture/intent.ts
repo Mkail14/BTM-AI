@@ -40,8 +40,20 @@ const FOLLOW =
  * jamais « raconte-moi une histoire », qui en demande une nouvelle.
  */
 const READ_GIVEN = new RegExp(
-  `\\b${READ}(?: moi| nous| lui)? (?:(?:ce|cette|mon|ma|le|la|mes|ces|tout ce|tout le) (?:message|messages|texte|histoire|recit|poeme|conte|passage|page)|ca|cela)\\b`,
+  // « teste », « txt » : fautes de frappe de « texte » (« Lis moi ce teste en 3d », 2026-11-08).
+  `\\b${READ}(?: moi| nous| lui)? (?:(?:ce|cette|mon|ma|le|la|mes|ces|tout ce|tout le) (?:message|messages|texte|textes|teste|tests?|txt|histoire|recit|poeme|conte|passage|page)|ca|cela)\\b`,
 );
+/**
+ * Une histoire nouvelle, inventée par Tamilya (« lis-moi une histoire », « raconte-moi un conte »,
+ * « invente une histoire de pêcheur ») : elle l'écrit et la joue en 3D, sans page ni photo.
+ */
+const STORY = new RegExp(
+  `\\b(?:${READ}|raconte|racontes|raconter|racontez|invente|inventer|fais|fait|faire|cree|creer|ecris|ecrire|joue|jouer|dis|dire)(?: moi| nous| lui)?(?: (?:une|un|des|une petite|un petit|une autre|un autre|une belle|une nouvelle|une jolie|ton|ta|tes))? (?:histoire|histoires|conte|contes|legende|legendes|recit)\\b`,
+);
+/** La personne parle d'une vraie page (photo) : sinon, sans texte donné, Tamilya invente l'histoire. */
+const PAGE = /\b(?:page|pages|livre|livres|bouquin|chapitre|photo|roman)\b/;
+
+export const detectStory = (message: string) => STORY.test(normalize(message));
 
 /** « Lis-moi cette page », « lis-moi un livre », « lis-moi ce message », « lecture 3D ». */
 export const detectReading = (message: string) => {
@@ -119,6 +131,57 @@ export function withReadingBlock(reply: string, text: string | null): string {
   const end = reply.indexOf(FENCE, start + FENCE.length + READING_BLOCK.length);
   const after = end < 0 ? "" : reply.slice(end + FENCE.length);
   return reply.slice(0, start).trimEnd() + readingBlock(text) + after;
+}
+
+/**
+ * Ce que la carte doit lire :
+ * - texte : une histoire écrite ou collée par la personne, lue telle quelle ;
+ * - histoire : une histoire inventée par Tamilya, d'après la demande (sujet, style) ;
+ * - page : une vraie page de livre, prise en photo.
+ * Demande de l'utilisateur (2026-11-08) : « je m'en fous de la page ; quand je dis lis-moi une
+ * histoire, Tamilya la joue en 3D » : sans texte et sans parler de page, c'est une histoire inventée.
+ */
+export type ReadingMode = { kind: "texte"; text: string } | { kind: "histoire"; request: string } | { kind: "page" };
+
+/** Demande telle que la personne l'a faite, sur une ligne, pour guider l'histoire inventée. */
+const STORY_REQUEST_MAX = 300;
+const oneLine = (text: string) => text.replace(/\s+/g, " ").replace(/`{3,}/g, "").trim().slice(0, STORY_REQUEST_MAX);
+
+export function readingMode(message: string, previous: Previous): ReadingMode | null {
+  const reading = isReadingRequest(message, previous);
+  const story = detectStory(message);
+  if (!reading && !story) return null;
+  const text = readingText(message, previous);
+  if (text && reading) return { kind: "texte", text };
+  if (story || !PAGE.test(normalize(message))) return { kind: "histoire", request: oneLine(message) };
+  return { kind: "page" };
+}
+
+/** Contenu du bloc pour ce mode (ce que la carte reçoit). */
+export function readingSpec(mode: ReadingMode): string {
+  if (mode.kind === "texte") return `texte\n${mode.text}`;
+  if (mode.kind === "histoire") return `histoire\n${oneLine(mode.request)}`;
+  return "page";
+}
+
+/** Met le bloc de ce mode dans la réponse de Tamilya (elle n'a rien à recopier), ou l'ajoute. */
+export function withSceneBlock(reply: string, mode: ReadingMode): string {
+  const block = `\n\n${FENCE}${READING_BLOCK}\n${readingSpec(mode)}\n${FENCE}`;
+  const start = reply.indexOf(FENCE + READING_BLOCK);
+  if (start < 0) return reply + block;
+  const end = reply.indexOf(FENCE, start + FENCE.length + READING_BLOCK.length);
+  const after = end < 0 ? "" : reply.slice(end + FENCE.length);
+  return reply.slice(0, start).trimEnd() + block + after;
+}
+
+/** Lit le bloc côté carte. Null : le bloc s'écrit encore (« texte » ou « histoire » seuls). */
+export function parseReadingSpec(block: string): ReadingMode | null {
+  const body = block.replace(/\r/g, "").trim();
+  const rest = (word: string) => body.slice(word.length).trim();
+  if (body.startsWith("texte")) return rest("texte") ? { kind: "texte", text: rest("texte") } : null;
+  // « histoire » seul : la demande n'est pas encore glissée par le serveur, on attend.
+  if (body.startsWith("histoire")) return rest("histoire") ? { kind: "histoire", request: rest("histoire") } : null;
+  return { kind: "page" };
 }
 
 /** Lit le bloc côté carte : le texte à lire, ou null (photo à prendre). */

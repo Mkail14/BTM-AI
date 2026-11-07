@@ -26,7 +26,7 @@ import { noteGlobeOrigin, takeGlobeOrigin } from "./globe-origin";
 import { Composer, type ComposerHandle } from "./Composer";
 import { MessageItem, type UiMessage } from "./MessageItem";
 import { wantsSpokenReply } from "@/lib/voice-live/spoken-request";
-import { isReadingRequest } from "@/lib/lecture/intent";
+import { readingMode } from "@/lib/lecture/intent";
 import { useLiveVoiceConversation } from "./useLiveVoiceConversation";
 import { useVoiceConversation } from "./useVoiceConversation";
 import { VoiceOverlay } from "./VoiceOverlay";
@@ -826,7 +826,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
               // « Chante », « dis-le à voix haute » : le vocal s'ouvre tout seul et elle répond à voix haute.
               // Sauf juste après une histoire collée : « dis-le à voix haute » lance la lecture en 3D (voix et bruits).
               const asked = messages.filter((m) => m.role === "user").map((m) => m.content).reverse();
-              const reading = Boolean(user?.isAdmin) && isReadingRequest(text, asked);
+              // « Lis-moi une histoire » aussi : Tamilya l'invente et la joue en 3D, plutôt que de la dire en vocal simple.
+              const reading = Boolean(user?.isAdmin) && readingMode(text, asked) !== null;
               if (!reading && voiceEnabled && online && voice.startWith && wantsSpokenReply(text)) voice.startWith(text, () => sendRef.current(text));
               else void send(text);
             }}
