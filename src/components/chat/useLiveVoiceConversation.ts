@@ -160,7 +160,7 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
           userText.current = "";
           setBoard(true);
           requestAnimationFrame(() => scrollConversation("bas"));
-          return "Les vidéos sont affichées, les plus vues d'abord : elle touche celle qu'elle veut. Dis seulement « Voilà ! », rien d'autre : ne les décris pas, ne les lis pas, ne pose aucune question.";
+          return "Les vidéos sont affichées, les plus vues d'abord : elle touche celle qu'elle veut. Dis-le en une petite phrase à toi, courte et différente des fois précédentes : ne les décris pas, ne les lis pas, ne pose aucune question.";
         }
         if (name === "defiler_conversation") return scrollConversation(String(args.vers ?? ""));
         if (name === "autoriser_paiement") return acceptPayment();

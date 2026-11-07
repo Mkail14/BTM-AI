@@ -36,3 +36,14 @@ test("à l'oral, elle fait d'abord et ne salue qu'une fois", async () => {
   assert.match(LIVE_RULES, /chante vraiment, avec ta voix et en rythme, dès le premier mot/);
   assert.doesNotMatch(VOICE_TONE, /Qu'est-ce qu'on fait ensemble/);
 });
+
+test("à l'oral, pas de répliques toutes faites à recopier : elle trouve ses mots et varie", async () => {
+  const { LIVE_PRIORITY, LIVE_RULES } = await import("../src/lib/voice-live/rules");
+  const { liveToolDeclarations } = await import("../src/lib/voice-live/tools");
+  assert.doesNotMatch(VOICE_TONE, /Exemples :|Tout baigne|Ah super|Bien vu/);
+  assert.match(VOICE_TONE, /joie de vivre/);
+  assert.match(VOICE_TONE, /Jamais deux fois pareil/);
+  assert.match(LIVE_PRIORITY, /Reste vivante/);
+  const tools = JSON.stringify(liveToolDeclarations({ food: true, barge: true }));
+  assert.doesNotMatch(LIVE_RULES + tools, /dis seulement « Voilà/);
+});
