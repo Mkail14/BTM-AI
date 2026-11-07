@@ -69,6 +69,12 @@ export async function geocodeAddress(line: string, commune: string): Promise<{ p
   return { point: await snapToRoad(COMMUNE_CENTERS[commune] ?? COMMUNE_CENTERS.Mamoudzou), found: false };
 }
 
+/** N'importe quel lieu de Mayotte (« hôpital de Mamoudzou », « plage de N'Gouja »), posé sur une route ; null s'il est introuvable. */
+export async function geocodeQuery(q: string): Promise<Point | null> {
+  const hit = await search(q);
+  return hit ? snapToRoad(hit) : null;
+}
+
 /** Restaurant : cherché par son nom dans sa commune, sinon à sa place par défaut (`fallback`) ; posé sur une route. */
 export async function geocodePlace(name: string, commune: string, fallback: Point): Promise<Point> {
   // Seulement un commerce : un nom courant (« Le Snack ») ne doit pas tomber sur une rue ou un village.

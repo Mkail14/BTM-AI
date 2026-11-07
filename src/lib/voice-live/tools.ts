@@ -123,6 +123,19 @@ export function liveToolDeclarations(access: LiveAccess) {
       },
     },
     {
+      name: "itineraire",
+      description:
+        "Ouvre la carte du trajet à l'écran : le chemin jusqu'à un lieu de Mayotte, le temps en voiture, en taxi et à pied, et les boutons Google Maps et Waze. À utiliser dès que la personne demande comment aller quelque part, si c'est loin, ou combien de temps il faut (« de chez moi à la CSSM »). Sans départ dit, le trajet part de son adresse enregistrée.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          vers: text("Le lieu d'arrivée dans ses mots, avec la commune si elle l'a dite (ex. « CSSM », « mairie de Sada », « hôpital de Mamoudzou »)."),
+          depuis: text("Le lieu de départ s'il est dit et que ce n'est pas chez elle (ex. « Sada ») ; sinon laisse vide."),
+        },
+        required: ["vers"],
+      },
+    },
+    {
       name: "videos_youtube",
       description:
         "Montre des vidéos YouTube à l'écran : dès que la personne veut voir, regarder ou écouter quelque chose (vidéos drôles, clips, musique, recette, tutoriel, sport, un artiste), appelle-le tout de suite, sans rien demander ni dire avant : les plus vues s'affichent d'elles-mêmes. Après, dis seulement « Voilà ! ».",

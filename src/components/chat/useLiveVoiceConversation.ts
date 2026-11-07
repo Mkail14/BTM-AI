@@ -172,10 +172,18 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
           body: JSON.stringify({ name, args }),
           signal,
         });
-        const data = (await response.json().catch(() => null)) as { block?: string; time?: string; info?: string; error?: string } | null;
+        const data = (await response.json().catch(() => null)) as { block?: string; time?: string; info?: string; trip?: string | null; error?: string } | null;
         // Annulée pendant le chargement : pas de nouveau tableau, la personne a changé d'avis.
         if (signal.aborted) return CANCELLED;
         if (data?.time) return data.time;
+        // Carte du trajet : comme les vidéos, elle s'ajoute à la conversation (et s'ouvre en grand d'elle-même).
+        if (data?.trip) {
+          setStage(false);
+          turnRef.current(hidePin(userText.current.trim(), "")[0], data.trip, true);
+          userText.current = "";
+          setBoard(true);
+          requestAnimationFrame(() => scrollConversation("bas"));
+        }
         if (data?.info) return data.info;
         if (!data?.block) return data?.error ?? "Ce bouton n'est pas disponible : dis-le à la personne.";
         // Le tableau s'affiche dans la conversation, juste après ce que la personne vient de dire.

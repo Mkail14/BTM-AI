@@ -3,6 +3,7 @@ import { AWA_BIRTH_LABEL, AWA_NAME, awaAge, isAwaBirthday } from "./awa-identity
 import { VOICE_TONE } from "./voice-tone";
 import { CODE_EXAM_OFFICES } from "@/lib/code-exam/offices";
 import { FOOD_CATALOG } from "@/lib/food/catalog";
+import { tripSpec, type TripSpec } from "@/lib/trip/intent";
 import type { ValidatedExample } from "@/lib/language/types";
 import { mayotteClock } from "./clock";
 import type { KnowledgeEntry } from "./knowledge";
@@ -98,6 +99,8 @@ export type PromptContext = {
   btmDevisOffer?: boolean;
   /** Ce message demande un devis BTM (detectBtmDevis) : contenu du bloc devis-btm (« dalle longueur=8 », « choix »). */
   btmDevis?: string | null;
+  /** Ce message demande un trajet (detectTrip) : contenu du bloc itineraire. */
+  trip?: TripSpec | null;
   /** Attestation d'hébergement possible ici (conversation de BTM AI, qui affiche le bloc). */
   attestationOffer?: boolean;
   /** Ce message demande une attestation d'hébergement (detectAttestation). */
@@ -487,6 +490,17 @@ export function buildSystemPrompt(
         "Réponds en UNE phrase courte en français (même avec ton maître), sans poser de question ni donner de prix, puis ce bloc exactement, seul sur ses lignes :",
         `\`\`\`devis-btm\n${oneLine(context.btmDevis, 120)}\n\`\`\``,
         "Les mesures, les matériaux, le total et le code de retrait se font dans ce qui s'affiche.",
+      ].join("\n"),
+    );
+  }
+  // Trajet demandé (« combien de temps de chez moi à la CSSM ») : la carte du trajet s'ouvre.
+  if (context.trip && !context.site && !context.voice) {
+    sections.push(
+      [
+        "POUR CE MESSAGE : la personne veut savoir comment aller quelque part, ou combien de temps il faut.",
+        "Réponds en UNE phrase courte, sans donner toi-même de durée, de distance ni de prix (tu ne les connais pas), puis ce bloc exactement, seul sur ses lignes :",
+        `\`\`\`itineraire\n${tripSpec(context.trip)}\n\`\`\``,
+        "La carte du trajet, les temps en voiture, en taxi et à pied, et les boutons Google Maps et Waze s'affichent dans ce bloc. Le prix des taxis et les bus ne sont pas encore disponibles.",
       ].join("\n"),
     );
   }

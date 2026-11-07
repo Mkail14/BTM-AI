@@ -27,6 +27,11 @@ export const RATE_LIMIT_POLICIES = {
   // Formulaires avec téléphone et adresse : assez pour se tromper, pas pour inonder l'équipe.
   foodOrder: [{ name: "food-order-hour", limit: 10, windowSeconds: 3_600 }],
   bargeTicket: [{ name: "barge-ticket-hour", limit: 10, windowSeconds: 3_600 }],
+  // Trajets sur la carte : la recherche de lieux (Nominatim, gratuite) ne doit pas être appelée en rafale.
+  trip: [
+    { name: "trip-minute", limit: 10, windowSeconds: 60 },
+    { name: "trip-hour", limit: 60, windowSeconds: 3_600 },
+  ],
   // Devis BTM enregistrés sur btm.yt depuis la conversation.
   btmDevis: [{ name: "btm-devis-hour", limit: 15, windowSeconds: 3_600 }],
   // Mot de passe redemandé avant de modifier le Profil de l'entreprise : quelques essais, pas plus.

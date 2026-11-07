@@ -11,6 +11,7 @@ const service = (name: string, commune: string): PublicService => ({
   email: null,
   hours: null,
   link: null,
+  point: null,
 });
 
 const ALL = [

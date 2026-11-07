@@ -90,6 +90,8 @@ export type PublicService = {
   email: string | null;
   hours: string | null;
   link: string | null;
+  /** Position sur la carte (null : l'annuaire ne la donne pas). */
+  point: { lat: number; lng: number } | null;
 };
 
 type Raw = {
@@ -150,11 +152,31 @@ function hoursOf(value: unknown): string | null {
   return parts.length ? parts.join(", ") : null;
 }
 
-type RawAddress = { type_adresse?: string; numero_voie?: string; complement1?: string; code_postal?: string; nom_commune?: string };
+type RawAddress = {
+  type_adresse?: string;
+  numero_voie?: string;
+  complement1?: string;
+  code_postal?: string;
+  nom_commune?: string;
+  latitude?: string;
+  longitude?: string;
+};
+
+const mainAddress = (value: unknown) => {
+  const all = list<RawAddress>(value);
+  return all.find((x) => x.type_adresse === "Adresse") ?? all[0];
+};
+
+function pointOf(value: unknown): { lat: number; lng: number } | null {
+  const a = mainAddress(value);
+  const lat = Number(a?.latitude);
+  const lng = Number(a?.longitude);
+  // Mayotte seulement (une position vide ou fausse ne place rien sur la carte).
+  return a?.latitude && a?.longitude && lat < -12.5 && lat > -13.1 && lng > 44.9 && lng < 45.4 ? { lat, lng } : null;
+}
 
 function addressOf(value: unknown): string | null {
-  const all = list<RawAddress>(value);
-  const a = all.find((x) => x.type_adresse === "Adresse") ?? all[0];
+  const a = mainAddress(value);
   if (!a) return null;
   const street = [a.complement1, a.numero_voie].map((s) => s?.trim()).filter(Boolean).join(", ");
   const town = [a.code_postal, a.nom_commune].filter(Boolean).join(" ");
@@ -175,6 +197,7 @@ export function toService(raw: Raw): PublicService | null {
     email: raw.adresse_courriel?.trim() || null,
     hours: hoursOf(raw.plage_ouverture),
     link: raw.url_service_public?.trim() || null,
+    point: pointOf(raw.adresse),
   };
 }
 

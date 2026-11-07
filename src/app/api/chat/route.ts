@@ -10,6 +10,7 @@ import { BTM_DEVIS_BLOCK, btmDevisBlockFor, btmDevisSpec, detectBtmDevis } from 
 import { FOOD_CATALOG } from "@/lib/food/catalog";
 import { GROUP_BLOCK, groupBlock } from "@/lib/food/group-block";
 import { detectFoodOrder, detectGroupOrder, foodBlock } from "@/lib/food/intent";
+import { detectTrip, TRIP_BLOCK, tripBlock } from "@/lib/trip/intent";
 import { addWhenToBlock, formatWhenDay, parseCodeExamWhen } from "@/lib/code-exam/when";
 import { describeOrder, readLastOrder } from "@/lib/food/last-order";
 import { chatErrorBody } from "@/lib/chat/errors";
@@ -415,6 +416,8 @@ export async function POST(request: NextRequest) {
   const bargeIntent = bargeTickets && !body.voice ? detectBargeTicket(body.message) : null;
   // Demande de devis BTM (mur, dalle…) reconnue ici : le devis s'ouvre à coup sûr.
   const btmDevis = !body.voice && detectBtmDevis(body.message) ? btmDevisSpec(body.message) : null;
+  // Trajet demandé (« combien de temps de chez moi à la CSSM ») : la carte du trajet s'ouvre à coup sûr (compte requis).
+  const trip = user && !body.voice && !foodQuery && !foodGroup && !btmDevis ? detectTrip(body.message) : null;
   // Demande d'attestation d'hébergement reconnue ici : le formulaire s'ouvre à coup sûr.
   // « Mets mes infos » juste après l'ouverture : c'est la même attestation.
   const attestationOpen = history.slice(-4).some((turn) => turn.role === "assistant" && turn.content.includes(ATTESTATION_BLOCK));
@@ -450,6 +453,7 @@ export async function POST(request: NextRequest) {
     bargeSpec: bargeIntent === "buy" ? bargeSpec(body.message) : undefined,
     btmDevisOffer: true,
     btmDevis,
+    trip,
     attestationOffer: true,
     attestation,
     codeExamDay: codeWhen.day ? formatWhenDay(codeWhen.day) : null,
@@ -629,6 +633,12 @@ export async function POST(request: NextRequest) {
         // Devis BTM demandé mais pas de bloc dans la réponse : on l'ajoute.
         if (btmDevis && text && !text.includes("```" + BTM_DEVIS_BLOCK)) {
           const block = btmDevisBlockFor(body.message);
+          text += block;
+          send({ type: "delta", text: block });
+        }
+        // Trajet demandé mais pas de bloc dans la réponse : on l'ajoute.
+        if (trip && text && !text.includes("```" + TRIP_BLOCK)) {
+          const block = tripBlock(trip);
           text += block;
           send({ type: "delta", text: block });
         }

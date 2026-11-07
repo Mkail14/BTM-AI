@@ -8,6 +8,7 @@ import { ATTESTATION_BLOCK, SIGNATURES_STEP } from "@/lib/attestation/intent";
 import { BARGE_BLOCK } from "@/lib/barge/intent";
 import { BTM_DEVIS_BLOCK } from "@/lib/btm/intent";
 import { GROUP_BLOCK } from "@/lib/food/group-block";
+import { TRIP_BLOCK } from "@/lib/trip/intent";
 import { COMBINED_BLOCK } from "@/lib/voice-live/combined";
 import { groupYouTubeLines, parseYouTubeLink } from "@/lib/youtube/link";
 import { UnknownWord } from "./UnknownWord";
@@ -22,6 +23,7 @@ const BtmDevis = dynamic(() => import("./BtmDevis").then((m) => m.BtmDevis));
 const CombinedBoard = dynamic(() => import("./CombinedBoard").then((m) => m.CombinedBoard));
 const CodeExamSlots = dynamic(() => import("./CodeExamSlots").then((m) => m.CodeExamSlots));
 const FoodOrder = dynamic(() => import("./FoodOrder").then((m) => m.FoodOrder));
+const TripCard = dynamic(() => import("./TripCard").then((m) => m.TripCard));
 
 /** Texte brut d'un contenu Markdown rendu (le mot entre [[ ]]). */
 function textOf(node: ReactNode): string {
@@ -90,6 +92,11 @@ const components: Components = {
           <AttestationHebergement resume={textOf(children).trim() === SIGNATURES_STEP} mode={textOf(children).trim()} />
         </Board>
       );
+    }
+    // Bloc ```itineraire``` : carte du trajet (« vers: cssm », « depuis: sada »), temps et boutons Google Maps / Waze.
+    if (code === `language-${TRIP_BLOCK}`) {
+      const block = textOf(children).trim();
+      return <TripCard key={block} spec={block} />;
     }
     // Bloc ```tableau-combine``` : plusieurs services en un tableau, créé par Tamilya sur demande.
     if (code === `language-${COMBINED_BLOCK}`) {
