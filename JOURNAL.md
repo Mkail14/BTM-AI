@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `e33703d` (2026-11-07)**
+**Dernier commit noté : `61fda8c` (2026-11-08)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -42,6 +42,7 @@ Comment le tenir :
 | Cache du moteur de voix | Moteur onnxruntime (15 Mo) à /vad/ort/<version>/, gardé un an sans revérifier (immutable) ; modèles de voix 7 jours, images 1 jour | Le débit de Mayotte (~20 Ko/s) rend chaque retéléchargement très lent ; la version dans l'adresse rend le cache long sans risque | Cache long sans version dans l'adresse (une mise à jour casserait la voix) |
 | Page hors ligne du navigateur | Refusée pour l'instant | Dans l'app Android, un service worker cacherait la coupure à l'app, qui ne basculerait plus sur Tamilya Connect | Service worker avec page hors ligne |
 | Blocage du code de paiement | 5 erreurs : 15 min, 10 : 1 h, 15 puis toutes les 5 : 24 h ; compteur remis à zéro seulement par un code juste ; essais comptés avant comparaison (écriture conditionnelle, sans migration) | Rend le code impossible à deviner sans bloquer pour toujours quelqu'un qui l'a oublié | Blocage à chaque erreur après 15 (piège sans fin) ; nouvelle fonction SQL (aurait changé la base de production) |
+| Chansons de Tamilya | Lyria (Google DeepMind) par l'API Gemini : `lyria-3-clip-preview` (30 s) et `lyria-3.5` (chanson entière), voix chantée et instruments | Demandé par l'utilisateur le 2026-11-08 (exception validée à la règle « Gemini seule ») ; même clé et même crédit que Gemini, appelé depuis le serveur (Gemini est bloqué depuis Mayotte) | ElevenLabs Music (nouveau compte payant en dehors de Google) ; Gemini Live seul (chantonne au mieux, une seule voix, sans instruments) |
 | Données de Mayotte | API publiques françaises : annuaire service-public.gouv.fr, geo.api.gouv.fr, météo Open-Meteo | Gratuites, sans clé, officielles et couvrent Mayotte ; seulement quand la question en parle, donc pas de lenteur en plus | Brancher en vrac la liste GitHub « public-apis » (mondiale, presque rien sur Mayotte, beaucoup de clés et de liens morts) ; Météo-France et INSEE (clé obligatoire) pour plus tard |
 
 ---
@@ -77,6 +78,9 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+### 2026-11-08
+- **Essai des chansons de Tamilya** (`61fda8c`). Demande de l'utilisateur : que Tamilya chante sur demande, avec des instruments, comme une vidéo de référence (chorale de rue avec violons, Paris). Vidéo regardée image par image ; son analysé par calcul (décodé par Chrome) : environ 130 BPM, très régulier, légère accélération (128 → 132), intensité qui monte jusqu'à la fin. Ajouté : `src/lib/music/lyria.ts` (API « interactions », révision 2026-05-20), route `/api/admin/musique` (admins, 20 par heure) et page Admin › Chansons de Tamilya pour écouter un essai en français ou en shimaoré. Pas encore branché sur la conversation : on attend d'abord l'avis de l'utilisateur sur le son. Non vérifié : que la clé Gemini a accès à Lyria (l'essai le dira).
 
 ### 2026-11-07
 - **Mes documents rendu fonctionnel** (`e33703d`). Essayé sur la Pad 6 avec l'utilisateur. Quatre blocages, trois dans Google Cloud (projet Groupe BTM, faits par l'utilisateur) : adresses de retour `https://tamilya.yt/documents/connexion` et `https://dev.tamilya.yt/documents/connexion` absentes du client Web (Google : redirect_uri_mismatch) ; application en mode Test sans testeur (mikail.jms25@gmail.com ajouté ; contact@btm.yt refusé, ce n'est pas un compte Google) ; API Google Drive à activer (Drive répondait 403). Un dans le code : après la liaison, le site disait « ce Google sert déjà à un autre compte Tamilya » alors qu'il servait à ce compte-ci (connexion faite avec ce Google) ; corrigé, et la raison de Google est désormais écrite dans les journaux. Vu : le retour de Google revient bien dans l'app (lien vérifié), pas dans Chrome. Aussi le 2026-11-07 : connexion Google native de l'app réparée par la création des 2 clients OAuth Android (empreintes debug et définitive). Reste : passer l'application Google en production pour tous les utilisateurs.
