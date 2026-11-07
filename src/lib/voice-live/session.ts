@@ -6,6 +6,7 @@
  */
 
 import { createNoiseGate } from "./noise-gate";
+import { createAmbiance, describeAmbiance } from "./ambiance";
 import { loadSilero, type VoiceDetector } from "./silero";
 
 export type LiveState = "connexion" | "écoute" | "parle";
@@ -164,6 +165,8 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
   let activityOpen = false;
   /** Sans bouton : le bruit de fond devient du vrai silence, sinon Gemini attend sans fin la fin de la phrase. */
   const gate = createNoiseGate();
+  /** Le bruit autour de la personne, gardé à part (bouton « bruit_ambiant »). */
+  const ambiance = createAmbiance();
   /** Son capté pendant la connexion : gardé et envoyé dès que Gemini est prêt, pour ne pas perdre les premiers mots. */
   let backlog: Float32Array[] = [];
   let firstMessage = callbacks.firstMessage;
@@ -252,6 +255,9 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
         speechEndedAt = quietSince;
       }
     }
+    // Personne ne parle (ni la personne ni Tamilya) : c'est le bruit autour, gardé à part.
+    const nobodyTalks = sources.size === 0 && (voice !== undefined ? voice < 0.2 : pushToTalk ? !holding : !loud);
+    if (nobodyTalks) ambiance.keep(samples);
     // La porte tourne dès l'ouverture du micro : elle apprend le bruit ambiant pendant la connexion.
     const outgoing = !pushToTalk ? gate(samples, sources.size > 0, voice) : holding ? [samples] : [];
     if (!ready) {
@@ -312,7 +318,9 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
       const control = new AbortController();
       if (call.id) running.set(call.id, control);
       const result = await (
-        callbacks.onToolCall?.(call.name, call.args ?? {}, control.signal) ?? Promise.resolve("Bouton indisponible.")
+        call.name === "bruit_ambiant"
+          ? describeAmbiance(ambiance, control.signal)
+          : (callbacks.onToolCall?.(call.name, call.args ?? {}, control.signal) ?? Promise.resolve("Bouton indisponible."))
       )
         .catch(() => "Le bouton n'a pas marché : dis-le à la personne.")
         .finally(() => {

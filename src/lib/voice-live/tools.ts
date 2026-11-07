@@ -105,6 +105,12 @@ export function liveToolDeclarations(access: LiveAccess) {
       parameters: { type: "OBJECT", properties: {} },
     },
     {
+      name: "bruit_ambiant",
+      description:
+        "Écoute le bruit autour de la personne (pas sa voix) : dit s'il y a du bruit, s'il est fort, et ce que c'est (ventilateur, circulation, travaux, cris, pluie, musique…). À utiliser dès qu'elle demande si tu entends du bruit, ce qu'il y a derrière elle ou autour d'elle, ou si elle est dans un endroit bruyant. Tu l'entends quand même bien : ce bruit est filtré de sa voix.",
+      parameters: { type: "OBJECT", properties: {} },
+    },
+    {
       name: "infos_mayotte",
       description:
         "Cherche des informations officielles et à jour sur Mayotte : météo, services publics (mairie, CSSM, préfecture, gendarmerie, France services, impôts… avec adresse, téléphone et horaires), communes (codes postaux, habitants), offres d'emploi, actualité. À utiliser avant de répondre à ce genre de question, sans rien inventer.",
