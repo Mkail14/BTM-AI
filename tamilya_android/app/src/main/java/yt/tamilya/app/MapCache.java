@@ -16,6 +16,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -39,6 +40,11 @@ final class MapCache {
     private static final String[] ENGINE = {"maplibre-gl.mjs", "maplibre-gl-worker.mjs"};
     private static final String[] STYLES = {"positron", "dark"};
     private static final String STYLE_HOST = "tiles.openfreemap.org";
+    /** Seule source acceptée pour le moteur : le site lui-même, jamais un sous-domaine. */
+    private static final String ENGINE_BASE = "https://tamilya.yt/maplibre/";
+    /** Le moteur fait environ 1,1 Mo : au-delà de 5 Mo, ce n'est pas lui. */
+    private static final long MAX_ENGINE_BYTES = 5L * 1024 * 1024;
+    private static final long MAX_STYLE_BYTES = 1024L * 1024;
 
     private final Context context;
     private final File root;
@@ -62,7 +68,7 @@ final class MapCache {
         if (host == null || path == null) return null;
         try {
             if (host.equals(STYLE_HOST) && path.startsWith("/styles/")) return style(path.substring("/styles/".length()));
-            if ((host.equals("tamilya.yt") || host.endsWith(".tamilya.yt")) && path.startsWith("/maplibre/")) {
+            if ("https".equals(url.getScheme()) && host.equals("tamilya.yt") && url.getPort() == -1 && path.startsWith("/maplibre/")) {
                 return engine(url, path.substring("/maplibre/".length()));
             }
         } catch (IOException e) {
@@ -80,8 +86,7 @@ final class MapCache {
         if (saved.isFile()) return response("text/javascript", new FileInputStream(saved));
         if (version.equals(bundledVersion)) return response("text/javascript", context.getAssets().open(ASSETS + "/" + file));
         // Nouvelle version sur le site : prise sur internet cette fois, gardée pour la suivante.
-        String base = url.buildUpon().clearQuery().path("/maplibre/").build().toString();
-        downloadEngine(base, version);
+        downloadEngine(version);
         return null;
     }
 
@@ -102,12 +107,12 @@ final class MapCache {
     }
 
     /** Télécharge toute la nouvelle version du moteur (une seule fois), puis efface les anciennes. */
-    private void downloadEngine(String base, String version) {
+    private void downloadEngine(String version) {
         if (!pending.add("engine:" + version)) return;
         io.execute(() -> {
             File dir = new File(root, version);
             try {
-                for (String file : ENGINE) download(base + file + "?v=" + Uri.encode(version), new File(dir, file));
+                for (String file : ENGINE) download(ENGINE_BASE + file + "?v=" + Uri.encode(version), new File(dir, file), "javascript", MAX_ENGINE_BYTES);
                 File[] others = root.listFiles();
                 if (others != null) {
                     for (File other : others) {
@@ -130,7 +135,7 @@ final class MapCache {
         io.execute(() -> {
             for (String name : STYLES) {
                 try {
-                    download("https://" + STYLE_HOST + "/styles/" + name, new File(root, "styles/" + name + ".json"));
+                    download("https://" + STYLE_HOST + "/styles/" + name, new File(root, "styles/" + name + ".json"), "json", MAX_STYLE_BYTES);
                 } catch (IOException e) {
                     Log.w(TAG, "Style " + name + " pas relu : la copie de l'app reste utilisée", e);
                 }
@@ -138,22 +143,32 @@ final class MapCache {
         });
     }
 
-    /** Écrit d'abord à côté, puis remplace : jamais de fichier à moitié écrit servi à la page. */
-    private static void download(String address, File target) throws IOException {
+    /**
+     * Écrit d'abord à côté, puis remplace : jamais de fichier à moitié écrit servi à la page.
+     * Refusé : redirection, type de contenu inattendu, fichier plus gros que maxBytes.
+     */
+    private static void download(String address, File target, String expectedType, long maxBytes) throws IOException {
         File parent = target.getParentFile();
         if (parent != null && !parent.isDirectory() && !parent.mkdirs()) throw new IOException("Dossier impossible : " + parent);
         File part = new File(target.getPath() + ".part");
         HttpURLConnection connection = (HttpURLConnection) new URL(address).openConnection();
         connection.setConnectTimeout(15_000);
         connection.setReadTimeout(60_000);
+        connection.setInstanceFollowRedirects(false);
         try {
             if (connection.getResponseCode() != 200) throw new IOException("HTTP " + connection.getResponseCode() + " pour " + address);
+            String type = connection.getContentType();
+            if (type == null || !type.toLowerCase(Locale.ROOT).contains(expectedType)) {
+                throw new IOException("Type " + type + " inattendu pour " + address);
+            }
+            if (connection.getContentLengthLong() > maxBytes) throw new IOException("Fichier trop gros pour " + address);
             long written = 0;
             try (InputStream in = connection.getInputStream(); OutputStream out = new FileOutputStream(part)) {
                 byte[] buffer = new byte[16_384];
                 for (int n; (n = in.read(buffer)) > 0; ) {
                     out.write(buffer, 0, n);
                     written += n;
+                    if (written > maxBytes) throw new IOException("Fichier trop gros pour " + address);
                 }
             }
             if (written < 100) throw new IOException("Fichier vide pour " + address);

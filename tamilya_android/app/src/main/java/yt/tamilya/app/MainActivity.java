@@ -498,20 +498,26 @@ public class MainActivity extends Activity {
         cookies.setAcceptCookie(true);
         cookies.setAcceptThirdPartyCookies(web, false);
 
+        // Un seul objet natif, visible dans tous les cadres : chaque appel exige le jeton,
+        // que seul le cadre principal de tamilya.yt reçoit (pageScript). TamilyaGoogle et
+        // TamilyaFiles, appelés par le site, sont de simples relais JS posés par pageScript.
         web.addJavascriptInterface(new NativeBridge(), "TamilyaNative");
-        web.addJavascriptInterface(new GoogleBridge(), "TamilyaGoogle");
-        web.addJavascriptInterface(new FileBridge(), "TamilyaFiles");
         web.setWebViewClient(new AppWebViewClient());
         web.setWebChromeClient(new AppChromeClient());
         web.setDownloadListener((url, agent, disposition, mime, length) -> openExternally(Uri.parse(url)));
     }
 
-    /** Ce qui s'affiche dans l'app : le site et le paiement Stripe. Le reste part dans le navigateur. */
+    /**
+     * Ce qui s'affiche dans l'app : le site et la page de paiement Stripe Checkout (le seul
+     * produit Stripe ouvert par le site, voir src/lib/wallet/stripe.ts). hooks.stripe.com :
+     * retour de Stripe après une validation bancaire (3-D Secure) faite hors de l'iframe.
+     * Le reste part dans le navigateur.
+     */
     private static boolean staysInApp(Uri uri) {
         String host = uri.getHost();
         if (!"https".equals(uri.getScheme()) || host == null) return false;
         return host.equals(SITE_HOST) || host.endsWith("." + SITE_HOST)
-                || host.equals("stripe.com") || host.endsWith(".stripe.com");
+                || host.equals("checkout.stripe.com") || host.equals("hooks.stripe.com");
     }
 
     private static boolean isSiteOrigin(Uri origin) {
@@ -583,6 +589,12 @@ public class MainActivity extends Activity {
      */
     private String pageScript() {
         return "(function(token){"
+                // Ponts appelés par le site (google-identity.ts, AttestationHebergement.tsx) : même
+                // nom et mêmes arguments qu'avant, le jeton est ajouté ici, dans ce cadre seulement.
+                + "if(!window.TamilyaGoogle)window.TamilyaGoogle={googleSignIn:function(r,n){TamilyaNative.googleSignIn(token,String(r),String(n));}};"
+                + "if(!window.TamilyaFiles)window.TamilyaFiles={savePdf:function(n,b){TamilyaNative.savePdf(token,String(n),String(b));}};"
+                // Prévient le site (fenêtre de connexion déjà ouverte) que le bouton Google natif est prêt.
+                + "try{window.dispatchEvent(new Event('tamilya-native-ready'));}catch(e){}"
                 + "if(window.__tamilyaVoice)return;"
                 + "var st=document.createElement('style');"
                 + "st.textContent='.voice-halo{display:none!important}.voice-overlay[data-compact]::after{content:\"\";position:fixed;inset:-24px;z-index:-1;pointer-events:none;opacity:.35;border-radius:64px;box-shadow:inset 34px 0 60px -22px #4dd2ff,inset -34px 0 60px -22px #ff4dd8,inset 0 34px 60px -22px #7a5cff,inset 0 -34px 60px -22px #ff9a5c;transition:opacity .6s ease;animation:tamilya-glow 6s ease-in-out infinite alternate}.voice-overlay[data-compact]:has([data-state=waiting])::after{opacity:.6}.voice-overlay[data-compact]:has([data-state=speaking])::after{opacity:.9}@keyframes tamilya-glow{from{filter:hue-rotate(-22deg)}to{filter:hue-rotate(22deg)}}@media (prefers-reduced-motion:reduce){.voice-overlay[data-compact]::after{animation:none}}"
@@ -868,21 +880,19 @@ public class MainActivity extends Activity {
             if (!bridgeToken.equals(token)) return;
             main.post(MainActivity.this::cancelSpeech);
         }
-    }
 
-    /** Appelé par le bouton Google du site (google-identity.ts), dans l'app seulement. */
-    private final class GoogleBridge {
+        /** Bouton Google du site (google-identity.ts), via le relais window.TamilyaGoogle de pageScript. */
         @JavascriptInterface
-        public void googleSignIn(String request, String hashedNonce) {
+        public void googleSignIn(String token, String request, String hashedNonce) {
+            if (!bridgeToken.equals(token)) return;
             if (request == null || hashedNonce == null || request.length() > 64 || hashedNonce.length() > 128) return;
             main.post(() -> MainActivity.this.googleSignIn(request, hashedNonce));
         }
-    }
 
-    /** Appelé par le site pour un PDF créé dans la page : un lien blob: ne peut pas partir dans le navigateur. */
-    private final class FileBridge {
+        /** PDF créé dans la page (un lien blob: ne peut pas partir dans le navigateur), via window.TamilyaFiles. */
         @JavascriptInterface
-        public void savePdf(String name, String base64) {
+        public void savePdf(String token, String name, String base64) {
+            if (!bridgeToken.equals(token)) return;
             if (name == null || base64 == null || base64.length() > MAX_PDF_BASE64) return;
             main.post(() -> MainActivity.this.savePdf(name, base64));
         }
@@ -1196,6 +1206,6 @@ public class MainActivity extends Activity {
     }
 
     private static final class BuildInfo {
-        static final String VERSION = "1.2.0";
+        static final String VERSION = "1.2.1";
     }
 }
