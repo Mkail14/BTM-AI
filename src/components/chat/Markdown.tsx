@@ -8,6 +8,7 @@ import { ATTESTATION_BLOCK, SIGNATURES_STEP } from "@/lib/attestation/intent";
 import { BARGE_BLOCK } from "@/lib/barge/intent";
 import { BTM_DEVIS_BLOCK } from "@/lib/btm/intent";
 import { CYCLONE_BLOCK } from "@/lib/cyclone/intent";
+import { SONG_BLOCK } from "@/lib/music/intent";
 import { GROUP_BLOCK } from "@/lib/food/group-block";
 import { TRIP_BLOCK } from "@/lib/trip/intent";
 import { COMBINED_BLOCK } from "@/lib/voice-live/combined";
@@ -26,6 +27,7 @@ const CycloneCard = dynamic(() => import("./CycloneCard").then((m) => m.CycloneC
 const CodeExamSlots = dynamic(() => import("./CodeExamSlots").then((m) => m.CodeExamSlots));
 const FoodOrder = dynamic(() => import("./FoodOrder").then((m) => m.FoodOrder));
 const TripCard = dynamic(() => import("./TripCard").then((m) => m.TripCard));
+const SongCard = dynamic(() => import("./SongCard").then((m) => m.SongCard));
 
 /** Texte brut d'un contenu Markdown rendu (le mot entre [[ ]]). */
 function textOf(node: ReactNode): string {
@@ -102,6 +104,9 @@ const components: Components = {
     }
     // Bloc ```carte-cyclones``` : carte des cyclones de l'océan Indien (en cours et en formation).
     if (code === `language-${CYCLONE_BLOCK}`) return <CycloneCard />;
+    // Bloc ```chanson``` : paroles écrites par Tamilya, chantées avec des instruments (Lyria) ; le globe chante.
+    // Sans clé : la carte doit garder son état pendant que le bloc s'écrit.
+    if (code === `language-${SONG_BLOCK}`) return <SongCard spec={textOf(children)} />;
     // Bloc ```tableau-combine``` : plusieurs services en un tableau, créé par Tamilya sur demande.
     if (code === `language-${COMBINED_BLOCK}`) {
       const block = textOf(children).trim();

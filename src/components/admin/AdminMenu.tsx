@@ -58,7 +58,6 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
       { label: "Lexique shimaoré", tab: "Lexique", icon: IconLanguage, href: "/admin/lexique" },
       { label: "Apprentissage du shimaoré", tab: "Apprentissage", icon: IconGauge, href: "/admin/apprentissage" },
       { label: "Voix de Tamilya", tab: "Voix", icon: IconSpeaker, href: "/admin/voix" },
-      { label: "Chansons de Tamilya", tab: "Chansons", icon: IconSpeaker, href: "/admin/musique" },
       { label: "Mémoire", icon: IconDatabase, href: "/admin/memoire" },
     ],
   },

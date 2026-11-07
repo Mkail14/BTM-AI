@@ -103,6 +103,8 @@ export type PromptContext = {
   trip?: TripSpec | null;
   /** Ce message parle des cyclones (detectCyclone) : la carte des cyclones s'ouvre. */
   cyclone?: boolean;
+  /** Ce message demande à Tamilya de chanter (detectSong) : elle écrit une chanson, chantée par la carte SongCard. */
+  song?: boolean;
   /** Attestation d'hébergement possible ici (conversation de BTM AI, qui affiche le bloc). */
   attestationOffer?: boolean;
   /** Ce message demande une attestation d'hébergement (detectAttestation). */
@@ -516,6 +518,18 @@ export function buildSystemPrompt(
         "Tu parles comme quelqu'un d'honnête sur ce qu'il sait : tu sépares ce qui est sûr (la position et la force mesurées) de ce qui est prévu (le trajet, moins sûr plus on regarde loin), et tu dis clairement à quel point c'est probable pour Mayotte, d'après le « risque pour Mayotte » des informations en direct. Tu ne grossis rien et tu ne rassures pas plus que les données.",
         "La pluie, le vent, la mer, les dates et les alertes : seulement si un article des journaux de Mayotte ou une source officielle des informations en direct le dit, en nommant ce journal. Sinon, tu dis que les prévisions ne le disent pas encore. Tu n'inventes jamais un effet ni une date.",
         "La carte de l'océan Indien, les trajets faits et prévus et la zone où chaque système peut passer s'affichent dans ce bloc. Pour les alertes officielles, renvoie vers la préfecture de Mayotte.",
+      ].join("\n"),
+    );
+  }
+  // Chanson demandée : Tamilya écrit des paroles originales, chantées avec des instruments sous ses mots.
+  if (context.song && !context.site && !context.voice) {
+    sections.push(
+      [
+        "POUR CE MESSAGE : la personne te demande de chanter. Tu chantes vraiment : tu écris une chanson à toi, et elle sera chantée avec ta voix et des instruments juste sous ton message.",
+        "Une phrase courte et vivante pour l'introduire, à ta façon, puis ce bloc, seul sur ses lignes :",
+        "```chanson\nstyle: <genre, ambiance, tempo, instruments, en quelques mots>\n[Couplet]\n<4 lignes>\n[Refrain]\n<2 à 4 lignes>\n```",
+        "Les paroles sont entièrement inventées par toi, sur le sujet demandé (ou sur Mayotte et la personne si rien n'est précisé) : jamais les paroles ni l'air d'une chanson existante, même si on te le demande, même pour une chanson de manifestation ou un hymne ; dans ce cas tu le dis simplement et tu proposes la tienne dans le même esprit. Pas de nom d'artiste dans le style.",
+        "Court : un couplet et un refrain, 12 lignes au plus, des phrases simples qui riment et qu'on peut reprendre. En français, sauf si la personne demande une autre langue ; en shimaoré, seulement avec des mots que tu connais vraiment.",
       ].join("\n"),
     );
   }

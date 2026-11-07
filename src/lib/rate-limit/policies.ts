@@ -92,9 +92,11 @@ export const RATE_LIMIT_POLICIES = {
     { name: "voice-ambiance-day", limit: 200, windowSeconds: 86_400 },
   ],
   // Chansons (Lyria) : chaque appel coûte, on borne les essais.
-  music: [
-    { name: "music-hour", limit: 20, windowSeconds: 3_600 },
-    { name: "music-day", limit: 60, windowSeconds: 86_400 },
+  // Chaque compte : 3 chansons par jour (décision de l'utilisateur, 2026-11-08). Admins : de quoi essayer.
+  music: [{ name: "music-day", limit: 3, windowSeconds: 86_400 }],
+  musicAdmin: [
+    { name: "music-admin-hour", limit: 20, windowSeconds: 3_600 },
+    { name: "music-admin-day", limit: 60, windowSeconds: 86_400 },
   ],
   // E-mails de sécurité : nouvel appareil (un par appareil inconnu) et mot de passe changé.
   authDevice: [{ name: "auth-device-hour", limit: 10, windowSeconds: 3_600 }],
