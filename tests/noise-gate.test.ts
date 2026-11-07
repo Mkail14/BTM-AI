@@ -79,3 +79,26 @@ test("pendant que Tamilya parle, l'écho de sa voix ne passe pas, mais une vraie
   assert.ok(silent(interruption[1]), "pas sur un simple coup de bruit");
   assert.ok(!silent(interruption[5]), "la personne qui parle fort la coupe");
 });
+
+test("avec Silero : un bruit fort qui n'est pas une voix reste du silence", () => {
+  const gate = createNoiseGate();
+  for (let i = 0; i < 30; i++) gate(noise(0.01));
+  // Coup de bruit très fort, mais Silero dit « pas de voix ».
+  for (let i = 0; i < 10; i++) assert.ok(silent(gate(noise(0.4), false, 0.05)), `paquet ${i}`);
+});
+
+test("avec Silero : une voix passe, même à peine plus forte que le bruit, puis la porte se referme", () => {
+  const gate = createNoiseGate();
+  for (let i = 0; i < 30; i++) gate(noise(0.05), false, 0.02);
+  const during = Array.from({ length: 10 }, () => gate(voice(0.06, 0.05), false, 0.9));
+  assert.ok(during.slice(2).every((packets) => !silent(packets)), "la voix passe");
+  const after = Array.from({ length: 6 }, () => gate(noise(0.05), false, 0.02));
+  assert.ok(silent(after[after.length - 1]), "fin de phrase : du silence");
+});
+
+test("avec Silero : l'écho de Tamilya ne coupe pas sa voix", () => {
+  const gate = createNoiseGate();
+  for (let i = 0; i < 30; i++) gate(noise(0.01), false, 0.02);
+  // Son écho est une voix (Silero 0,9) mais pas plus forte qu'elle.
+  for (let i = 0; i < 10; i++) assert.ok(silent(gate(voice(0.04), true, 0.9)), `paquet ${i}`);
+});

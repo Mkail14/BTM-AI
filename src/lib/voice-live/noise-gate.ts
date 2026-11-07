@@ -35,6 +35,9 @@ const PACKETS_TO_CLOSE = 6;
  * il y a des creux entre les mots, donc la voix n'est pas prise pour du bruit.
  */
 const NOISE_WINDOW = 30;
+/** Silero : au-dessus, c'est une voix ; une fois la porte ouverte, un peu moins suffit pour la garder (réglages conseillés par Silero). */
+const VOICE_OPEN = 0.5;
+const VOICE_KEEP = 0.35;
 
 const level = (samples: Float32Array) => {
   let sum = 0;
@@ -51,12 +54,24 @@ export function createNoiseGate() {
   /** Début de phrase : gardé le temps de savoir si c'est de la parole, pour ne pas couper le premier mot. */
   let pending: Float32Array[] = [];
 
-  return (samples: Float32Array, tamilyaTalking = false): Float32Array[] => {
+  /**
+   * `voice` : probabilité de voix donnée par Silero (0 à 1), absente tant qu'il n'est pas chargé
+   * (la porte décide alors au volume seul, comme avant).
+   */
+  return (samples: Float32Array, tamilyaTalking = false, voice?: number): Float32Array[] => {
     const rms = level(samples);
     recent.push(rms);
     if (recent.length > NOISE_WINDOW) recent.shift();
     const floor = Math.min(...recent);
-    const over = rms > (tamilyaTalking ? Math.max(ECHO_LEVEL, floor * OVER_ECHO) : Math.max(MIN_LEVEL, floor * OVER_NOISE));
+    const loudEnough = rms > (tamilyaTalking ? Math.max(ECHO_LEVEL, floor * OVER_ECHO) : Math.max(MIN_LEVEL, floor * OVER_NOISE));
+    const over =
+      voice === undefined
+        ? loudEnough
+        : tamilyaTalking
+          ? // L'écho de Tamilya est aussi une voix : il faut toujours parler plus fort qu'elle.
+            loudEnough && voice > VOICE_OPEN
+          : // Silero reconnaît la voix, même près du bruit : le volume ne sert plus qu'à écarter un murmure lointain.
+            rms > MIN_LEVEL / 2 && voice > (open ? VOICE_KEEP : VOICE_OPEN);
 
     if (open) {
       quiet = over ? 0 : quiet + 1;

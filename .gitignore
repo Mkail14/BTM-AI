@@ -40,3 +40,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# moteur Silero VAD, copié par scripts/copy-vad.mjs
+/public/vad/ort-wasm-*

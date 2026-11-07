@@ -6,6 +6,7 @@
  */
 
 import { createNoiseGate } from "./noise-gate";
+import { loadSilero, type VoiceDetector } from "./silero";
 
 export type LiveState = "connexion" | "écoute" | "parle";
 
@@ -220,8 +221,23 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
   lowCut.type = "highpass";
   lowCut.frequency.value = 120;
   capture.createMediaStreamSource(mic).connect(lowCut).connect(node);
+  // Silero se charge en arrière-plan (sans bouton seulement) : en attendant, la porte décide au volume.
+  let vad: VoiceDetector | null = null;
+  if (!manual)
+    void loadSilero().then((detector) => {
+      vad = detector;
+      note(detector ? "Silero prêt" : "Silero indisponible, porte au volume");
+    });
+  /** Silero répond un peu après : les paquets restent dans l'ordre. */
+  let queue = Promise.resolve();
   node.port.onmessage = (event: MessageEvent<Float32Array>) => {
     const samples = event.data;
+    queue = queue.then(async () => {
+      const voice = vad && !pushToTalk ? await vad(samples).catch(() => undefined) : undefined;
+      if (!closed) handlePacket(samples, voice);
+    });
+  };
+  const handlePacket = (samples: Float32Array, voice: number | undefined) => {
     let sum = 0;
     for (const v of samples) sum += v * v;
     const loud = Math.sqrt(sum / samples.length) > 0.02;
@@ -237,7 +253,7 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
       }
     }
     // La porte tourne dès l'ouverture du micro : elle apprend le bruit ambiant pendant la connexion.
-    const outgoing = !pushToTalk ? gate(samples, sources.size > 0) : holding ? [samples] : [];
+    const outgoing = !pushToTalk ? gate(samples, sources.size > 0, voice) : holding ? [samples] : [];
     if (!ready) {
       // Le silence d'avant la première parole ne sert à rien : on ne garde que la parole et ce qui suit.
       backlog.push(...outgoing.filter((packet) => backlog.length || packet.some(Boolean)));
