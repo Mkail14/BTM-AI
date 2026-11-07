@@ -179,6 +179,12 @@ public class MainActivity extends Activity {
                 // Internet revenu pendant Tamilya Connect : on retrouve la page normale.
                 if (online && pageFailed) retry();
             }
+
+            @Override
+            public void openPage(String path) {
+                // Sans internet, la page dit qu'il faut internet, comme partout ailleurs dans l'app.
+                web.loadUrl(SITE_ORIGIN + path);
+            }
         });
         content.addView(connect.view(), match());
         splash = buildSplashView();
@@ -983,18 +989,18 @@ public class MainActivity extends Activity {
 
     private final class AppWebViewClient extends WebViewClient {
         @Override
-        public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-            if (!request.isForMainFrame()) return false;
-            Uri uri = request.getUrl();
-            if (staysInApp(uri)) return false;
-            openExternally(uri);
-        @Override
         public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
             // Carte déjà dans l'app : rien à télécharger (appelé hors du fil de l'écran).
             WebResourceResponse kept = mapCache != null ? mapCache.intercept(request) : null;
             return kept != null ? kept : super.shouldInterceptRequest(view, request);
         }
 
+        @Override
+        public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+            if (!request.isForMainFrame()) return false;
+            Uri uri = request.getUrl();
+            if (staysInApp(uri)) return false;
+            openExternally(uri);
             return true;
         }
 

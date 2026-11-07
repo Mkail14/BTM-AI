@@ -125,6 +125,15 @@ final class MeshRelay implements BleMesh.Events {
         sendOwn(id, json);
     }
 
+    /** Message coupé ou supprimé : il ne part plus vers personne. */
+    void cancelOwn(String id) {
+        RelayTable.Entry entry = table.get(id, now());
+        if (entry == null || !entry.own()) return;
+        // Les renvois déjà prévus s'arrêtent d'eux-mêmes.
+        entry.answered = true;
+        table.forget(id);
+    }
+
     /** Demande écrite avant un redémarrage de l'app, encore sans réponse. */
     void restoreOwn(String id, String json, long at) {
         // Si le relais a survécu à l'écran, on repart de zéro : la réponse a pu arriver sans personne pour la lire.

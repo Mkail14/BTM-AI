@@ -46,6 +46,19 @@ final class ConnectStore {
         return !deviceId().isEmpty() && !keyId().isEmpty() && !serverKey().isEmpty();
     }
 
+    /** Nom et solde du compte, pour le bas du menu : { name, email, balanceCents, demo }. */
+    org.json.JSONObject account() {
+        try {
+            return new org.json.JSONObject(prefs.getString("account", "{}"));
+        } catch (JSONException e) {
+            return new org.json.JSONObject();
+        }
+    }
+
+    void saveAccount(org.json.JSONObject account) {
+        prefs.edit().putString("account", account.toString()).apply();
+    }
+
     /** Historique du compte, gardé pour le relire sans internet. */
     JSONArray history() {
         return array("history");
@@ -61,6 +74,29 @@ final class ConnectStore {
 
     void saveThread(String id, JSONArray messages, String stamp) {
         prefs.edit().putString("thread:" + id, messages.toString()).putString("stamp:" + id, stamp).apply();
+    }
+
+    /** Retire une conversation du téléphone : de la liste et de ce qui est gardé. */
+    void removeConversation(String id) {
+        JSONArray kept = new JSONArray();
+        JSONArray list = history();
+        for (int i = 0; i < list.length(); i++) {
+            org.json.JSONObject item = list.optJSONObject(i);
+            if (item != null && !id.equals(item.optString("id"))) kept.put(item);
+        }
+        prefs.edit().putString("history", kept.toString()).remove("thread:" + id).remove("stamp:" + id).apply();
+    }
+
+    /** Conversations supprimées ici, pas encore supprimées du compte (pas d'internet). */
+    java.util.Set<String> pendingDeletes() {
+        return new java.util.HashSet<>(prefs.getStringSet("pendingDeletes", new java.util.HashSet<>()));
+    }
+
+    void setPendingDelete(String id, boolean pending) {
+        java.util.Set<String> set = pendingDeletes();
+        if (pending) set.add(id);
+        else set.remove(id);
+        prefs.edit().putStringSet("pendingDeletes", set).apply();
     }
 
     /** Ouvre une conversation (vide : une nouvelle) et range celle qui était à l'écran. */

@@ -35,12 +35,26 @@ final class ConnectApi {
         return new JSONObject(call("GET", "/api/conversations", null, cookies, MAX_HISTORY_RESPONSE)).getJSONArray("conversations");
     }
 
+    /** Nom et solde du compte, pour le menu : { name, email, balanceCents, demo }. */
+    static JSONObject account(String cookies) throws IOException, JSONException {
+        return new JSONObject(call("GET", "/api/mesh/account", null, cookies));
+    }
+
     /** Messages d'une conversation du compte. */
     static JSONArray messages(String id, String cookies) throws IOException, JSONException {
         return new JSONObject(call("GET", "/api/conversations/" + id, null, cookies, MAX_HISTORY_RESPONSE)).getJSONArray("messages");
     }
 
     /** Clé publique du serveur : { keyId, publicKey }. */
+    /** Supprime une conversation du compte. Déjà absente : c'est fait aussi. */
+    static void deleteConversation(String id, String cookies) throws IOException {
+        try {
+            call("DELETE", "/api/conversations/" + id, null, cookies);
+        } catch (HttpError e) {
+            if (e.status != 404) throw e;
+        }
+    }
+
     static JSONObject serverKey() throws IOException, JSONException {
         JSONObject key = new JSONObject(call("GET", "/api/mesh/key", null, null));
         if (key.optString("keyId").isEmpty() || key.optString("publicKey").isEmpty()) throw new IOException("clé absente");

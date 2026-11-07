@@ -51,10 +51,14 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
     private static final long HISTORY_REFRESH_MS = 60_000L;
     /** Conversations récentes gardées sur le téléphone pour les relire sans internet. */
     private static final int THREADS_KEPT = 10;
+    /** Sans relais au bout de 3 h, le message est coupé ; on peut le relancer. */
+    static final long CUT_MS = 3 * 60 * 60 * 1000L;
 
     public interface Host {
         void requestConnectPermissions(String[] permissions);
         void onConnectClosed();
+        /** Ouvre une page du site dans l'app (« /parametres »). */
+        void openPage(String path);
     }
 
     private final Activity activity;
@@ -274,6 +278,11 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         historySyncing = true;
         historyIo.execute(() -> {
             try {
+                // D'abord les suppressions faites sans internet.
+                for (String gone : store.pendingDeletes()) {
+                    ConnectApi.deleteConversation(gone, accountCookies);
+                    store.setPendingDelete(gone, false);
+                }
                 JSONArray server = ConnectApi.conversations(accountCookies);
                 store.saveHistory(ConnectHistory.merge(server, store.history()));
                 for (int i = 0; i < Math.min(server.length(), THREADS_KEPT); i++) {
@@ -297,6 +306,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
 
     /** Une réponse attendue revient dans la conversation à l'écran : on n'en change pas d'ici là. */
     private boolean waitingForReply() {
+        cutStale();
         JSONArray messages = store.messages();
         for (int i = 0; i < messages.length(); i++) {
             JSONObject message = messages.optJSONObject(i);
@@ -314,10 +324,17 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         render();
     }
 
+    /** Les trois barres : le même menu que dans Tamilya (historique, compte, solde). */
     @Override
     public void history() {
-        historyShown = !historyShown;
-        render();
+        screen.showMenu(store.history(), store.conversationId(), store.account());
+    }
+
+    /** Une page du site depuis le menu (Paramètres, Mes documents…) : Connect se ferme, la page s'ouvre. */
+    @Override
+    public void openPage(String path) {
+        close();
+        host.openPage(path);
     }
 
     @Override
@@ -360,7 +377,151 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         });
     }
 
+    @Override
+    public void deleteConversation(String id) {
+        confirm("Supprimer cette conversation ?", "Elle disparaît du téléphone et de ton compte.", () -> {
+            if (id.equals(store.conversationId())) {
+                cancelPending(store.messages());
+                store.switchTo("");
+            }
+            store.removeConversation(id);
+            store.setPendingDelete(id, true);
+            render();
+            String account = cookies;
+            if (account == null) return;
+            historyIo.execute(() -> {
+                try {
+                    ConnectApi.deleteConversation(id, account);
+                    store.setPendingDelete(id, false);
+                } catch (Exception ignored) {
+                    // Pas d'internet : ce sera fait au prochain passage en ligne.
+                }
+            });
+        });
+    }
+
     // --- Messages
+
+    /** Relance un message coupé : nouvelle demande, mêmes mots, l'ancien est retiré. */
+    @Override
+    public void relaunch(String id) {
+        JSONArray messages = store.messages();
+        JSONObject message = find(messages, id);
+        if (message == null || !ConnectScreen.canRelaunch(message)) return;
+        String text = message.optString("text");
+        JSONObject content = message.optJSONObject("content");
+        try {
+            if (content == null) content = new JSONObject().put("kind", "chat").put("text", text);
+            if (!content.has("conversationId") && !store.conversationId().isEmpty()) {
+                content.put("conversationId", store.conversationId());
+            }
+        } catch (JSONException e) {
+            return;
+        }
+        if (!store.ready()) {
+            screen.setNotice("Pour activer Tamilya Connect, ouvre l'app une fois avec internet, en étant connecté à ton compte.");
+            return;
+        }
+        removeMessage(id);
+        request(content, text);
+    }
+
+    @Override
+    public void deleteMessage(String id) {
+        confirm("Supprimer ce message ?", "Il disparaît de cette conversation.", () -> removeMessage(id));
+    }
+
+    private void removeMessage(String id) {
+        JSONArray messages = store.messages();
+        JSONArray kept = new JSONArray();
+        for (int i = 0; i < messages.length(); i++) {
+            JSONObject message = messages.optJSONObject(i);
+            if (message != null && !id.equals(message.optString("id"))) kept.put(message);
+        }
+        mesh.cancelOwn(id);
+        store.saveMessages(kept);
+        render();
+    }
+
+    private void cancelPending(JSONArray messages) {
+        for (int i = 0; i < messages.length(); i++) {
+            JSONObject message = messages.optJSONObject(i);
+            if (message != null && "me".equals(message.optString("from"))) mesh.cancelOwn(message.optString("id"));
+        }
+    }
+
+    /** Sans relais depuis 3 h : le message est coupé et ne part plus. */
+    private void cutStale() {
+        JSONArray messages = store.messages();
+        long now = System.currentTimeMillis();
+        boolean changed = false;
+        for (int i = 0; i < messages.length(); i++) {
+            JSONObject message = messages.optJSONObject(i);
+            if (message == null || !"me".equals(message.optString("from"))) continue;
+            String status = message.optString("status");
+            boolean waiting = "searching".equals(status) || "relayed".equals(status) || "retry".equals(status);
+            if (!waiting || now - message.optLong("at") <= CUT_MS) continue;
+            try {
+                message.put("status", "cut");
+                message.remove("note");
+                message.remove("json");
+                message.remove("replyKey");
+                changed = true;
+            } catch (JSONException ignored) {
+                continue;
+            }
+            mesh.cancelOwn(message.optString("id"));
+        }
+        if (changed) store.saveMessages(messages);
+    }
+
+    /** Petite fenêtre de confirmation, aux couleurs de Connect. */
+    private void confirm(String question, String detail, Runnable yes) {
+        int cream = Color.parseColor("#F5F0E6");
+        int muted = Color.parseColor("#8E9398");
+        int accent = Color.parseColor("#F06A9B");
+        LinearLayout card = new LinearLayout(activity);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(24), dp(24), dp(24), dp(20));
+        GradientDrawable bg = new GradientDrawable();
+        bg.setColor(Color.parseColor("#17191B"));
+        bg.setCornerRadius(dp(26));
+        card.setBackground(bg);
+
+        TextView title = new TextView(activity);
+        title.setText(question);
+        title.setTextColor(cream);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 17);
+        title.setTypeface(title.getTypeface(), Typeface.BOLD);
+        card.addView(title);
+        TextView sub = new TextView(activity);
+        sub.setText(detail);
+        sub.setTextColor(muted);
+        sub.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        sub.setPadding(0, dp(8), 0, 0);
+        card.addView(sub);
+
+        AlertDialog dialog = new AlertDialog.Builder(activity).setView(card).create();
+        if (dialog.getWindow() != null) dialog.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+        LinearLayout row = new LinearLayout(activity);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.END);
+        LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        rowParams.topMargin = dp(18);
+        card.addView(row, rowParams);
+        TextView cancel = pillButton("Annuler", muted, Color.TRANSPARENT);
+        cancel.setOnClickListener(v -> dialog.dismiss());
+        row.addView(cancel);
+        TextView ok = pillButton("Supprimer", Color.WHITE, accent);
+        LinearLayout.LayoutParams okParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        okParams.leftMargin = dp(8);
+        ok.setOnClickListener(v -> {
+            dialog.dismiss();
+            yes.run();
+        });
+        row.addView(ok, okParams);
+        dialog.show();
+    }
 
     @Override
     public void send(String text) {
@@ -510,10 +671,13 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
                 main.post(() -> {
                     JSONArray messages = store.messages();
                     try {
-                        messages.put(new JSONObject()
+                        JSONObject mine = new JSONObject()
                                 .put("id", out.id).put("from", "me").put("text", shown).put("status", "searching")
                                 .put("at", System.currentTimeMillis()).put("json", out.json)
-                                .put("replyKey", ConnectCrypto.b64(out.replyKey)));
+                                .put("replyKey", ConnectCrypto.b64(out.replyKey));
+                        // Gardé pour « Relancer » : seulement un message écrit, jamais un code de paiement.
+                        if ("chat".equals(content.optString("kind"))) mine.put("content", content);
+                        messages.put(mine);
                     } catch (JSONException e) {
                         return;
                     }
@@ -530,6 +694,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
     }
 
     private void restorePending() {
+        cutStale();
         JSONArray messages = store.messages();
         for (int i = 0; i < messages.length(); i++) {
             JSONObject message = messages.optJSONObject(i);
@@ -562,22 +727,8 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
     }
 
     private void render() {
+        cutStale();
         JSONArray messages = store.messages();
-        long now = System.currentTimeMillis();
-        for (int i = 0; i < messages.length(); i++) {
-            JSONObject message = messages.optJSONObject(i);
-            if (message == null || !"me".equals(message.optString("from"))) continue;
-            String status = message.optString("status");
-            boolean waiting = "searching".equals(status) || "relayed".equals(status) || "retry".equals(status);
-            if (waiting && now - message.optLong("at") > RelayTable.OWN_TTL_MS) {
-                try {
-                    message.put("status", "expired");
-                } catch (JSONException ignored) {
-                    // Affiché comme « cherche un relais ».
-                }
-            }
-        }
-        store.saveMessages(messages);
         if (!isOpen()) return;
         if (historyShown) screen.renderHistory(store.history(), store.conversationId());
         else screen.render(messages);
@@ -699,7 +850,11 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         render();
         if (delay <= 0) return;
         // Même id : le serveur rend la même réponse, jamais deux paiements.
-        main.postDelayed(() -> mesh.resend(id, json), delay);
+        main.postDelayed(() -> {
+            // Entre-temps coupé ou supprimé : on ne renvoie pas.
+            JSONObject still = find(store.messages(), id);
+            if (still != null && "retry".equals(still.optString("status"))) mesh.resend(id, json);
+        }, delay);
     }
 
     @Override

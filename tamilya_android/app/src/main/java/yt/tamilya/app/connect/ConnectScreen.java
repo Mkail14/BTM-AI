@@ -35,6 +35,11 @@ final class ConnectScreen extends LinearLayout {
         void history();
         void newConversation();
         void openConversation(String id);
+        void deleteConversation(String id);
+        void relaunch(String id);
+        void deleteMessage(String id);
+        /** Page du site choisie dans le menu (« /parametres »). */
+        void openPage(String path);
     }
 
     private static final int INK = Color.parseColor("#111111");
@@ -75,24 +80,19 @@ final class ConnectScreen extends LinearLayout {
         LinearLayout header = new LinearLayout(context);
         header.setOrientation(HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dp(20), dp(16), dp(8), dp(8));
+        // Comme Tamilya : les trois barres à gauche ouvrent le menu. Pas de croix : on quitte Connect par le geste.
+        header.setPadding(dp(4), dp(16), dp(8), dp(8));
+        header.addView(headerButton("☰", "Ouvrir le menu", v -> actions.history()), new LayoutParams(dp(48), dp(48)));
         LinearLayout titles = new LinearLayout(context);
         titles.setOrientation(VERTICAL);
+        titles.setPadding(dp(4), 0, 0, 0);
         TextView title = text("Tamilya Connect", 20, CREAM);
         title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
         titles.addView(title);
         peers = text("Sans internet · par les téléphones autour", 13, MUTED);
         titles.addView(peers);
         header.addView(titles, new LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        header.addView(headerButton("☰", "Historique des conversations", v -> actions.history()), new LayoutParams(dp(44), dp(48)));
         header.addView(headerButton("+", "Nouvelle conversation", v -> actions.newConversation()), new LayoutParams(dp(44), dp(48)));
-        Button close = new Button(context);
-        close.setText("✕");
-        close.setTextColor(CREAM);
-        close.setBackgroundColor(Color.TRANSPARENT);
-        close.setContentDescription("Fermer Tamilya Connect");
-        close.setOnClickListener(v -> actions.close());
-        header.addView(close, new LayoutParams(dp(48), dp(48)));
         addView(header);
 
         notice = text("", 14, ACCENT);
@@ -219,7 +219,12 @@ final class ConnectScreen extends LinearLayout {
         scroll.post(() -> scroll.scrollTo(0, 0));
     }
 
-    private View historyRow(JSONObject item, boolean current) {
+    /** Les trois barres : le menu de Tamilya, glissé depuis la gauche (ConnectMenu). */
+    void showMenu(JSONArray history, String currentId, JSONObject account) {
+        new ConnectMenu(getContext(), this, actions).show(history, currentId, account);
+    }
+
+    View historyRow(JSONObject item, boolean current) {
         boolean connect = ConnectHistory.CONNECT.equals(item.optString("source"));
         LinearLayout row = new LinearLayout(getContext());
         row.setOrientation(HORIZONTAL);
@@ -236,6 +241,14 @@ final class ConnectScreen extends LinearLayout {
         TextView tag = text(connect ? "Connect" : "Tamilya", 12, connect ? ACCENT : MUTED);
         tag.setPadding(dp(10), 0, 0, 0);
         row.addView(tag);
+        android.widget.ImageView trash = new android.widget.ImageView(getContext());
+        trash.setImageResource(yt.tamilya.app.R.drawable.ic_corbeille);
+        trash.setColorFilter(MUTED);
+        trash.setPadding(dp(12), dp(4), 0, dp(4));
+        trash.setContentDescription("Supprimer cette conversation");
+        trash.setClickable(true);
+        trash.setOnClickListener(v -> actions.deleteConversation(item.optString("id")));
+        row.addView(trash, new LayoutParams(dp(36), dp(28)));
 
         LinearLayout box = new LinearLayout(getContext());
         box.setPadding(0, dp(4), 0, dp(4));
@@ -280,12 +293,14 @@ final class ConnectScreen extends LinearLayout {
 
         if (mine) {
             String note = message.optString("note");
-            TextView status = text(note.isEmpty() ? statusLabel(message.optString("status")) : note, 12,
-                    "failed".equals(message.optString("status")) ? ACCENT : MUTED);
+            String state = message.optString("status");
+            TextView status = text(note.isEmpty() ? statusLabel(state) : note, 12,
+                    stopped(state) ? ACCENT : MUTED);
             status.setPadding(0, dp(4), dp(4), 0);
             LayoutParams statusParams = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
             statusParams.gravity = Gravity.END;
             box.addView(status, statusParams);
+            if (stopped(state)) box.addView(stoppedButtons(message), statusParams);
         }
 
         JSONArray choices = message.optJSONArray("actions");
@@ -314,8 +329,53 @@ final class ConnectScreen extends LinearLayout {
         return box;
     }
 
+    /** Message arrêté (coupé, sans réponse, refusé) : on peut le relancer ou le supprimer. */
+    static boolean stopped(String status) {
+        return "cut".equals(status) || "expired".equals(status) || "failed".equals(status);
+    }
+
+    /** Relancer : seulement un message écrit (jamais un paiement), coupé faute de réponse. */
+    static boolean canRelaunch(JSONObject message) {
+        String status = message.optString("status");
+        if (!"cut".equals(status) && !"expired".equals(status)) return false;
+        JSONObject content = message.optJSONObject("content");
+        if (content != null) return "chat".equals(content.optString("kind"));
+        return !message.optString("text").startsWith("Payer : ");
+    }
+
+    private View stoppedButtons(JSONObject message) {
+        LinearLayout row = new LinearLayout(getContext());
+        row.setOrientation(HORIZONTAL);
+        row.setPadding(0, dp(6), 0, 0);
+        String id = message.optString("id");
+        if (canRelaunch(message)) {
+            TextView relaunch = smallButton("Relancer", Color.WHITE, ACCENT);
+            relaunch.setContentDescription("Relancer la recherche de relais");
+            relaunch.setOnClickListener(v -> actions.relaunch(id));
+            row.addView(relaunch);
+        }
+        TextView delete = smallButton("Supprimer", CREAM, SURFACE);
+        delete.setContentDescription("Supprimer ce message");
+        delete.setOnClickListener(v -> actions.deleteMessage(id));
+        LayoutParams params = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.leftMargin = row.getChildCount() > 0 ? dp(8) : 0;
+        row.addView(delete, params);
+        return row;
+    }
+
+    private TextView smallButton(String label, int textColor, int fill) {
+        TextView button = text(label, 14, textColor);
+        button.setTypeface(button.getTypeface(), android.graphics.Typeface.BOLD);
+        button.setGravity(Gravity.CENTER);
+        button.setPadding(dp(16), dp(9), dp(16), dp(9));
+        button.setBackground(round(fill, 18));
+        button.setClickable(true);
+        return button;
+    }
+
     static String statusLabel(String status) {
         switch (status) {
+            case "cut": return "Aucun relais trouvé en 3 h : message coupé";
             case "relayed": return "Relayé";
             case "answered": return "Répondu";
             case "expired": return "Pas de réponse : réessaie plus tard";
