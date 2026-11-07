@@ -94,6 +94,11 @@ export const RATE_LIMIT_POLICIES = {
   // Chansons (Lyria) : chaque appel coûte, on borne les essais.
   // Chaque compte : 3 chansons par jour (décision de l'utilisateur, 2026-11-08). Admins : de quoi essayer.
   music: [{ name: "music-day", limit: 3, windowSeconds: 86_400 }],
+  // Lecture en 3D (admins pour l'essai) : une page préparée par Gemini à partir d'une photo.
+  reading: [
+    { name: "reading-hour", limit: 20, windowSeconds: 3_600 },
+    { name: "reading-day", limit: 80, windowSeconds: 86_400 },
+  ],
   musicAdmin: [
     { name: "music-admin-hour", limit: 20, windowSeconds: 3_600 },
     { name: "music-admin-day", limit: 60, windowSeconds: 86_400 },

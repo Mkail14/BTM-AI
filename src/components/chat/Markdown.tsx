@@ -9,6 +9,7 @@ import { BARGE_BLOCK } from "@/lib/barge/intent";
 import { BTM_DEVIS_BLOCK } from "@/lib/btm/intent";
 import { CYCLONE_BLOCK } from "@/lib/cyclone/intent";
 import { SONG_BLOCK } from "@/lib/music/intent";
+import { READING_BLOCK } from "@/lib/lecture/intent";
 import { GROUP_BLOCK } from "@/lib/food/group-block";
 import { TRIP_BLOCK } from "@/lib/trip/intent";
 import { COMBINED_BLOCK } from "@/lib/voice-live/combined";
@@ -28,6 +29,7 @@ const CodeExamSlots = dynamic(() => import("./CodeExamSlots").then((m) => m.Code
 const FoodOrder = dynamic(() => import("./FoodOrder").then((m) => m.FoodOrder));
 const TripCard = dynamic(() => import("./TripCard").then((m) => m.TripCard));
 const SongCard = dynamic(() => import("./SongCard").then((m) => m.SongCard));
+const ReadingCard = dynamic(() => import("./ReadingCard").then((m) => m.ReadingCard));
 
 /** Texte brut d'un contenu Markdown rendu (le mot entre [[ ]]). */
 function textOf(node: ReactNode): string {
@@ -107,6 +109,8 @@ const components: Components = {
     // Bloc ```chanson``` : paroles écrites par Tamilya, chantées avec des instruments (Lyria) ; le globe chante.
     // Sans clé : la carte doit garder son état pendant que le bloc s'écrit.
     if (code === `language-${SONG_BLOCK}`) return <SongCard spec={textOf(children)} />;
+    // Bloc ```lecture-3d``` : page de livre prise en photo, lue avec des voix et des bruits en 3D.
+    if (code === `language-${READING_BLOCK}`) return <ReadingCard />;
     // Bloc ```tableau-combine``` : plusieurs services en un tableau, créé par Tamilya sur demande.
     if (code === `language-${COMBINED_BLOCK}`) {
       const block = textOf(children).trim();

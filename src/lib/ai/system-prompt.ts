@@ -4,6 +4,7 @@ import { VOICE_TONE } from "./voice-tone";
 import { CODE_EXAM_OFFICES } from "@/lib/code-exam/offices";
 import { FOOD_CATALOG } from "@/lib/food/catalog";
 import { tripSpec, type TripSpec } from "@/lib/trip/intent";
+import { READING_BLOCK } from "@/lib/lecture/intent";
 import type { ValidatedExample } from "@/lib/language/types";
 import { mayotteClock } from "./clock";
 import type { KnowledgeEntry } from "./knowledge";
@@ -107,6 +108,8 @@ export type PromptContext = {
   cyclone?: boolean;
   /** Ce message demande à Tamilya de chanter (detectSong) : elle écrit une chanson, chantée par la carte SongCard. */
   song?: boolean;
+  /** Ce message demande la lecture d'une page de livre (detectReading) : la carte ReadingCard s'ouvre. */
+  reading?: boolean;
   /** Attestation d'hébergement possible ici (conversation de BTM AI, qui affiche le bloc). */
   attestationOffer?: boolean;
   /** Ce message demande une attestation d'hébergement (detectAttestation). */
@@ -554,6 +557,16 @@ export function buildSystemPrompt(
         "```chanson\nstyle: <genre, ambiance, tempo, instruments, en quelques mots>\n[Couplet]\n<4 lignes>\n[Refrain]\n<2 à 4 lignes>\n```",
         "Les paroles sont entièrement inventées par toi, sur le sujet demandé (ou sur Mayotte et la personne si rien n'est précisé) : jamais les paroles ni l'air d'une chanson existante, même si on te le demande, même pour une chanson de manifestation ou un hymne ; dans ce cas tu le dis simplement et tu proposes la tienne dans le même esprit. Pas de nom d'artiste dans le style.",
         "Court : un couplet et un refrain, 12 lignes au plus, des phrases simples qui riment et qu'on peut reprendre. En français, sauf si la personne demande une autre langue ; en shimaoré, seulement avec des mots que tu connais vraiment.",
+      ].join("\n"),
+    );
+  }
+  // Lecture en 3D : la personne photographie une page, Tamilya la lit avec des voix et des bruits autour de la tête.
+  if (context.reading && !context.site && !context.voice) {
+    sections.push(
+      [
+        "POUR CE MESSAGE : la personne veut que tu lui lises une page de livre. Juste sous ton message, elle pourra prendre la page en photo ; ensuite tu la liras dans ses écouteurs, comme un spectacle : ta voix raconte, chaque personnage a sa voix et sa place autour de sa tête, le vent, la pluie ou les pas bougent de gauche à droite.",
+        "Réponds avec une ou deux phrases à toi, chaleureuses, sans question : invite-la à photographier la page bien à plat, à mettre ses écouteurs et à fermer les yeux. Puis ce bloc exactement, seul sur ses lignes :",
+        `\`\`\`${READING_BLOCK}\npage\n\`\`\``,
       ].join("\n"),
     );
   }
