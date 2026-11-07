@@ -162,6 +162,30 @@ describe("Lecture en 3D : texte écrit dans la conversation", () => {
     assert.ok(!readingText("lis moi ça", `${story}\n\`\`\`code\`\`\``)!.includes("```"));
   });
 
+  it("conte de Moya (2026-11-08) : chaque message lance la lecture de l'histoire collée", () => {
+    const page = `Page 1 : La nuit des grandes vagues\n${story}`;
+    const first = `Je veux que tu me lise cette page je veux vivre la page "${page}"`;
+    assert.equal(isReadingRequest(first, null), true, "« me lise cette page »");
+    assert.equal(readingText(first, null), page, "texte sans la demande ni les guillemets");
+    for (const message of ["En vocal", "Lance la lecture 3d", "avec les effets spéciaux", "lis-le à voix haute", "vas-y lis-la"]) {
+      assert.equal(isReadingRequest(message, [first]), true, message);
+      assert.equal(readingText(message, [first]), page, message);
+    }
+    assert.equal(readingText("Lance la lecture 3d", ["En vocal", first]), page, "histoire deux messages plus haut");
+    assert.equal(readingText("Lance la lecture 3d", ["En vocal", "merci", first]), null, "trop loin : photo");
+    assert.equal(isReadingRequest("En vocal", ["salut ça va ?"]), false, "rien à lire : pas de lecture");
+    assert.equal(isReadingRequest("merci pour la lecture", [first]), false, "remerciement après la lecture");
+    assert.equal(isReadingRequest("lance la lecture", [first]), true, "lance la lecture");
+    assert.equal(isReadingRequest("tu peux m'expliquer pourquoi les zébus s'échappent la nuit à Mayotte ?", [first]), false, "vraie question");
+    for (const message of ["je veux vivre la page", "fais-moi vivre cette histoire"]) assert.equal(detectReading(message), true, message);
+  });
+
+  it("ne nie jamais la lecture en 3D quand elle existe pour la personne", () => {
+    const prompt = buildSystemPrompt(DEFAULT_PERSONALITY, { readingOffer: true });
+    assert.match(prompt, /Ne dis jamais que tu ne sais pas le faire/);
+    assert.doesNotMatch(buildSystemPrompt(DEFAULT_PERSONALITY, {}), /Ne dis jamais que tu ne sais pas le faire/);
+  });
+
   it("glisse le texte dans le bloc écrit par Tamilya, ou ajoute le bloc", () => {
     const reply = "Mets ton casque et ferme les yeux.\n\n```lecture-3d\ntexte\n```";
     const filled = withReadingBlock(reply, story);

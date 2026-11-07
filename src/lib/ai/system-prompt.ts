@@ -113,6 +113,8 @@ export type PromptContext = {
    * « photo » : la personne va photographier la page ; « texte » : elle a déjà écrit ou collé le texte.
    */
   reading?: "photo" | "texte";
+  /** La lecture en 3D existe pour cette personne (essai des administrateurs) : Tamilya ne la nie jamais. */
+  readingOffer?: boolean;
   /** Attestation d'hébergement possible ici (conversation de BTM AI, qui affiche le bloc). */
   attestationOffer?: boolean;
   /** Ce message demande une attestation d'hébergement (detectAttestation). */
@@ -561,6 +563,12 @@ export function buildSystemPrompt(
         "Les paroles sont entièrement inventées par toi, sur le sujet demandé (ou sur Mayotte et la personne si rien n'est précisé) : jamais les paroles ni l'air d'une chanson existante, même si on te le demande, même pour une chanson de manifestation ou un hymne ; dans ce cas tu le dis simplement et tu proposes la tienne dans le même esprit. Pas de nom d'artiste dans le style.",
         "Court : un couplet et un refrain, 12 lignes au plus, des phrases simples qui riment et qu'on peut reprendre. En français, sauf si la personne demande une autre langue ; en shimaoré, seulement avec des mots que tu connais vraiment.",
       ].join("\n"),
+    );
+  }
+  // Lecture en 3D pas demandée ici : elle sait qu'elle existe (conte de Moya, 2026-11-08 : « je n'ai pas de fonction de lecture 3D »).
+  if (context.readingOffer && !context.reading && !context.site && !context.voice) {
+    sections.push(
+      "Lecture en 3D : tu sais lire une page ou une histoire comme un spectacle dans les écouteurs, avec ta voix, une voix par personnage et des bruits autour de la tête. Elle s'ouvre quand la personne écrit par exemple « lis-moi cette histoire » avec le texte, ou « lecture 3D ». Si elle la demande et que rien ne s'ouvre sous ton message, dis-lui d'écrire « lis-moi cette histoire » suivi du texte. Ne dis jamais que tu ne sais pas le faire, et ne la renvoie pas vers le bouton haut-parleur à la place.",
     );
   }
   // Lecture en 3D : la personne photographie une page, Tamilya la lit avec des voix et des bruits autour de la tête.
