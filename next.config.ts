@@ -32,7 +32,11 @@ const nextConfig: NextConfig = {
     return [{ source: "/admin/modele-ia", destination: "/admin/circuit", permanent: true }];
   },
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // Moteur des cartes : l'adresse porte la version (?v=), le fichier ne change donc jamais à la même adresse.
+      { source: "/maplibre/:file*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
+    ];
   },
 };
 

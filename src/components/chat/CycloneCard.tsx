@@ -5,6 +5,7 @@ import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { Cyclone, CyclonesResponse } from "@/lib/cyclone/intent";
+import { loadMapLibre } from "@/lib/geo/maplibre";
 
 // Carte (MapLibre et sa feuille de style) : chargée seulement quand le panneau s'ouvre.
 const CycloneMap = dynamic(() => import("./CycloneMap").then((m) => m.CycloneMap), { ssr: false });
@@ -49,6 +50,9 @@ export function CycloneCard() {
 
   useEffect(() => {
     let alive = true;
+    // En même temps que les données : le moteur de la carte et son dessin (déjà dans l'app Android).
+    loadMapLibre().catch(() => {});
+    import("./CycloneMap").catch(() => {});
     fetch("/api/cyclones")
       .then(async (res) => ((await res.json().catch(() => null)) as CyclonesResponse | null) ?? { error: "Carte des cyclones indisponible." })
       .then((body) => {
@@ -94,8 +98,22 @@ export function CycloneCard() {
 }
 
 /** Panneau des cyclones : la carte en haut, l'essentiel en bas, sans défilement. */
-function CyclonePanel({ cyclones, updatedAt, onClose }: { cyclones: Cyclone[]; updatedAt: string; onClose: () => void }) {
-  const [focus, setFocus] = useState<string | null>(cyclones[0]?.id ?? null);
+function CyclonePanel({ cyclones: nearby, updatedAt, onClose }: { cyclones: Cyclone[]; updatedAt: string; onClose: () => void }) {
+  // Le reste du monde : chargé seulement si la personne le demande.
+  const [world, setWorld] = useState<{ status: "idle" | "loading" | "error" } | { status: "ok"; cyclones: Cyclone[] }>({ status: "idle" });
+  const cyclones = world.status === "ok" ? world.cyclones : nearby;
+  const [focus, setFocus] = useState<string | null>(nearby[0]?.id ?? null);
+  const showWorld = () => {
+    setWorld({ status: "loading" });
+    fetch("/api/cyclones?zone=monde")
+      .then(async (res) => (await res.json()) as CyclonesResponse)
+      .then((body) => {
+        if (!("cyclones" in body)) return setWorld({ status: "error" });
+        setWorld({ status: "ok", cyclones: body.cyclones });
+        setFocus(null);
+      })
+      .catch(() => setWorld({ status: "error" }));
+  };
   const [closing, setClosing] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
   const close = () => (window.matchMedia("(prefers-reduced-motion: reduce)").matches ? onClose() : setClosing(true));
@@ -132,7 +150,7 @@ function CyclonePanel({ cyclones, updatedAt, onClose }: { cyclones: Cyclone[]; u
         {/* Carte de l'océan Indien : toute la place libre. */}
         <div className="relative min-h-[8rem] flex-1">
           <div className="absolute inset-0">
-            <CycloneMap cyclones={cyclones} focus={focus} onPick={setFocus} />
+            <CycloneMap key={world.status === "ok" ? "monde" : "ocean-indien"} cyclones={cyclones} focus={focus} onPick={setFocus} />
           </div>
           <div className="absolute inset-x-0 top-0 z-10 flex items-center gap-2 p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
             <button
@@ -208,6 +226,16 @@ function CyclonePanel({ cyclones, updatedAt, onClose }: { cyclones: Cyclone[]; u
               ) : null}
             </span>
           </p>
+          {world.status !== "ok" ? (
+            <button
+              type="button"
+              onClick={showWorld}
+              disabled={world.status === "loading"}
+              className="w-full rounded-full border border-border px-3 py-2.5 text-sm font-semibold transition hover:bg-bg-subtle disabled:opacity-60"
+            >
+              {world.status === "loading" ? "Je regarde le reste du monde…" : world.status === "error" ? "Réessayer : voir les autres" : "Voir les autres cyclones du monde"}
+            </button>
+          ) : null}
         </div>
       </div>
     </div>,

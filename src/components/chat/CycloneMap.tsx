@@ -3,6 +3,7 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import type { Map as MapLibreMap, Marker } from "maplibre-gl";
+import { loadMapLibre } from "@/lib/geo/maplibre";
 import { MAYOTTE, type Cyclone } from "@/lib/cyclone/intent";
 
 /**
@@ -91,9 +92,8 @@ export function CycloneMap({ cyclones, focus, onPick }: Props) {
     let cancelled = false;
     let created: MapLibreMap | null = null;
     (async () => {
-      const maplibre = await import("maplibre-gl");
+      const maplibre = await loadMapLibre();
       if (cancelled || !frame.current) return;
-      maplibre.setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
       const dark = document.documentElement.dataset.theme === "dark";
       created = new maplibre.Map({
         container: frame.current,

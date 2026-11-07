@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import { MAYOTTE, type Cyclone, type CyclonePoint } from "./intent";
 
 /**
@@ -6,14 +7,25 @@ import { MAYOTTE, type Cyclone, type CyclonePoint } from "./intent";
  * (service gratuit de l'ONU et de l'Union européenne, sans clé). Pour notre
  * bassin, GDACS reprend les données de Météo-France La Réunion (« RSMC ») :
  * les systèmes numérotés mais pas encore nommés (en formation) y sont aussi.
- * Gardés 15 minutes.
+ *
+ * Rapide : on ne demande que les cyclones des 10 derniers jours (10 Ko au lieu
+ * de 136 Ko pour tous les risques du monde), et le résultat allégé (≈ 5 Ko au
+ * lieu de 200 Ko de géométrie) est gardé 15 minutes par Next, partagé entre
+ * toutes les personnes. Passé ce délai, la dernière version est encore
+ * servie tout de suite et la nouvelle est lue derrière : seule la toute
+ * première demande attend GDACS. Rien ne tourne quand personne ne demande.
  */
 
-const EVENTS = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/EVENTS4APP";
-const CACHE_MS = 15 * 60_000;
-const TIMEOUT_MS = 6_000;
+const SEARCH = "https://www.gdacs.org/gdacsapi/api/events/geteventlist/SEARCH";
+const CACHE_S = 15 * 60;
+const CACHE_MS = CACHE_S * 1000;
+/** La géométrie du trajet met souvent plus de 10 s à venir de GDACS. */
+const TIMEOUT_MS = 20_000;
 
-let cache: { at: number; cyclones: Cyclone[] } | null = null;
+/** Zone voulue : l'océan Indien autour de Mayotte (par défaut), ou le monde entier (sur demande). */
+export type CycloneZone = "ocean-indien" | "monde";
+
+const memory = new Map<CycloneZone, { at: number; cyclones: Cyclone[] }>();
 
 type Feature = {
   geometry: { type: string; coordinates: unknown };
@@ -22,7 +34,7 @@ type Feature = {
 type Collection = { features?: Feature[] };
 
 const get = async (url: string) => {
-  const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS), cache: "no-store", headers: { Accept: "application/json" } });
+  const res = await fetch(url, { signal: AbortSignal.timeout(TIMEOUT_MS), headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`GDACS ${res.status}`);
   return (await res.json()) as Collection;
 };
@@ -67,6 +79,13 @@ function timeOf(key: string, analysis: Date): Date | null {
   return new Date(Date.UTC(year, Number(m[1]) - 1, Number(m[2]), Number(m[3]), Number(m[4])));
 }
 
+/** Zone d'incertitude allégée : un point sur trois, au centième de degré (≈ 1 km) près. */
+function lighten(ring: number[][]): [number, number][] {
+  const step = ring.length > 90 ? 3 : 1;
+  const kept = ring.filter((_, i) => i % step === 0 || i === ring.length - 1);
+  return kept.map(([lng, lat]) => [Math.round(lng * 100) / 100, Math.round(lat * 100) / 100]);
+}
+
 /** Centre d'un petit cercle (GDACS dessine chaque point du trajet comme un rond). */
 function centerOf(ring: number[][]): { lat: number; lng: number } {
   const pts = ring.slice(0, -1).length ? ring.slice(0, -1) : ring;
@@ -96,7 +115,7 @@ async function readCyclone(event: Feature): Promise<Cyclone | null> {
         if (!at || !ring?.length) continue;
         track.push({ ...centerOf(ring), at: at.toISOString(), forecast: at.getTime() > analysis.getTime() });
       } else if (cls === "Poly_Cones" && f.geometry.type === "Polygon") {
-        cone = (f.geometry.coordinates as number[][][]).map((ring) => ring.map(([lng, lat]) => [lng, lat] as [number, number]));
+        cone = (f.geometry.coordinates as number[][][]).map(lighten);
       }
     }
     track = track.sort((a, b) => a.at.localeCompare(b.at));
@@ -124,26 +143,38 @@ async function readCyclone(event: Feature): Promise<Cyclone | null> {
   };
 }
 
-/** Cyclones en cours autour de Mayotte (sud-ouest de l'océan Indien), du plus proche au plus loin. */
-export async function getCyclones(): Promise<Cyclone[]> {
-  if (cache && Date.now() - cache.at < CACHE_MS) return cache.cyclones;
+/** Lecture chez GDACS (lente), sans mémoire. */
+async function readCyclones(zone: CycloneZone): Promise<Cyclone[]> {
+  const today = new Date();
+  const from = new Date(today.getTime() - 10 * 86_400_000);
+  const ymd = (d: Date) => d.toISOString().slice(0, 10);
+  const list = await get(`${SEARCH}?eventlist=TC&alertlevel=Green;Orange;Red&fromdate=${ymd(from)}&todate=${ymd(today)}`);
+  const events = (list.features ?? []).filter(
+    (f) =>
+      f.properties.eventtype === "TC" &&
+      String(f.properties.iscurrent) === "true" &&
+      f.geometry.type === "Point" &&
+      (zone === "monde" || inBasin(f.geometry.coordinates as number[])),
+  );
+  return (await Promise.all(events.slice(0, zone === "monde" ? 12 : 6).map((e) => readCyclone(e).catch(() => null))))
+    .filter((c): c is Cyclone => c !== null)
+    .sort((a, b) => a.distanceKm - b.distanceKm);
+}
+
+/** Gardée 15 minutes et partagée par tout le site (cache de données de Next). */
+const cachedCyclones = unstable_cache(readCyclones, ["cyclones-gdacs-v2"], { revalidate: CACHE_S });
+
+/** Cyclones en cours (océan Indien par défaut, ou le monde), du plus proche de Mayotte au plus loin. */
+export async function getCyclones(zone: CycloneZone = "ocean-indien"): Promise<Cyclone[]> {
+  const kept = memory.get(zone);
+  if (kept && Date.now() - kept.at < CACHE_MS) return kept.cyclones;
   try {
-    const list = await get(EVENTS);
-    const events = (list.features ?? []).filter(
-      (f) =>
-        f.properties.eventtype === "TC" &&
-        String(f.properties.iscurrent) === "true" &&
-        f.geometry.type === "Point" &&
-        inBasin(f.geometry.coordinates as number[]),
-    );
-    const cyclones = (await Promise.all(events.slice(0, 6).map((e) => readCyclone(e).catch(() => null))))
-      .filter((c): c is Cyclone => c !== null)
-      .sort((a, b) => a.distanceKm - b.distanceKm);
-    cache = { at: Date.now(), cyclones };
+    const cyclones = await cachedCyclones(zone);
+    memory.set(zone, { at: Date.now(), cyclones });
     return cyclones;
   } catch (error) {
     // GDACS ne répond pas : on garde la dernière lecture si elle existe.
-    if (cache) return cache.cyclones;
+    if (kept) return kept.cyclones;
     throw error;
   }
 }

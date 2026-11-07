@@ -2,6 +2,7 @@
 
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
+import { loadMapLibre } from "@/lib/geo/maplibre";
 import type { MapMouseEvent, Map as MapLibreMap, Marker } from "maplibre-gl";
 import type { Point } from "@/lib/food/route";
 
@@ -97,10 +98,8 @@ export function CourierMap({ from, to, route, trail, courier, moving, kind = "de
     let cancelled = false;
     let created: MapLibreMap | null = null;
     (async () => {
-      const maplibre = await import("maplibre-gl");
+      const maplibre = await loadMapLibre();
       if (cancelled || !frame.current) return;
-      // Le travail lourd (tuiles) se fait dans un worker, servi par le site lui-même.
-      maplibre.setWorkerUrl("/maplibre/maplibre-gl-worker.mjs");
       const dark = document.documentElement.dataset.theme === "dark";
       const { from: a, to: b } = latest.current;
       created = new maplibre.Map({

@@ -43,3 +43,7 @@ next-env.d.ts
 
 # moteur Silero VAD, copié par scripts/copy-vad.mjs
 /public/vad/ort-wasm-*
+
+# moteur des cartes, copié par scripts/copy-vad.mjs
+/public/maplibre/maplibre-gl.mjs
+/public/maplibre/maplibre-gl-worker.mjs
