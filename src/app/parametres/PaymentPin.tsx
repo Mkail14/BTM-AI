@@ -141,7 +141,7 @@ export function PaymentPin() {
               ) : null}
             </div>
             {mode === "set" ? (
-              <p className="text-xs text-fg-muted">Évite ta date de naissance. Un code trop simple (1111, 1234…) est refusé. Après 5 codes faux, le paiement à la voix est bloqué 15 minutes.</p>
+              <p className="text-xs text-fg-muted">Évite ta date de naissance. Un code trop simple (1111, 1234…) est refusé. Après 5 codes faux, le code est bloqué 15 minutes, puis 1 heure, puis 24 heures. Un code juste remet tout à zéro.</p>
             ) : (
               <p className="text-xs text-fg-muted">Sans code, Tamilya ne pourra plus payer à ta place.</p>
             )}

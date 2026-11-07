@@ -85,14 +85,17 @@ const MIN = 60_000;
 const pinRow = (extra: Partial<Row> = {}): Row => ({ user_id: USER, pin_hash: hashPin(GOOD, SALT), salt: SALT, failed_attempts: 0, locked_until: null, ...extra });
 
 describe("blocage progressif du code de paiement", () => {
-  it("paliers : 15 min à 5 erreurs, 1 h à 10, 24 h à 15 et après chaque erreur", () => {
+  it("paliers : 15 min à 5 erreurs, 1 h à 10, 24 h à 15 puis toutes les 5 erreurs", () => {
     assert.equal(pinLockMs(4), null);
     assert.equal(pinLockMs(5), 15 * MIN);
     assert.equal(pinLockMs(7), null);
     assert.equal(pinLockMs(10), 60 * MIN);
     assert.equal(pinLockMs(12), null);
     assert.equal(pinLockMs(15), 24 * 60 * MIN);
-    assert.equal(pinLockMs(16), 24 * 60 * MIN);
+    assert.equal(pinLockMs(16), null);
+    assert.equal(pinLockMs(19), null);
+    assert.equal(pinLockMs(20), 24 * 60 * MIN);
+    assert.equal(pinLockMs(25), 24 * 60 * MIN);
     assert.deepEqual([1, 4, 5, 6, 9, 11].map(pinTriesLeft), [4, 1, 5, 4, 1, 4]);
   });
 
@@ -119,13 +122,20 @@ describe("blocage progressif du code de paiement", () => {
     const tenth = await verifyPin(admin, USER, BAD, T0);
     assert.equal(!tenth.ok && tenth.reason, "locked");
     assert.equal(Date.parse(state.row!.locked_until!), T0 + 60 * MIN);
-    // Bien plus tard, au-delà de 15 erreurs : 24 h à chaque erreur.
+    // Bien plus tard, au-delà de 15 erreurs : de nouveau 5 essais, puis 24 h (jamais bloqué à chaque erreur).
     state.row!.failed_attempts = 15;
     state.row!.locked_until = new Date(T0 - 1).toISOString();
     const next = await verifyPin(admin, USER, BAD, T0);
-    assert.equal(!next.ok && next.reason, "locked");
+    assert.deepEqual(next, { ok: false, reason: "wrong", left: 4 });
     assert.equal(state.row!.failed_attempts, 16);
+    state.row!.failed_attempts = 19;
+    const twentieth = await verifyPin(admin, USER, BAD, T0);
+    assert.equal(!twentieth.ok && twentieth.reason, "locked");
     assert.equal(Date.parse(state.row!.locked_until!), T0 + 24 * 60 * MIN);
+    // Le code juste, même tard, remet tout à zéro.
+    state.row!.locked_until = new Date(T0 - 1).toISOString();
+    assert.deepEqual(await verifyPin(admin, USER, GOOD, T0), { ok: true });
+    assert.equal(state.row!.failed_attempts, 0);
   });
 
   it("un code juste remet le compteur à zéro", async () => {

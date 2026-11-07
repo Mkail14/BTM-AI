@@ -17,9 +17,12 @@ const PIN_WRITE_TRIES = 3;
 
 /**
  * Blocage progressif : le compteur ne revient à zéro qu'après un code juste.
- * 5 erreurs : 15 min ; 10 erreurs : 1 h ; 15 erreurs et chaque erreur ensuite : 24 h.
+ * 5 erreurs : 15 min ; 10 erreurs : 1 h ; 15 erreurs, puis toutes les 5 erreurs : 24 h.
+ * Jamais un blocage à chaque erreur : quelqu'un qui a oublié son code garde 5 essais par jour
+ * (deviner un code sur 10 000 prendrait alors des années), au lieu d'être bloqué sans fin.
  */
 export function pinLockMs(failures: number): number | null {
+  if (failures % PIN_MAX_FAILURES !== 0) return null;
   if (failures >= 3 * PIN_MAX_FAILURES) return DAY_MS;
   if (failures === 2 * PIN_MAX_FAILURES) return HOUR_MS;
   if (failures === PIN_MAX_FAILURES) return PIN_LOCK_MS;
