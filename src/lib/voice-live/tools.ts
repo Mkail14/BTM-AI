@@ -107,7 +107,7 @@ export function liveToolDeclarations(access: LiveAccess) {
     {
       name: "bruit_ambiant",
       description:
-        "Écoute le bruit autour de la personne (pas sa voix) : dit s'il y a du bruit, s'il est fort, et ce que c'est (ventilateur, circulation, travaux, cris, pluie, musique…). À utiliser dès qu'elle demande si tu entends du bruit, ce qu'il y a derrière elle ou autour d'elle, ou si elle est dans un endroit bruyant. Tu l'entends quand même bien : ce bruit est filtré de sa voix.",
+        "Écoute le bruit autour de la personne (pas sa voix) : dit s'il y a du bruit, s'il est fort, et ce que c'est (ventilateur, circulation, travaux, cris, pluie, musique…). Seulement quand elle te le demande clairement (si tu entends du bruit, ce qu'il y a derrière elle ou autour d'elle, si l'endroit est bruyant). Jamais de toi-même, jamais parce que tu as mal entendu ou mal compris : dans ce cas, demande-lui simplement de répéter. Tu l'entends quand même bien : ce bruit est filtré de sa voix.",
       parameters: { type: "OBJECT", properties: {} },
     },
     {

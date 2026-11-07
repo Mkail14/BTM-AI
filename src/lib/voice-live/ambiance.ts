@@ -7,10 +7,19 @@
  * personne ni Tamilya) ; à la demande, ce son part à Gemini qui le reconnaît.
  */
 
-/** 5 s de bruit au plus (paquets de 100 ms). */
+/** 5 s de bruit au plus (paquets de 100 ms) pour mesurer le niveau. */
 const KEEP_PACKETS = 50;
 /** Moins d'1 s de bruit : trop court pour reconnaître quoi que ce soit. */
 const MIN_PACKETS = 10;
+/**
+ * Envoyé à Gemini : les 2,5 dernières secondes à 8 kHz (≈ 40 Ko au lieu de
+ * 160). Le 2026-11-07, 5 s à 16 kHz ne remontaient pas en 40 s depuis Mayotte
+ * pendant l'appel (le micro occupe déjà l'envoi) : Tamilya restait muette.
+ */
+const SEND_PACKETS = 25;
+const SEND_RATE = 8000;
+/** Au-delà, Tamilya répond avec le seul niveau mesuré : elle ne reste jamais muette à attendre. */
+const ANSWER_MS = 3000;
 
 const rms = (samples: Float32Array) => {
   let sum = 0;
@@ -39,10 +48,12 @@ export function createAmbiance() {
       if (packets.length < MIN_PACKETS) return null;
       return packets.reduce((sum, packet) => sum + rms(packet), 0) / packets.length;
     },
-    /** Le bruit gardé, en WAV 16 kHz mono (pour Gemini), ou null s'il n'y en a pas assez. */
+    /** Les dernières secondes de bruit, en WAV 8 kHz mono (pour Gemini), ou null s'il n'y en a pas assez. */
     wav(): Uint8Array | null {
       if (packets.length < MIN_PACKETS) return null;
-      const length = packets.reduce((sum, packet) => sum + packet.length, 0);
+      // 16 kHz → 8 kHz : moyenne de deux échantillons (assez pour reconnaître un bruit).
+      const recent = packets.slice(-SEND_PACKETS).map((packet) => Float32Array.from({ length: packet.length >> 1 }, (_, i) => (packet[2 * i] + packet[2 * i + 1]) / 2));
+      const length = recent.reduce((sum, packet) => sum + packet.length, 0);
       const out = new Uint8Array(44 + length * 2);
       const view = new DataView(out.buffer);
       const ascii = (at: number, text: string) => [...text].forEach((c, i) => view.setUint8(at + i, c.charCodeAt(0)));
@@ -52,14 +63,14 @@ export function createAmbiance() {
       view.setUint32(16, 16, true);
       view.setUint16(20, 1, true);
       view.setUint16(22, 1, true);
-      view.setUint32(24, 16000, true);
-      view.setUint32(28, 32000, true);
+      view.setUint32(24, SEND_RATE, true);
+      view.setUint32(28, SEND_RATE * 2, true);
       view.setUint16(32, 2, true);
       view.setUint16(34, 16, true);
       ascii(36, "data");
       view.setUint32(40, length * 2, true);
       let at = 44;
-      for (const packet of packets)
+      for (const packet of recent)
         for (const value of packet) {
           view.setInt16(at, Math.max(-32768, Math.min(32767, Math.round(value * 32767))), true);
           at += 2;
@@ -78,6 +89,11 @@ export async function describeAmbiance(ambiance: Ambiance, signal: AbortSignal):
   if (level === null || !wav) return "Tu n'as pas encore assez entendu le fond sonore (il faut au moins une seconde sans que personne parle) : dis-le simplement.";
   const amount = noiseWords(level);
   let heard = "";
+  // Annulé par Gemini, ou trop long : on arrête d'attendre (le niveau suffit pour répondre).
+  const stop = new AbortController();
+  const timer = setTimeout(() => stop.abort(), ANSWER_MS);
+  const cancel = () => stop.abort();
+  signal.addEventListener("abort", cancel);
   try {
     let binary = "";
     for (let i = 0; i < wav.length; i += 0x8000) binary += String.fromCharCode(...wav.subarray(i, i + 0x8000));
@@ -85,11 +101,15 @@ export async function describeAmbiance(ambiance: Ambiance, signal: AbortSignal):
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ audio: btoa(binary) }),
-      signal,
+      signal: stop.signal,
     });
     const data = (await response.json().catch(() => null)) as { heard?: string } | null;
     heard = data?.heard ?? "";
-  } catch {}
+  } catch {
+  } finally {
+    clearTimeout(timer);
+    signal.removeEventListener("abort", cancel);
+  }
   return [
     `Niveau du bruit autour de la personne : ${amount}.`,
     heard ? `Ce qu'on y reconnaît : ${heard}` : "Impossible de reconnaître la nature du bruit pour l'instant.",
