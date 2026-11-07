@@ -1,5 +1,6 @@
 "use client";
 
+import { markReadingAutoStart, READING_DONE_EVENT } from "@/lib/lecture/auto";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { boardCount, CANCELLED, describeBoard, scrollConversation, touchBoard, waitForBoard, writeBoard } from "@/lib/voice-live/board";
 import { buildSnapLexicon, snapToLexicon, type SnapLexicon } from "@/lib/language/snap-lexicon";
@@ -63,6 +64,9 @@ export function useLiveVoiceConversation(
   /** Message écrit qui attend le choix du mode, puis ce qu'il faut faire s'il reste sans réponse vocale. */
   const typed = useRef<string | null>(null);
   const unanswered = useRef<(() => void) | null>(null);
+  /** L'appel a été mis en pause pour une lecture en 3D : il reprend quand elle est finie. */
+  const pausedForReading = useRef(false);
+  const stopRef = useRef<() => void>(() => {});
   const turnRef = useRef(onTurn);
   useEffect(() => {
     turnRef.current = onTurn;
@@ -178,13 +182,36 @@ export function useLiveVoiceConversation(
         const response = await fetch("/api/voice/live/tool", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name, args }),
+          body: JSON.stringify({ name, args, conversationId: currentConversation.current ?? null }),
           signal,
         });
-        const data = (await response.json().catch(() => null)) as { block?: string; time?: string; info?: string; trip?: string | null; error?: string } | null;
+        const data = (await response.json().catch(() => null)) as {
+          block?: string;
+          time?: string;
+          info?: string;
+          trip?: string | null;
+          reading?: string;
+          error?: string;
+        } | null;
         // Annulée pendant le chargement : pas de nouveau tableau, la personne a changé d'avis.
         if (signal.aborted) return CANCELLED;
         if (data?.time) return data.time;
+        // Lecture en 3D : la carte s'ajoute à la conversation et démarre seule ; l'appel se met en
+        // pause pendant la lecture (deux voix en même temps dans les écouteurs) et reprend à la fin.
+        if (data?.reading) {
+          const spec = data.reading.replace(/^```[^\n]*\n/, "").replace(/\n?```$/, "");
+          markReadingAutoStart(spec);
+          setStage(false);
+          turnRef.current(hidePin(userText.current.trim(), "")[0], data.reading, true);
+          userText.current = "";
+          setBoard(true);
+          requestAnimationFrame(() => scrollConversation("bas"));
+          if (spec.startsWith("texte")) {
+            pausedForReading.current = true;
+            window.setTimeout(() => stopRef.current(), 300);
+          }
+          return data.info ?? "La lecture démarre : ne dis rien.";
+        }
         // Carte du trajet : comme les vidéos, elle s'ajoute à la conversation (et s'ouvre en grand d'elle-même).
         if (data?.trip) {
           setStage(false);
@@ -290,11 +317,26 @@ export function useLiveVoiceConversation(
 
   const leaveStage = useCallback(() => setStage(false), []);
 
+  useEffect(() => {
+    stopRef.current = stop;
+  });
+
   const start = useCallback(() => {
     const mode = readTalkMode();
     if (mode) open(mode);
     else setChoosing(true);
   }, [open]);
+
+  // Lecture en 3D finie (ou arrêtée) : l'appel mis en pause reprend tout seul.
+  useEffect(() => {
+    const resume = () => {
+      if (!pausedForReading.current) return;
+      pausedForReading.current = false;
+      start();
+    };
+    window.addEventListener(READING_DONE_EVENT, resume);
+    return () => window.removeEventListener(READING_DONE_EVENT, resume);
+  }, [start]);
 
   /** Message écrit qui demande sa voix (« chante ») : à appeler à l'envoi, le toucher ouvre le micro sur iPhone. */
   const startWith = useCallback(

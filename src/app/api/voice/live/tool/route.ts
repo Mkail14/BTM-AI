@@ -6,6 +6,8 @@ import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { canBuyBargeTickets } from "@/lib/barge/access";
 import { cycloneBlock } from "@/lib/cyclone/intent";
 import { canOrderFood } from "@/lib/food/access";
+import { getRecentMessages } from "@/lib/conversations/repository";
+import { readingBlock, readingText } from "@/lib/lecture/intent";
 import { liveContextFor } from "@/lib/live";
 import { getProfileContact } from "@/lib/profile-contact";
 import { tripBlock } from "@/lib/trip/intent";
@@ -27,6 +29,8 @@ const CYCLONE_INFO_WAIT_MS = 8_000;
 const bodySchema = z.object({
   name: z.string().max(40),
   args: z.record(z.string(), z.unknown()).default({}),
+  /** Conversation en cours : la lecture en 3D y cherche l'histoire collée par la personne. */
+  conversationId: z.uuid().nullish(),
 });
 
 export async function POST(request: NextRequest) {
@@ -66,6 +70,19 @@ export async function POST(request: NextRequest) {
             ? "Le calcul du trajet n'a pas marché : dis-lui de réessayer dans un instant."
             : `${describeTrip(plan)} Dis seulement le temps en voiture et, si c'est utile, à pied, en une phrase.`;
     return NextResponse.json({ trip: plan === "no_destination" ? null : tripBlock({ to, from }).trim(), info: said });
+  }
+  // Lecture en 3D : l'histoire écrite ou collée plus haut dans la conversation est lue avec les voix
+  // et les bruits ; l'appel se met en pause pendant la lecture (useLiveVoiceConversation).
+  if (parsed.data.name === "lecture_3d") {
+    const recent = parsed.data.conversationId && supabase ? await getRecentMessages(supabase, parsed.data.conversationId, 8).catch(() => []) : [];
+    const asked = recent.filter((m) => m.role === "user").map((m) => m.content).reverse();
+    const story = asked.length ? readingText(asked[0], asked.slice(1)) : null;
+    return NextResponse.json({
+      reading: readingBlock(story).trim(),
+      info: story
+        ? "La lecture en 3D démarre à l'écran et dans ses écouteurs : ne dis rien, l'appel se met en pause et reprendra après."
+        : "Il n'y a pas d'histoire écrite dans la conversation : la page s'ouvre pour qu'elle la prenne en photo. Dis-lui en une phrase de prendre la page en photo, de mettre ses écouteurs et de fermer les yeux.",
+    });
   }
   // Carte des cyclones : elle s'ajoute à la conversation, et Tamilya dit l'essentiel à voix haute.
   if (parsed.data.name === "carte_cyclones") {

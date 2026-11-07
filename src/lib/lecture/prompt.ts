@@ -100,4 +100,6 @@ export const SCRIPT_SCHEMA = {
     },
   },
   required: ["lisible", "titre", "lieu", "intro", "decor", "personnages", "repliques"],
+  // Ordre imposé : tout le début d'abord, les répliques en dernier (lues au fil de l'eau, stream.ts).
+  propertyOrdering: ["lisible", "raison", "titre", "lieu", "intro", "decor", "personnages", "repliques"],
 } as const;

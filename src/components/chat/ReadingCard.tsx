@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { BookOpen, Camera, Headphones, Pause, Play, RotateCcw, Square } from "lucide-react";
 import type { GeminiVoiceId } from "@/lib/ai/voice/voices";
 import { parseReadingBlock } from "@/lib/lecture/intent";
-import type { SceneScript } from "@/lib/lecture/script";
+import { announceReadingDone, takeReadingAutoStart } from "@/lib/lecture/auto";
+import type { SceneLine, SceneMeta, SceneScript } from "@/lib/lecture/script";
 import { preloadResonance, ScenePlayer } from "@/lib/lecture/soundscape";
 import { AwaBlob } from "./AwaBlob";
 
@@ -24,6 +25,8 @@ type State =
   | { status: "error"; message: string };
 
 type Voiced = { text: string; voice: GeminiVoiceId | null };
+/** Page qui arrive au fil de l'eau : les répliques s'ajoutent, la lecture les attend si besoin. */
+type Feed = { script: SceneScript; done: boolean; waiters: (() => void)[] };
 
 const noop = () => {};
 /** Photo envoyée : assez grande pour lire le texte, assez légère pour le débit de Mayotte. */
@@ -47,16 +50,20 @@ async function shrinkPhoto(file: File): Promise<string> {
   return btoa(binary);
 }
 
-/** Délai sans changement avant de considérer le bloc fini d'écrire. */
-const SETTLE_MS = 1_200;
-
 export function ReadingCard({ spec }: { spec: string }) {
   const text = parseReadingBlock(spec);
   // « texte » sans le texte : le serveur va le glisser dans le bloc à la fin de la réponse.
   const waiting = !text && spec.trim() === "texte";
   const [state, setState] = useState<State>({ status: "idle" });
   const firstSpec = useRef(spec);
+  // Lancée depuis le vocal en direct (auto.ts) : elle démarre seule dès son ouverture.
   const live = useRef(false);
+  const autoChecked = useRef(false);
+  if (!autoChecked.current) {
+    autoChecked.current = true;
+    if (takeReadingAutoStart(spec)) live.current = true;
+  }
+  const feed = useRef<Feed | null>(null);
   const started = useRef(false);
   const input = useRef<HTMLInputElement>(null);
   const ctx = useRef<AudioContext | null>(null);
@@ -103,11 +110,49 @@ export function ReadingCard({ spec }: { spec: string }) {
     return pending;
   }
 
+  /** La réplique i dès qu'elle est arrivée ; null quand la page est finie. */
+  function lineAt(i: number): Promise<SceneLine | null> {
+    const current = feed.current;
+    if (!current) return Promise.resolve(null);
+    return new Promise((resolve) => {
+      const check = () => {
+        if (current.script.lines[i]) resolve(current.script.lines[i]);
+        else if (current.done) resolve(null);
+        else current.waiters.push(check);
+      };
+      check();
+    });
+  }
+
+  function wake(current: Feed) {
+    const waiters = current.waiters.splice(0);
+    for (const waiter of waiters) waiter();
+  }
+
+  function finish(current: Feed | null) {
+    if (!current || current.done) return;
+    current.done = true;
+    wake(current);
+  }
+
+  /**
+   * La page arrive au fil de l'eau (/api/lecture) : le décor et l'intro dès le début du script,
+   * puis chaque réplique. La lecture démarre tout de suite, sans attendre la page entière.
+   */
   async function prepare(source: File | string) {
     started.current = true;
     setState({ status: "preparing" });
-    // Le moteur 3D se télécharge pendant que Gemini lit la page.
+    // Le son s'ouvre maintenant (geste ou app Android) ; le moteur 3D se télécharge pendant que Gemini lit.
+    audio();
     void preloadResonance();
+    let current: Feed | null = null;
+    const fail = (message: string) => {
+      finish(current);
+      if (!current || !current.script.lines.length) {
+        player.current?.stop();
+        setState({ status: "error", message });
+      }
+    };
     try {
       const payload = typeof source === "string" ? { text: source } : { image: await shrinkPhoto(source), mimeType: "image/jpeg" };
       const response = await fetch("/api/lecture", {
@@ -116,26 +161,66 @@ export function ReadingCard({ spec }: { spec: string }) {
         body: JSON.stringify(payload),
         signal: AbortSignal.timeout(90_000),
       });
-      const body = (await response.json().catch(() => null)) as { script?: SceneScript; error?: string } | null;
-      if (!response.ok || !body?.script) {
+      if (!response.ok || !response.body) {
+        const body = (await response.json().catch(() => null)) as { error?: string } | null;
         setState({ status: "error", message: body?.error ?? "Je n'arrive pas à préparer la page : réessaie." });
         return;
       }
-      const script = body.script;
-      items.current = [...(script.intro ? [{ text: script.intro, voice: null }] : []), ...script.lines.map((l) => ({ text: l.text, voice: l.voice }))];
-      voices.current.clear();
-      // Les premières voix se préparent pendant que la personne met ses écouteurs.
-      for (let i = 0; i <= AHEAD; i++) void voiceOf(i);
-      setState({ status: "ready", script });
-      // La lecture démarre d'elle-même dès que la page est prête (demande de l'utilisateur : pas de
-      // bouton à toucher). L'app Android permet le son sans geste ; si un navigateur le bloque,
-      // le bouton « Je ferme les yeux » reste là.
-      const context = audio();
-      await Promise.race([context.resume().catch(() => {}), new Promise((resolve) => window.setTimeout(resolve, 800))]);
-      if (context.state === "running") void play(script);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      const handle = (event: { type?: string; meta?: SceneMeta; line?: SceneLine; message?: string }) => {
+        if (event.type === "meta" && event.meta && !current) {
+          current = { script: { ...event.meta, lines: [] }, done: false, waiters: [] };
+          feed.current = current;
+          items.current = event.meta.intro ? [{ text: event.meta.intro, voice: null }] : [];
+          voices.current.clear();
+          void voiceOf(0);
+          void startPlaying(current.script);
+        } else if (event.type === "line" && event.line && current) {
+          current.script.lines.push(event.line);
+          items.current.push({ text: event.line.text, voice: event.line.voice });
+          // Les toutes premières voix se préparent dès qu'elles arrivent.
+          if (items.current.length <= AHEAD + 1) void voiceOf(items.current.length - 1);
+          wake(current);
+        } else if (event.type === "end") {
+          finish(current);
+        } else if (event.type === "error") {
+          fail(event.message ?? "Je n'arrive pas à préparer la page : réessaie.");
+        }
+      };
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (value) buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = done ? "" : (lines.pop() ?? "");
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            handle(JSON.parse(line));
+          } catch {
+            // Ligne coupée : ignorée.
+          }
+        }
+        if (done) break;
+      }
+      if (!current) fail("Je n'arrive pas à préparer la page : réessaie.");
+      else finish(current);
     } catch {
-      setState({ status: "error", message: "Connexion perdue pendant que je préparais la page : réessaie." });
+      fail("Connexion perdue pendant que je préparais la page : réessaie.");
     }
+  }
+
+  /**
+   * La lecture démarre d'elle-même dès le début du script (demande de l'utilisateur : pas de bouton
+   * à toucher). L'app Android permet le son sans geste ; si un navigateur le bloque, le bouton
+   * « Je ferme les yeux » reste là.
+   */
+  async function startPlaying(script: SceneScript) {
+    setState({ status: "ready", script });
+    const context = audio();
+    await Promise.race([context.resume().catch(() => {}), new Promise((resolve) => window.setTimeout(resolve, 800))]);
+    if (context.state === "running") void play(script);
   }
 
   async function play(script: SceneScript) {
@@ -150,17 +235,20 @@ export function ReadingCard({ spec }: { spec: string }) {
     const offset = script.intro ? 1 : 0;
     setState({ status: "playing", script, index: -1, paused: false });
 
+    // Le décor monte tout de suite, pendant que la voix de Tamilya arrive.
+    scene.startAmbiences(script.ambiences, 3);
     if (script.intro) {
       const intro = await voiceOf(0);
-      if (intro) await scene.playLine({ voice: null, side: 0, distance: "tout-pres", height: "milieu", from: null }, intro);
-      await scene.wait(0.8);
+      if (intro && !scene.isStopped) await scene.playLine({ voice: null, side: 0, distance: "tout-pres", height: "milieu", from: null }, intro);
+      await scene.wait(0.6);
+    } else {
+      await scene.wait(script.ambiences.length ? 2 : 0.3);
     }
-    scene.startAmbiences(script.ambiences);
-    await scene.wait(script.ambiences.length ? 2.5 : 0.5);
 
     let previous: string | null = null;
-    for (let i = 0; i < script.lines.length && !scene.isStopped; i++) {
-      const line = script.lines[i];
+    for (let i = 0; !scene.isStopped; i++) {
+      const line = await lineAt(i);
+      if (!line || scene.isStopped) break;
       for (let k = 1; k <= AHEAD; k++) void voiceOf(offset + i + k);
       setState((s) => (s.status === "playing" ? { ...s, index: i } : s));
       // Un silence plus long quand la voix change : on sent qu'un autre parle.
@@ -186,6 +274,7 @@ export function ReadingCard({ spec }: { spec: string }) {
       await scene.wait(5.2);
       scene.stop();
       setState({ status: "done", script });
+      announceReadingDone();
     }
     void wakeLock.current?.release().catch(() => {});
     wakeLock.current = null;
@@ -196,6 +285,7 @@ export function ReadingCard({ spec }: { spec: string }) {
     void wakeLock.current?.release().catch(() => {});
     wakeLock.current = null;
     setState({ status: "done", script });
+    announceReadingDone();
   }
 
   async function togglePause() {
@@ -205,13 +295,13 @@ export function ReadingCard({ spec }: { spec: string }) {
     setState({ ...state, paused: !state.paused });
   }
 
-  // Texte tout juste arrivé dans la réponse : la lecture se prépare d'elle-même. Une ancienne
-  // conversation rouverte montre un bouton (pour ne pas refaire la mise en scène à chaque visite).
+  // Texte tout juste arrivé dans la réponse (ou lecture lancée depuis le vocal) : elle se prépare
+  // et démarre d'elle-même, tout de suite. Une ancienne conversation rouverte montre un bouton
+  // (pour ne pas refaire la mise en scène à chaque visite).
   useEffect(() => {
     if (spec !== firstSpec.current) live.current = true;
     if (!live.current || started.current || !text) return;
-    const timer = window.setTimeout(() => void prepare(text), SETTLE_MS);
-    return () => window.clearTimeout(timer);
+    void prepare(text);
     // prepare lit l'état à jour à chaque rendu.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [spec, text]);

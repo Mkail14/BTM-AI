@@ -136,6 +136,12 @@ export function liveToolDeclarations(access: LiveAccess) {
       },
     },
     {
+      name: "lecture_3d",
+      description:
+        "Lit en 3D, dans les écouteurs de la personne, une page, une histoire, un texte ou un message : ta voix raconte, chaque personnage a sa voix et sa place autour de sa tête, avec le vent, la pluie, des pas qui bougent. À appeler tout de suite dès qu'elle veut que tu lui lises quelque chose (« lis-moi cette histoire », « lis-moi la page », « lecture 3D »), sans rien lire toi-même. L'appel se met en pause pendant la lecture et reprend après.",
+      parameters: { type: "OBJECT", properties: {} },
+    },
+    {
       name: "carte_cyclones",
       description:
         "Ouvre à l'écran la carte des cyclones de l'océan Indien (en cours et en formation) : leur position, le trajet fait et prévu, la distance de Mayotte. À utiliser dès que la personne parle de cyclone, de tempête ou de dépression tropicale. Renvoie aussi ce qu'il faut dire.",

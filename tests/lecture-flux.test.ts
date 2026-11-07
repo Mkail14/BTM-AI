@@ -1,0 +1,91 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { markReadingAutoStart, takeReadingAutoStart } from "../src/lib/lecture/auto";
+import { SCRIPT_SCHEMA } from "../src/lib/lecture/prompt";
+import { buildLine, buildMeta } from "../src/lib/lecture/script";
+import { createScriptStream } from "../src/lib/lecture/stream";
+import { LIVE_RULES } from "../src/lib/voice-live/rules";
+import { liveToolDeclarations } from "../src/lib/voice-live/tools";
+
+const script = {
+  lisible: true,
+  titre: "Nuit à Moya",
+  lieu: "plage",
+  intro: "Mets tes écouteurs { et } ferme les yeux…",
+  decor: [{ son: "vagues", cote: -60, distance: "loin", hauteur: "bas", volume: 0.5, bouge: false }],
+  personnages: [{ id: "zaina", nom: "Zaïna", genre: "femme", age: "enfant" }],
+  repliques: [
+    { qui: "narratrice", texte: "La nuit tombait [doucement] sur \"Moya\".", cote: 0, distance: "pres", hauteur: "milieu", depuis: null, bruits: [] },
+    { qui: "zaina", texte: "Grand-père, tu entends { le vent } ?", cote: -40, distance: "pres", hauteur: "milieu", depuis: null, bruits: [{ son: "rafale", quand: "avant", cote: -90, vers: 90, distance: "pres", hauteur: "milieu" }] },
+    { qui: "narratrice", texte: "Le tonnerre gronda.", cote: 0, distance: "pres", hauteur: "milieu", depuis: null, bruits: [] },
+  ],
+};
+
+describe("Lecture en 3D au fil de l'eau : découpage de la réponse de Gemini", () => {
+  it("rend le début dès les répliques commencées, puis chaque réplique dès qu'elle est fermée", () => {
+    const json = JSON.stringify(script);
+    const stream = createScriptStream();
+    let meta: unknown;
+    const lines: unknown[] = [];
+    // Morceaux de 7 caractères : coupés au milieu des mots, des guillemets et des accolades.
+    for (let i = 0; i < json.length; i += 7) {
+      const pieces = stream.push(json.slice(i, i + 7));
+      if (pieces.meta !== undefined) {
+        assert.equal(meta, undefined, "le début n'arrive qu'une fois");
+        meta = pieces.meta;
+        assert.equal(lines.length, 0, "le début arrive avant toute réplique");
+      }
+      lines.push(...pieces.lines);
+    }
+    assert.deepEqual(meta, { lisible: true, titre: "Nuit à Moya", lieu: "plage", intro: script.intro, decor: script.decor, personnages: script.personnages });
+    assert.deepEqual(lines, script.repliques);
+  });
+
+  it("une réplique est rendue avant la fin de la réponse", () => {
+    const json = JSON.stringify(script);
+    const cut = json.indexOf("Le tonnerre");
+    const stream = createScriptStream();
+    const first = stream.push(json.slice(0, cut));
+    assert.ok(first.meta);
+    assert.equal(first.lines.length, 2, "les deux premières répliques sont prêtes, la troisième s'écrit encore");
+    assert.equal(stream.push(json.slice(cut)).lines.length, 1);
+  });
+
+  it("impose l'ordre des clés à Gemini : les répliques en dernier", () => {
+    assert.equal(SCRIPT_SCHEMA.propertyOrdering.at(-1), "repliques");
+    assert.ok(SCRIPT_SCHEMA.propertyOrdering.indexOf("personnages") < SCRIPT_SCHEMA.propertyOrdering.indexOf("repliques"));
+  });
+});
+
+describe("Lecture en 3D au fil de l'eau : distribution puis répliques", () => {
+  it("donne les voix avec le début, puis range chaque réplique à part", () => {
+    const meta = buildMeta(script, "Leda");
+    assert.ok(meta.ok);
+    assert.equal(meta.meta.place, "plage");
+    assert.equal(meta.meta.ambiences[0].sound, "vagues");
+    const line = buildLine(script.repliques[1], meta.cast);
+    assert.equal(line?.speaker, "Zaïna");
+    assert.notEqual(line?.voice, null);
+    assert.equal(line?.cues[0].sound, "rafale");
+    assert.equal(buildLine({ qui: "narratrice", texte: "" }, meta.cast), null, "réplique vide écartée");
+  });
+
+  it("refuse dès le début une page illisible", () => {
+    assert.deepEqual(buildMeta({ ...script, lisible: false, raison: "La photo est floue." }, "Leda"), { ok: false, reason: "La photo est floue." });
+  });
+});
+
+describe("Lecture en 3D depuis le vocal en direct", () => {
+  it("le bouton lecture_3d existe et Tamilya ne dit jamais qu'elle ne sait pas lire en 3D", () => {
+    const tools = liveToolDeclarations({ food: false, barge: false }) as { name: string }[];
+    assert.ok(tools.some((tool) => tool.name === "lecture_3d"));
+    assert.match(LIVE_RULES, /lecture_3d/);
+    assert.match(LIVE_RULES, /Ne dis jamais que tu ne sais pas faire de lecture en 3D/);
+  });
+
+  it("la carte ajoutée par le vocal démarre seule, une seule fois", () => {
+    markReadingAutoStart("texte\nIl était une fois.\n");
+    assert.equal(takeReadingAutoStart("texte\nIl était une fois."), true);
+    assert.equal(takeReadingAutoStart("texte\nIl était une fois."), false, "une ancienne carte rouverte ne redémarre pas");
+  });
+});

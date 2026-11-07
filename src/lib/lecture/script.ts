@@ -132,42 +132,64 @@ export function assignVoices(characters: { id: string; genre: "homme" | "femme";
   return voices;
 }
 
-/** Vérifie et range la réponse de Gemini. Ce qui est mal formé est écarté, pas deviné. */
-export function buildScript(raw: unknown, narrator: GeminiVoiceId): ScriptResult {
+/** Début du script, sans les répliques : de quoi lancer le décor et la voix de Tamilya. */
+export type SceneMeta = Omit<SceneScript, "lines">;
+/** Distribution : voix et noms des personnages, pour ranger chaque réplique dès qu'elle arrive. */
+export type Cast = { voices: Map<string, GeminiVoiceId>; names: Map<string, string> };
+export type MetaResult = { ok: true; meta: SceneMeta; cast: Cast } | { ok: false; reason: string };
+
+const UNREADABLE = "Je n'arrive pas à lire cette page. Reprends la photo bien à plat, avec de la lumière.";
+
+/** Titre, lieu, intro, décor et distribution (tout ce qui vient avant les répliques). */
+export function buildMeta(raw: unknown, narrator: GeminiVoiceId): MetaResult {
   const parsed = rawScriptSchema.safeParse(raw);
-  if (!parsed.success) return { ok: false, reason: "Je n'ai pas réussi à préparer cette page. Reprends la photo." };
+  if (!parsed.success) return { ok: false, reason: "Je n'ai pas réussi à préparer cette page. Réessaie." };
   const data = parsed.data;
-  const lines = data.repliques.filter((l) => l !== null).slice(0, READING_LIMITS.lines);
-  if (!data.lisible || !lines.length) {
-    return { ok: false, reason: data.raison?.trim() || "Je n'arrive pas à lire cette page. Reprends la photo bien à plat, avec de la lumière." };
-  }
-  const characters = data.personnages.filter((c) => c !== null && c.id !== NARRATOR).slice(0, READING_LIMITS.characters);
-  const voices = assignVoices(characters as { id: string; genre: "homme" | "femme"; age: "enfant" | "jeune" | "adulte" | "vieux" }[], narrator);
-  const names = new Map(characters.map((c) => [c!.id, c!.nom || c!.id]));
-
-  const sceneLines: SceneLine[] = lines.map((line) => {
-    const voice = line.qui === NARRATOR ? null : (voices.get(line.qui) ?? null);
-    return {
-      voice,
-      speaker: voice ? (names.get(line.qui) ?? line.qui) : "Tamilya",
-      text: line.texte,
-      // La narratrice parle tout près, devant : c'est elle qui tient le livre.
-      side: voice ? line.cote : 0,
-      distance: voice ? line.distance : "tout-pres",
-      height: voice ? (line.hauteur ?? "milieu") : "milieu",
-      from: voice && line.depuis ? { side: line.depuis.cote, distance: line.depuis.distance, height: line.depuis.hauteur ?? line.hauteur ?? "milieu" } : null,
-      cues: line.bruits
-        .filter((c) => c !== null)
-        .slice(0, READING_LIMITS.effectsPerLine)
-        .map((c) => ({ sound: c.son, when: c.quand, from: c.cote, to: c.vers ?? null, distance: c.distance, height: c.hauteur ?? DEFAULT_HEIGHT[c.son] ?? "milieu" })),
-    };
-  });
-
+  if (!data.lisible) return { ok: false, reason: data.raison?.trim() || UNREADABLE };
+  const characters = data.personnages
+    .filter((c): c is NonNullable<typeof c> => c !== null && c.id !== NARRATOR)
+    .slice(0, READING_LIMITS.characters);
+  const voices = assignVoices(characters, narrator);
+  const names = new Map(characters.map((c) => [c.id, c.nom || c.id]));
   const ambiences: SceneAmbience[] = data.decor
-    .filter((a) => a !== null)
+    .filter((a): a is NonNullable<typeof a> => a !== null)
     .filter((a, i, all) => all.findIndex((b) => b.son === a.son) === i)
     .slice(0, READING_LIMITS.ambiences)
     .map((a) => ({ sound: a.son, side: a.cote, distance: a.distance, height: a.hauteur ?? DEFAULT_HEIGHT[a.son] ?? "milieu", volume: a.volume, moving: a.bouge }));
+  return { ok: true, meta: { title: data.titre, place: data.lieu, intro: data.intro, ambiences }, cast: { voices, names } };
+}
 
-  return { ok: true, script: { title: data.titre, place: data.lieu, intro: data.intro, ambiences, lines: sceneLines } };
+/** Une réplique, rangée dès qu'elle arrive. Null si elle est mal formée ou vide. */
+export function buildLine(raw: unknown, cast: Cast): SceneLine | null {
+  const parsed = lineSchema.safeParse(raw);
+  if (!parsed.success) return null;
+  const line = parsed.data;
+  const voice = line.qui === NARRATOR ? null : (cast.voices.get(line.qui) ?? null);
+  return {
+    voice,
+    speaker: voice ? (cast.names.get(line.qui) ?? line.qui) : "Tamilya",
+    text: line.texte,
+    // La narratrice parle tout près, devant : c'est elle qui tient le livre.
+    side: voice ? line.cote : 0,
+    distance: voice ? line.distance : "tout-pres",
+    height: voice ? (line.hauteur ?? "milieu") : "milieu",
+    from: voice && line.depuis ? { side: line.depuis.cote, distance: line.depuis.distance, height: line.depuis.hauteur ?? line.hauteur ?? "milieu" } : null,
+    cues: line.bruits
+      .filter((c): c is NonNullable<typeof c> => c !== null)
+      .slice(0, READING_LIMITS.effectsPerLine)
+      .map((c) => ({ sound: c.son, when: c.quand, from: c.cote, to: c.vers ?? null, distance: c.distance, height: c.hauteur ?? DEFAULT_HEIGHT[c.son] ?? "milieu" })),
+  };
+}
+
+/** Vérifie et range la réponse complète de Gemini. Ce qui est mal formé est écarté, pas deviné. */
+export function buildScript(raw: unknown, narrator: GeminiVoiceId): ScriptResult {
+  const meta = buildMeta(raw, narrator);
+  if (!meta.ok) return meta;
+  const rawLines = raw && typeof raw === "object" && Array.isArray((raw as { repliques?: unknown }).repliques) ? (raw as { repliques: unknown[] }).repliques : [];
+  const lines = rawLines
+    .map((line) => buildLine(line, meta.cast))
+    .filter((line): line is SceneLine => line !== null)
+    .slice(0, READING_LIMITS.lines);
+  if (!lines.length) return { ok: false, reason: UNREADABLE };
+  return { ok: true, script: { ...meta.meta, lines } };
 }
