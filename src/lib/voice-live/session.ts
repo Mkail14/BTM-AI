@@ -8,6 +8,7 @@
 import { createNoiseGate } from "./noise-gate";
 import { createAmbiance, describeAmbiance } from "./ambiance";
 import { loadSilero, type VoiceDetector } from "./silero";
+import { forgetSpeech, keepSpeech, prepareVoiceCheck } from "./heard";
 
 export type LiveState = "connexion" | "écoute" | "parle";
 
@@ -195,6 +196,7 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
     } catch {}
     cut();
     mic.getTracks().forEach((t) => t.stop());
+    forgetSpeech();
     closeAudio();
     callbacks.onClose(error);
   };
@@ -231,6 +233,8 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
       vad = detector;
       note(detector ? "Silero prêt" : "Silero indisponible, porte au volume");
     });
+  // Voix inscrite sur le compte : ses phrases sont reconnues pour le paiement (voir heard.ts).
+  prepareVoiceCheck();
   /** Silero répond un peu après : les paquets restent dans l'ordre. */
   let queue = Promise.resolve();
   node.port.onmessage = (event: MessageEvent<Float32Array>) => {
@@ -258,6 +262,8 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
     // Personne ne parle (ni la personne ni Tamilya) : c'est le bruit autour, gardé à part.
     const nobodyTalks = sources.size === 0 && (voice !== undefined ? voice < 0.2 : pushToTalk ? !holding : !loud);
     if (nobodyTalks) ambiance.keep(samples);
+    // La voix de la personne seule (pas celle de Tamilya qui sort du haut-parleur), pour la vérifier au paiement.
+    keepSpeech(samples, pushToTalk ? holding : sources.size === 0 && (voice !== undefined ? voice >= 0.5 : loud), now);
     // La porte tourne dès l'ouverture du micro : elle apprend le bruit ambiant pendant la connexion.
     const outgoing = !pushToTalk ? gate(samples, sources.size > 0, voice) : holding ? [samples] : [];
     if (!ready) {

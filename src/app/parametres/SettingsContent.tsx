@@ -15,6 +15,7 @@ import { SettingsView, type SettingsTab } from "./SettingsView";
 import { SignOutButton } from "./SignOutButton";
 import { ThemeChoice } from "./ThemeChoice";
 import { SECONDARY, SettingsGroup, SettingsRow } from "./ui";
+import { VoicePrint } from "./VoicePrint";
 import { VoiceTalkMode } from "./VoiceTalkMode";
 
 export type SettingsData = {
@@ -62,6 +63,7 @@ export function SettingsContent({ data }: { data: SettingsData }) {
         {/* Le vocal n'est ouvert qu'aux administrateurs pour l'instant. */}
         {data.isAdmin ? <VoiceTalkMode /> : null}
         {data.isAdmin ? <PaymentPin /> : null}
+        {data.isAdmin ? <VoicePrint /> : null}
         <AwaMemory facts={data.memories} />
       </>
     ),

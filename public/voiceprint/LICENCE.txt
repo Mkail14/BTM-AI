@@ -1,0 +1,4 @@
+Modèle d'empreinte de voix : WeSpeaker ResNet34-LM (VoxCeleb)
+Source : https://github.com/wenet-e2e/wespeaker (fichier ONNX : csukuangfj/speaker-embedding-models)
+Licence : Creative Commons Attribution 4.0 International (CC BY 4.0), celle du jeu de données VoxCeleb.
+Modification : poids ramenés en 8 bits (scripts/quantize-voiceprint.mjs), 26,5 Mo -> 6,7 Mo, résultats identiques sur nos essais.

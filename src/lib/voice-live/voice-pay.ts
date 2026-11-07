@@ -8,7 +8,13 @@
  *
  * Le code n'est gardé que le temps de la vérification, dans cette page : il
  * n'est ni renvoyé à Gemini, ni enregistré dans la conversation (voir takePinTurn).
+ *
+ * Double vérification : si le compte a une voix inscrite (paramètres, rubrique
+ * Tamilya), les empreintes des phrases dites depuis la demande partent avec le
+ * code, et le serveur vérifie que c'est bien la voix du titulaire (heard.ts).
  */
+
+import { enableVoiceCheck, voiceSample } from "./heard";
 
 export type PayStep = "idle" | "nopin" | "consent" | "pin" | "checking";
 export type PayState = { step: PayStep; label: string; typed: number; error: string | null };
@@ -22,6 +28,11 @@ let until = 0;
 let pending: (() => Promise<string>) | null = null;
 /** Un code a été demandé ou dit pendant cet échange : ce que la personne a dit n'est pas enregistré. */
 let pinTurn = false;
+/** Le compte a une voix inscrite : elle est vérifiée avec le code. */
+let voiceRequired = false;
+/** Début de la demande de paiement (horloge performance.now) ; la phrase de la demande compte aussi. */
+let startedAt = 0;
+const REQUEST_MS = 12_000;
 const listeners = new Set<() => void>();
 
 function update(next: Partial<PayState>) {
@@ -49,10 +60,13 @@ export function takePinTurn(): boolean {
 export async function requestPayment(label: string, run: () => Promise<string>): Promise<string> {
   pending = run;
   digits = "";
+  startedAt = performance.now() - REQUEST_MS;
   update({ step: "checking", label, typed: 0, error: null });
   const known = (await fetch("/api/wallet/pin", { cache: "no-store" })
     .then((r) => (r.ok ? r.json() : null))
-    .catch(() => null)) as { hasPin?: boolean; consented?: boolean } | null;
+    .catch(() => null)) as { hasPin?: boolean; consented?: boolean; voice?: boolean } | null;
+  voiceRequired = Boolean(known?.voice);
+  if (voiceRequired) enableVoiceCheck();
   if (!known) {
     update({ step: "idle" });
     pending = null;
@@ -113,16 +127,37 @@ export async function enterPin(spoken: string): Promise<string> {
   return submit();
 }
 
+/** La voix n'est pas celle du titulaire, ou pas assez entendue : ce que Tamilya doit dire. */
+function refusedVoice(reason: string, error: string, owner: string | null): string {
+  const name = owner || "la personne du compte";
+  if (reason === "voice-mismatch" || reason === "voice-locked") {
+    pending = null;
+    update({ step: "idle", typed: 0, error });
+    return `${error} Rien n'a été payé. Dis-lui gentiment, sans l'accuser, que tu ne reconnais pas la voix de ${name}. Si ce n'est pas ${name}, propose-lui de commander depuis son propre compte BTM AI : c'est gratuit. Si c'est bien ${name}, il peut réessayer plus tard, au calme et près du micro. Ne répète pas le code.`;
+  }
+  if (reason === "voice-missing") {
+    pending = null;
+    update({ step: "idle", typed: 0, error });
+    return `${error} Rien n'a été payé : dis-lui de toucher lui-même le bouton Payer. Ne répète pas le code.`;
+  }
+  // Pas assez entendu : une phrase de plus, puis le code à nouveau.
+  pinTurn = true;
+  update({ step: "pin", typed: 0, error });
+  return `${error} Rien n'a été payé. Demande-lui de dire une phrase entière, par exemple « c'est bien moi, je confirme le paiement », puis de redonner son code. Ne répète pas le code.`;
+}
+
 async function submit(): Promise<string> {
   const pin = digits;
   digits = "";
   update({ step: "checking", typed: 4 });
+  const voice = voiceRequired ? await voiceSample(startedAt) : undefined;
   const response = await fetch("/api/wallet/pin", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ action: "verify", pin }),
+    body: JSON.stringify({ action: "verify", pin, ...(voice ? { voice } : {}) }),
   }).catch(() => null);
-  const body = (await response?.json().catch(() => null)) as { ok?: boolean; error?: string; reason?: string } | null;
+  const body = (await response?.json().catch(() => null)) as { ok?: boolean; error?: string; reason?: string; owner?: string | null } | null;
+  if (body?.reason?.startsWith("voice-")) return refusedVoice(body.reason, body.error ?? "", body.owner ?? null);
   if (!body?.ok) {
     const locked = body?.reason === "locked" || body?.reason === "none";
     update({ step: locked ? "idle" : "pin", typed: 0, error: body?.error ?? "Le code n'a pas pu être vérifié." });

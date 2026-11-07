@@ -5,16 +5,26 @@ import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { payStatus, removePin, savePin, setConsent, verifyPin, type PinCheck } from "@/lib/wallet/pin";
+import { getProfile } from "@/lib/conversations/repository";
+import { PRINT_SIZE } from "@/lib/voice-live/voice-check";
+import { checkVoice, voiceStatus, type VoiceGate } from "@/lib/wallet/voice-print";
 
 /**
  * Code de paiement à 4 chiffres (paiement à la voix par Tamilya).
  * GET : le compte a-t-il un code ? POST : créer, changer, supprimer ou vérifier.
  * Le code n'est jamais renvoyé, ni écrit dans un journal.
+ *
+ * Double vérification : si le compte a une voix inscrite, « verify » exige aussi
+ * les empreintes des phrases entendues (voice). La voix est jugée AVANT le code :
+ * une autre personne ne peut pas essayer des codes.
  */
 
 const pin = z.string().regex(/^\d{4}$/);
+const voice = z.object({
+  parts: z.array(z.object({ print: z.array(z.number().finite()).length(PRINT_SIZE), seconds: z.number().min(0).max(30) })).max(12),
+});
 const bodySchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("verify"), pin }),
+  z.object({ action: z.literal("verify"), pin, voice: voice.optional() }),
   z.object({ action: z.literal("set"), pin, current: pin.optional() }),
   z.object({ action: z.literal("remove"), current: pin }),
   // Autorisation donnée une seule fois (consent) ou retirée (revoke).
@@ -23,6 +33,18 @@ const bodySchema = z.discriminatedUnion("action", [
 ]);
 
 const fail = (status: number, error: string, extra: object = {}) => NextResponse.json({ ok: false, error, ...extra }, { status, headers: { "Cache-Control": "no-store" } });
+
+function refuseVoice(gate: Extract<VoiceGate, { ok: false }>, name: string) {
+  const who = name || "la personne du compte";
+  const messages: Record<typeof gate.reason, string> = {
+    short: "Pas assez entendu sa voix pour la reconnaître.",
+    unsure: "Voix pas assez claire pour être sûre que c'est bien elle.",
+    missing: "Sa voix n'a pas pu être vérifiée sur cet appareil.",
+    mismatch: gate.locked ? `Ce n'est pas la voix de ${who} : paiement à la voix bloqué 15 minutes.` : `Ce n'est pas la voix de ${who}.`,
+    locked: "Trop de voix refusées : paiement à la voix bloqué 15 minutes.",
+  };
+  return fail(403, messages[gate.reason], { reason: `voice-${gate.reason}`, owner: name || null });
+}
 
 function explain(check: Exclude<PinCheck, { ok: true }> | { ok: false; reason: "weak" }) {
   if (check.reason === "none") return fail(404, "Aucun code de paiement : crée-le dans les paramètres, rubrique Tamilya.", { reason: "none" });
@@ -35,7 +57,8 @@ export async function GET() {
   const { user } = await getAuthContext();
   const admin = getSupabaseAdminClient();
   if (!user || !admin) return fail(401, "Connexion requise.");
-  return NextResponse.json(await payStatus(admin, user.id), { headers: { "Cache-Control": "no-store" } });
+  const [status, voiceInfo] = await Promise.all([payStatus(admin, user.id), voiceStatus(admin, user.id)]);
+  return NextResponse.json({ ...status, voice: voiceInfo.enrolled }, { headers: { "Cache-Control": "no-store" } });
 }
 
 export async function POST(request: NextRequest) {
@@ -52,6 +75,10 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = parsed.data;
+    if (body.action === "verify") {
+      const gate = await checkVoice(admin, user.id, body.voice);
+      if (!gate.ok) return refuseVoice(gate, (await getProfile(admin, user.id).catch(() => null))?.displayName ?? "");
+    }
     const check =
       body.action === "verify"
         ? await verifyPin(admin, user.id, body.pin)

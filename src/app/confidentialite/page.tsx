@@ -251,6 +251,17 @@ export default function PrivacyPage() {
             code. BTM ne garantit pas le résultat d&apos;un tel paiement et ne le rembourse pas. Vous pouvez retirer
             l&apos;autorisation à tout moment dans les paramètres, rubrique Tamilya ; supprimer votre code la retire aussi.
           </p>
+          <p>
+            <span className={strong}>Empreinte de voix (facultative).</span> Si vous l&apos;activez, Tamilya vérifie aussi
+            votre voix avant de payer à votre place. Vous lisez trois phrases ; votre téléphone en tire une empreinte, une
+            suite de nombres qui décrit votre voix. Seule cette empreinte est gardée sur votre compte, jamais
+            l&apos;enregistrement. Pendant un appel vocal, les dernières phrases que vous dites restent dans la page le temps
+            d&apos;en calculer l&apos;empreinte, puis sont oubliées ; au moment de payer, seules ces empreintes sont envoyées
+            et comparées par notre serveur. C&apos;est une donnée biométrique : elle n&apos;est enregistrée qu&apos;avec votre
+            accord, sert uniquement à cette vérification, et vous pouvez l&apos;effacer à tout moment dans les paramètres,
+            rubrique Tamilya. Elle est effacée avec votre compte. Une voix peut être imitée : elle s&apos;ajoute à votre code,
+            elle ne le remplace jamais.
+          </p>
         </Section>
 
         <Section id="documents" title="Vos documents et Google Drive">
