@@ -3,6 +3,7 @@ import { getAuthContext } from "@/lib/auth/session";
 import { describeDevice, describePlace, siteOrigin } from "@/lib/email/device";
 import { emailConfigured, sendEmail } from "@/lib/email/send";
 import { passwordChangedEmail, passwordCreatedEmail } from "@/lib/email/templates";
+import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 
 /**
  * E-mail de confirmation après un changement de mot de passe : « nouveau mot de
@@ -31,6 +32,9 @@ export async function POST(request: NextRequest) {
   const email = body.reason === "oubli" ? passwordCreatedEmail(user.email, ctx) : passwordChangedEmail(user.email, ctx);
 
   try {
+    // Quelques e-mails par heure suffisent : le mot de passe ne change pas en rafale.
+    const limit = await consumeRateLimits([{ key: `password-notice:${user.id}`, rules: RATE_LIMIT_POLICIES.passwordNotice }]);
+    if (!limit.allowed) return NextResponse.json({ ok: false }, { status: 429 });
     await sendEmail(user.email, email);
   } catch (error) {
     console.error("[password-notice] Envoi impossible", error);

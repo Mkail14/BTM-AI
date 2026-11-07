@@ -8,6 +8,7 @@ import { startFlowTrace } from "@/lib/ai/flow-trace";
 import { extractMemories } from "@/lib/ai/memory";
 import { getMemories, learnFromMessage, saveMemories } from "@/lib/ai/memory-store";
 import { getAuthContext } from "@/lib/auth/session";
+import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
 import { quickTitle } from "@/lib/chat/title";
 import { learnWordsFromMessage } from "@/lib/ai/words-store";
@@ -48,6 +49,9 @@ export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Requête refusée." }, { status: 403 });
   const { supabase, user } = await getAuthContext();
   if (!supabase || !user) return NextResponse.json({ error: "Connexion requise." }, { status: 401 });
+  if (!user.isAdmin) return NextResponse.json({ error: "Réservé aux administrateurs." }, { status: 403 });
+  const limit = await consumeRateLimits([{ key: `voice-live-turn:${user.id}`, rules: RATE_LIMIT_POLICIES.voiceLiveTurn }]).catch(() => null);
+  if (limit && !limit.allowed) return NextResponse.json({ error: "Trop d'échanges, réessaie dans un instant." }, { status: 429 });
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success || (!parsed.data.user && !parsed.data.tamilya)) return NextResponse.json({ error: "Demande invalide." }, { status: 400 });
 

@@ -10,6 +10,35 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const PIN_MAX_FAILURES = 5;
 export const PIN_LOCK_MS = 15 * 60_000;
+const HOUR_MS = 60 * 60_000;
+const DAY_MS = 24 * HOUR_MS;
+/** Essais pour gagner la course quand plusieurs codes arrivent en même temps. */
+const PIN_WRITE_TRIES = 3;
+
+/**
+ * Blocage progressif : le compteur ne revient à zéro qu'après un code juste.
+ * 5 erreurs : 15 min ; 10 erreurs : 1 h ; 15 erreurs et chaque erreur ensuite : 24 h.
+ */
+export function pinLockMs(failures: number): number | null {
+  if (failures >= 3 * PIN_MAX_FAILURES) return DAY_MS;
+  if (failures === 2 * PIN_MAX_FAILURES) return HOUR_MS;
+  if (failures === PIN_MAX_FAILURES) return PIN_LOCK_MS;
+  return null;
+}
+
+/** Codes faux restants avant le prochain blocage. */
+export function pinTriesLeft(failures: number): number {
+  return PIN_MAX_FAILURES - (failures % PIN_MAX_FAILURES);
+}
+
+/** Durée restante d'un blocage, en mots (« 15 minutes », « 1 heure », « 24 heures »). */
+export function describePinWait(lockedUntil: string | undefined, now = Date.now()): string {
+  const ms = lockedUntil ? Date.parse(lockedUntil) - now : PIN_LOCK_MS;
+  const minutes = Math.max(1, Math.ceil((Number.isFinite(ms) ? ms : PIN_LOCK_MS) / 60_000));
+  if (minutes < 60) return `${minutes} minute${minutes > 1 ? "s" : ""}`;
+  const hours = Math.ceil(minutes / 60);
+  return `${hours} heure${hours > 1 ? "s" : ""}`;
+}
 
 /** Codes trop faciles à deviner (même chiffre, suites) : refusés. */
 export function isAcceptablePin(pin: string): boolean {
@@ -61,23 +90,44 @@ export async function setConsent(admin: SupabaseClient, userId: string, given: b
 
 export type PinCheck = { ok: true } | { ok: false; reason: "none" | "wrong" | "locked"; left?: number; lockedUntil?: string };
 
-/** Vérifie le code ; compte les erreurs et bloque après PIN_MAX_FAILURES. */
+/**
+ * Vérifie le code ; compte les erreurs et bloque de plus en plus longtemps (pinLockMs).
+ *
+ * Chaque essai est d'abord compté comme raté, par une écriture conditionnelle
+ * (« seulement si le compteur vaut encore n ») : des essais envoyés en même
+ * temps ne peuvent pas tous lire le même compteur et s'en tirer avec une seule
+ * erreur. Le code n'est comparé qu'une fois l'essai compté ; s'il est juste, le
+ * compteur repart de zéro. Un essai qui perd la course plusieurs fois est refusé
+ * sans être comparé.
+ */
 export async function verifyPin(admin: SupabaseClient, userId: string, pin: string, now = Date.now()): Promise<PinCheck> {
-  const row = await readRow(admin, userId);
-  if (!row) return { ok: false, reason: "none" };
-  if (row.locked_until && Date.parse(row.locked_until) > now) return { ok: false, reason: "locked", lockedUntil: row.locked_until };
-  if (/^\d{4}$/.test(pin) && sameHash(hashPin(pin, row.salt), row.pin_hash)) {
-    if (row.failed_attempts || row.locked_until) await admin.from("wallet_pins").update({ failed_attempts: 0, locked_until: null }).eq("user_id", userId);
-    return { ok: true };
+  let failures = 0;
+  for (let attempt = 0; attempt < PIN_WRITE_TRIES; attempt++) {
+    const row = await readRow(admin, userId);
+    if (!row) return { ok: false, reason: "none" };
+    if (row.locked_until && Date.parse(row.locked_until) > now) return { ok: false, reason: "locked", lockedUntil: row.locked_until };
+    const counted = row.failed_attempts ?? 0;
+    failures = counted + 1;
+    const lockMs = pinLockMs(failures);
+    const locked = lockMs ? new Date(now + lockMs).toISOString() : null;
+    const { data, error } = await admin
+      .from("wallet_pins")
+      .update({ failed_attempts: failures, locked_until: locked })
+      .eq("user_id", userId)
+      .eq("failed_attempts", counted)
+      .select("user_id");
+    if (error) throw error;
+    // Un autre essai a écrit entre-temps : on relit et on recommence.
+    if (!data?.length) continue;
+    if (/^\d{4}$/.test(pin) && sameHash(hashPin(pin, row.salt), row.pin_hash)) {
+      const { error: resetError } = await admin.from("wallet_pins").update({ failed_attempts: 0, locked_until: null }).eq("user_id", userId);
+      if (resetError) throw resetError;
+      return { ok: true };
+    }
+    return locked ? { ok: false, reason: "locked", lockedUntil: locked } : { ok: false, reason: "wrong", left: pinTriesLeft(failures) };
   }
-  // Après un blocage écoulé, on repart de zéro.
-  const failures = (row.locked_until ? 0 : row.failed_attempts) + 1;
-  const locked = failures >= PIN_MAX_FAILURES ? new Date(now + PIN_LOCK_MS).toISOString() : null;
-  await admin
-    .from("wallet_pins")
-    .update({ failed_attempts: locked ? 0 : failures, locked_until: locked })
-    .eq("user_id", userId);
-  return locked ? { ok: false, reason: "locked", lockedUntil: locked } : { ok: false, reason: "wrong", left: PIN_MAX_FAILURES - failures };
+  // Trop d'essais simultanés : celui-ci est refusé comme raté, sans comparer le code.
+  return { ok: false, reason: "wrong", left: Math.max(1, pinTriesLeft(failures) - 1) };
 }
 
 /** Crée ou change le code. S'il existe déjà, l'ancien est exigé. */

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { IconMic } from "@/components/ui/icons";
 import { average, loadPrinter, similarity } from "@/lib/voice-live/speaker";
 import { speechSeconds, startRecording, type Recording } from "@/lib/voice-live/record";
+import { PinField } from "./PaymentPin";
 import { DANGER, PRIMARY, RowEditor, SECONDARY, SettingsGroup, SettingsRow } from "./ui";
 
 /** Trois phrases à lire : assez longues pour une empreinte fiable (au moins 2 s de voix chacune). */
@@ -21,9 +22,16 @@ const dateFormat = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "lo
 /**
  * Empreinte de voix : deuxième vérification du paiement à la voix, avec le code.
  * Seule l'empreinte (des nombres) est envoyée, jamais l'enregistrement.
+ * Si le compte a un code de paiement, il est demandé pour inscrire ou effacer la voix.
  */
+type Status = { enrolled: boolean; since: string | null; hasPin?: boolean };
+
 export function VoicePrint() {
-  const [status, setStatus] = useState<{ enrolled: boolean; since: string | null } | null>(null);
+  const [status, setStatus] = useState<Status | null>(null);
+  // Empreinte calculée, en attente du code de paiement.
+  const [pending, setPending] = useState<number[] | null>(null);
+  const [removing, setRemoving] = useState(false);
+  const [code, setCode] = useState("");
   const [open, setOpen] = useState(false);
   const [consent, setConsent] = useState(false);
   const [step, setStep] = useState(0);
@@ -36,7 +44,7 @@ export function VoicePrint() {
 
   useEffect(() => {
     fetch("/api/voice/print", { cache: "no-store" })
-      .then((r) => (r.ok ? (r.json() as Promise<{ enrolled: boolean; since: string | null }>) : null))
+      .then((r) => (r.ok ? (r.json() as Promise<Status>) : null))
       .then((body) => setStatus(body ?? { enrolled: false, since: null }))
       .catch(() => setStatus({ enrolled: false, since: null }));
     return () => void current.current?.stop();
@@ -48,6 +56,9 @@ export function VoicePrint() {
     setStep(0);
     setPrints([]);
     setLevel(0);
+    setPending(null);
+    setRemoving(false);
+    setCode("");
   }
 
   function begin() {
@@ -91,29 +102,85 @@ export function VoicePrint() {
       setStep(0);
       return setMessage({ ok: false, text: "Les trois phrases ne se ressemblent pas assez : recommence seul, au calme." });
     }
+    // Avec un code de paiement : il est demandé avant d'envoyer l'empreinte.
+    if (status?.hasPin) return setPending(average(next));
     await save(average(next));
   }
 
-  async function save(print: number[]) {
+  async function save(print: number[], current?: string) {
     setBusy("Enregistrement…");
-    const response = await fetch("/api/voice/print", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ print, consent: true }) }).catch(() => null);
-    const result = (await response?.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+    setMessage(null);
+    const body = { print, consent: true, ...(current ? { current } : {}) };
+    const response = await fetch("/api/voice/print", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) }).catch(() => null);
+    const result = (await response?.json().catch(() => null)) as { ok?: boolean; error?: string; reason?: string } | null;
     setBusy(null);
-    if (!result?.ok) return setMessage({ ok: false, text: result?.error ?? "Connexion impossible : réessaie." });
+    if (!result?.ok) {
+      setCode("");
+      // Le compte a un code que cet écran ne connaissait pas : on le demande.
+      if (result?.reason === "pin-required") {
+        setStatus((previous) => (previous ? { ...previous, hasPin: true } : previous));
+        setPending(print);
+      }
+      return setMessage({ ok: false, text: result?.error ?? "Connexion impossible : réessaie." });
+    }
     reset();
-    setStatus({ enrolled: true, since: new Date().toISOString() });
+    setStatus((previous) => ({ enrolled: true, since: new Date().toISOString(), hasPin: previous?.hasPin }));
     setMessage({ ok: true, text: "Voix enregistrée : Tamilya vérifiera maintenant ta voix avant de payer." });
   }
 
-  async function remove() {
+  async function remove(current?: string) {
     setBusy("Suppression…");
-    const response = await fetch("/api/voice/print", { method: "DELETE" }).catch(() => null);
-    const result = (await response?.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+    setMessage(null);
+    const response = await fetch("/api/voice/print", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(current ? { current } : {}),
+    }).catch(() => null);
+    const result = (await response?.json().catch(() => null)) as { ok?: boolean; error?: string; reason?: string } | null;
     setBusy(null);
-    if (!result?.ok) return setMessage({ ok: false, text: result?.error ?? "Connexion impossible : réessaie." });
-    setStatus({ enrolled: false, since: null });
+    if (!result?.ok) {
+      setCode("");
+      if (result?.reason === "pin-required") {
+        setStatus((previous) => (previous ? { ...previous, hasPin: true } : previous));
+        setRemoving(true);
+      }
+      return setMessage({ ok: false, text: result?.error ?? "Connexion impossible : réessaie." });
+    }
+    reset();
+    setStatus((previous) => ({ enrolled: false, since: null, hasPin: previous?.hasPin }));
     setMessage({ ok: true, text: "Empreinte effacée : Tamilya ne vérifie plus ta voix (le code reste demandé)." });
   }
+
+  function askRemove() {
+    setMessage(null);
+    if (!status?.hasPin) return void remove();
+    setCode("");
+    setRemoving(true);
+  }
+
+  /** Code de paiement demandé avant d'inscrire (pending) ou d'effacer (removing) la voix. */
+  const pinForm = (
+    <form
+      className="space-y-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (code.length !== 4 || busy) return;
+        if (pending) void save(pending, code);
+        else void remove(code);
+      }}
+    >
+      <PinField label="Ton code de paiement" value={code} onChange={setCode} autoFocus />
+      <p className="text-xs text-fg-muted">{pending ? "Pour être sûr que c'est bien toi qui inscris ta voix." : "Pour être sûr que c'est bien toi qui effaces ta voix."}</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="submit" disabled={code.length !== 4 || Boolean(busy)} className={pending ? PRIMARY : DANGER}>
+          {busy ?? (pending ? "Enregistrer ma voix" : "Effacer ma voix")}
+        </button>
+        <button type="button" disabled={Boolean(busy)} onClick={reset} className={SECONDARY}>
+          Annuler
+        </button>
+      </div>
+    </form>
+  );
 
   return (
     <SettingsGroup
@@ -129,11 +196,13 @@ export function VoicePrint() {
     >
       {status === null ? (
         <div className="m-4 h-8 animate-pulse rounded-lg bg-bg-muted" />
+      ) : removing || pending ? (
+        <RowEditor>{pinForm}</RowEditor>
       ) : !open ? (
         <SettingsRow label="Empreinte de voix" value={status.enrolled ? `Enregistrée${status.since ? ` le ${dateFormat.format(new Date(status.since))}` : ""}` : "Aucune"}>
           <div className="flex gap-2">
             {status.enrolled ? (
-              <button type="button" disabled={Boolean(busy)} onClick={() => void remove()} className={DANGER}>
+              <button type="button" disabled={Boolean(busy)} onClick={askRemove} className={DANGER}>
                 Supprimer
               </button>
             ) : null}

@@ -4,6 +4,7 @@ import { getAuthContext } from "@/lib/auth/session";
 import { describeDevice, describePlace, siteOrigin } from "@/lib/email/device";
 import { emailConfigured, sendEmail } from "@/lib/email/send";
 import { newDeviceEmail } from "@/lib/email/templates";
+import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -34,6 +35,12 @@ export async function POST(request: NextRequest) {
     const { data: known, error } = await admin.from("known_devices").select("device_hash").eq("user_id", user.id);
     if (error) throw error;
     const isKnown = known.some((d) => d.device_hash === deviceHash);
+    // Appareil inconnu (nouvelle ligne, et peut-être un e-mail) : limité par compte, pour
+    // qu'une rafale d'appels sans cookie ne remplisse pas la table ni la boîte mail.
+    if (!isKnown) {
+      const limit = await consumeRateLimits([{ key: `auth-device:${user.id}`, rules: RATE_LIMIT_POLICIES.authDevice }]);
+      if (!limit.allowed) return NextResponse.json({ ok: false, error: "Trop de nouveaux appareils, réessaie plus tard." }, { status: 429 });
+    }
 
     await admin
       .from("known_devices")

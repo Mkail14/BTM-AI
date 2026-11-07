@@ -5,7 +5,8 @@ import { DANGER, PRIMARY, RowEditor, SECONDARY, SettingsGroup, SettingsRow } fro
 
 const digitsOnly = (value: string) => value.replace(/\D/g, "").slice(0, 4);
 
-function PinField({ label, value, onChange, autoFocus = false }: { label: string; value: string; onChange: (value: string) => void; autoFocus?: boolean }) {
+/** Champ de code à 4 chiffres (aussi demandé pour inscrire ou effacer la voix, VoicePrint). */
+export function PinField({ label, value, onChange, autoFocus = false }: { label: string; value: string; onChange: (value: string) => void; autoFocus?: boolean }) {
   return (
     <label className="block text-sm font-medium">
       {label}

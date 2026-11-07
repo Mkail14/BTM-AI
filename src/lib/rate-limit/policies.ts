@@ -37,7 +37,9 @@ export const RATE_LIMIT_POLICIES = {
   // Mot de passe redemandé avant de modifier le Profil de l'entreprise : quelques essais, pas plus.
   profileUnlock: [{ name: "profile-unlock-15min", limit: 5, windowSeconds: 900 }],
   // Code de paiement (paiement à la voix) : de quoi se tromper deux ou trois fois, pas de quoi deviner.
-  walletPin: [{ name: "wallet-pin-15min", limit: 12, windowSeconds: 900 }],
+  // Compte aussi les codes justes (chaque paiement au doigt en demande un) : 10 laisse payer
+  // plusieurs fois de suite. Les erreurs, elles, bloquent dès 5 (src/lib/wallet/pin.ts, blocage progressif).
+  walletPin: [{ name: "wallet-pin-15min", limit: 10, windowSeconds: 900 }],
   codeExamRequest: [{ name: "code-exam-request-hour", limit: 5, windowSeconds: 3_600 }],
   // Avis sur l'application : de quoi corriger une faute, pas de quoi inonder la page d'accueil.
   review: [{ name: "review-hour", limit: 10, windowSeconds: 3_600 }],
@@ -75,6 +77,23 @@ export const RATE_LIMIT_POLICIES = {
     { name: "voice-min", limit: 60, windowSeconds: 60 },
     { name: "voice-day", limit: 2_000, windowSeconds: 86_400 },
   ],
+  // Vocal en direct (admins) : un enregistrement par échange parlé, quelques boutons, et le bruit
+  // ambiant reconnu par Gemini à la demande (le plus coûteux, donc le plus serré).
+  voiceLiveTurn: [
+    { name: "voice-turn-min", limit: 60, windowSeconds: 60 },
+    { name: "voice-turn-day", limit: 5_000, windowSeconds: 86_400 },
+  ],
+  voiceLiveTool: [
+    { name: "voice-tool-min", limit: 30, windowSeconds: 60 },
+    { name: "voice-tool-day", limit: 1_000, windowSeconds: 86_400 },
+  ],
+  voiceLiveAmbiance: [
+    { name: "voice-ambiance-min", limit: 10, windowSeconds: 60 },
+    { name: "voice-ambiance-day", limit: 200, windowSeconds: 86_400 },
+  ],
+  // E-mails de sécurité : nouvel appareil (un par appareil inconnu) et mot de passe changé.
+  authDevice: [{ name: "auth-device-hour", limit: 10, windowSeconds: 3_600 }],
+  passwordNotice: [{ name: "password-notice-hour", limit: 3, windowSeconds: 3_600 }],
   // Relais IA (seulement s'il est ouvert) : protège la clé de BTM contre un secret volé.
   aiRelay: [
     { name: "relay-min", limit: 120, windowSeconds: 60 },

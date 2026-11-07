@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { mayotteClock } from "@/lib/ai/clock";
 import { getAuthContext } from "@/lib/auth/session";
+import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { canBuyBargeTickets } from "@/lib/barge/access";
 import { cycloneBlock } from "@/lib/cyclone/intent";
 import { canOrderFood } from "@/lib/food/access";
@@ -32,6 +33,9 @@ export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Requête refusée." }, { status: 403 });
   const { supabase, user } = await getAuthContext();
   if (!user) return NextResponse.json({ error: "Connexion requise." }, { status: 401 });
+  if (!user.isAdmin) return NextResponse.json({ error: "Réservé aux administrateurs." }, { status: 403 });
+  const limit = await consumeRateLimits([{ key: `voice-live-tool:${user.id}`, rules: RATE_LIMIT_POLICIES.voiceLiveTool }]).catch(() => null);
+  if (limit && !limit.allowed) return NextResponse.json({ error: "Trop de demandes, réessaie dans un instant." }, { status: 429 });
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Demande invalide." }, { status: 400 });
   // Pas un tableau : juste une réponse pour Tamilya, lue sur l'horloge du serveur.

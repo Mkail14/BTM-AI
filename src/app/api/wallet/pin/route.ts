@@ -4,7 +4,7 @@ import { getAuthContext } from "@/lib/auth/session";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { payStatus, removePin, savePin, setConsent, verifyPin, type PinCheck } from "@/lib/wallet/pin";
+import { describePinWait, payStatus, removePin, savePin, setConsent, verifyPin, type PinCheck } from "@/lib/wallet/pin";
 import { getProfile } from "@/lib/conversations/repository";
 import { PRINT_SIZE } from "@/lib/voice-live/voice-check";
 import { checkVoice, voiceStatus, type VoiceGate } from "@/lib/wallet/voice-print";
@@ -55,7 +55,7 @@ function refuseVoice(gate: Extract<VoiceGate, { ok: false }>, name: string) {
 function explain(check: Exclude<PinCheck, { ok: true }> | { ok: false; reason: "weak" }) {
   if (check.reason === "none") return fail(404, "Aucun code de paiement : crée-le dans les paramètres, rubrique Tamilya.", { reason: "none" });
   if (check.reason === "weak") return fail(400, "Code trop facile (même chiffre ou suite) : choisis-en un autre.", { reason: "weak" });
-  if (check.reason === "locked") return fail(423, "Trop de codes faux : réessaie dans 15 minutes.", { reason: "locked" });
+  if (check.reason === "locked") return fail(423, `Trop de codes faux : réessaie dans ${describePinWait(check.lockedUntil)}.`, { reason: "locked" });
   return fail(403, `Code faux. ${check.left} essai${(check.left ?? 0) > 1 ? "s" : ""} avant blocage.`, { reason: "wrong", left: check.left });
 }
 
