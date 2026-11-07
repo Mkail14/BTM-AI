@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `4599d52` (2026-11-07)**
+**Dernier commit noté : `eb8f837` (2026-11-07)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -33,6 +33,7 @@ Comment le tenir :
 | Paquets | pnpm seulement | Un `npm install` a cassé node_modules le 2026-11-02 | npm |
 | App Android | Java natif + WebView (dépôt séparé) | Le site se met à jour sans réinstaller l'APK ; Tamilya Connect natif pour marcher sans internet | Réécrire toute l'app |
 | Style | Boutons rose plein, icônes, pas d'emoji | Choix de l'utilisateur après plusieurs essais ; les emojis « ne font pas pro » | Verre sobre, crème, bonbon |
+| Fin de phrase en vocal sans bouton | Silero VAD (libre, MIT), dans le navigateur avec onnxruntime-web | Reconnaît une voix humaine, pas seulement un son fort : la route et les travaux ne passent plus pour de la parole ; 3 à 5 ms par paquet | Porte au volume seule (gardée en secours tant que Silero n’est pas chargé) |
 | Retours tactiles | Vibrations courtes | Un son sur chaque bouton « ne fait pas vraie app » | Sons |
 
 ---
@@ -57,6 +58,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-07
+- **Vocal sans bouton : Silero reconnaît la voix** (`eb8f837`). La porte à bruit ne décidait qu’au volume : un bruit fort (moto, travaux, quelqu’un qui parle fort) passait pour la personne. Silero, un petit détecteur de voix libre, dit maintenant si c’est une voix. Pendant que Tamilya parle, il faut toujours parler plus fort que son écho pour la couper. Coût : environ 6 Mo téléchargés la première fois (modèle 2,3 Mo + moteur ~4 Mo compressé), gardés ensuite ; en attendant, ou si l’appareil ne peut pas, l’ancienne porte au volume marche seule. Le moteur n’est pas dans git : `scripts/copy-vad.mjs` le copie dans `public/vad/` avant `dev` et `build` ; `/vad/` passe hors du proxy (sinon bloqué par la page d’attente). Mode « maintenir pour parler » inchangé. Vérifié : essai sur voix synthétique (voix reconnue, bruit fort ignoré, voix gardée dans le bruit), 451 tests, construction du site. Pas encore essayé au vrai micro. Suite possible : raccourcir l’attente de fin de phrase (0,6 s de porte + 0,7 s de Gemini), à mesurer.
 - **Profil de l'entreprise lisible sur téléphone** (`4599d52`) : les trois blocs (État du site, RIB, Administrateurs) dépassaient de l'écran d'environ 45 px, la page bougeait de côté. Pourquoi : la grille laissait chaque bloc aussi large que son contenu. Correctif : blocs à la largeur de l'écran, pastille d'état cachée sur téléphone (l'état est redit juste dessous), sous-titres qui passent à la ligne, barre du haut allégée (« Admin » et « / Profil » cachés sur petit écran). Vérifié à 390, 360 et 320 px ; ordinateur inchangé.
 - **Annulation des commandes de repas** (`92d724c`) : possible jusqu'à 4 h avant le début de la préparation, remboursée tout de suite sur le moyen de paiement utilisé. Après, BTM ne peut plus annuler : le client est renvoyé vers le restaurant. Pourquoi : règle décidée pour les commandes programmées ; le restaurant doit pouvoir compter sur une commande à moins de 4 h. Seule la dernière commande est annulable depuis le site (le serveur ne garde qu'elle).
 
