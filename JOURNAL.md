@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `49b5875` (2026-11-07)**
+**Dernier commit noté : `e33703d` (2026-11-07)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -79,6 +79,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-07
+- **Mes documents rendu fonctionnel** (`e33703d`). Essayé sur la Pad 6 avec l'utilisateur. Quatre blocages, trois dans Google Cloud (projet Groupe BTM, faits par l'utilisateur) : adresses de retour `https://tamilya.yt/documents/connexion` et `https://dev.tamilya.yt/documents/connexion` absentes du client Web (Google : redirect_uri_mismatch) ; application en mode Test sans testeur (mikail.jms25@gmail.com ajouté ; contact@btm.yt refusé, ce n'est pas un compte Google) ; API Google Drive à activer (Drive répondait 403). Un dans le code : après la liaison, le site disait « ce Google sert déjà à un autre compte Tamilya » alors qu'il servait à ce compte-ci (connexion faite avec ce Google) ; corrigé, et la raison de Google est désormais écrite dans les journaux. Vu : le retour de Google revient bien dans l'app (lien vérifié), pas dans Chrome. Aussi le 2026-11-07 : connexion Google native de l'app réparée par la création des 2 clients OAuth Android (empreintes debug et définitive). Reste : passer l'application Google en production pour tous les utilisateurs.
 - **Audit, corrections : affichage, 2e passe** (`49b5875`). Un test réel dans Chrome (11 pages publiques × 5 tailles × 2 thèmes, réseau de Mayotte simulé) a trouvé : la conversation cachée sous l'accueil invité prenait le focus clavier (rendue inerte) ; Échap sur `/?auth=required` laissait l'écran de conversation au lieu de l'accueil ; focus absent sur le champ e-mail ; exemple de conversation vide si le serveur tarde (6 s au plus, puis texte de secours) ; zones de toucher de 12 à 36 px (classe `zone-appui` : 44 px sans changer l'aspect) ; /partenaires coupé à 320 px et déséquilibré à 1920 px ; textes d'exemple coupés ; « Retour à la conversation » montré aux invités. Aussi : le bouton Google web disparaît quand celui du téléphone arrive (relecture indépendante). Vérifié : mesures avant/après dans Chrome, 503 tests, types, lint à 0. Pas vu sur un vrai iPhone.
 - **Code de paiement : plus de blocage sans fin** (`cb1d249`). La relecture indépendante a vu qu'après 15 erreurs, chaque erreur bloquait 24 h, sans aucune issue pour quelqu'un qui a oublié son code. Maintenant 24 h toutes les 5 erreurs (5 essais par jour). Texte des paramètres corrigé (il disait encore « 15 minutes »).
 - **Vitesse : Supabase et QR code après la page** (`2408ff2`, `f4ec2fe`). Mesuré sur la version de production : JavaScript de chaque page 272 → 206 Ko compressés (environ 3 s de moins à 20 Ko/s). Le client Supabase n'est chargé qu'après l'affichage (il ne sert qu'à suivre la session et à se déconnecter) ; la pastille « Ma commande » (suivi et QR code) aussi. Solde des paramètres lu en même temps que le reste.
