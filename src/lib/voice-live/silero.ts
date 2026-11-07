@@ -4,11 +4,12 @@
  * ne passent plus pour de la parole. Modèle libre (MIT) de snakers4/silero-vad,
  * exécuté dans le navigateur par onnxruntime-web.
  *
- * Fichiers servis par le site dans /vad/ (copiés par scripts/copy-vad.mjs) :
+ * Fichiers servis par le site dans /vad/ (moteur dans /vad/ort/<version>/, copié par scripts/copy-vad.mjs) :
  * le modèle (~2,3 Mo) et le moteur (~15 Mo, ~4 Mo compressé), gardés en cache ensuite.
  */
 
 import type * as Ort from "onnxruntime-web";
+import { ortWasmPath } from "./ort-path";
 
 /** Silero travaille par tranches de 512 échantillons à 16 kHz (32 ms), avec les 64 d'avant. */
 const FRAME = 512;
@@ -53,7 +54,7 @@ export async function createSilero(ort: OrtModule, model: string | Uint8Array): 
 export async function loadSilero(): Promise<VoiceDetector | null> {
   try {
     const ort = await import("onnxruntime-web/wasm");
-    ort.env.wasm.wasmPaths = "/vad/";
+    ort.env.wasm.wasmPaths = ortWasmPath(ort);
     // Plusieurs fils demandent une isolation de page que le site n'a pas : un seul suffit (≈ 1 ms par tranche).
     ort.env.wasm.numThreads = 1;
     return await createSilero(ort, "/vad/silero_vad.onnx");

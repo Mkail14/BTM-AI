@@ -14,6 +14,7 @@
  */
 
 import type * as Ort from "onnxruntime-web";
+import { ortWasmPath } from "./ort-path";
 
 const RATE = 16000;
 const FRAME = 400; // 25 ms
@@ -190,12 +191,12 @@ export async function createPrinter(ort: OrtModule, model: string | Uint8Array):
 
 let loading: Promise<VoicePrinter | null> | null = null;
 
-/** Navigateur : charge le modèle une fois (≈ 26 Mo, gardé en cache ensuite). Null si l'appareil ne peut pas. */
+/** Navigateur : charge le modèle une fois (≈ 6,7 Mo, gardé en cache ensuite). Null si l'appareil ne peut pas. */
 export function loadPrinter(): Promise<VoicePrinter | null> {
   loading ??= (async () => {
     try {
       const ort = await import("onnxruntime-web/wasm");
-      ort.env.wasm.wasmPaths = "/vad/";
+      ort.env.wasm.wasmPaths = ortWasmPath(ort);
       ort.env.wasm.numThreads = 1;
       return await createPrinter(ort, "/voiceprint/resnet34.onnx");
     } catch {
