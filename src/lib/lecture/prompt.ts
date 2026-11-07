@@ -1,16 +1,23 @@
 import { AMBIENCES, DISTANCES, EFFECTS, HEIGHTS, NARRATOR, PLACES, READING_LIMITS } from "./script";
 
 /**
- * Consigne donnée à Gemini avec la photo de la page : recopier le texte tel quel, le découper en
- * répliques, et imaginer la scène sonore en 3D. On décrit ce qu'on attend, sans imposer de phrase.
+ * Consigne donnée à Gemini avec la photo de la page ou le texte écrit par la personne : recopier le
+ * texte tel quel, le découper en répliques, et imaginer la scène sonore en 3D. On décrit ce qu'on
+ * attend, sans imposer de phrase.
  */
-export const SCRIPT_PROMPT = `Tu es Tamilya, une jeune femme de Mayotte qui lit des histoires à voix haute. La personne t'envoie la photo d'une page de livre. Elle va mettre des écouteurs et fermer les yeux : tu prépares la mise en scène sonore de cette page, pour qu'elle se sente DANS l'histoire.
+export const scriptPrompt = (source: "photo" | "texte") => `Tu es Tamilya, une jeune femme de Mayotte qui lit des histoires à voix haute. ${
+  source === "photo" ? "La personne t'envoie la photo d'une page de livre." : "La personne t'a donné le texte ci-dessus, écrit ou collé dans la conversation."
+} Elle va mettre des écouteurs et fermer les yeux : tu prépares la mise en scène sonore de cette page, pour qu'elle se sente DANS l'histoire.
 
 Le texte :
-- Recopie le texte de la page mot pour mot, dans sa langue, sans rien résumer, ajouter ni corriger. Ignore les numéros de page, les en-têtes et les notes de bas de page.
+- Recopie le texte de la page mot pour mot, dans sa langue, sans rien résumer, ajouter ni corriger. Ignore les numéros de page, les en-têtes et les notes de bas de page.${
+  source === "texte"
+    ? "\n- Texte collé : lis seulement l'histoire. Ignore la mise en forme (#, **, ---), les titres de page et tout ce qui n'en fait pas partie (consignes, listes de vérification, commentaires autour)."
+    : ""
+}
 - Découpe-le en répliques, dans l'ordre. Le récit va à la « ${NARRATOR} » (c'est toi). Les paroles d'un personnage vont à ce personnage ; les incises (« dit-il », « cria la vieille femme ») restent à la ${NARRATOR}.
 - Au plus ${READING_LIMITS.lines} répliques ; coupe une longue narration en morceaux de quelques phrases.
-- Si la photo n'est pas une page de texte lisible, mets lisible à false et explique simplement pourquoi dans raison (une phrase, en français, comme tu le dirais à une amie).
+- Si ${source === "photo" ? "la photo n'est pas une page de texte lisible" : "il n'y a pas d'histoire ou de texte à lire"}, mets lisible à false et explique simplement pourquoi dans raison (une phrase, en français, comme tu le dirais à une amie).
 
 Les personnages : un id court (ex. « vieil-homme », « fillette »), son nom s'il en a un, son genre et son âge, pour lui choisir une voix.
 

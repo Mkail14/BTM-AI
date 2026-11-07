@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { detectReading } from "../src/lib/lecture/intent";
+import { detectReading, parseReadingBlock, readingText, withReadingBlock } from "../src/lib/lecture/intent";
 import { AMBIENCES, assignVoices, buildScript, EFFECTS, PLACES, READING_LIMITS } from "../src/lib/lecture/script";
 import { between, ROOMS } from "../src/lib/lecture/soundscape";
 import { renderSamples } from "../src/lib/lecture/sounds";
@@ -122,9 +122,42 @@ describe("Lecture en 3D : bruits fabriqués", () => {
 
 describe("Lecture en 3D : consigne de Tamilya", () => {
   it("demande le bloc lecture-3d seulement quand on lui demande de lire", () => {
-    const withReading = buildSystemPrompt(DEFAULT_PERSONALITY, { reading: true });
+    const withReading = buildSystemPrompt(DEFAULT_PERSONALITY, { reading: "photo" });
+    const withText = buildSystemPrompt(DEFAULT_PERSONALITY, { reading: "texte" });
     const without = buildSystemPrompt(DEFAULT_PERSONALITY, {});
     assert.match(withReading, /```lecture-3d\npage\n```/);
+    assert.match(withText, /```lecture-3d\ntexte\n```/);
+    assert.match(withText, /n'invente pas d'histoire/);
     assert.doesNotMatch(without, /lecture-3d/);
+  });
+});
+
+describe("Lecture en 3D : texte écrit dans la conversation", () => {
+  const story = "La nuit était tombée sur la plage de Moya. Les vagues roulaient dans le noir. « Grand-père, tu entends le vent ? » demanda Zaïna. Le vieil homme sourit et regarda la mer, longtemps.";
+
+  it("reconnaît « lis-moi ce message » et ses variantes, pas une demande d'histoire nouvelle", () => {
+    for (const message of ["lis moi ce message", "Lis-moi ce texte", "lis-moi cette histoire", "tu peux me lire ça ?", "relis-moi le message"]) {
+      assert.equal(detectReading(message), true, message);
+    }
+    for (const message of ["raconte-moi une histoire", "lis une histoire sur Mayotte", "j'ai lu ton message"]) {
+      assert.equal(detectReading(message), false, message);
+    }
+  });
+
+  it("prend le texte du message, sans la phrase de demande, sinon celui du message précédent", () => {
+    assert.equal(readingText(`Lis-moi ce message\n${story}`, null), story);
+    assert.equal(readingText("lis moi ce message", story), story);
+    assert.equal(readingText("lis-moi cette page", "salut"), null, "trop court : photo");
+    assert.ok(!readingText("lis moi ça", `${story}\n\`\`\`code\`\`\``)!.includes("```"));
+  });
+
+  it("glisse le texte dans le bloc écrit par Tamilya, ou ajoute le bloc", () => {
+    const reply = "Mets ton casque et ferme les yeux.\n\n```lecture-3d\ntexte\n```";
+    const filled = withReadingBlock(reply, story);
+    assert.equal(filled, `Mets ton casque et ferme les yeux.\n\n\`\`\`lecture-3d\ntexte\n${story}\n\`\`\``);
+    assert.equal(parseReadingBlock(`texte\n${story}`), story);
+    assert.equal(parseReadingBlock("page"), null);
+    assert.match(withReadingBlock("Ferme les yeux.", story), /```lecture-3d\ntexte\n/);
+    assert.equal(withReadingBlock(filled, story), filled, "déjà rempli : rien ne change");
   });
 });

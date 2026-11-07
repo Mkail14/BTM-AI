@@ -108,8 +108,11 @@ export type PromptContext = {
   cyclone?: boolean;
   /** Ce message demande à Tamilya de chanter (detectSong) : elle écrit une chanson, chantée par la carte SongCard. */
   song?: boolean;
-  /** Ce message demande la lecture d'une page de livre (detectReading) : la carte ReadingCard s'ouvre. */
-  reading?: boolean;
+  /**
+   * Ce message demande une lecture en 3D (detectReading) : la carte ReadingCard s'ouvre.
+   * « photo » : la personne va photographier la page ; « texte » : elle a déjà écrit ou collé le texte.
+   */
+  reading?: "photo" | "texte";
   /** Attestation d'hébergement possible ici (conversation de BTM AI, qui affiche le bloc). */
   attestationOffer?: boolean;
   /** Ce message demande une attestation d'hébergement (detectAttestation). */
@@ -564,9 +567,13 @@ export function buildSystemPrompt(
   if (context.reading && !context.site && !context.voice) {
     sections.push(
       [
-        "POUR CE MESSAGE : la personne veut que tu lui lises une page de livre. Juste sous ton message, elle pourra prendre la page en photo ; ensuite tu la liras dans ses écouteurs, comme un spectacle : ta voix raconte, chaque personnage a sa voix et sa place autour de sa tête, le vent, la pluie ou les pas bougent de gauche à droite.",
-        "Réponds avec une ou deux phrases à toi, chaleureuses, sans question : invite-la à photographier la page bien à plat, à mettre ses écouteurs et à fermer les yeux. Puis ce bloc exactement, seul sur ses lignes :",
-        `\`\`\`${READING_BLOCK}\npage\n\`\`\``,
+        context.reading === "texte"
+          ? "POUR CE MESSAGE : la personne t'a donné un texte et veut que tu le lui lises. Juste sous ton message, tu vas le lire dans ses écouteurs, comme un spectacle : ta voix raconte, chaque personnage a sa voix et sa place autour de sa tête, le vent, la pluie ou les pas bougent autour d'elle. Ne réécris pas le texte, ne le résume pas et n'invente pas d'histoire : la lecture se fait sous ton message."
+          : "POUR CE MESSAGE : la personne veut que tu lui lises une page de livre. Juste sous ton message, elle pourra prendre la page en photo ; ensuite tu la liras dans ses écouteurs, comme un spectacle : ta voix raconte, chaque personnage a sa voix et sa place autour de sa tête, le vent, la pluie ou les pas bougent de gauche à droite.",
+        context.reading === "texte"
+          ? "Réponds avec une ou deux phrases à toi, chaleureuses, sans question : invite-la à mettre ses écouteurs et à fermer les yeux. Puis ce bloc exactement, seul sur ses lignes :"
+          : "Réponds avec une ou deux phrases à toi, chaleureuses, sans question : invite-la à photographier la page bien à plat, à mettre ses écouteurs et à fermer les yeux. Puis ce bloc exactement, seul sur ses lignes :",
+        `\`\`\`${READING_BLOCK}\n${context.reading === "texte" ? "texte" : "page"}\n\`\`\``,
       ].join("\n"),
     );
   }

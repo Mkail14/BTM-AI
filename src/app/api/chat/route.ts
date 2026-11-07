@@ -6,7 +6,7 @@ import { canOrderFood } from "@/lib/food/access";
 import { canBuyBargeTickets } from "@/lib/barge/access";
 import { CYCLONE_BLOCK, cycloneBlock, detectCyclone } from "@/lib/cyclone/intent";
 import { detectSong } from "@/lib/music/intent";
-import { detectReading } from "@/lib/lecture/intent";
+import { detectReading, readingText, withReadingBlock } from "@/lib/lecture/intent";
 import { BARGE_BLOCK, bargeBlockFor, bargeSpec, detectBargeTicket } from "@/lib/barge/intent";
 import { ATTESTATION_BLOCK, attestationBlock, detectAttestation, wantsOwnInfo } from "@/lib/attestation/intent";
 import { BTM_DEVIS_BLOCK, btmDevisBlockFor, btmDevisSpec, detectBtmDevis } from "@/lib/btm/intent";
@@ -430,6 +430,10 @@ export async function POST(request: NextRequest) {
   const song = !body.voice && detectSong(body.message);
   // Lecture en 3D demandée (« lis-moi cette page ») : essai réservé aux administrateurs.
   const reading = Boolean(user?.isAdmin) && !body.voice && detectReading(body.message);
+  // Texte écrit ou collé (dans ce message ou le précédent) : lu tel quel, sans photo.
+  const readingSource = reading
+    ? readingText(body.message, [...history].reverse().find((turn) => turn.role === "user")?.content ?? null)
+    : null;
   // Demande d'attestation d'hébergement reconnue ici : le formulaire s'ouvre à coup sûr.
   // « Mets mes infos » juste après l'ouverture : c'est la même attestation.
   const attestationOpen = history.slice(-4).some((turn) => turn.role === "assistant" && turn.content.includes(ATTESTATION_BLOCK));
@@ -469,7 +473,7 @@ export async function POST(request: NextRequest) {
     trip,
     cyclone,
     song,
-    reading,
+    reading: reading ? (readingSource ? "texte" : "photo") : undefined,
     attestationOffer: true,
     attestation,
     codeExamDay: codeWhen.day ? formatWhenDay(codeWhen.day) : null,
@@ -668,6 +672,15 @@ export async function POST(request: NextRequest) {
         if (attestation && text && !text.includes("```" + ATTESTATION_BLOCK)) {
           text += attestationBlock;
           send({ type: "delta", text: attestationBlock });
+        }
+        // Lecture en 3D : le texte à lire est glissé dans le bloc par le serveur (Tamilya n'a pas à le recopier) ;
+        // bloc ajouté s'il manque.
+        if (reading && text) {
+          const withBlock = withReadingBlock(text, readingSource);
+          if (withBlock !== text) {
+            text = withBlock;
+            send({ type: "replace", text });
+          }
         }
         // Jour et moment demandés (« demain matin ») : inscrits dans le bloc des créneaux, qui s'ouvre sur ce jour.
         if (codeWhen.day || codeWhen.moment) {

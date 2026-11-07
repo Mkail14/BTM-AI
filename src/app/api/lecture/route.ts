@@ -4,13 +4,14 @@ import { geminiHeaders, geminiRoot, listKeyModels, thinkingSettings } from "@/li
 import { geminiKey } from "@/lib/ai/voice/gemini-tts";
 import { loadVoice } from "@/lib/ai/voice/settings";
 import { getAuthContext } from "@/lib/auth/session";
-import { SCRIPT_PROMPT, SCRIPT_SCHEMA } from "@/lib/lecture/prompt";
+import { READING_TEXT } from "@/lib/lecture/intent";
+import { scriptPrompt, SCRIPT_SCHEMA } from "@/lib/lecture/prompt";
 import { buildScript } from "@/lib/lecture/script";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
 
 /**
- * Lecture en 3D : la photo d'une page de livre devient un script de scène (voix, places autour
+ * Lecture en 3D : la photo d'une page de livre (ou un texte écrit dans la conversation) devient un script de scène (voix, places autour
  * de la tête, bruits), écrit par Gemini. Administrateurs seulement pour l'essai. La photo n'est
  * pas gardée.
  */
@@ -23,10 +24,13 @@ const TIMEOUT_MS = 50_000;
 /** Flash stable (pas lite : il faut bien lire la page et imaginer la scène), du plus récent au plus ancien. */
 const MODEL = /^gemini-[\d.]+-flash$/;
 
-const bodySchema = z.object({
-  image: z.string().max(MAX_BASE64).regex(/^[A-Za-z0-9+/=]+$/),
-  mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]).default("image/jpeg"),
-});
+const bodySchema = z.union([
+  z.object({
+    image: z.string().max(MAX_BASE64).regex(/^[A-Za-z0-9+/=]+$/),
+    mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]).default("image/jpeg"),
+  }),
+  z.object({ text: z.string().trim().min(20).max(READING_TEXT.max) }),
+]);
 
 function pickModels(available: string[]): string[] {
   const version = (id: string) => Number(id.match(/^gemini-([\d.]+)/)?.[1] ?? 0);
@@ -43,7 +47,12 @@ export async function POST(request: NextRequest) {
   const limit = await consumeRateLimits([{ key: `lecture:${user.id}`, rules: RATE_LIMIT_POLICIES.reading }]).catch(() => null);
   if (!limit?.allowed) return NextResponse.json({ error: "J'ai beaucoup lu : laisse-moi souffler un peu, puis réessaie." }, { status: 429 });
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return NextResponse.json({ error: "Photo invalide, reprends-la." }, { status: 400 });
+  if (!parsed.success) return NextResponse.json({ error: "Je n'ai rien à lire : reprends la photo ou renvoie le texte." }, { status: 400 });
+  const input = parsed.data;
+  const parts =
+    "image" in input
+      ? [{ inlineData: { mimeType: input.mimeType, data: input.image } }, { text: scriptPrompt("photo") }]
+      : [{ text: `Texte :\n\n${input.text}` }, { text: scriptPrompt("texte") }];
 
   try {
     const signal = AbortSignal.any([request.signal, AbortSignal.timeout(TIMEOUT_MS)]);
@@ -55,7 +64,7 @@ export async function POST(request: NextRequest) {
         method: "POST",
         headers: geminiHeaders(key.apiKey),
         body: JSON.stringify({
-          contents: [{ parts: [{ inlineData: { mimeType: parsed.data.mimeType, data: parsed.data.image } }, { text: SCRIPT_PROMPT }] }],
+          contents: [{ parts }],
           generationConfig: {
             temperature: 0.6,
             maxOutputTokens: 16_384,

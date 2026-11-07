@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Camera, Headphones, Pause, Play, RotateCcw, Square } from "lucide-react";
+import { BookOpen, Camera, Headphones, Pause, Play, RotateCcw, Square } from "lucide-react";
 import type { GeminiVoiceId } from "@/lib/ai/voice/voices";
+import { parseReadingBlock } from "@/lib/lecture/intent";
 import type { SceneScript } from "@/lib/lecture/script";
 import { preloadResonance, ScenePlayer } from "@/lib/lecture/soundscape";
 import { AwaBlob } from "./AwaBlob";
 
 /**
- * Lecture en 3D : la personne prend une page de livre en photo, Gemini la met en scène
+ * Lecture en 3D : la personne prend une page de livre en photo (ou a écrit le texte dans la
+ * conversation : le serveur le glisse dans le bloc, « texte » puis le texte), Gemini la met en scène
  * (/api/lecture), et Tamilya la lit dans les écouteurs, avec une voix par personnage et des
  * bruits qui tournent autour de la tête (src/lib/lecture/soundscape.ts).
  */
@@ -45,8 +47,17 @@ async function shrinkPhoto(file: File): Promise<string> {
   return btoa(binary);
 }
 
-export function ReadingCard() {
+/** Délai sans changement avant de considérer le bloc fini d'écrire. */
+const SETTLE_MS = 1_200;
+
+export function ReadingCard({ spec }: { spec: string }) {
+  const text = parseReadingBlock(spec);
+  // « texte » sans le texte : le serveur va le glisser dans le bloc à la fin de la réponse.
+  const waiting = !text && spec.trim() === "texte";
   const [state, setState] = useState<State>({ status: "idle" });
+  const firstSpec = useRef(spec);
+  const live = useRef(false);
+  const started = useRef(false);
   const input = useRef<HTMLInputElement>(null);
   const ctx = useRef<AudioContext | null>(null);
   const player = useRef<ScenePlayer | null>(null);
@@ -92,16 +103,17 @@ export function ReadingCard() {
     return pending;
   }
 
-  async function prepare(file: File) {
+  async function prepare(source: File | string) {
+    started.current = true;
     setState({ status: "preparing" });
     // Le moteur 3D se télécharge pendant que Gemini lit la page.
     void preloadResonance();
     try {
-      const image = await shrinkPhoto(file);
+      const payload = typeof source === "string" ? { text: source } : { image: await shrinkPhoto(source), mimeType: "image/jpeg" };
       const response = await fetch("/api/lecture", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ image, mimeType: "image/jpeg" }),
+        body: JSON.stringify(payload),
         signal: AbortSignal.timeout(90_000),
       });
       const body = (await response.json().catch(() => null)) as { script?: SceneScript; error?: string } | null;
@@ -187,6 +199,17 @@ export function ReadingCard() {
     setState({ ...state, paused: !state.paused });
   }
 
+  // Texte tout juste arrivé dans la réponse : la lecture se prépare d'elle-même. Une ancienne
+  // conversation rouverte montre un bouton (pour ne pas refaire la mise en scène à chaque visite).
+  useEffect(() => {
+    if (spec !== firstSpec.current) live.current = true;
+    if (!live.current || started.current || !text) return;
+    const timer = window.setTimeout(() => void prepare(text), SETTLE_MS);
+    return () => window.clearTimeout(timer);
+    // prepare lit l'état à jour à chaque rendu.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [spec, text]);
+
   function takePhoto() {
     audio();
     input.current?.click();
@@ -217,20 +240,28 @@ export function ReadingCard() {
         </div>
         <div className="flex min-w-0 flex-1 flex-col gap-2">
           <figcaption className="text-sm font-medium">
-            {state.status === "preparing"
-              ? "Je découvre ta page…"
+            {state.status === "preparing" || waiting
+              ? text || waiting
+                ? "Je prépare ton histoire…"
+                : "Je découvre ta page…"
               : state.status === "ready" || state.status === "playing" || state.status === "done"
                 ? state.script.title || "Ta page"
                 : "Lecture en 3D"}
           </figcaption>
 
-          {state.status === "idle" || state.status === "error" ? (
-            <button type="button" onClick={takePhoto} className="btn-rose inline-flex h-11 items-center gap-2 self-start rounded-full px-5 text-sm font-medium">
-              <Camera size={18} aria-hidden="true" /> Prendre la page en photo
-            </button>
+          {(state.status === "idle" || state.status === "error") && !waiting ? (
+            text ? (
+              <button type="button" onClick={() => void prepare(text)} className="btn-rose inline-flex h-11 items-center gap-2 self-start rounded-full px-5 text-sm font-medium">
+                <BookOpen size={18} aria-hidden="true" /> Préparer la lecture
+              </button>
+            ) : (
+              <button type="button" onClick={takePhoto} className="btn-rose inline-flex h-11 items-center gap-2 self-start rounded-full px-5 text-sm font-medium">
+                <Camera size={18} aria-hidden="true" /> Prendre la page en photo
+              </button>
+            )
           ) : null}
 
-          {state.status === "preparing" ? (
+          {state.status === "preparing" || waiting ? (
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-border" role="progressbar" aria-label="Préparation de la page">
               <div className="h-full w-1/3 animate-pulse rounded-full bg-accent" />
             </div>
@@ -271,9 +302,11 @@ export function ReadingCard() {
               <button type="button" onClick={() => void play(state.script)} className="zone-appui inline-flex items-center gap-1 text-sm font-medium text-accent">
                 <RotateCcw size={14} aria-hidden="true" /> Réécouter
               </button>
-              <button type="button" onClick={takePhoto} className="zone-appui inline-flex items-center gap-1 text-sm font-medium text-accent">
-                <Camera size={14} aria-hidden="true" /> Une autre page
-              </button>
+              {text ? null : (
+                <button type="button" onClick={takePhoto} className="zone-appui inline-flex items-center gap-1 text-sm font-medium text-accent">
+                  <Camera size={14} aria-hidden="true" /> Une autre page
+                </button>
+              )}
             </div>
           ) : null}
 
@@ -285,7 +318,7 @@ export function ReadingCard() {
         </div>
       </div>
 
-      {state.status === "preparing" || state.status === "ready" ? (
+      {state.status === "preparing" || state.status === "ready" || waiting ? (
         <p className="flex items-center gap-2 text-sm text-fg-muted">
           <Headphones size={16} aria-hidden="true" className="shrink-0" /> Mets tes écouteurs : les voix et les bruits viennent de tous les côtés.
         </p>

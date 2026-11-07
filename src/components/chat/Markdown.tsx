@@ -109,8 +109,9 @@ const components: Components = {
     // Bloc ```chanson``` : paroles écrites par Tamilya, chantées avec des instruments (Lyria) ; le globe chante.
     // Sans clé : la carte doit garder son état pendant que le bloc s'écrit.
     if (code === `language-${SONG_BLOCK}`) return <SongCard spec={textOf(children)} />;
-    // Bloc ```lecture-3d``` : page de livre prise en photo, lue avec des voix et des bruits en 3D.
-    if (code === `language-${READING_BLOCK}`) return <ReadingCard />;
+    // Bloc ```lecture-3d``` : page prise en photo (« page ») ou texte de la conversation (« texte »), lu en 3D.
+    // Sans clé : la carte garde son état quand le serveur y glisse le texte.
+    if (code === `language-${READING_BLOCK}`) return <ReadingCard spec={textOf(children)} />;
     // Bloc ```tableau-combine``` : plusieurs services en un tableau, créé par Tamilya sur demande.
     if (code === `language-${COMBINED_BLOCK}`) {
       const block = textOf(children).trim();
