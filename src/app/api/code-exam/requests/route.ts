@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { getAuthContext, type SessionUser } from "@/lib/auth/session";
 import { requestSchema } from "@/lib/code-exam/candidate";
+import { hasActiveBooking } from "@/lib/code-exam/duplicate";
 import { loadCodeExam } from "@/lib/code-exam/laposte";
 import { CODE_EXAM_FEE_CENTS, codeExamPartnerReady } from "@/lib/code-exam/partner";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -109,6 +110,17 @@ export async function POST(request: NextRequest) {
   if (!slot || slot.places <= 0) return fail(409, "Ce créneau n'a plus de place : choisis-en un autre.");
   if (center.types.length > 0 && !center.types.includes(body.examType)) {
     return fail(400, "Ce bureau ne propose pas cette épreuve.");
+  }
+
+  // Même créneau déjà demandé par ce compte (double clic, deux onglets) : refusé avant tout
+  // paiement, sans prendre le code de paiement. Course restante expliquée dans hasActiveBooking().
+  try {
+    if (await hasActiveBooking(admin, { userId: user.id, centerId: center.id, startsAt: slot.startsAt })) {
+      return fail(409, "Tu as déjà une demande pour ce créneau : regarde dans la cloche avant d'en refaire une.");
+    }
+  } catch (error) {
+    console.error("[code-exam] Vérification des demandes impossible", error);
+    return fail(503, "Service momentanément indisponible : réessaie dans un instant.");
   }
 
   // Paiement avec le portefeuille : fictif en démonstration (aucune place n'est prise chez La Poste).

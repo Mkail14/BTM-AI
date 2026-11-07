@@ -8,7 +8,7 @@ import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
 import { hasAdminRole, hasPrincipalAdminRole } from "@/lib/auth/roles";
 import type { SessionUser } from "@/lib/auth/session";
 import { canBuyBargeTickets } from "@/lib/barge/access";
-import { bargeDays, BARGE_ROUTE, describeBargeLines, priceBargeOrder } from "@/lib/barge/catalog";
+import { bargeDays, describeBargeLines, priceBargeOrder } from "@/lib/barge/catalog";
 import { quickTitle } from "@/lib/chat/title";
 import type { ChatTurn } from "@/lib/chat/types";
 import { createConversation, getRecentMessages, insertMessage, markConnectConversation } from "@/lib/conversations/repository";
@@ -18,10 +18,10 @@ import { orderCode } from "@/lib/food/order-code";
 import { getProfileContact } from "@/lib/profile-contact";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { usesDemoWallet } from "@/lib/wallet/demo";
-import { formatEuros } from "@/lib/wallet/limits";
-import { verifyPin } from "@/lib/wallet/pin";
+import { describePinWait, verifyPin } from "@/lib/wallet/pin";
 import type { MeshAction, MeshPayload, MeshReplyBody } from "./envelope";
 import { bargeOffer, foodOffers, type Offer } from "./offers";
+import { ALREADY_USED, bargeDemoText, foodDemoText, settleAction, type PreparedAction } from "./pay";
 import { createAction, readAction, spendAction, type StoredAction } from "./store";
 
 /** Ce que fait le serveur d'un message de Tamilya Connect, une fois vérifié et déchiffré. */
@@ -36,7 +36,6 @@ const INSTRUCTIONS = `Ta façon de répondre avec Tamilya Connect (prime sur les
 - Si elle demande quelque chose qui demande internet (vidéo, carte, page web), dis-lui que ce sera possible quand elle aura retrouvé internet.`;
 
 const FAILED = "Tamilya n'a pas pu répondre pour l'instant. Réessaie dans un moment.";
-const DEMO_NOTE = "Démonstration : rien n'est vraiment payé.";
 const reply = (text: string, extra: Partial<MeshReplyBody> = {}): MeshReplyBody => ({ status: "ok", text, actions: [], ...extra });
 const failure = (text: string): MeshReplyBody => ({ status: "error", text, actions: [] });
 
@@ -146,52 +145,59 @@ async function checkPin(user: SessionUser, admin: SupabaseClient, pin: string | 
   const check = await verifyPin(admin, user.id, pin);
   if (check.ok) return null;
   if (check.reason === "none") return "Tu n'as pas encore de code de paiement : crée-le dans les paramètres quand tu auras internet.";
-  if (check.reason === "locked") return "Code bloqué après 5 erreurs : réessaie dans 15 minutes.";
+  if (check.reason === "locked") return `Code bloqué après trop d'erreurs : réessaie dans ${describePinWait(check.lockedUntil)}.`;
   return `Code faux. Il te reste ${check.left} essai${check.left === 1 ? "" : "s"}.`;
 }
 
-async function payBarge(user: SessionUser, action: StoredAction): Promise<MeshReplyBody> {
-  if (!(await canBuyBargeTickets(user)) || !(await usesDemoWallet(user))) return failure("L'achat de tickets de barge n'est pas disponible.");
+const refuse = (text: string): PreparedAction => ({ ok: false, text });
+
+/** Billet de barge : tout ce qui peut refuser d'avance, sans toucher au choix. */
+async function prepareBarge(user: SessionUser, action: StoredAction): Promise<PreparedAction> {
+  if (!(await canBuyBargeTickets(user)) || !(await usesDemoWallet(user))) return refuse("L'achat de tickets de barge n'est pas disponible.");
   const day = String(action.data.day ?? "");
-  if (!bargeDays().includes(day)) return failure("Ce jour n'est plus disponible : redemande un billet.");
+  if (!bargeDays().includes(day)) return refuse("Ce jour n'est plus disponible : redemande un billet.");
   const order = priceBargeOrder((action.data.cart as { ticketId: string; quantity: number }[]) ?? []);
-  if (!order) return failure("Ce billet n'existe plus : redemande un billet.");
-  const limit = await consumeRateLimits([{ key: `barge:${user.id}`, rules: RATE_LIMIT_POLICIES.bargeTicket }]).catch(() => ({ allowed: false as const }));
-  if (!limit.allowed) return failure("Trop d'achats d'un coup : réessaie dans une heure.");
-  const code = orderCode();
+  if (!order) return refuse("Ce billet n'existe plus : redemande un billet.");
   const what = describeBargeLines(order.lines.map((l) => ({ label: l.ticket.label, detail: l.ticket.detail, quantity: l.quantity })));
-  return reply(
-    `Billet payé : ${what}, ${BARGE_ROUTE.from} → ${BARGE_ROUTE.to}, le ${day.split("-").reverse().join("/")}, ${formatEuros(order.totalCents)}. Ton code : ${code}. Montre-le à l'embarquement. ${DEMO_NOTE}`,
-  );
+  return { ok: true, kind: "barge", text: (code) => bargeDemoText({ what, day, totalCents: order.totalCents, code }) };
 }
 
-async function payFood(admin: SupabaseClient, user: SessionUser, action: StoredAction): Promise<MeshReplyBody> {
-  if (!(await canOrderFood(user)) || !(await usesDemoWallet(user))) return failure("La commande de repas n'est pas disponible.");
+/** Repas : tout ce qui peut refuser d'avance (plat disparu, adresse ou téléphone manquant), sans toucher au choix. */
+async function prepareFood(admin: SupabaseClient, user: SessionUser, action: StoredAction): Promise<PreparedAction> {
+  if (!(await canOrderFood(user)) || !(await usesDemoWallet(user))) return refuse("La commande de repas n'est pas disponible.");
   const order = priceOrder(String(action.data.restaurantId ?? ""), [{ itemId: String(action.data.itemId ?? ""), quantity: 1 }]);
-  if (!order) return failure("Ce plat n'existe plus : redemande à Tamilya.");
+  if (!order) return refuse("Ce plat n'existe plus : redemande à Tamilya.");
   const contact = await getProfileContact(admin, user.id);
-  if (!contact.address || !FOOD_ZONES.includes(contact.address.commune) || !contact.phone) {
-    return failure("Il faut l'adresse de ta maison et ton téléphone dans les paramètres pour être livré.");
+  const address = contact.address;
+  if (!address || !FOOD_ZONES.includes(address.commune) || !contact.phone) {
+    return refuse("Il faut l'adresse de ta maison et ton téléphone dans les paramètres pour être livré.");
   }
-  const limit = await consumeRateLimits([{ key: `food:${user.id}`, rules: RATE_LIMIT_POLICIES.foodOrder }]).catch(() => ({ allowed: false as const }));
-  if (!limit.allowed) return failure("Trop de commandes d'un coup : réessaie dans une heure.");
-  const code = orderCode();
-  const [low, high] = order.restaurant.etaMinutes;
-  return reply(
-    `Commande payée : ${order.lines[0].item.name} chez ${order.restaurant.name}, ${formatEuros(order.totalCents)}, livrée à ${contact.address.line}, ${contact.address.commune}. Arrivée dans ${low} à ${high} minutes environ. Ton code pour le livreur : ${code}. Le suivi sur la carte reviendra avec internet. ${DEMO_NOTE}`,
-  );
+  return {
+    ok: true,
+    kind: "food",
+    text: (code) =>
+      foodDemoText({ item: order.lines[0].item.name, restaurant: order.restaurant.name, totalCents: order.totalCents, line: address.line, commune: address.commune, code }),
+  };
 }
+
+const LIMIT_RULES = { barge: RATE_LIMIT_POLICIES.bargeTicket, food: RATE_LIMIT_POLICIES.foodOrder } as const;
 
 async function act(admin: SupabaseClient, user: SessionUser, payload: Extract<MeshPayload, { kind: "action" }>): Promise<MeshReplyBody> {
   const action = await readAction(admin, payload.actionId, user.id);
-  if (action === "used") return failure("Ce choix a déjà été utilisé.");
+  if (action === "used") return failure(ALREADY_USED);
   if (action === "expired") return failure("Ce choix a expiré : redemande à Tamilya.");
   if (!action) return failure("Ce choix n'existe pas.");
-  // Code vérifié avant de prendre le choix : un code faux ne le fait pas perdre.
-  const pinProblem = await checkPin(user, admin, payload.pin);
-  if (pinProblem) return failure(pinProblem);
-  if (!(await spendAction(admin, action.id))) return failure("Ce choix a déjà été utilisé.");
-  const result = action.kind === "barge" ? await payBarge(user, action) : await payFood(admin, user, action);
+  // Ordre sûr (src/lib/mesh/pay.ts) : refus prévisibles et code faux ne font pas perdre le choix ;
+  // le choix n'est marqué « utilisé » qu'en dernier, une seule fois même en parallèle.
+  const settled = await settleAction({
+    prepare: () => (action.kind === "barge" ? prepareBarge(user, action) : prepareFood(admin, user, action)),
+    checkPin: () => checkPin(user, admin, payload.pin),
+    allow: async (kind) =>
+      (await consumeRateLimits([{ key: `${kind}:${user.id}`, rules: LIMIT_RULES[kind] }]).catch(() => ({ allowed: false as const }))).allowed,
+    spend: () => spendAction(admin, action.id),
+    code: orderCode,
+  });
+  const result = settled.ok ? reply(settled.text) : failure(settled.text);
   const conversationId = typeof action.data.conversationId === "string" ? action.data.conversationId : null;
   if (conversationId && (await ownConversation(admin, user.id, conversationId))) {
     await insertMessage(admin, { conversationId, userId: user.id, role: "assistant", content: result.text }).catch(() => {});

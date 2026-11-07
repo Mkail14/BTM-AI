@@ -37,7 +37,7 @@ export async function loadWallet(supabase: SupabaseClient, userId: string, limit
  * Crédite le solde si Stripe confirme le paiement de cette session (une seule fois,
  * même appelé par le retour sur le site et par le webhook). Renvoie l'état final.
  */
-export async function settleTopup(sessionId: string): Promise<"paid" | "pending" | "failed"> {
+export async function settleTopup(sessionId: string, eventType?: string): Promise<"paid" | "pending" | "failed"> {
   const admin = getSupabaseAdminClient();
   if (!admin) throw new Error("SUPABASE_SECRET_KEY manquante");
   // Toujours relu chez Stripe : on ne croit jamais un identifiant venu du navigateur.
@@ -52,8 +52,12 @@ export async function settleTopup(sessionId: string): Promise<"paid" | "pending"
     if (error) throw error;
     return "paid";
   }
-  if (session.status === "expired") {
-    await admin.rpc("wallet_fail_topup", { p_session_id: session.id });
+  // Abandonnée, ou paiement différé (virement, prélèvement) refusé par la banque : la session reste
+  // « complete » mais impayée, seul l'événement de Stripe le dit. Sans ça, la recharge resterait
+  // « en cours » pour toujours. La fonction ne touche qu'une recharge encore en attente.
+  if (session.status === "expired" || eventType === "checkout.session.async_payment_failed") {
+    const { error } = await admin.rpc("wallet_fail_topup", { p_session_id: session.id });
+    if (error) throw error;
     return "failed";
   }
   return "pending";

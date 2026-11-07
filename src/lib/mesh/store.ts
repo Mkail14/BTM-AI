@@ -32,6 +32,19 @@ export async function registerDevice(admin: SupabaseClient, userId: string, publ
   if ((count ?? 0) >= MAX_DEVICES_PER_USER) return null;
   const { data, error } = await admin.from("mesh_devices").insert({ user_id: userId, public_key: publicKey }).select("id").single();
   if (error) throw error;
+  // Deux inscriptions simultanées passent toutes les deux le comptage ci-dessus : on recompte
+  // après l'écriture et on retire la nôtre si la limite est dépassée (sans index en base, les
+  // deux peuvent se retirer : l'app réessaie, jamais plus de MAX_DEVICES_PER_USER appareils).
+  const { count: after, error: recountError } = await admin
+    .from("mesh_devices")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .is("revoked_at", null);
+  if (recountError || (after ?? 0) > MAX_DEVICES_PER_USER) {
+    await admin.from("mesh_devices").delete().eq("id", data.id);
+    if (recountError) throw recountError;
+    return null;
+  }
   return { id: data.id as string };
 }
 
@@ -49,17 +62,48 @@ export async function touchDevice(admin: SupabaseClient, deviceId: string) {
 export type Claim = { state: "new" } | { state: "done"; reply: ReplyEnvelope } | { state: "pending" } | { state: "foreign" };
 
 /**
+ * Message réservé mais toujours sans réponse après ce délai : le traitement est
+ * mort (la fonction s'arrête au plus tard à 60 s, maxDuration de la route du
+ * relais). Au-delà, le même message peut être repris au lieu de rester « en
+ * cours » pour toujours.
+ */
+export const CLAIM_STALE_MS = 90_000;
+
+/**
  * Réserve un message avant de le traiter. Un doublon (le même message arrivé par
  * deux chemins) reçoit la réponse déjà faite, ou « en cours » s'il est encore traité.
+ * Une réservation abandonnée (sans réponse depuis CLAIM_STALE_MS) est reprise.
  */
-export async function claimMessage(admin: SupabaseClient, id: string, device: MeshDevice): Promise<Claim> {
-  const { error } = await admin.from("mesh_messages").insert({ id, device_id: device.id, user_id: device.userId });
+export async function claimMessage(admin: SupabaseClient, id: string, device: MeshDevice, now = Date.now()): Promise<Claim> {
+  const row = { id, device_id: device.id, user_id: device.userId };
+  const { error } = await admin.from("mesh_messages").insert(row);
   if (!error) return { state: "new" };
   if (error.code !== "23505") throw error;
-  const { data, error: readError } = await admin.from("mesh_messages").select("device_id, reply").eq("id", id).maybeSingle();
+  const { data, error: readError } = await admin.from("mesh_messages").select("device_id, reply, created_at").eq("id", id).maybeSingle();
   if (readError) throw readError;
   if (!data || data.device_id !== device.id) return { state: "foreign" };
-  return data.reply ? { state: "done", reply: data.reply as ReplyEnvelope } : { state: "pending" };
+  if (data.reply) return { state: "done", reply: data.reply as ReplyEnvelope };
+  if (Date.parse(data.created_at as string) > now - CLAIM_STALE_MS) return { state: "pending" };
+
+  // Réservation abandonnée : effacée seulement si elle est toujours sans réponse et toujours
+  // aussi vieille (une réponse arrivée entre-temps la garde). Deux renvois simultanés : un seul
+  // efface la ligne, l'autre reste « en cours » ; et si un troisième la réserve entre
+  // l'effacement et la réinsertion, la réinsertion échoue en doublon et on répond « en cours ».
+  // Un choix déjà payé reste « utilisé » (mesh_actions) : la reprise ne paie jamais deux fois.
+  const { data: removed, error: deleteError } = await admin
+    .from("mesh_messages")
+    .delete()
+    .eq("id", id)
+    .eq("device_id", device.id)
+    .is("reply", null)
+    .lt("created_at", new Date(now - CLAIM_STALE_MS).toISOString())
+    .select("id");
+  if (deleteError) throw deleteError;
+  if ((removed ?? []).length !== 1) return { state: "pending" };
+  const { error: retakeError } = await admin.from("mesh_messages").insert(row);
+  if (!retakeError) return { state: "new" };
+  if (retakeError.code === "23505") return { state: "pending" };
+  throw retakeError;
 }
 
 export async function saveReply(admin: SupabaseClient, id: string, reply: ReplyEnvelope) {

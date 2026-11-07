@@ -73,8 +73,12 @@ export async function POST(request: NextRequest) {
   const order = priceBargeOrder(parsed.data.cart);
   if (!order) return fail(400, "Ajoute au moins un ticket.");
 
-  // Code de paiement tapé juste à l'instant : sans lui, rien n'est débité (même en appelant l'API).
-  if (!(await takePaymentGrant(user.id))) return NextResponse.json(PIN_REQUIRED, { status: 403 });
+  // Solde trop bas : refusé avant de prendre le code de paiement (l'accord « une fois » n'est
+  // consommé que pour un débit qui va vraiment se faire).
+  const balanceCents = (await readDemoWallet(user.id)).balanceCents;
+  if (balanceCents < order.totalCents) {
+    return fail(402, `Solde insuffisant : il te manque ${formatEuros(order.totalCents - balanceCents)}.`);
+  }
 
   try {
     const limit = await consumeRateLimits([{ key: `barge:${user.id}`, rules: RATE_LIMIT_POLICIES.bargeTicket }]);
@@ -84,10 +88,9 @@ export async function POST(request: NextRequest) {
     return fail(503, "Service momentanément indisponible : réessaie dans un instant.");
   }
 
-  const balanceCents = (await readDemoWallet(user.id)).balanceCents;
-  if (balanceCents < order.totalCents) {
-    return fail(402, `Solde insuffisant : il te manque ${formatEuros(order.totalCents - balanceCents)}.`);
-  }
+  // Code de paiement tapé juste à l'instant : sans lui, rien n'est débité (même en appelant l'API).
+  // Pris juste avant le débit, après toutes les vérifications.
+  if (!(await takePaymentGrant(user.id))) return NextResponse.json(PIN_REQUIRED, { status: 403 });
 
   const lines = order.lines.map((l) => ({ label: l.ticket.label, detail: l.ticket.detail, emoji: l.ticket.emoji, quantity: l.quantity }));
   const label = `Barge ${BARGE_ROUTE.from} → ${BARGE_ROUTE.to} : ${describeBargeLines(lines)}`.slice(0, 120);

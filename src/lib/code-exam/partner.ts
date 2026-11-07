@@ -7,7 +7,9 @@ import "server-only";
  *
  * Quand La Poste aura donné son accès partenaire :
  *   1. LAPOSTE_PARTNER_KEY (et l'adresse de leur API) sur le serveur ;
- *   2. écrire reserveSeat() et fetchConvocation() avec leur API ;
+ *   2. écrire reserveSeat() et fetchConvocation() avec leur API, appeler
+ *      processBooking() depuis la route des demandes, puis passer
+ *      PARTNER_IMPLEMENTED à true (la clé seule ne branche rien) ;
  *   3. appliquer la migration 20261115000000_code_exam_processing.sql ;
  *   4. processBooking() fait alors tout, dans cet ordre : place réservée chez
  *      La Poste → portefeuille débité → convocation envoyée au candidat.
@@ -19,9 +21,21 @@ import "server-only";
 /** Prix de l'examen du code facturé par La Poste (30 € TTC), débité du portefeuille. */
 export const CODE_EXAM_FEE_CENTS = 3_000;
 
-/** Le partenariat est-il branché ? (clé d'accès La Poste présente sur le serveur). */
-export function codeExamPartnerReady(env: Record<string, string | undefined> = process.env): boolean {
-  return Boolean(env.LAPOSTE_PARTNER_KEY?.trim());
+/**
+ * Le code du partenariat est-il écrit ? Faux tant que reserveSeat(),
+ * chargeCandidate() et sendConvocation() renvoient une erreur, que la
+ * migration 20261115000000_code_exam_processing.sql n'est pas appliquée et
+ * que la route des demandes n'appelle pas processBooking(). Sans ce verrou,
+ * poser LAPOSTE_PARTNER_KEY suffirait à prendre des demandes « en attente »
+ * que personne ne traite, et à afficher les anciennes simulations comme des
+ * places confirmées (cloche, dossier de Tamilya). À passer à true seulement
+ * quand ces trois étapes marchent avec l'API La Poste.
+ */
+export const PARTNER_IMPLEMENTED: boolean = false;
+
+/** Le partenariat est-il branché ? (code écrit ET clé d'accès La Poste présente sur le serveur). */
+export function codeExamPartnerReady(env: Record<string, string | undefined> = process.env, implemented = PARTNER_IMPLEMENTED): boolean {
+  return implemented && Boolean(env.LAPOSTE_PARTNER_KEY?.trim());
 }
 
 export type CodeExamRequestRow = {

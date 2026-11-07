@@ -29,6 +29,10 @@ export async function GET() {
       .order("created_at", { ascending: false })
       .limit(20),
   ]);
+  // Une lecture ratée donne une cloche vide ou incomplète : tracé dans les journaux du serveur
+  // (code et message de la base seulement, aucune donnée de la personne).
+  if (code.error) console.error("[notifications] Demandes du code illisibles", code.error.code, code.error.message);
+  if ("error" in wallet && wallet.error) console.error("[notifications] Portefeuille illisible : historique incomplet");
 
   // Sans partenariat La Poste (ou en démo), une place « réservée » n'est qu'une simulation.
   const simulated = demo || !codeExamPartnerReady();

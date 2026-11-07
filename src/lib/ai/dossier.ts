@@ -2,6 +2,8 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { EXAM_TYPES, type ExamType } from "@/lib/code-exam/candidate";
 import { codeExamPartnerReady } from "@/lib/code-exam/partner";
+import { getSiteFlags } from "@/lib/site/settings";
+import { DEMO_PAYMENTS } from "@/lib/wallet/demo-mode";
 
 /**
  * Dossier de la personne pour Tamilya : ce qu'elle a fait sur le site, en dehors
@@ -17,11 +19,11 @@ const day = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", ye
 type CodeRow = { starts_at: string; created_at: string; exam_type: ExamType; status: "pending" | "booked" | "cancelled"; center_name: string };
 
 const STATUS = { pending: "demande en attente", booked: "place confirmée", cancelled: "annulée" } as const;
-/** Sans partenariat La Poste, une place « réservée » n'est qu'une simulation : aucune vraie place n'est prise. */
+/** Sans partenariat La Poste (ou en démo), une place « réservée » n'est qu'une simulation : aucune vraie place n'est prise. */
 const SIMULATED = { ...STATUS, booked: "réservation d'essai (simulation), aucune vraie place prise" } as const;
 
 /** Réservations du code de CE compte, en quelques lignes (null : aucune, ou table indisponible). */
-async function codeExamLines(supabase: SupabaseClient, userId: string, now: number): Promise<string[] | null> {
+async function codeExamLines(supabase: SupabaseClient, userId: string, now: number, demo: boolean | undefined): Promise<string[] | null> {
   const { data, error } = await supabase
     .from("code_exam_requests")
     .select("starts_at, created_at, exam_type, status, center_name")
@@ -34,7 +36,11 @@ async function codeExamLines(supabase: SupabaseClient, userId: string, now: numb
   const kept = rows.filter((r) => r.status !== "cancelled");
   const past = kept.filter((r) => Date.parse(r.starts_at) < now);
   const coming = kept.filter((r) => Date.parse(r.starts_at) >= now);
-  const labels = codeExamPartnerReady() ? STATUS : SIMULATED;
+  // Comme la cloche (src/app/api/notifications/route.ts) : démo OU pas de partenariat = simulation.
+  // Démo inconnue de l'appelant : prudence, toute place est une simulation tant que le mode démo
+  // du site est allumé (une réservation payée avec le solde fictif ne prend aucune vraie place).
+  const simulated = !codeExamPartnerReady() || (demo ?? (DEMO_PAYMENTS && (await getSiteFlags()).demoMode));
+  const labels = simulated ? SIMULATED : STATUS;
   const first = rows.reduce((min, r) => (r.created_at < min ? r.created_at : min), rows[0].created_at);
 
   const lines = [
@@ -55,9 +61,17 @@ async function codeExamLines(supabase: SupabaseClient, userId: string, now: numb
   return lines;
 }
 
-/** Dossier complet, ou null s'il n'y a rien à dire. */
-export async function buildDossier(supabase: SupabaseClient, userId: string, now = Date.now()): Promise<string | null> {
-  const parts = await Promise.all([codeExamLines(supabase, userId, now).catch(() => null)]);
+/**
+ * Dossier complet, ou null s'il n'y a rien à dire. options.demo : ce compte paie-t-il
+ * avec le portefeuille fictif (usesDemoWallet) ? Absent : décidé d'après le mode démo du site.
+ */
+export async function buildDossier(
+  supabase: SupabaseClient,
+  userId: string,
+  now = Date.now(),
+  options: { demo?: boolean } = {},
+): Promise<string | null> {
+  const parts = await Promise.all([codeExamLines(supabase, userId, now, options.demo).catch(() => null)]);
   const lines = parts.flatMap((p) => p ?? []);
   return lines.length ? lines.join("\n") : null;
 }

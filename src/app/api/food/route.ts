@@ -116,8 +116,16 @@ export async function POST(request: NextRequest) {
     return fail(400, "Cette heure de livraison n'est plus possible : choisis-en une autre.");
   }
 
-  // Code de paiement tapé juste à l'instant : sans lui, rien n'est débité (même en appelant l'API).
-  if (!(await takePaymentGrant(user.id))) return NextResponse.json(PIN_REQUIRED, { status: 403 });
+  // Refus prévisibles (numéro manquant, solde trop bas) avant de prendre le code de paiement :
+  // l'accord « une fois » n'est consommé que pour un débit qui va vraiment se faire.
+  const contact = await getProfileContact(supabase, user.id);
+  const phone = parsed.data.phone ?? contact.phone;
+  if (!phone) return fail(400, "Indique ton numéro : le livreur doit pouvoir t'appeler.");
+
+  const balanceCents = (await readDemoWallet(user.id)).balanceCents;
+  if (balanceCents < order.totalCents) {
+    return fail(402, `Solde insuffisant : il te manque ${formatEuros(order.totalCents - balanceCents)}.`);
+  }
 
   try {
     const limit = await consumeRateLimits([{ key: `food:${user.id}`, rules: RATE_LIMIT_POLICIES.foodOrder }]);
@@ -128,21 +136,16 @@ export async function POST(request: NextRequest) {
   }
 
   // Carte du suivi : la vraie rue de l'adresse écrite (ou la position GPS donnée, exacte) et le restaurant,
-  // cherchés pendant le paiement.
+  // cherchés pendant le paiement (après la limite : la recherche de lieux ne part pas en rafale).
   const places = Promise.all([
     address.geo ? { point: { lat: address.geo.lat, lng: address.geo.lng }, found: true } : geocodeAddress(address.line, address.commune),
     // Commande groupée : le départ sur la carte est le premier restaurant.
     geocodePlace(findRestaurant(restaurantId)?.name ?? order.restaurant.name, order.restaurant.commune, restaurantPoint(order.restaurant.id, order.restaurant.commune)),
   ]);
 
-  const contact = await getProfileContact(supabase, user.id);
-  const phone = parsed.data.phone ?? contact.phone;
-  if (!phone) return fail(400, "Indique ton numéro : le livreur doit pouvoir t'appeler.");
-
-  const balanceCents = (await readDemoWallet(user.id)).balanceCents;
-  if (balanceCents < order.totalCents) {
-    return fail(402, `Solde insuffisant : il te manque ${formatEuros(order.totalCents - balanceCents)}.`);
-  }
+  // Code de paiement tapé juste à l'instant : sans lui, rien n'est débité (même en appelant l'API).
+  // Pris juste avant le débit, après toutes les vérifications.
+  if (!(await takePaymentGrant(user.id))) return NextResponse.json(PIN_REQUIRED, { status: 403 });
 
   const label = `Repas ${order.restaurant.name}`.slice(0, 120);
   // Démonstration : débit du solde fictif, visible dans le portefeuille. Avec un vrai partenaire, il

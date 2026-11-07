@@ -49,6 +49,7 @@ import { enforceShimaore, fillKnownWords } from "@/lib/language/unknown-words";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
 import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
 import { consumeRateLimits, type RateLimitSubject } from "@/lib/rate-limit";
+import { usesDemoWallet } from "@/lib/wallet/demo";
 import { loadRateLimitPolicies } from "@/lib/rate-limit/settings";
 import { getClientIp, hashIdentifier, isSameOrigin } from "@/lib/security/request";
 import { isChallenge, isComplexRequest, needsWebSearch } from "@/lib/ai/depth";
@@ -214,7 +215,9 @@ export async function POST(request: NextRequest) {
   // Dossier : ce que la personne a fait sur le site (réservations du code…), pour que Tamilya le remarque d'elle-même.
   const dossierTask =
     user && supabase
-      ? buildDossier(supabase, user.id).catch((error: unknown) => {
+      ? usesDemoWallet(user)
+          .then((demo) => buildDossier(supabase, user.id, Date.now(), { demo }))
+          .catch((error: unknown) => {
           console.error("[chat] Dossier indisponible", error);
           return null;
         })

@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true });
   }
   try {
-    await settleTopup(event.data.object.id);
+    await settleTopup(event.data.object.id, event.type);
     return NextResponse.json({ received: true });
   } catch (error) {
     // 500 : Stripe renverra le message plus tard.

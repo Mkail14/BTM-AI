@@ -12,6 +12,7 @@ import { readChatProfile } from "@/lib/chat/profile";
 import { canOrderFood } from "@/lib/food/access";
 import { buildJournal } from "@/lib/live/journal";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { usesDemoWallet } from "@/lib/wallet/demo";
 import { loadVoiceCorrections } from "@/lib/voice-live/corrections";
 import { speechDetection } from "@/lib/voice-live/detection";
 import { listeningRules } from "@/lib/voice-live/listening";
@@ -53,7 +54,11 @@ export async function POST(request: NextRequest) {
     admin ? readChatProfile(admin, ticket.uid).catch(() => null) : Promise.resolve(null),
     loadVoice(),
     admin ? getMemoriesFor(admin, ticket.uid).catch(() => []) : Promise.resolve([]),
-    admin ? buildDossier(admin, ticket.uid).catch(() => null) : Promise.resolve(null),
+    admin
+      ? usesDemoWallet(sessionUser)
+          .then((demo) => buildDossier(admin, ticket.uid, Date.now(), { demo }))
+          .catch(() => null)
+      : Promise.resolve(null),
     // Journal du jour : météo et articles détaillés des journaux de Mayotte (3 s au plus).
     Promise.race([buildJournal(), new Promise<null>((resolve) => setTimeout(() => resolve(null), 3_000))]).catch(() => null),
     canOrderFood(sessionUser).catch(() => false),
