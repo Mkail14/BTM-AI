@@ -611,7 +611,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
         <button
           type="button"
           onClick={openSidebar}
-          className="rounded-lg p-2 text-fg-muted hover:bg-bg-muted md:hidden"
+          className="zone-appui relative rounded-lg p-2 text-fg-muted hover:bg-bg-muted md:hidden"
           aria-label="Ouvrir le menu"
         >
           <IconMenu />

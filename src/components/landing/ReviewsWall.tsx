@@ -57,7 +57,7 @@ function InviteCard({ onReview, first }: { onReview: () => void; first: boolean 
       <button
         type="button"
         onClick={onReview}
-        className="group inline-flex items-center gap-1.5 text-sm font-semibold text-[color-mix(in_oklab,var(--persona,var(--accent))_80%,var(--fg))]"
+        className="group zone-appui relative inline-flex items-center gap-1.5 text-sm font-semibold text-[color-mix(in_oklab,var(--persona,var(--accent))_80%,var(--fg))]"
       >
         Donner mon avis
         <span aria-hidden="true" className="transition-transform duration-200 group-hover:translate-x-0.5">

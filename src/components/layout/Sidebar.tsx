@@ -148,7 +148,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
             <button
               type="button"
               onClick={dismiss}
-              className="grid size-10 place-items-center rounded-lg text-fg-muted hover:bg-bg-muted md:hidden"
+              className="zone-appui relative grid size-10 place-items-center rounded-lg text-fg-muted hover:bg-bg-muted md:hidden"
               aria-label="Fermer le menu"
             >
               <IconClose />

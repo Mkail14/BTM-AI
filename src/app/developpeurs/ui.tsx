@@ -39,10 +39,10 @@ export function DevShell({ children }: { children: ReactNode }) {
             <span>© {new Date().getFullYear()} GROUPE BTM</span>
           </div>
           <div className="flex gap-5">
-            <Link href="/aide" className="transition hover:text-fg">
+            <Link href="/aide" className="zone-appui relative transition hover:text-fg">
               Aide
             </Link>
-            <Link href="/confidentialite" className="transition hover:text-fg">
+            <Link href="/confidentialite" className="zone-appui relative transition hover:text-fg">
               Données et confidentialité
             </Link>
           </div>

@@ -129,7 +129,7 @@ export default async function DeveloppeursPage() {
         </div>
         <p className="mt-5 text-center text-xs text-fg-muted">
           Pour chaque code : {perMinute} questions par minute, {perDay.toLocaleString("fr-FR")} par jour. Besoin de plus ?{" "}
-          <a href="mailto:contact@btm.yt?subject=API%20de%20Tamilya" className="text-fg underline underline-offset-4">
+          <a href="mailto:contact@btm.yt?subject=API%20de%20Tamilya" className="zone-appui relative text-fg underline underline-offset-4">
             Écrivez-nous
           </a>
           .

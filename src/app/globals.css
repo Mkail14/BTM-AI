@@ -589,6 +589,24 @@ dialog::backdrop {
   }
 }
 
+/*
+ * Zone d'appui d'au moins 44 × 44 px autour d'un petit bouton ou lien, sans
+ * changer son aspect : un calque invisible centré sur lui (::after). L'élément
+ * doit être positionné (relative, absolute…) ; ne pas l'utiliser sur un élément
+ * qui coupe ce qui dépasse (overflow: hidden) ni qui se sert déjà de ::after.
+ */
+@utility zone-appui {
+  &::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100%, 44px);
+    height: max(100%, 44px);
+    transform: translate(-50%, -50%);
+  }
+}
+
 /* Edge/Chrome sous Windows ajoutent leur propre œil aux champs mot de passe :
    on le masque, PasswordInput fournit déjà le bouton afficher/masquer. */
 input::-ms-reveal,
@@ -3345,13 +3363,14 @@ html[data-morph]::view-transition-new(root) {
  */
 /* --title-w : largeur mesurée du titre ; ouvert, le champ s'arrête à ses bords. */
 .landing-input {
-  width: min(15.5rem, calc(var(--title-w, 34rem) * 0.95), calc(100vw - 2.5rem));
+  /* Au repos : assez large pour l'exemple « Comment dit-on merci ? » (19 rem au moins), plus sur grand écran (60 % du titre). */
+  width: min(max(19rem, calc(var(--title-w, 34rem) * 0.6)), calc(100vw - 2.5rem));
   transition: width 520ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 .landing-input:focus-within,
 .landing-input[data-filled] {
-  width: min(var(--title-w, 34rem), calc(100vw - 2.5rem));
+  width: min(max(19rem, var(--title-w, 34rem)), calc(100vw - 2.5rem));
 }
 
 @media (prefers-reduced-motion: reduce) {

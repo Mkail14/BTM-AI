@@ -113,7 +113,7 @@ function WordDialog({
             type="button"
             onClick={onClose}
             aria-label="Fermer"
-            className="rounded-lg p-2 text-fg-muted hover:bg-bg-muted hover:text-fg"
+            className="zone-appui relative rounded-lg p-2 text-fg-muted hover:bg-bg-muted hover:text-fg"
           >
             <IconClose />
           </button>
@@ -298,7 +298,7 @@ function ImportDialog({ categories, onClose }: { categories: string[]; onClose: 
             type="button"
             onClick={onClose}
             aria-label="Fermer"
-            className="rounded-lg p-2 text-fg-muted hover:bg-bg-muted hover:text-fg"
+            className="zone-appui relative rounded-lg p-2 text-fg-muted hover:bg-bg-muted hover:text-fg"
           >
             <IconClose />
           </button>

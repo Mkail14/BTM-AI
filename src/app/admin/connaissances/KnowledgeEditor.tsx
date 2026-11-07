@@ -107,7 +107,7 @@ function EntryDialog({ initial, onClose }: { initial: Draft; onClose: () => void
               type="button"
               onClick={onClose}
               aria-label="Fermer"
-              className="grid size-8 place-items-center rounded-full bg-bg-muted text-fg-muted transition hover:text-fg"
+              className="zone-appui relative grid size-8 place-items-center rounded-full bg-bg-muted text-fg-muted transition hover:text-fg"
             >
               <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
                 <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />

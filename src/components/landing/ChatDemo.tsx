@@ -11,6 +11,8 @@ const TYPING_MS = 1200;
 const LOOP_PAUSE_MS = 3200;
 /** Messages gardés à l'écran : les plus anciens s'en vont, la boucle peut tourner sans fin. */
 const KEPT = 14;
+/** Attente maximale de la conversation traduite : au-delà, le texte en français s'affiche. */
+const WAIT_MS = 6000;
 
 const FRENCH: DemoLine[] = DEMO_SCRIPT.map((line) => ({ ...line, shimaore: null }));
 
@@ -34,15 +36,26 @@ export function ChatDemo() {
   const [visible, setVisible] = useState(false);
   const [still, setStill] = useState(false);
 
+  // Serveur lent ou injoignable : passé WAIT_MS, on abandonne et la conversation part en français.
   useEffect(() => {
     const controller = new AbortController();
+    let gaveUp = false;
+    const timer = window.setTimeout(() => {
+      gaveUp = true;
+      controller.abort();
+    }, WAIT_MS);
     fetch("/api/accueil/conversation", { signal: controller.signal })
       .then((response) => (response.ok ? response.json() : null))
       .then((data: { lines?: DemoLine[] } | null) => setLines(data?.lines?.length === DEMO_SCRIPT.length ? data.lines : FRENCH))
       .catch(() => {
-        if (!controller.signal.aborted) setLines(FRENCH);
-      });
-    return () => controller.abort();
+        // Abandon dû au départ de la page (démontage) : rien à afficher.
+        if (gaveUp || !controller.signal.aborted) setLines(FRENCH);
+      })
+      .finally(() => window.clearTimeout(timer));
+    return () => {
+      window.clearTimeout(timer);
+      controller.abort();
+    };
   }, []);
 
   // Démarre quand la conversation entre à l'écran ; tout d'un coup si les animations sont réduites.
@@ -104,9 +117,20 @@ export function ChatDemo() {
         tabIndex={0}
         role="log"
         aria-label="Exemple de conversation avec Tamilya"
-        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain px-5 py-4 outline-none"
+        aria-busy={lines === null}
+        // Contour au clavier seulement, tracé à l'intérieur de la boîte (il ne mord pas sur l'en-tête).
+        className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto overscroll-contain rounded-b-3xl px-5 py-4 focus-visible:-outline-offset-2"
       >
         <div aria-hidden="true" className="mt-auto" />
+        {/* En attendant la conversation : Tamilya « écrit » (au plus WAIT_MS, puis le français). */}
+        {lines === null ? (
+          <p className="flex gap-1 self-start rounded-2xl rounded-bl-md bg-white/70 px-3.5 py-3 dark:bg-white/[0.1]">
+            <span className="sr-only">Chargement de la conversation…</span>
+            <span aria-hidden="true" className="chat-demo-dot" />
+            <span aria-hidden="true" className="chat-demo-dot [animation-delay:150ms]" />
+            <span aria-hidden="true" className="chat-demo-dot [animation-delay:300ms]" />
+          </p>
+        ) : null}
         {shown.map((m) => (
           <div key={m.n} className={`chat-demo-in max-w-[85%] ${m.from === "user" ? "self-end text-right" : "self-start"}`}>
             <p

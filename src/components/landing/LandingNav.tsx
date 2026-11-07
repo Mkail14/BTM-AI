@@ -59,7 +59,9 @@ export function LandingNav({ scrolled = false, onHome }: { scrolled?: boolean; o
   // Sur l'accueil, « Tamilya » descend à sa section sans recharger la page.
   const linkHref = (href: string) => (onHome && href.startsWith("/#") ? href.slice(1) : href);
   const logo = <BrandLogo size="sm" className="text-[#1d1d1f]! dark:text-[#f5f5f7]!" />;
-  const tryClass = "app-hide btn-rose btn-rose--lagon h-8 rounded-full px-3.5 font-medium whitespace-nowrap md:h-7";
+  // Zone d'appui de 40 px au téléphone : bordure transparente en haut et en bas, le rose (fond coupé au bord intérieur) reste de 32 px.
+  const tryClass =
+    "app-hide btn-rose btn-rose--lagon h-10 rounded-full border-y-4 border-transparent bg-clip-padding px-3.5 font-medium whitespace-nowrap md:h-7 md:border-y-0";
 
   return (
     <header
@@ -68,11 +70,11 @@ export function LandingNav({ scrolled = false, onHome }: { scrolled?: boolean; o
     >
       <div className="mx-auto flex h-12 max-w-[1024px] items-center justify-between gap-3 px-4 text-[13px] sm:px-6 md:h-11 md:text-xs">
         {onHome ? (
-          <button type="button" onClick={onHome} aria-label="BTM AI — haut de la page" className="-mx-1 rounded px-1 opacity-90 transition hover:opacity-100">
+          <button type="button" onClick={onHome} aria-label="BTM AI — haut de la page" className="zone-appui relative -mx-1 rounded px-1 opacity-90 transition hover:opacity-100">
             {logo}
           </button>
         ) : (
-          <NavLink href="/" aria-label="BTM AI — accueil" className="-mx-1 rounded px-1 opacity-90 transition hover:opacity-100">
+          <NavLink href="/" aria-label="BTM AI — accueil" className="zone-appui relative -mx-1 rounded px-1 opacity-90 transition hover:opacity-100">
             {logo}
           </NavLink>
         )}

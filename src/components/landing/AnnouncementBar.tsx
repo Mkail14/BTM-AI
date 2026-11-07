@@ -11,7 +11,7 @@ export function AnnouncementBar({ announcement }: { announcement: Announcement }
   const { text, linkLabel, linkUrl } = announcement;
   const label = linkLabel.trim() || "En savoir plus";
   // Rose dans les deux thèmes : clair = rose clair, sombre = léger voile rose, texte rose pâle.
-  const linkClass = "font-medium whitespace-nowrap text-accent underline-offset-4 hover:underline";
+  const linkClass = "zone-appui relative font-medium whitespace-nowrap text-accent underline-offset-4 hover:underline";
   return (
     <aside
       aria-label="Annonce"

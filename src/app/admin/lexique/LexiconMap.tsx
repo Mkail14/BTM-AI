@@ -209,7 +209,7 @@ function WordSheet({ node, trail, onClose }: { node: MapNode; trail: string; onC
           type="button"
           onClick={onClose}
           aria-label="Fermer"
-          className="grid size-8 shrink-0 place-items-center rounded-full bg-white/10 text-white/70 transition hover:bg-white/20 hover:text-white"
+          className="zone-appui relative grid size-8 shrink-0 place-items-center rounded-full bg-white/10 text-white/70 transition hover:bg-white/20 hover:text-white"
         >
           <svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true">
             <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />

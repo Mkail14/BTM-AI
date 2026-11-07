@@ -96,7 +96,7 @@ export function AddressFields({
           onChange={(e) => onChange({ ...value, line: e.target.value })}
           autoComplete="street-address"
           maxLength={200}
-          placeholder="Rue, quartier, repère (près de la mosquée…)"
+          placeholder="Rue, quartier, repère"
           aria-invalid={errors.line ? true : undefined}
           className={`${inputClass} ${errors.line ? "border-danger" : ""}`}
         />

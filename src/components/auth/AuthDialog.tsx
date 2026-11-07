@@ -96,12 +96,15 @@ export function AuthDialog({
     if (!dialog) return;
     if (open && !dialog.open) {
       dialog.showModal();
-      // showModal() place le focus sur le premier bouton (Fermer) : on le
-      // déplace sur le premier champ du formulaire. Pas sur écran tactile, où
-      // le clavier surgirait et masquerait la moitié de la fenêtre.
-      if (window.matchMedia("(pointer: fine)").matches) {
-        dialog.querySelector<HTMLElement>("[data-active] [data-autofocus]")?.focus();
-      }
+      // showModal() place le focus sur le premier bouton (Fermer), qui s'entoure
+      // alors d'un anneau sans qu'on l'ait choisi. On le déplace sur le premier
+      // champ du formulaire (souris et clavier seulement : sur écran tactile, le
+      // clavier surgirait et masquerait la moitié de la fenêtre), sinon sur la
+      // fenêtre elle-même : le lecteur d'écran annonce son titre, Tab mène ensuite au premier bouton.
+      const field = window.matchMedia("(pointer: fine)").matches
+        ? dialog.querySelector<HTMLElement>("[data-active] [data-autofocus]")
+        : null;
+      (field ?? dialog).focus();
     }
     if (!open && dialog.open) dialog.close();
   }, [open]);
@@ -120,6 +123,8 @@ export function AuthDialog({
   return (
     <dialog
       ref={ref}
+      // Focusable par le script seulement (voir plus haut), sans contour : ce n'est pas un bouton.
+      tabIndex={-1}
       aria-labelledby={titleId}
       onClose={onClose}
       onClick={(event) => {
@@ -128,7 +133,7 @@ export function AuthDialog({
       // Téléphone : panneau qui monte du bas, pleine largeur. Ordinateur : fenêtre centrée, même
       // largeur pour la connexion et l'inscription. La page derrière est assombrie et floutée, et
       // rien ne défile : tout tient sur un écran (inscription en deux colonnes sur ordinateur).
-      className="auth-sheet mx-0 mt-auto mb-0 max-h-dvh w-full max-w-none overflow-y-auto rounded-t-[26px] border-t border-black/5 bg-bg-subtle p-0 pb-[env(safe-area-inset-bottom)] text-fg shadow-2xl backdrop:bg-black/55 backdrop:backdrop-blur-md [scrollbar-width:none] dark:border-white/10 sm:m-auto sm:max-h-[calc(100dvh-3rem)] sm:w-[calc(100%-2rem)] sm:max-w-[460px] sm:rounded-[28px] sm:border sm:pb-0"
+      className="auth-sheet mx-0 mt-auto mb-0 max-h-dvh w-full max-w-none overflow-y-auto rounded-t-[26px] outline-none border-t border-black/5 bg-bg-subtle p-0 pb-[env(safe-area-inset-bottom)] text-fg shadow-2xl backdrop:bg-black/55 backdrop:backdrop-blur-md [scrollbar-width:none] dark:border-white/10 sm:m-auto sm:max-h-[calc(100dvh-3rem)] sm:w-[calc(100%-2rem)] sm:max-w-[460px] sm:rounded-[28px] sm:border sm:pb-0"
     >
       {open ? (
         <AuthPanel
@@ -164,6 +169,19 @@ function AuthPanel({
   const [email, setEmail] = useState("");
   const next = options.next ?? "/";
   const isSignup = view === "signup";
+  // Passage d'un écran à l'autre : le focus suit (le bouton touché disparaît avec son écran).
+  // « Continuer avec l'e-mail » mène au premier champ ; « Autres options », au bouton e-mail.
+  const formRef = useRef<HTMLDivElement>(null);
+  const welcomeRef = useRef<HTMLDivElement>(null);
+  const shownWelcome = useRef(welcome);
+  useEffect(() => {
+    if (shownWelcome.current === welcome) return;
+    shownWelcome.current = welcome;
+    const target = welcome
+      ? welcomeRef.current?.querySelector<HTMLElement>("[data-email-choice]")
+      : formRef.current?.querySelector<HTMLElement>("[data-active] [data-autofocus]");
+    target?.focus();
+  }, [welcome]);
 
   const titles: Record<View, string> = {
     signin: "Connexion",
@@ -175,7 +193,7 @@ function AuthPanel({
     <button
       type="button"
       onClick={onClose}
-      className="absolute top-4 right-4 z-10 grid size-10 place-items-center rounded-full bg-black/[0.05] text-fg transition hover:bg-black/[0.09] dark:bg-white/[0.08] dark:hover:bg-white/[0.13]"
+      className="zone-appui absolute top-4 right-4 z-10 grid size-10 place-items-center rounded-full bg-black/[0.05] text-fg transition hover:bg-black/[0.09] dark:bg-white/[0.08] dark:hover:bg-white/[0.13]"
       aria-label="Fermer"
     >
       <IconClose width={16} height={16} />
@@ -199,7 +217,7 @@ function AuthPanel({
     return (
       // Même taille que la carte de btm.yt : 460 × 780 px sur ordinateur (moins si l'écran est plus bas),
       // presque tout l'écran sur téléphone.
-      <div className="relative isolate flex min-h-[calc(100dvh-env(safe-area-inset-top)-44px)] flex-col items-center overflow-hidden px-6 pt-9 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center sm:min-h-[min(780px,calc(100dvh-3rem))] sm:px-9 sm:pt-10 sm:pb-8">
+      <div ref={welcomeRef} className="relative isolate flex min-h-[calc(100dvh-env(safe-area-inset-top)-44px)] flex-col items-center overflow-hidden px-6 pt-9 pb-[max(1.5rem,env(safe-area-inset-bottom))] text-center sm:min-h-[min(780px,calc(100dvh-3rem))] sm:px-9 sm:pt-10 sm:pb-8">
         <LagonSketch />
         {/* Poignée du panneau, sur téléphone seulement */}
         <div aria-hidden="true" className="absolute top-2.5 left-1/2 h-1 w-9 -translate-x-1/2 rounded-full bg-fg/15 sm:hidden" />
@@ -233,6 +251,7 @@ function AuthPanel({
           <button
             type="button"
             onClick={() => setWelcome(false)}
+            data-email-choice=""
             className="btn-rose h-11 w-full rounded-full px-5 text-sm font-semibold"
           >
             {isSignup ? "S'inscrire avec l'e-mail" : "Continuer avec l'e-mail"}
@@ -253,6 +272,7 @@ function AuthPanel({
 
   return (
     <div
+      ref={formRef}
       data-view={view}
       className="relative px-5 pt-[4.5rem] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-9 sm:pt-[4.5rem] sm:pb-8"
     >
@@ -391,6 +411,10 @@ function GoogleButton({ next, isSignup, onSignedIn }: { next: string; isSignup: 
     return () => {
       cancelled = true;
       stopWatching();
+      // Le bouton web part (le pont du téléphone vient d'arriver, ou il va être redessiné) : notre bouton
+      // reprend sa place, sinon un bouton Google qui ne marche pas dans l'app resterait à l'écran.
+      element.replaceChildren();
+      setReady(false);
     };
   }, [isSignup, next, native]);
 

@@ -123,8 +123,8 @@ export function SuggestionCarousel({
       </div>
 
       {/* Points : la carte affichée, et un appui pour aller à une autre. */}
-      {/* Point de 6 px dans une zone d'appui de 28 px, assez grande pour le doigt. */}
-      <div className="mt-0.5 -mb-2 flex justify-center">
+      {/* Point de 6 px dans une zone d'appui de 24 × 40 px pour le doigt ; marges négatives : la place prise à l'écran ne change pas. */}
+      <div className="-mt-1 -mb-3.5 flex justify-center">
         {items.map((s, i) => (
           <button
             key={s.title}
@@ -135,7 +135,7 @@ export function SuggestionCarousel({
               setAuto(false);
               if (i !== index) show(i, i > index ? 1 : -1);
             }}
-            className="grid h-7 place-items-center px-[3px]"
+            className="grid h-10 place-items-center px-[9px]"
           >
             <span
               aria-hidden="true"

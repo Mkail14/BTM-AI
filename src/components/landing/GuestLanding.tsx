@@ -256,13 +256,13 @@ export function GuestLanding({
                   autoComplete="off"
                   enterKeyHint="send"
                   placeholder={EXAMPLE}
-                  className="h-11 text-ellipsis w-full rounded-full bg-white pr-14 pl-4 text-[15px] shadow-[0_0_0_1px_rgb(0_0_0/0.08),0_10px_28px_-14px_rgb(0_0_0/0.3)] outline-none transition-[background-color,box-shadow] duration-200 placeholder:text-fg-muted hover:shadow-[0_0_0_1px_rgb(0_0_0/0.13),0_10px_28px_-14px_rgb(0_0_0/0.35)] focus:shadow-[0_0_0_1px_color-mix(in_srgb,var(--persona,var(--accent))_45%,transparent),0_0_0_4px_color-mix(in_srgb,var(--persona,var(--accent))_14%,transparent)] dark:bg-white/[0.08] dark:shadow-none dark:hover:bg-white/[0.1] dark:hover:shadow-none dark:focus:bg-white/[0.1] dark:focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--persona,var(--accent))_18%,transparent)]"
+                  className="h-11 text-ellipsis w-full rounded-full bg-white pr-12 pl-4 text-[15px] shadow-[0_0_0_1px_rgb(0_0_0/0.08),0_10px_28px_-14px_rgb(0_0_0/0.3)] outline-none transition-[background-color,box-shadow] duration-200 placeholder:text-fg-muted hover:shadow-[0_0_0_1px_rgb(0_0_0/0.13),0_10px_28px_-14px_rgb(0_0_0/0.35)] focus:shadow-[0_0_0_1px_color-mix(in_srgb,var(--persona,var(--accent))_45%,transparent),0_0_0_4px_color-mix(in_srgb,var(--persona,var(--accent))_14%,transparent)] dark:bg-white/[0.08] dark:shadow-none dark:hover:bg-white/[0.1] dark:hover:shadow-none dark:focus:bg-white/[0.1] dark:focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--persona,var(--accent))_18%,transparent)]"
                 />
                 <button
                   type="submit"
                   disabled={!text.trim() || leaving}
                   aria-label="Parler à Tamilya"
-                  className="btn-rose btn-rose--icon absolute top-1/2 right-1 size-9 -translate-y-1/2"
+                  className="btn-rose btn-rose--icon zone-appui absolute top-1/2 right-1 size-9 -translate-y-1/2"
                 >
                   <IconSend width={16} height={16} />
                 </button>
@@ -271,7 +271,7 @@ export function GuestLanding({
 
             {hasDraft ? (
               <p className="landing-rise mt-5 text-xs text-fg-muted [animation-delay:480ms]">
-                <button type="button" onClick={onResume} className="font-semibold text-fg underline-offset-4 hover:underline">
+                <button type="button" onClick={onResume} className="zone-appui relative font-semibold text-fg underline-offset-4 hover:underline">
                   Reprendre ma conversation →
                 </button>
               </p>
@@ -378,7 +378,7 @@ export function GuestLanding({
             <p className="mt-3 max-w-xs text-sm leading-relaxed text-fg-muted">
               Tamilya, l&apos;assistante qui apprend le shimaoré. Faite à Mayotte par GROUPE BTM.
             </p>
-            <a href="mailto:contact@btm.yt" className="mt-4 inline-block text-sm font-medium underline-offset-4 hover:underline">
+            <a href="mailto:contact@btm.yt" className="zone-appui relative mt-4 inline-block text-sm font-medium underline-offset-4 hover:underline">
               contact@btm.yt
             </a>
           </div>
@@ -386,17 +386,17 @@ export function GuestLanding({
             <p className="text-xs font-semibold tracking-wider text-fg-muted uppercase">Tamilya</p>
             <ul className="mt-2 text-sm">
               <li>
-                <button type="button" onClick={talkAgain} className="block py-1.5 text-fg-muted transition hover:text-fg">
+                <button type="button" onClick={talkAgain} className="block py-2.5 text-fg-muted transition hover:text-fg">
                   Lui parler
                 </button>
               </li>
               <li>
-                <a href="#avis" className="block py-1.5 text-fg-muted transition hover:text-fg">
+                <a href="#avis" className="block py-2.5 text-fg-muted transition hover:text-fg">
                   Les avis
                 </a>
               </li>
               <li>
-                <button type="button" onClick={() => openAuthDialog({ mode: "signin" })} className="block py-1.5 text-fg-muted transition hover:text-fg">
+                <button type="button" onClick={() => openAuthDialog({ mode: "signin" })} className="block py-2.5 text-fg-muted transition hover:text-fg">
                   Se connecter
                 </button>
               </li>
@@ -412,7 +412,7 @@ export function GuestLanding({
                 { href: "/developpeurs", label: "Développeurs" },
               ].map((item) => (
                 <li key={item.href}>
-                  <Link href={item.href} className="block py-1.5 text-fg-muted transition hover:text-fg">
+                  <Link href={item.href} className="block py-2.5 text-fg-muted transition hover:text-fg">
                     {item.label}
                   </Link>
                 </li>

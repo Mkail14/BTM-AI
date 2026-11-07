@@ -54,10 +54,11 @@ export default function PartenairesPage() {
       <div aria-hidden="true" className="fond-lagon fond-lagon--page" />
       <LandingNav />
 
-      <main id="contenu" className="relative z-10 flex flex-1 flex-col pb-[max(1.5rem,env(safe-area-inset-bottom))] [@media(min-height:640px)]:min-h-0">
+      {/* Titre, frise et appel groupés au milieu de l'écran : pas de grand vide entre le titre et la frise. */}
+      <main id="contenu" className="relative z-10 flex flex-1 flex-col justify-center-safe pb-[max(1.5rem,env(safe-area-inset-bottom))] [@media(min-height:640px)]:min-h-0">
         <div aria-hidden="true" className="landing-aurora" />
 
-        <div className="shrink-0 px-5 pt-[clamp(1.5rem,6vh,4rem)] text-center">
+        <div className="shrink-0 px-5 pt-[clamp(1rem,calc(8vh-2rem),3rem)] text-center">
           <h1 className="landing-rise text-[clamp(2rem,5vw,3.5rem)] leading-[1.05] font-[650] tracking-[-0.035em] text-balance">
             Nos <span className="landing-accent">partenaires</span>
           </h1>
@@ -66,11 +67,12 @@ export default function PartenairesPage() {
 
         <PartnerFrise partners={EXAMPLES} />
 
+        {/* Téléphone : sur deux lignes centrées, loin du rond d'aide en bas à droite. */}
         <p className="shrink-0 px-5 text-center text-sm text-fg-muted">
-          Votre entreprise ici ?{" "}
+          Votre entreprise ici ?<br className="sm:hidden" />{" "}
           <a
             href="mailto:contact@btm.yt?subject=Devenir%20partenaire%20de%20Tamilya"
-            className="font-semibold text-fg underline decoration-[color-mix(in_oklab,var(--accent)_60%,transparent)] underline-offset-4 hover:decoration-[var(--accent)]"
+            className="zone-appui relative inline-block font-semibold text-fg underline decoration-[color-mix(in_oklab,var(--accent)_60%,transparent)] underline-offset-4 hover:decoration-[var(--accent)]"
           >
             Devenir partenaire
           </a>

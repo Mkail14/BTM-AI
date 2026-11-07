@@ -24,14 +24,20 @@ const labelClass = "text-xs font-semibold tracking-wide text-fg-muted uppercase"
 const glassClass =
   "border border-border/70 bg-bg/70 text-fg shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-xl backdrop-saturate-150";
 
-/** Où placer le bouton « Corriger » : centré sous la sélection, à 16 px au moins des bords. */
+/** Où placer le bouton « Corriger » : centré sous la sélection, à 8 px au moins des bords. */
 type Anchor = { top: number; center: number };
 
+/** Largeur maximale de la bulle (22rem) et marge gardée au bord de l'écran. */
+const BUBBLE_MAX = 352;
+const BUBBLE_EDGE = 8;
+
 function anchorFor(rect: DOMRect): Anchor {
+  // Petit écran : la bulle se réduit à la largeur de l'écran moins les marges (voir max-w plus bas),
+  // et son centre est borné pour qu'aucun bord ne sorte de l'écran.
+  const half = Math.min(BUBBLE_MAX, window.innerWidth - 2 * BUBBLE_EDGE) / 2;
   return {
     top: Math.min(rect.bottom + 10, window.innerHeight - 56),
-    // Les deux boutons font au plus ~22rem.
-    center: Math.max(184, Math.min(rect.left + rect.width / 2, window.innerWidth - 184)),
+    center: Math.max(BUBBLE_EDGE + half, Math.min(rect.left + rect.width / 2, window.innerWidth - BUBBLE_EDGE - half)),
   };
 }
 
@@ -197,7 +203,7 @@ export function Correctable({
           // Garde la sélection au clic (sinon elle disparaît avant onClick).
           onPointerDown={(e) => e.preventDefault()}
           style={{ top: selection.anchor.top, left: selection.anchor.center }}
-          className={`${glassClass} fixed z-30 flex max-w-[22rem] -translate-x-1/2 animate-[correct-in_160ms_ease-out] items-center gap-1 rounded-full p-1 text-sm font-medium`}
+          className={`${glassClass} fixed z-30 flex max-w-[min(22rem,calc(100vw-1rem))] -translate-x-1/2 animate-[correct-in_160ms_ease-out] items-center gap-1 rounded-full p-1 text-sm font-medium`}
         >
           <button
             type="button"
@@ -255,7 +261,7 @@ export function Correctable({
                     type="button"
                     onClick={() => setForm(null)}
                     aria-label="Fermer"
-                    className="-mt-1 -mr-2 rounded-full p-2 text-fg-muted transition hover:bg-bg-muted hover:text-fg"
+                    className="zone-appui relative -mt-1 -mr-2 rounded-full p-2 text-fg-muted transition hover:bg-bg-muted hover:text-fg"
                   >
                     <IconClose width={18} height={18} />
                   </button>

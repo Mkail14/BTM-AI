@@ -123,7 +123,7 @@ export function AddApiDialog({ onClose }: { onClose: () => void }) {
               Elle se place en dernier dans la chaîne et prend le relais si les précédentes sont épuisées.
             </p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Fermer" className="rounded-lg p-2 text-fg-muted hover:bg-bg-muted">
+          <button type="button" onClick={onClose} aria-label="Fermer" className="zone-appui relative rounded-lg p-2 text-fg-muted hover:bg-bg-muted">
             <IconClose />
           </button>
         </div>

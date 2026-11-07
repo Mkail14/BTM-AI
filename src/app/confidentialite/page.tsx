@@ -82,12 +82,12 @@ export default function PrivacyPage() {
 
         <nav aria-label="Sommaire" className="rounded-2xl border border-border bg-bg p-4">
           <p className="text-xs font-medium tracking-wide text-fg-muted uppercase">Sommaire</p>
-          <ul className="mt-2 flex flex-wrap gap-1.5">
+          <ul className="mt-2 flex flex-wrap gap-x-1.5 gap-y-4">
             {SECTIONS.map((s) => (
               <li key={s.id}>
                 <a
                   href={`#${s.id}`}
-                  className="inline-block rounded-full bg-bg-muted px-3 py-1 text-xs font-medium text-fg-muted hover:text-fg"
+                  className="zone-appui relative inline-block rounded-full bg-bg-muted px-3 py-1 text-xs font-medium text-fg-muted hover:text-fg"
                 >
                   {s.label}
                 </a>

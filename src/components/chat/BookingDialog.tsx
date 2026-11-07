@@ -212,7 +212,7 @@ export function BookingDialog({ slot, onClose }: { slot: BookingSlot; onClose: (
             type="button"
             onClick={() => ref.current?.close()}
             aria-label="Fermer"
-            className="-mr-2 grid size-9 shrink-0 place-items-center rounded-full text-fg-muted hover:bg-bg-muted hover:text-fg"
+            className="zone-appui relative -mr-2 grid size-9 shrink-0 place-items-center rounded-full text-fg-muted hover:bg-bg-muted hover:text-fg"
           >
             <IconClose />
           </button>

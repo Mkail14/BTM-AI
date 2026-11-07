@@ -104,13 +104,13 @@ export function PartnerFrise({ partners }: { partners: readonly Partner[] }) {
     "landing-glass grid size-11 place-items-center rounded-full text-fg transition hover:scale-105 disabled:pointer-events-none disabled:opacity-30";
 
   return (
-    <div className="relative flex flex-1 flex-col justify-center py-4 [@media(min-height:640px)]:min-h-0 [@media(min-height:640px)]:py-0">
+    <div className="relative flex flex-col pt-[clamp(0px,calc(12vh-4.5rem),3.5rem)] pb-[clamp(0px,calc(5vh-1.5rem),2rem)] [@media(min-height:640px)]:min-h-0">
       <ol
         ref={track}
         aria-label="Frise des partenaires"
         data-start={edges.start || undefined}
         data-end={edges.end || undefined}
-        className="frise flex shrink-0 gap-10 overflow-x-auto [@media(min-height:640px)]:shrink overflow-y-hidden overscroll-x-contain px-[max(1.25rem,calc((100vw-64rem)/2))] py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="frise flex shrink-0 justify-center-safe gap-10 overflow-x-auto [@media(min-height:640px)]:shrink overflow-y-hidden overscroll-x-contain px-[max(1.25rem,calc((100vw-112rem)/2))] py-3 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {partners.map((partner, i) => (
           <li key={partner.name} className="frise-jalon landing-rise flex w-[min(74vw,16.5rem)] shrink-0 flex-col" style={{ animationDelay: `${200 + i * 90}ms` }}>
@@ -132,7 +132,7 @@ export function PartnerFrise({ partners }: { partners: readonly Partner[] }) {
               >
                 {partner.logo ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={partner.logo} alt="" className="h-11 w-auto object-contain" />
+                  <img src={partner.logo} alt="" loading="lazy" decoding="async" className="h-11 w-auto object-contain" />
                 ) : (
                   partner.initials
                 )}
@@ -145,7 +145,7 @@ export function PartnerFrise({ partners }: { partners: readonly Partner[] }) {
         ))}
       </ol>
 
-      <div className="mt-6 flex shrink-0 justify-center gap-3">
+      <div className={`mt-[clamp(0.5rem,calc(5vh-1rem),1.5rem)] flex shrink-0 justify-center gap-3 ${edges.start && edges.end ? "invisible" : ""}`}>
         <button type="button" aria-label="Partenaires précédents" className={arrow} disabled={edges.start} onClick={() => slide(-1)}>
           <Chevron left />
         </button>
@@ -184,10 +184,10 @@ function PartnerSheet({ partner, onClose }: { partner: Partner; onClose: () => v
         <div className="relative h-[clamp(5.5rem,20dvh,11rem)] overflow-hidden" style={{ background: gradient }}>
           {partner.photo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={partner.photo} alt={`Photo de ${partner.name}`} className="size-full object-cover" />
+            <img src={partner.photo} alt={`Photo de ${partner.name}`} loading="lazy" decoding="async" className="size-full object-cover" />
           ) : partner.logo ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={partner.logo} alt={`Logo de ${partner.name}`} className="mx-auto h-full w-auto max-w-[70%] object-contain py-[clamp(0.75rem,3dvh,2rem)]" />
+            <img src={partner.logo} alt={`Logo de ${partner.name}`} loading="lazy" decoding="async" className="mx-auto h-full w-auto max-w-[70%] object-contain py-[clamp(0.75rem,3dvh,2rem)]" />
           ) : (
             <span aria-hidden="true" className="grid size-full place-items-center text-5xl font-bold tracking-tight text-white/90">
               {partner.initials}
@@ -198,7 +198,7 @@ function PartnerSheet({ partner, onClose }: { partner: Partner; onClose: () => v
             type="button"
             onClick={dismiss}
             aria-label="Fermer la fiche"
-            className="absolute top-3 right-3 grid size-9 place-items-center rounded-full bg-black/35 text-white backdrop-blur transition hover:bg-black/50"
+            className="zone-appui absolute top-3 right-3 grid size-9 place-items-center rounded-full bg-black/35 text-white backdrop-blur transition hover:bg-black/50"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" className="size-4" aria-hidden="true">
               <path d="M6 6l12 12M18 6L6 18" />

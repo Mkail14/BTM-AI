@@ -82,7 +82,7 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
             type="button"
             onClick={() => ref.current?.close()}
             aria-label="Fermer"
-            className="-mr-2 grid size-9 place-items-center rounded-full text-fg-muted hover:bg-bg-muted hover:text-fg"
+            className="zone-appui relative -mr-2 grid size-9 place-items-center rounded-full text-fg-muted hover:bg-bg-muted hover:text-fg"
           >
             <IconClose />
           </button>

@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { noteGlobeOrigin } from "@/components/chat/globe-origin";
+import { useChatShell } from "@/components/layout/ChatShell";
 import { loadAnonymousDraft } from "@/lib/chat/anonymous-draft";
 import type { PublicReview } from "@/lib/reviews/rules";
 import type { Announcement } from "@/lib/site/announcement-rules";
@@ -41,8 +43,19 @@ function loadChatView(): Promise<ChatViewComponent> {
  * la conversation. Quand on lui parle, le message part tout de suite et la
  * page d'accueil s'efface en douceur sur la conversation.
  */
-export function GuestHome({ reviews, announcement }: { reviews: PublicReview[]; announcement: Announcement | null }) {
+export function GuestHome({
+  reviews,
+  announcement,
+  authPrompt = null,
+}: {
+  reviews: PublicReview[];
+  announcement: Announcement | null;
+  /** Page privée demandée sans session (/?auth=required) : la connexion s'ouvre par-dessus l'accueil. */
+  authPrompt?: { next: string } | null;
+}) {
   const [phase, setPhase] = useState<Phase>("landing");
+  const { openAuthDialog } = useAuth();
+  const { setChatCovered } = useChatShell();
   const [prompt, setPrompt] = useState<string | null>(null);
   const [hasDraft, setHasDraft] = useState(false);
   const [Chat, setChat] = useState<ChatViewComponent | null>(null);
@@ -91,6 +104,23 @@ export function GuestHome({ reviews, announcement }: { reviews: PublicReview[]; 
       if (timer.current) window.clearTimeout(timer.current);
     };
   }, []);
+
+  // Page privée demandée sans session : l'adresse redevient « / » et la connexion s'ouvre sur l'accueil.
+  // Fermer la fenêtre (Échap, croix) laisse donc l'accueil, comme une visite directe de « / ».
+  const promptNext = authPrompt?.next ?? null;
+  useEffect(() => {
+    if (promptNext === null) return;
+    window.history.replaceState(null, "", "/");
+    openAuthDialog({ reason: "Connecte-toi pour accéder à cette page.", next: promptNext });
+  }, [promptNext, openAuthDialog]);
+
+  // Tant que l'accueil recouvre la conversation, celle-ci (et la barre latérale) est inerte :
+  // ni Tab, ni clic, ni lecteur d'écran n'y vont. Elle redevient utilisable dès qu'elle apparaît.
+  const covered = phase === "landing";
+  useEffect(() => {
+    setChatCovered(covered);
+  }, [covered, setChatCovered]);
+  useEffect(() => () => setChatCovered(false), [setChatCovered]);
 
   // Pendant la page d'accueil, la page du dessous ne défile pas.
   useEffect(() => {
@@ -154,7 +184,11 @@ export function GuestHome({ reviews, announcement }: { reviews: PublicReview[]; 
 
   return (
     <>
-      {Chat ? <Chat key="accueil" conversationId={null} initialMessages={[]} startWith={prompt} /> : null}
+      {Chat ? (
+        <div className="contents" inert={covered}>
+          <Chat key="accueil" conversationId={null} initialMessages={[]} startWith={prompt} />
+        </div>
+      ) : null}
       {phase !== "chat" ? (
         <GuestLanding
           reviews={reviews}

@@ -183,7 +183,7 @@ export function AdminMenu({ principal = false }: { principal?: boolean }) {
                     type="button"
                     onClick={dismiss}
                     aria-label="Fermer le menu"
-                    className="grid size-10 place-items-center rounded-lg text-fg-muted hover:bg-bg-muted hover:text-fg"
+                    className="zone-appui relative grid size-10 place-items-center rounded-lg text-fg-muted hover:bg-bg-muted hover:text-fg"
                   >
                     <IconClose />
                   </button>

@@ -27,6 +27,8 @@ type ChatShellValue = {
   newChatSignal: number;
   startNewChat: () => void;
   openSidebar: () => void;
+  /** Accueil des visiteurs (GuestHome) posé par-dessus : la barre latérale, cachée dessous, devient inerte. */
+  setChatCovered: (covered: boolean) => void;
 };
 
 const ChatShellContext = createContext<ChatShellValue | null>(null);
@@ -46,6 +48,8 @@ export function ChatShell({ children }: { children: ReactNode }) {
   const [refreshToken, setRefreshToken] = useState(0);
   const [newChatSignal, setNewChatSignal] = useState(0);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Visiteur sur « / » : l'accueil (GuestHome) recouvre la conversation dès le premier affichage.
+  const [chatCovered, setChatCovered] = useState(() => !user && pathname === "/");
   const userId = user?.id ?? null;
   const frameRef = useRef<HTMLDivElement>(null);
   useKeyboardViewport(frameRef);
@@ -102,6 +106,7 @@ export function ChatShell({ children }: { children: ReactNode }) {
       newChatSignal,
       startNewChat,
       openSidebar: () => setSidebarOpen(true),
+      setChatCovered,
     }),
     [userId, conversations, conversationsLoading, refreshConversations, newChatSignal, startNewChat],
   );
@@ -114,7 +119,10 @@ export function ChatShell({ children }: { children: ReactNode }) {
           ref={frameRef}
           className="fixed top-0 right-[env(safe-area-inset-right)] left-[env(safe-area-inset-left)] flex h-dvh overflow-hidden"
         >
-          <Sidebar open={sidebarOpen} onClose={closeSidebar} />
+          {/* Cachée sous l'accueil des visiteurs : ni Tab ni lecteur d'écran n'y vont tant qu'elle est recouverte. */}
+          <div className="contents" inert={chatCovered}>
+            <Sidebar open={sidebarOpen} onClose={closeSidebar} />
+          </div>
           <PersonaMain>{children}</PersonaMain>
         </div>
       </PersonalityProvider>

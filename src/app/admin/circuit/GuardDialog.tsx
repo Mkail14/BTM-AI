@@ -65,7 +65,7 @@ export function GuardDialog({ limits, onClose }: { limits: RateLimitSettings; on
             </h2>
             <p className="mt-0.5 text-sm text-fg-muted">Nombre de messages autorisés avant « trop de requêtes ».</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Fermer" className="rounded-lg p-2 text-fg-muted hover:bg-bg-muted">
+          <button type="button" onClick={onClose} aria-label="Fermer" className="zone-appui relative rounded-lg p-2 text-fg-muted hover:bg-bg-muted">
             <IconClose />
           </button>
         </div>

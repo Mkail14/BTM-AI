@@ -22,7 +22,27 @@ type Spot = { side: "left" | "right"; y: number };
 type Tab = "faq" | "chat" | "email";
 type Turn = { role: "user" | "assistant"; content: string };
 
-const clampY = (y: number, size: number) => Math.min(Math.max(y, EDGE), window.innerHeight - size - EDGE);
+/**
+ * Encoche et barre d'accueil (iPhone, Android plein écran) : hauteurs lues dans le CSS
+ * (env(safe-area-inset-*)), que le script ne connaît pas autrement. Un élément invisible
+ * prend ces hauteurs le temps d'une mesure.
+ */
+function safeArea(): { top: number; bottom: number } {
+  const probe = document.createElement("div");
+  probe.style.cssText =
+    "position:fixed;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)";
+  document.body.appendChild(probe);
+  const style = getComputedStyle(probe);
+  const insets = { top: parseFloat(style.paddingTop) || 0, bottom: parseFloat(style.paddingBottom) || 0 };
+  probe.remove();
+  return insets;
+}
+
+/** Hauteur bornée à l'écran visible, sous l'encoche et au-dessus de la barre d'accueil. */
+const clampY = (y: number, size: number) => {
+  const safe = safeArea();
+  return Math.min(Math.max(y, EDGE + safe.top), window.innerHeight - size - EDGE - safe.bottom);
+};
 
 /**
  * Rond d'aide, sur toutes les pages (sauf l'administration) : on le fait
@@ -179,8 +199,9 @@ function HelpPanel({
   }, []);
 
   // Ordinateur : à côté du rond, à sa hauteur autant que possible. Téléphone : panneau qui monte du bas.
-  const height = Math.min(600, window.innerHeight - 2 * EDGE);
-  const top = Math.min(Math.max(anchorY + size - height, EDGE), window.innerHeight - height - EDGE);
+  const safe = safeArea();
+  const height = Math.min(600, window.innerHeight - 2 * EDGE - safe.top - safe.bottom);
+  const top = Math.min(Math.max(anchorY + size - height, EDGE + safe.top), window.innerHeight - height - EDGE - safe.bottom);
   const offset = EDGE + size + 12;
 
   return (
@@ -199,7 +220,7 @@ function HelpPanel({
           <p className="font-semibold">Besoin d&apos;aide ?</p>
           <p className="text-xs text-fg-muted">On est là pour toi.</p>
         </div>
-        <button type="button" onClick={onClose} aria-label="Fermer l'aide" className="grid size-9 place-items-center rounded-full text-fg-muted hover:bg-bg-muted hover:text-fg">
+        <button type="button" onClick={onClose} aria-label="Fermer l'aide" className="zone-appui relative grid size-9 place-items-center rounded-full text-fg-muted hover:bg-bg-muted hover:text-fg">
           <IconClose width={18} height={18} />
         </button>
       </header>

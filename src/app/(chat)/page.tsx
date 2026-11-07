@@ -14,11 +14,18 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
       : null;
 
   // Visiteur sans compte : page de présentation de Tamilya, puis la conversation (5 messages d'essai).
-  // Page privée demandée sans session (authPrompt) : directement la connexion.
+  // Page privée demandée sans session (authPrompt) : la connexion s'ouvre par-dessus cette même
+  // page d'accueil ; la fermer laisse donc l'accueil, comme une visite directe de « / ».
   const { user } = await getAuthContext();
-  if (!user && !authPrompt) {
+  if (!user) {
     const [reviews, announcement] = await Promise.all([listPublishedReviews(), getAnnouncement()]);
-    return <GuestHome reviews={reviews} announcement={announcement && showsAnnouncement(announcement) ? announcement : null} />;
+    return (
+      <GuestHome
+        reviews={reviews}
+        announcement={announcement && showsAnnouncement(announcement) ? announcement : null}
+        authPrompt={authPrompt}
+      />
+    );
   }
 
   return <ChatView key="accueil" conversationId={null} initialMessages={[]} authPrompt={authPrompt} />;
