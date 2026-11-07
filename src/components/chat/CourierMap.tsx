@@ -2,7 +2,7 @@
 
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
-import type { Map as MapLibreMap, Marker } from "maplibre-gl";
+import type { MapMouseEvent, Map as MapLibreMap, Marker } from "maplibre-gl";
 import type { Point } from "@/lib/food/route";
 
 /**
@@ -28,7 +28,15 @@ type Props = {
   moving: boolean;
   /** « trip » : trajet d'une personne (départ, drapeau d'arrivée) au lieu d'une livraison (restaurant, maison). */
   kind?: "delivery" | "trip";
+  /**
+   * Épingle (trajet) : le repère du départ se déplace au doigt (glisser, ou toucher la carte)
+   * et chaque nouvelle place est renvoyée ici. Absent : repère fixe.
+   */
+  pick?: ((p: Point) => void) | null;
 };
+
+/** Zoom pour poser l'épingle : on voit les maisons. */
+const PICK_ZOOM = 17;
 
 const lngLat = (p: Point): [number, number] => [p.lng, p.lat];
 /** Zoom quand la carte suit le livreur : on voit les rues autour de lui. */
@@ -62,8 +70,13 @@ const FLAG_SVG = PIN_SVG('<path d="M5 22V4"/><path d="M5 4h11l-2 4 2 4H5"/>');
 const SCOOTER_SVG =
   '<svg viewBox="0 0 64 48" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="14" cy="36" r="7"/><circle cx="50" cy="36" r="7"/><path d="M21 36h16l6-14h-9"/><path d="M43 22l7 14"/><path d="M38 12h7l-2 10"/><rect x="6" y="14" width="16" height="12" rx="2.5" fill="currentColor" fill-opacity="0.25"/><path d="M6 26h20l4 6"/></svg>';
 
-export function CourierMap({ from, to, route, trail, courier, moving, kind = "delivery" }: Props) {
+export function CourierMap({ from, to, route, trail, courier, moving, kind = "delivery", pick = null }: Props) {
   const frame = useRef<HTMLDivElement>(null);
+  const startMarker = useRef<Marker | null>(null);
+  const pickRef = useRef(pick);
+  useEffect(() => {
+    pickRef.current = pick;
+  });
   const map = useRef<MapLibreMap | null>(null);
   const courierMarker = useRef<Marker | null>(null);
   const courierEl = useRef<HTMLDivElement | null>(null);
@@ -114,7 +127,7 @@ export function CourierMap({ from, to, route, trail, courier, moving, kind = "de
 
       const trip = kind === "trip";
       const startPin = pin("map-pin", `<span class="map-pin-head">${trip ? START_SVG : RESTAURANT_SVG}</span><span class="map-pin-tip"></span>`);
-      new maplibre.Marker({ element: startPin, anchor: "bottom" }).setLngLat(lngLat(a)).addTo(created);
+      startMarker.current = new maplibre.Marker({ element: startPin, anchor: "bottom" }).setLngLat(lngLat(a)).addTo(created);
       new maplibre.Marker({ element: pin("map-pin map-pin-home", `<span class="map-pin-head">${trip ? FLAG_SVG : HOME_SVG}</span><span class="map-pin-tip"></span>`), anchor: "bottom" }).setLngLat(lngLat(b)).addTo(created);
       courierEl.current = pin("map-courier", `<span class="map-courier-ring"></span><span class="map-courier-dot">${SCOOTER_SVG}</span>`);
       courierMarker.current = new maplibre.Marker({ element: courierEl.current });
@@ -213,6 +226,35 @@ export function CourierMap({ from, to, route, trail, courier, moving, kind = "de
   useEffect(() => {
     courierEl.current?.firstElementChild?.classList.toggle("is-moving", moving);
   }, [moving, ready]);
+
+  // Épingle : la carte zoome sur le départ, le repère se glisse ou saute là où on touche.
+  const picking = Boolean(pick);
+  useEffect(() => {
+    const m = map.current;
+    const marker = startMarker.current;
+    if (!ready || !m || !marker) return;
+    marker.setDraggable(picking);
+    if (!picking) {
+      marker.setLngLat(lngLat(latest.current.from));
+      return;
+    }
+    followed.current = false;
+    m.easeTo({ center: marker.getLngLat(), zoom: Math.max(m.getZoom(), PICK_ZOOM), duration: 800 });
+    const report = () => {
+      const p = marker.getLngLat();
+      pickRef.current?.({ lat: p.lat, lng: p.lng });
+    };
+    const onTap = (e: MapMouseEvent) => {
+      marker.setLngLat(e.lngLat);
+      report();
+    };
+    marker.on("dragend", report);
+    m.on("click", onTap);
+    return () => {
+      marker.off("dragend", report);
+      m.off("click", onTap);
+    };
+  }, [ready, picking]);
 
   return (
     <div className="relative size-full overflow-hidden bg-[#eef0f2] dark:bg-[#1b1e22]">

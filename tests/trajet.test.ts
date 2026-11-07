@@ -34,3 +34,23 @@ describe("trajet demandé", () => {
     assert.equal(formatMinutes(65), "1 h 05");
   });
 });
+
+it("départ approximatif : Tamilya le dit et propose un repère ou l'épingle, au lieu de faire semblant", async () => {
+  const { describeTrip } = await import("../src/lib/trip/plan");
+  const base = {
+    to: { label: "CSSM", detail: null, point: { lat: -12.78, lng: 45.23 }, phones: [], hours: null, link: null },
+    car: { minutes: 15, km: 9, path: [] },
+    walk: null,
+    barge: false,
+  };
+  const approx = describeTrip({
+    ...base,
+    from: { label: "Chez moi", detail: "25 Boulevard Tsiveré, Koungou", point: { lat: -12.73, lng: 45.2 }, kind: "home", approx: "street", approxLabel: "milieu de Boulevard Tsiveré, Koungou" },
+  });
+  assert.match(approx, /approximatif/);
+  assert.match(approx, /milieu de Boulevard Tsiveré/);
+  assert.match(approx, /repère/);
+  assert.match(approx, /Placer ma maison/);
+  const exact = describeTrip({ ...base, from: { label: "Chez moi", detail: "25 Boulevard Tsiveré, Koungou", point: { lat: -12.73, lng: 45.2 }, kind: "home", approx: null } });
+  assert.doesNotMatch(exact, /approximatif/);
+});

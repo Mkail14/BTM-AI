@@ -1,6 +1,6 @@
 "use client";
 
-import { Bus, CarFront, CarTaxiFront, Clock, Footprints, House, LocateFixed, Phone, Ship } from "lucide-react";
+import { Bus, CarFront, CarTaxiFront, Clock, Footprints, House, LocateFixed, MapPin, Phone, Ship } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
@@ -49,6 +49,8 @@ export function TripCard({ spec }: { spec: string }) {
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState<string | null>(null);
   const autoOpen = useRef<boolean | null>(null);
+  /** Relance le calcul (maison posée sur la carte). */
+  const [reload, setReload] = useState(0);
 
   useEffect(() => {
     if (!parsed) return;
@@ -73,7 +75,7 @@ export function TripCard({ spec }: { spec: string }) {
     return () => {
       alive = false;
     };
-  }, [parsed, gps, spec]);
+  }, [parsed, gps, spec, reload]);
 
   const locate = async () => {
     setLocating(true);
@@ -103,7 +105,7 @@ export function TripCard({ spec }: { spec: string }) {
               ? "Je calcule le trajet…"
               : plan
                 ? plan.car
-                  ? `${formatMinutes(plan.car.minutes)} en voiture · ${km(plan.car.km)}`
+                  ? `${formatMinutes(plan.car.minutes)} en voiture · ${km(plan.car.km)}${plan.from.approx ? " · départ approximatif" : ""}`
                   : plan.walk
                     ? `${formatMinutes(plan.walk.minutes)} à pied`
                     : ""
@@ -130,6 +132,7 @@ export function TripCard({ spec }: { spec: string }) {
           locate={locate}
           locating={locating}
           locateError={locateError}
+          onHomeSaved={() => setReload((n) => n + 1)}
           backHome={
             gps
               ? () => {
@@ -167,6 +170,7 @@ function TripPanel({
   locating,
   locateError,
   backHome,
+  onHomeSaved,
 }: {
   plan: TripPlan;
   onClose: () => void;
@@ -175,7 +179,26 @@ function TripPanel({
   locateError: string | null;
   /** Revenir au départ par défaut (adresse ou lieu dit), quand on est parti de la position. */
   backHome: (() => void) | null;
+  /** Maison posée sur la carte et enregistrée : le trajet est recalculé depuis elle. */
+  onHomeSaved: () => void;
 }) {
+  // Épingle : undefined = pas en cours ; null = en cours, pas encore posée ; un point = posée.
+  const [pinned, setPinned] = useState<Point | null | undefined>(undefined);
+  const [saving, setSaving] = useState(false);
+  const [pinError, setPinError] = useState<string | null>(null);
+  const picking = pinned !== undefined;
+  const approx = plan.from.kind === "home" && plan.from.approx;
+  const saveHome = async () => {
+    if (!pinned) return;
+    setSaving(true);
+    setPinError(null);
+    const res = await fetch("/api/trip/home", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(pinned) }).catch(() => null);
+    const body = (await res?.json().catch(() => null)) as { ok?: boolean; error?: string } | null;
+    setSaving(false);
+    if (!body?.ok) return setPinError(body?.error ?? "Épingle non enregistrée : vérifie ta connexion.");
+    setPinned(undefined);
+    onHomeSaved();
+  };
   const [closing, setClosing] = useState(false);
   const panel = useRef<HTMLDivElement>(null);
   const close = () => (window.matchMedia("(prefers-reduced-motion: reduce)").matches ? onClose() : setClosing(true));
@@ -217,7 +240,7 @@ function TripPanel({
         {/* Carte de Mayotte et le chemin : toute la place libre. */}
         <div className="relative min-h-[8rem] flex-1">
           <div className="absolute inset-0">
-            <CourierMap key={`${from.lat},${from.lng}>${to.lat},${to.lng}`} from={from} to={to} route={route} trail={[]} courier={null} moving={false} kind="trip" />
+            <CourierMap key={`${from.lat},${from.lng}>${to.lat},${to.lng}`} from={from} to={to} route={route} trail={[]} courier={null} moving={false} kind="trip" pick={picking ? setPinned : null} />
           </div>
           <div className="absolute inset-x-0 top-0 z-10 flex items-center gap-2 p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
             <button
@@ -267,6 +290,38 @@ function TripPanel({
             )}
           </div>
           {locateError ? <p className="-mt-1 text-xs text-fg-muted">{locateError}</p> : null}
+
+          {/* Adresse pas trouvée au numéro près : on le dit, et on propose de poser la maison sur la carte. */}
+          {approx ? (
+            picking ? (
+              <div className="flex items-center gap-2 rounded-2xl bg-bg-subtle px-3 py-2 text-xs">
+                <MapPin size={16} aria-hidden="true" className="shrink-0" style={{ color: PERSONA }} />
+                <span className="min-w-0 flex-1">{pinError ?? (pinned ? "C'est bien chez toi ?" : "Touche ta maison sur la carte, ou fais glisser le repère.")}</span>
+                <button type="button" onClick={() => setPinned(undefined)} className="shrink-0 rounded-full border border-border px-2.5 py-1 font-semibold hover:bg-bg">
+                  Annuler
+                </button>
+                <button
+                  type="button"
+                  onClick={saveHome}
+                  disabled={!pinned || saving}
+                  className="shrink-0 rounded-full px-2.5 py-1 font-semibold text-accent-fg disabled:opacity-50"
+                  style={{ background: PERSONA }}
+                >
+                  {saving ? "…" : "Enregistrer"}
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 rounded-2xl bg-bg-subtle px-3 py-2 text-xs">
+                <MapPin size={16} aria-hidden="true" className="shrink-0 text-fg-muted" />
+                <span className="min-w-0 flex-1">
+                  Adresse pas trouvée au numéro près : départ approximatif ({plan.from.approxLabel}).
+                </span>
+                <button type="button" onClick={() => setPinned(null)} className="shrink-0 rounded-full px-2.5 py-1 font-semibold text-accent-fg" style={{ background: PERSONA }}>
+                  Placer ma maison
+                </button>
+              </div>
+            )
+          ) : null}
 
           {/* Temps selon le moyen de transport. */}
           <div className="order-rise grid grid-cols-2 gap-2 [animation-delay:80ms]">

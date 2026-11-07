@@ -1,7 +1,7 @@
 import "server-only";
 import type { Address } from "@/lib/address";
 import { COMMUNE_CENTERS, PETITE_TERRE, distanceKm, nearestCommune, type Point } from "@/lib/geo/communes";
-import { geocodeAddress, geocodeQuery, snapToRoad } from "@/lib/geo/geocode";
+import { geocodeAddress, geocodeQuery, snapToRoad, type GeocodePrecision } from "@/lib/geo/geocode";
 import { getMayotteServices, matchServices, servicesAsked } from "@/lib/live/services";
 import { formatMinutes } from "./intent";
 
@@ -23,7 +23,16 @@ export type TripPlace = {
 };
 
 export type TripPlan = {
-  from: TripPlace & { kind: "home" | "gps" | "place" };
+  from: TripPlace & {
+    kind: "home" | "gps" | "place";
+    /**
+     * Adresse de la maison pas trouvée au numéro près : départ approximatif (milieu de la rue,
+     * lieu proche ou centre de la commune). Tamilya le dit et propose un repère ou l'épingle.
+     */
+    approx?: Exclude<GeocodePrecision, "number"> | null;
+    /** Ce qu'on a pris comme départ, en mots (« milieu de Boulevard Tsiveré », « centre de Koungou »). */
+    approxLabel?: string | null;
+  };
   to: TripPlace & { phones: string[]; hours: string | null; link: string | null };
   car: { minutes: number; km: number; path: [number, number][] } | null;
   walk: { minutes: number; km: number } | null;
@@ -96,8 +105,12 @@ export async function planTrip(
       return place ? { label: place.label, detail: place.detail, point: place.point, kind: "place" } : null;
     }
     if (!home) return null;
-    const point = home.geo ? await snapToRoad(home.geo) : (await geocodeAddress(home.line, home.commune)).point;
-    return { label: "Chez moi", detail: `${home.line}, ${home.commune}`, point, kind: "home" };
+    const detail = `${home.line}, ${home.commune}`;
+    // Maison posée sur la carte (position GPS ou épingle) : exacte.
+    if (home.geo) return { label: "Chez moi", detail, point: await snapToRoad(home.geo), kind: "home", approx: null };
+    const found = await geocodeAddress(home.line, home.commune);
+    const approx = found.precision === "number" ? null : found.precision;
+    return { label: "Chez moi", detail, point: found.point, kind: "home", approx, approxLabel: approx ? approxLabel(approx, home.line, home.commune) : null };
   })();
   const arrival = await resolvePlace(to, departure?.point);
   if (!arrival) return "no_destination";
@@ -118,9 +131,28 @@ export async function planTrip(
   };
 }
 
+/** La rue d'une adresse (« 25 boulevard Tsiveré, près de… » → « boulevard Tsiveré »). */
+function streetOf(line: string): string {
+  return line
+    .split(/,|\bprès\b|\bpres\b|\ben face\b|\bderrière\b|\bà côté\b/i)[0]
+    .replace(/^\s*\d+\s*(bis|ter)?\s*/i, "")
+    .trim();
+}
+
+function approxLabel(approx: Exclude<GeocodePrecision, "number">, line: string, commune: string): string {
+  if (approx === "street") return `milieu de ${streetOf(line) || "ta rue"}, ${commune}`;
+  if (approx === "place") return `un point proche de ton adresse, ${commune}`;
+  return `centre de ${commune}`;
+}
+
 /** Le trajet en une phrase, pour Tamilya (vocal) : ce qu'elle dit à voix haute. */
 export function describeTrip(plan: TripPlan): string {
+  const approx = plan.from.kind === "home" && plan.from.approx;
   const parts = [
+    // Pas de faux départ en silence : elle dit ce qu'elle a pris et propose de faire mieux.
+    approx
+      ? `Attention : je n'ai pas trouvé l'adresse exacte de chez elle sur les cartes (${plan.from.detail}) ; le départ est approximatif : ${plan.from.approxLabel}. Dis-le-lui honnêtement, puis propose : soit elle te donne un repère connu près de chez elle (mosquée, école, station, commerce…) et tu rappelles itineraire avec ce repère en départ ; soit elle pose l'épingle sur sa maison avec le bouton « Placer ma maison » de la carte, retenu pour les prochains trajets.`
+      : null,
     `Trajet de ${plan.from.label}${plan.from.detail ? ` (${plan.from.detail})` : ""} jusqu'à ${plan.to.label}${plan.to.detail ? ` (${plan.to.detail})` : ""}.`,
     plan.car ? `En voiture ou en taxi : environ ${formatMinutes(plan.car.minutes)} pour ${plan.car.km} km, sans compter les bouchons.` : null,
     plan.walk ? `À pied : environ ${formatMinutes(plan.walk.minutes)}.` : null,
