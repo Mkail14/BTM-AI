@@ -9,6 +9,7 @@ import { parseReadingSpec } from "@/lib/lecture/intent";
 import { announceReadingDone, takeReadingAutoStart } from "@/lib/lecture/auto";
 import type { SceneLine, SceneMeta, SceneScript } from "@/lib/lecture/script";
 import { preloadResonance, ScenePlayer } from "@/lib/lecture/soundscape";
+import { preloadSounds } from "@/lib/lecture/sounds";
 import { AwaBlob } from "./AwaBlob";
 
 /**
@@ -208,6 +209,8 @@ export function ReadingCard({ spec }: { spec: string }) {
       const handle = (event: { type?: string; meta?: SceneMeta; line?: SceneLine; message?: string }) => {
         if (event.type === "meta" && event.meta && !current) {
           current = { script: { ...event.meta, lines: [] }, done: false, waiters: [] };
+          // Les vrais sons du décor partent tout de suite sur le réseau.
+          preloadSounds(event.meta.ambiences.map((a) => a.sound));
           feed.current = current;
           items.current = event.meta.intro ? [{ text: event.meta.intro, voice: null }] : [];
           voices.current.clear();
@@ -215,6 +218,7 @@ export function ReadingCard({ spec }: { spec: string }) {
           void startPlaying(current.script);
         } else if (event.type === "line" && event.line && current) {
           current.script.lines.push(event.line);
+          preloadSounds(event.line.cues.map((c) => c.sound));
           items.current.push({ text: event.line.text, voice: event.line.voice });
           // Les toutes premières voix se préparent dès qu'elles arrivent.
           if (items.current.length <= AHEAD + 1) void voiceOf(items.current.length - 1);
@@ -276,6 +280,8 @@ export function ReadingCard({ spec }: { spec: string }) {
     setVoiceLevelSource(() => scene.level());
 
     // Le décor monte tout de suite, pendant que la voix de Tamilya arrive.
+    // (après au plus 4 s d'attente des vrais sons ; sinon, la version fabriquée).
+    await scene.prepare(script.ambiences.map((a) => a.sound), 4000);
     scene.startAmbiences(script.ambiences, 3);
     if (script.intro) {
       const intro = await voiceOf(0);
@@ -293,6 +299,7 @@ export function ReadingCard({ spec }: { spec: string }) {
       setState((s) => (s.status === "playing" ? { ...s, index: i } : s));
       // Un silence plus long quand la voix change : on sent qu'un autre parle.
       if (previous !== null && previous !== line.speaker) await scene.wait(0.35);
+      if (line.cues.length) await scene.prepare(line.cues.map((c) => c.sound), 1500);
       const before = line.cues.filter((c) => c.when === "avant");
       if (before.length) await scene.wait(Math.min(1.6, Math.max(...before.map((c) => scene.playCue(c))) * 0.6));
       const voice = await voiceOf(offset + i);

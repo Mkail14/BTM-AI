@@ -1,9 +1,10 @@
-import type { Ambience, Effect } from "./script";
+import { BEDS, RECORDED, soundUrl, type Ambience, type Effect } from "./bank";
 
 /**
- * Bruits de la lecture en 3D, fabriqués par le téléphone à partir de bruit blanc et de sons purs :
- * rien à télécharger (le débit de Mayotte est ~20 Ko/s). Chaque bruit de fond est une boucle sans
- * couture ; chaque bruit court se joue une fois. Tout est mono : la place vient du panneau 3D.
+ * Bruits de la lecture en 3D. Les vrais enregistrements (bank.ts, public/sons) passent en premier ;
+ * sinon le téléphone fabrique le bruit à partir de bruit blanc et de sons purs, sans rien télécharger
+ * (le débit de Mayotte est ~20 Ko/s). Chaque bruit de fond est une boucle sans couture ; chaque bruit
+ * court se joue une fois. Tout est mono : la place vient du panneau 3D.
  */
 
 type Fill = (out: Float32Array, sr: number) => void;
@@ -117,7 +118,7 @@ function loop(fill: Fill): Fill {
   };
 }
 
-const AMBIENCE_FILLS: Record<Ambience, [seconds: number, fill: Fill]> = {
+const AMBIENCE_FILLS: Partial<Record<Ambience, [seconds: number, fill: Fill]>> = {
   vent: [
     8,
     loop((out, sr) => {
@@ -228,7 +229,7 @@ const AMBIENCE_FILLS: Record<Ambience, [seconds: number, fill: Fill]> = {
   ],
 };
 
-const EFFECT_FILLS: Record<Effect, [seconds: number, fill: Fill]> = {
+const EFFECT_FILLS: Partial<Record<Effect, [seconds: number, fill: Fill]>> = {
   tonnerre: [
     5,
     (out, sr) => {
@@ -343,15 +344,86 @@ function render(ctx: BaseAudioContext, [seconds, fill]: [number, Fill]) {
   return buffer;
 }
 
-const cache = new WeakMap<BaseAudioContext, Map<string, AudioBuffer>>();
+const recipeOf = (sound: Ambience | Effect) => (sound in BEDS ? AMBIENCE_FILLS[sound as Ambience] : EFFECT_FILLS[sound as Effect]);
 
-/** Son prêt à jouer (fabriqué une seule fois par contexte audio). */
-export function soundBuffer(ctx: BaseAudioContext, sound: Ambience | Effect): AudioBuffer {
+/** Sons qui existent en version fabriquée (secours quand l'enregistrement n'est pas arrivé). */
+export const SYNTHESIZED = [...Object.keys(AMBIENCE_FILLS), ...Object.keys(EFFECT_FILLS)] as (Ambience | Effect)[];
+
+/** Un son est jouable s'il a un enregistrement ou une version fabriquée. */
+export const isPlayable = (sound: Ambience | Effect) => RECORDED.has(sound) || recipeOf(sound) !== undefined;
+
+/**
+ * Fichiers téléchargés, partagés par tous les contextes audio : chaque son ne passe qu'une fois sur
+ * le réseau (et le navigateur le garde ensuite en cache).
+ */
+const bytes = new Map<string, Promise<ArrayBuffer | null>>();
+
+/** Lance le téléchargement des sons (dès que le script les annonce, avant qu'on en ait besoin). */
+export function preloadSounds(sounds: Iterable<Ambience | Effect>) {
+  for (const sound of sounds) {
+    if (!RECORDED.has(sound) || bytes.has(sound)) continue;
+    bytes.set(
+      sound,
+      fetch(soundUrl(sound))
+        .then((r) => (r.ok ? r.arrayBuffer() : null))
+        .catch(() => null),
+    );
+  }
+}
+
+/** Boucle sans couture pour un enregistrement : la fin se fond dans le début. */
+function seamless(ctx: BaseAudioContext, buffer: AudioBuffer) {
+  const fade = Math.min(Math.floor(ctx.sampleRate * 0.6), Math.floor(buffer.length / 4));
+  const out = ctx.createBuffer(1, buffer.length - fade, buffer.sampleRate);
+  const src = buffer.getChannelData(0);
+  const dst = out.getChannelData(0);
+  dst.set(src.subarray(0, out.length));
+  for (let i = 0; i < fade; i++) {
+    const x = i / fade;
+    dst[i] = src[i] * Math.sqrt(x) + src[out.length + i] * Math.sqrt(1 - x);
+  }
+  return out;
+}
+
+const cache = new WeakMap<BaseAudioContext, Map<string, AudioBuffer>>();
+const recorded = new WeakMap<BaseAudioContext, Map<string, AudioBuffer>>();
+
+/**
+ * Prépare les enregistrements pour ce contexte audio. Attend au plus timeoutMs : ce qui n'est pas
+ * arrivé sera joué en version fabriquée (ou pas du tout s'il n'y en a pas).
+ */
+export async function prepareSounds(ctx: BaseAudioContext, sounds: Iterable<Ambience | Effect>, timeoutMs = 2500) {
+  const list = [...new Set(sounds)].filter((s) => RECORDED.has(s));
+  preloadSounds(list);
+  let ready = recorded.get(ctx);
+  if (!ready) recorded.set(ctx, (ready = new Map()));
+  const done = ready;
+  const jobs = list
+    .filter((s) => !done.has(s))
+    .map(async (sound) => {
+      const data = await bytes.get(sound);
+      if (!data) return;
+      try {
+        // decodeAudioData vide le tableau qu'on lui donne : on garde l'original pour les autres contextes.
+        const buffer = await ctx.decodeAudioData(data.slice(0));
+        done.set(sound, sound in BEDS ? seamless(ctx, buffer) : buffer);
+      } catch {
+        // Fichier illisible sur ce téléphone : la version fabriquée prendra le relais.
+      }
+    });
+  await Promise.race([Promise.all(jobs), new Promise((resolve) => setTimeout(resolve, timeoutMs))]);
+}
+
+/** Son prêt à jouer : l'enregistrement s'il est prêt, sinon la version fabriquée, sinon null. */
+export function soundBuffer(ctx: BaseAudioContext, sound: Ambience | Effect): AudioBuffer | null {
+  const real = recorded.get(ctx)?.get(sound);
+  if (real) return real;
+  const recipe = recipeOf(sound);
+  if (!recipe) return null;
   let sounds = cache.get(ctx);
   if (!sounds) cache.set(ctx, (sounds = new Map()));
   let buffer = sounds.get(sound);
   if (!buffer) {
-    const recipe = sound in AMBIENCE_FILLS ? AMBIENCE_FILLS[sound as Ambience] : EFFECT_FILLS[sound as Effect];
     buffer = render(ctx, recipe);
     sounds.set(sound, buffer);
   }
@@ -360,7 +432,9 @@ export function soundBuffer(ctx: BaseAudioContext, sound: Ambience | Effect): Au
 
 /** Exposé pour les tests : fabrique un bruit sans contexte audio. */
 export function renderSamples(sound: Ambience | Effect, sr = 16_000): Float32Array {
-  const [seconds, fill] = sound in AMBIENCE_FILLS ? AMBIENCE_FILLS[sound as Ambience] : EFFECT_FILLS[sound as Effect];
+  const recipe = recipeOf(sound);
+  if (!recipe) throw new Error(`${sound} n'a pas de version fabriquée`);
+  const [seconds, fill] = recipe;
   const out = new Float32Array(Math.floor(seconds * sr));
   fill(out, sr);
   return out;

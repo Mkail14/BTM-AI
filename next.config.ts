@@ -50,6 +50,8 @@ const nextConfig: NextConfig = {
       { source: "/brand/:file*", headers: [{ key: "Cache-Control", value: imageCache }] },
       { source: "/fond/:file*", headers: [{ key: "Cache-Control", value: imageCache }] },
       { source: "/food/:file*", headers: [{ key: "Cache-Control", value: imageCache }] },
+      // Banque de sons de la lecture : un son ne change pas sans changer de nom ; gardé une semaine, puis vérifié en arrière-plan.
+      { source: "/sons/:file*", headers: [{ key: "Cache-Control", value: modelCache }] },
     ];
   },
 };

@@ -1,4 +1,10 @@
-import { AMBIENCES, DISTANCES, EFFECTS, HEIGHTS, NARRATOR, PLACES, READING_LIMITS } from "./script";
+import { DISTANCES, HEIGHTS, NARRATOR, PLACES, READING_LIMITS } from "./script";
+import { AMBIENCES as ALL_AMBIENCES, EFFECTS as ALL_EFFECTS, describe } from "./bank";
+import { isPlayable } from "./sounds";
+
+/** Seulement les sons qu'on peut vraiment jouer (enregistrés ou fabriqués). */
+const AMBIENCES = ALL_AMBIENCES.filter(isPlayable);
+const EFFECTS = ALL_EFFECTS.filter(isPlayable);
 
 /**
  * Consigne donnée à Gemini : avec la photo d'une page ou le texte écrit par la personne, recopier
@@ -21,7 +27,7 @@ const GIVEN = (source: "photo" | "texte") => `Le texte :
 const INVENTED = `L'histoire :
 - Invente une histoire originale, faite pour être écoutée les yeux fermés au casque : 250 à 450 mots, un début qui accroche, un moment fort, une fin. Jamais une histoire existante ni ses personnages.
 - Suis la demande ci-dessus (sujet, style, âge, langue) ; si elle ne dit rien, c'est une histoire de chez nous, à Mayotte. En français, sauf si elle demande une autre langue (en shimaoré, seulement avec des mots que tu connais vraiment).
-- Écris-la pour l'oreille : des personnages qui se parlent et se déplacent, des bruits qu'on entend (vent, pluie, vagues, pas, porte qu'on frappe, galop, tonnerre, cœur qui bat, eau), des surprises venues de derrière ou d'en haut.
+- Écris-la pour l'oreille : des personnages qui se parlent et se déplacent, des bruits qu'on entend (la vie de Mayotte : pluie sur la tôle, coq, appel à la prière, scooter, marché, vagues du lagon, toux, porte qui grince…), des surprises venues de derrière ou d'en haut.
 - Découpe-la directement en répliques, dans l'ordre : le récit à la « ${NARRATOR} » (c'est toi), les paroles à chaque personnage (deux à quatre personnages). Au plus ${READING_LIMITS.lines} répliques, souvent courtes.
 - lisible vaut true.`;
 
@@ -46,9 +52,9 @@ La scène en 3D, c'est le plus important : joue BEAUCOUP avec l'espace.
 - Les places sont des angles autour de la tête : 0 devant, 90 à droite, -90 à gauche, 180 derrière (et entre les deux : 45, -135…). Distances : ${DISTANCES.join(", ")}. Hauteur (hauteur) : ${HEIGHTS.join(", ")} ; sers-t'en (un oiseau en haut dans l'arbre, quelqu'un qui appelle d'en bas, l'orage au-dessus).
 - Chaque personnage a sa place à lui (pas tous devant) ; deux personnages qui se parlent sont de part et d'autre de la tête.
 - Quelqu'un qui arrive, part ou passe : mets depuis (d'où sa voix part) et cote (où elle arrive), la voix se déplace pendant qu'il parle. Sinon, depuis vaut null. Un personnage qui vient d'arriver parle ensuite depuis sa nouvelle place.
-- Le décor (decor) dure toute la page : ${AMBIENCES.join(", ")}. Seulement ce que l'histoire suggère ; un vent qui tourne autour de la tête a bouge à true. Volume de 0 à 1, discret sous la voix (0,3 à 0,6).
-- Les bruits courts (bruits d'une réplique) : ${EFFECTS.join(", ")}. quand : avant, pendant ou après la réplique ; cote est le point de départ, vers le point d'arrivée s'il traverse (une rafale de -90 à 90, des pas qui viennent de derrière). Au plus ${READING_LIMITS.effectsPerLine} par réplique. Chaque fois que le texte décrit un de ces bruits (une rafale, le tonnerre, des pas, un galop, on frappe, le cœur qui bat, quelque chose tombe dans l'eau), mets-le dans les bruits de CETTE réplique, à sa place et avec son trajet : c'est ce que la personne attend le plus. Sans bruit décrit, bruits est une liste vide.
-- N'invente pas un bruit absent de la liste.`;
+- Le décor (decor) dure toute la page : ${describe(AMBIENCES)}. Seulement ce que l'histoire suggère ; un vent qui tourne autour de la tête a bouge à true. Volume de 0 à 1, discret sous la voix (0,3 à 0,6).
+- Les bruits courts (bruits d'une réplique) : ${describe(EFFECTS)}. quand : avant, pendant ou après la réplique ; cote est le point de départ, vers le point d'arrivée s'il traverse (une rafale de -90 à 90, des pas qui viennent de derrière). Au plus ${READING_LIMITS.effectsPerLine} par réplique. Chaque fois que le texte décrit un de ces bruits (une rafale, des pas, on frappe, quelqu'un tousse ou crie, un coq, un scooter qui passe, l'appel à la prière au loin), mets-le dans les bruits de CETTE réplique, à sa place et avec son trajet : c'est ce que la personne attend le plus. Sans bruit décrit, bruits est une liste vide.
+- N'invente pas un bruit absent de la liste. L'appel à la prière, le prêche, la madrassa et « Allahou akbar » se placent avec respect (le moment de la prière, la vie du quartier), jamais pour faire peur ni pour rire.`;
 
 const DISTANCE = { type: "STRING", enum: [...DISTANCES] };
 const ANGLE = { type: "INTEGER", minimum: -180, maximum: 180 };

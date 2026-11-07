@@ -1,5 +1,6 @@
 import { z } from "zod";
 import type { GeminiVoiceId } from "@/lib/ai/voice/voices";
+import { AMBIENCES, EFFECTS, defaultHeight, type Ambience, type Effect } from "./bank";
 
 /**
  * Script de scène d'une page lue par Tamilya : qui parle, avec quelle voix, d'où vient sa voix,
@@ -8,12 +9,8 @@ import type { GeminiVoiceId } from "@/lib/ai/voice/voices";
  * Les places sont des angles autour de la tête : 0 devant, 90 à droite, -90 à gauche, 180 derrière.
  */
 
-/** Bruits de fond qui durent toute la page (fabriqués par le téléphone, rien à télécharger). */
-export const AMBIENCES = ["vent", "pluie", "vagues", "riviere", "feu", "nuit", "oiseaux", "foret"] as const;
-/** Bruits courts, à un moment précis. */
-export const EFFECTS = ["tonnerre", "pas", "coeur", "rafale", "frappe", "eclaboussure", "galop"] as const;
-export type Ambience = (typeof AMBIENCES)[number];
-export type Effect = (typeof EFFECTS)[number];
+/** Bruits de fond qui durent toute la page, et bruits courts à un moment précis : voir bank.ts. */
+export { AMBIENCES, EFFECTS, type Ambience, type Effect };
 
 export const DISTANCES = ["tout-pres", "pres", "loin"] as const;
 export type Distance = (typeof DISTANCES)[number];
@@ -98,7 +95,7 @@ export type SceneAmbience = { sound: Ambience; side: number; distance: Distance;
 export type SceneScript = { title: string; place: ScenePlace; intro: string; outro: string; ambiences: SceneAmbience[]; lines: SceneLine[] };
 
 /** Hauteur par défaut d'un bruit quand Gemini ne la donne pas. */
-const DEFAULT_HEIGHT: Partial<Record<Ambience | Effect, Height>> = { tonnerre: "haut", pluie: "haut", oiseaux: "haut", pas: "bas", eclaboussure: "bas", galop: "bas" };
+const DEFAULT_HEIGHT = defaultHeight;
 
 export type ScriptResult = { ok: true; script: SceneScript } | { ok: false; reason: string };
 
@@ -157,7 +154,7 @@ export function buildMeta(raw: unknown, narrator: GeminiVoiceId): MetaResult {
     .filter((a): a is NonNullable<typeof a> => a !== null)
     .filter((a, i, all) => all.findIndex((b) => b.son === a.son) === i)
     .slice(0, READING_LIMITS.ambiences)
-    .map((a) => ({ sound: a.son, side: a.cote, distance: a.distance, height: a.hauteur ?? DEFAULT_HEIGHT[a.son] ?? "milieu", volume: a.volume, moving: a.bouge }));
+    .map((a) => ({ sound: a.son, side: a.cote, distance: a.distance, height: a.hauteur ?? DEFAULT_HEIGHT(a.son) ?? "milieu", volume: a.volume, moving: a.bouge }));
   return { ok: true, meta: { title: data.titre, place: data.lieu, intro: data.intro, outro: data.fin, ambiences }, cast: { voices, names } };
 }
 
@@ -179,7 +176,7 @@ export function buildLine(raw: unknown, cast: Cast): SceneLine | null {
     cues: line.bruits
       .filter((c): c is NonNullable<typeof c> => c !== null)
       .slice(0, READING_LIMITS.effectsPerLine)
-      .map((c) => ({ sound: c.son, when: c.quand, from: c.cote, to: c.vers ?? null, distance: c.distance, height: c.hauteur ?? DEFAULT_HEIGHT[c.son] ?? "milieu" })),
+      .map((c) => ({ sound: c.son, when: c.quand, from: c.cote, to: c.vers ?? null, distance: c.distance, height: c.hauteur ?? DEFAULT_HEIGHT(c.son) ?? "milieu" })),
   };
 }
 

@@ -1,6 +1,7 @@
 import type { RoomDimensions, RoomMaterials, ResonanceAudio as ResonanceScene } from "resonance-audio";
 import type { Ambience, Distance, Height, SceneAmbience, SceneLine, ScenePlace, SoundCue } from "./script";
-import { soundBuffer } from "./sounds";
+import { BEDS } from "./bank";
+import { prepareSounds, soundBuffer } from "./sounds";
 
 /**
  * Scène sonore en 3D dans les écouteurs, au plus près de ce que fait Dolby Atmos au casque :
@@ -24,7 +25,7 @@ const METERS: Record<Distance, number> = { "tout-pres": 0.7, pres: 1.6, loin: 6 
 /** Hauteur en part de la distance (haut : ~40° au-dessus, bas : ~25° en dessous). */
 const LIFT: Record<Height, number> = { haut: 0.85, milieu: 0, bas: -0.45 };
 /** Largeur des bruits de fond, en degrés (360 : tout autour). */
-const WIDTH: Record<Ambience, number> = { vent: 160, pluie: 360, vagues: 120, riviere: 60, feu: 25, nuit: 270, oiseaux: 100, foret: 300 };
+const WIDTH = (sound: Ambience): number => BEDS[sound].width;
 /** Niveau du son direct (les « oreilles ») et part envoyée au lieu (Resonance) pour un son précis. */
 const DIRECT = 1;
 const ROOM_SEND = 0.55;
@@ -253,16 +254,23 @@ export class ScenePlayer {
     });
   }
 
+  /** Attend (au plus timeoutMs) que les enregistrements de ces sons soient prêts. */
+  prepare(sounds: Iterable<SceneAmbience["sound"] | SoundCue["sound"]>, timeoutMs?: number) {
+    return prepareSounds(this.ctx, sounds, timeoutMs);
+  }
+
   /** Le décor de la page : chaque bruit à sa place, large, et qui dérive autour de la tête. */
   startAmbiences(ambiences: SceneAmbience[], fadeIn = 4) {
     const now = this.ctx.currentTime;
     for (const ambience of ambiences) {
-      const source = new AudioBufferSourceNode(this.ctx, { buffer: soundBuffer(this.ctx, ambience.sound), loop: true });
+      const buffer = soundBuffer(this.ctx, ambience.sound);
+      if (!buffer) continue;
+      const source = new AudioBufferSourceNode(this.ctx, { buffer, loop: true });
       const bed = new GainNode(this.ctx, { gain: 0 });
       const place: Place = { side: ambience.side, distance: ambience.distance, height: ambience.height };
-      const spot = this.spot(place, WIDTH[ambience.sound]);
+      const spot = this.spot(place, WIDTH(ambience.sound));
       source.connect(bed).connect(spot.input);
-      source.start(now, Math.random() * source.buffer!.duration);
+      source.start(now, Math.random() * buffer.duration);
       this.track(source);
       const level = 0.15 + ambience.volume * 0.55;
       bed.gain.setValueAtTime(0, now);
@@ -300,9 +308,10 @@ export class ScenePlayer {
     this.setBeds(0, seconds / 4);
   }
 
-  /** Bruit court, à sa place ; s'il a une arrivée, il traverse pendant qu'il sonne. Renvoie sa durée. */
+  /** Bruit court, à sa place ; s'il a une arrivée, il traverse pendant qu'il sonne. Renvoie sa durée (0 s'il n'est pas arrivé). */
   playCue(cue: SoundCue, delay = 0): number {
     const buffer = soundBuffer(this.ctx, cue.sound);
+    if (!buffer) return 0;
     const at = this.ctx.currentTime + delay;
     const from: Place = { side: cue.from, distance: cue.distance, height: cue.height };
     // Quelques places réutilisées à tour de rôle : une source 3D de plus à chaque bruit ferait ramer le téléphone.

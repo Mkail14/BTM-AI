@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { detectReading, isReadingRequest, parseReadingBlock, readingText, withReadingBlock } from "../src/lib/lecture/intent";
 import { AMBIENCES, assignVoices, buildScript, EFFECTS, PLACES, READING_LIMITS } from "../src/lib/lecture/script";
 import { between, ROOMS } from "../src/lib/lecture/soundscape";
-import { renderSamples } from "../src/lib/lecture/sounds";
+import { renderSamples, SYNTHESIZED } from "../src/lib/lecture/sounds";
 import { buildSystemPrompt } from "../src/lib/ai/system-prompt";
 import { DEFAULT_PERSONALITY } from "../src/lib/ai/personalities";
 
@@ -105,7 +105,7 @@ describe("Lecture en 3D : lieux et trajets", () => {
 
 describe("Lecture en 3D : bruits fabriqués", () => {
   it("chaque bruit a du son, sans saturer", () => {
-    for (const sound of [...AMBIENCES, ...EFFECTS]) {
+    for (const sound of SYNTHESIZED) {
       const samples = renderSamples(sound, 8_000);
       let peak = 0;
       let energy = 0;
@@ -194,5 +194,15 @@ describe("Lecture en 3D : texte écrit dans la conversation", () => {
     assert.equal(parseReadingBlock("page"), null);
     assert.match(withReadingBlock("Ferme les yeux.", story), /```lecture-3d\ntexte\n/);
     assert.equal(withReadingBlock(filled, story), filled, "déjà rempli : rien ne change");
+  });
+});
+
+describe("Lecture en 3D : banque de sons", () => {
+  it("chaque son enregistré a son fichier, et chaque son a un enregistrement ou une version fabriquée", async () => {
+    const { existsSync } = await import("node:fs");
+    const { RECORDED, soundUrl } = await import("../src/lib/lecture/bank");
+    const { isPlayable } = await import("../src/lib/lecture/sounds");
+    for (const sound of RECORDED) assert.ok(existsSync(`public${soundUrl(sound)}`), `${sound} : fichier manquant`);
+    for (const sound of [...AMBIENCES, ...EFFECTS]) assert.ok(isPlayable(sound), `${sound} : aucun son`);
   });
 });
