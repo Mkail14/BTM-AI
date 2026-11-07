@@ -326,19 +326,19 @@ function Panel({
   children: ReactNode;
 }) {
   return (
-    <section className="flex min-h-0 flex-col rounded-2xl border border-border bg-bg">
-      <header className="flex shrink-0 items-center gap-3 border-b border-border px-5 py-4">
+    <section className="flex min-h-0 min-w-0 flex-col rounded-2xl border border-border bg-bg">
+      <header className="flex shrink-0 items-center gap-3 border-b border-border px-4 py-4 sm:px-5">
         <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-accent-soft text-accent">
           <Icon width={18} height={18} />
         </span>
         <div className="min-w-0 flex-1">
           <h2 className="font-semibold leading-tight">{title}</h2>
-          <p className="truncate text-xs text-fg-muted">{subtitle}</p>
+          <p className="text-xs text-fg-muted sm:truncate">{subtitle}</p>
         </div>
         {aside}
       </header>
       {/* Défile sans barre visible si le formulaire dépasse (petits écrans). */}
-      <div key={editing ? "edit" : "view"} className="profile-swap scrollbar-none flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-5">
+      <div key={editing ? "edit" : "view"} className="profile-swap scrollbar-none flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overscroll-contain p-4 sm:p-5">
         {children}
       </div>
       {status ? (
@@ -353,7 +353,8 @@ function Panel({
 function Badge({ on, onLabel, offLabel }: { on: boolean; onLabel: string; offLabel: string }) {
   return (
     <span
-      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+      // Téléphone : caché, l'état est redit juste dessous (« État du site »).
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium max-sm:hidden ${
         on ? "bg-warning-soft text-warning" : "bg-success-soft text-success"
       }`}
     >

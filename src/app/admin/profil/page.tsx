@@ -57,7 +57,7 @@ export default async function AdminProfilePage() {
         </div>
         <LockBar />
         {bank ? null : <MigrationWarning file="20261114000000_site_settings.sql" />}
-        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-3">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-3">
           <SitePanel flags={flags} log={statusLog} partners={partners} />
           <BankForm bank={bank ?? { holder: "", bankName: "", iban: "", bic: "" }} />
           <Delegation admins={admins} selfId={user.id} />

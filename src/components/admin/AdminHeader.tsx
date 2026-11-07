@@ -25,14 +25,14 @@ export async function AdminHeader({ section }: { section?: string; email?: strin
   return (
     <header className="sticky top-0 z-30 shrink-0 border-b border-border bg-bg/90 pt-[env(safe-area-inset-top)] backdrop-blur">
       <div className="mx-auto max-w-[1600px] px-3 md:px-6">
-        <div className="flex h-14 items-center gap-3">
+        <div className="flex h-14 items-center gap-2 sm:gap-3">
           <AdminMenu principal={principal} />
           <Link href="/admin" className="flex shrink-0 items-center gap-2.5" aria-label="Tableau de bord">
             <BrandLogo size="sm" />
-            <span className="text-sm font-medium text-fg-muted">Admin</span>
+            <span className="text-sm font-medium text-fg-muted max-[400px]:hidden">Admin</span>
           </Link>
           {section ? (
-            <span className="min-w-0 truncate text-sm font-medium lg:hidden">
+            <span className="min-w-0 truncate text-sm font-medium max-sm:hidden lg:hidden">
               <span aria-hidden="true" className="mr-3 text-border">
                 /
               </span>
@@ -69,7 +69,7 @@ export async function AdminHeader({ section }: { section?: string; email?: strin
             <Link href="/voix" className={ghost} aria-label="Parler à Tamilya" title="Parler à Tamilya">
               <IconMic width={16} height={16} />
             </Link>
-            <span aria-hidden="true" className="mx-1.5 h-5 w-px bg-border" />
+            <span aria-hidden="true" className="mx-1.5 h-5 w-px bg-border max-sm:hidden" />
             <AdminAccountMenu email={user?.email ?? null} principal={principal} />
           </div>
         </div>
