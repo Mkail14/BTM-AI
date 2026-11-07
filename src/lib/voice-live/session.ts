@@ -32,6 +32,8 @@ export type LiveCallbacks = {
   pushToTalk?: boolean;
   /** Message écrit à envoyer dès l'ouverture : Tamilya y répond tout de suite à voix haute. */
   firstMessage?: string;
+  /** Conversation en cours : Tamilya reçoit ce qui a été dit avant, à l'écrit comme à la voix. */
+  conversationId?: () => string | null | undefined;
   /** Conversation fermée (normalement ou sur erreur, avec la raison). */
   onClose: (error: string | null) => void;
 };
@@ -382,7 +384,7 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
     const session = (await fetch("/api/voice/live/session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ manual }),
+      body: JSON.stringify({ manual, conversationId: callbacks.conversationId?.() ?? undefined }),
     })
       .then((r) => r.json())
       .catch(() => null)) as { url?: string; lexicon?: string[]; error?: string; initiative?: boolean } | null;

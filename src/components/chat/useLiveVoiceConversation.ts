@@ -26,7 +26,10 @@ const hidePin = (user: string, tamilya: string): [string, string] => (takePinTur
  * Tamilya a répondu, pour l'afficher et l'enregistrer dans la conversation
  * (`board` : ce qu'elle « répond » est un tableau à afficher).
  */
-export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string, board?: boolean) => void): VoiceConversation {
+export function useLiveVoiceConversation(
+  onTurn: (user: string, tamilya: string, board?: boolean) => void,
+  conversationId?: string | null,
+): VoiceConversation {
   const supported = useSyncExternalStore(noSubscribe, isLiveVoiceSupported, () => false);
   const [state, setState] = useState<VoiceState>("off");
   const [error, setError] = useState<string | null>(null);
@@ -50,6 +53,11 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
   /** Prises de parole de Tamilya restées sans réponse. */
   const initiatives = useRef(0);
   const userText = useRef("");
+  /** Lu à chaque connexion : la conversation a pu être créée entre-temps. */
+  const currentConversation = useRef(conversationId);
+  useEffect(() => {
+    currentConversation.current = conversationId;
+  });
   const lexicon = useRef<SnapLexicon>(buildSnapLexicon([]));
   const tamilyaText = useRef("");
   /** Message écrit qui attend le choix du mode, puis ce qu'il faut faire s'il reste sans réponse vocale. */
@@ -108,6 +116,7 @@ export function useLiveVoiceConversation(onTurn: (user: string, tamilya: string,
       // « Maintenir » : Tamilya n'écoute que pendant l'appui. « Sans bouton » : Gemini repère seul la fin de parole.
       pushToTalk: mode === "hold",
       firstMessage,
+      conversationId: () => currentConversation.current,
       onState: (live) => {
         if (live === "connexion") setState("waiting");
         else if (live === "écoute") {

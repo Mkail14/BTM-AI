@@ -448,6 +448,7 @@ export async function POST(request: NextRequest) {
     dossier,
     teacher: master,
     voice: body.voice,
+    voiceCall: Boolean(user?.isAdmin),
     // Elle réfléchit plus, mais répond court : pas de longue réponse structurée à « c'est faux ».
     deep: deep && !challenged,
     challenged,

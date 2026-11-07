@@ -78,3 +78,18 @@ describe("Souvenirs", () => {
     assert.equal(shouldLearnFrom("Tu te trompes sur la date"), true);
   });
 });
+
+describe("Une seule Tamilya, à l'écrit comme à la voix", () => {
+  it("garde le même caractère et la même conversation dans les deux modes", () => {
+    const written = buildSystemPrompt();
+    const spoken = buildSystemPrompt(undefined, { voice: true });
+    for (const prompt of [written, spoken]) {
+      assert.match(prompt, /Une seule Tamilya/);
+      assert.match(prompt, /Ton caractère/);
+      assert.match(prompt, /ne dis jamais le contraire/);
+    }
+    // Seule la forme change : le bouton Écouter ne concerne que l'écrit.
+    assert.match(written, /bouton Écouter/);
+    assert.doesNotMatch(spoken, /bouton Écouter/);
+  });
+});

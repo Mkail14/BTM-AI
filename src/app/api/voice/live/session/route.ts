@@ -3,6 +3,7 @@ import { loadAwaBrain } from "@/lib/ai/brain";
 import { VOICE_NODE } from "@/lib/ai/flow-events";
 import { startFlowTrace } from "@/lib/ai/flow-trace";
 import { getAuthContext } from "@/lib/auth/session";
+import { getConversation } from "@/lib/conversations/repository";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
 import { liveRelayUrl, liveTicketSecret, signLiveTicket } from "@/lib/voice-live/ticket";
@@ -14,7 +15,7 @@ import { liveRelayUrl, liveTicketSecret, signLiveTicket } from "@/lib/voice-live
  */
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Requête refusée." }, { status: 403 });
-  const { user } = await getAuthContext();
+  const { supabase, user } = await getAuthContext();
   if (!user?.isAdmin) return NextResponse.json({ error: "Réservé aux administrateurs." }, { status: 403 });
   const relay = liveRelayUrl();
   const secret = liveTicketSecret();
@@ -33,8 +34,11 @@ export async function POST(request: NextRequest) {
   }
   flow.step("guard", true);
 
-  const body = (await request.json().catch(() => null)) as { manual?: unknown } | null;
-  const ticket = signLiveTicket(user, secret, Date.now(), body?.manual === true);
+  const body = (await request.json().catch(() => null)) as { manual?: unknown; conversationId?: unknown } | null;
+  // Conversation en cours : relue avec les droits de ce compte (celle d'un autre compte n'est pas trouvée).
+  const asked = typeof body?.conversationId === "string" && /^[0-9a-f-]{36}$/i.test(body.conversationId) ? body.conversationId : null;
+  const cid = asked && supabase ? (await getConversation(supabase, asked).catch(() => null))?.id : undefined;
+  const ticket = signLiveTicket(user, secret, Date.now(), body?.manual === true, cid);
   const url = `${relay.replace(/^http/, "ws")}/live?ticket=${encodeURIComponent(ticket)}`;
   // Mots validés de Tamilya : le téléphone y rapproche ce que Gemini écrit à l'oreille.
   const brain = await loadAwaBrain().catch(() => null);

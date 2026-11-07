@@ -22,6 +22,13 @@ describe("message écrit qui demande la voix de Tamilya", () => {
       "réponds en vocal",
       "on passe en vocal",
       "je veux entendre ta voix",
+      "redis-le",
+      "Lis-le moi",
+      "relis ton message",
+      "redis ce que tu as écrit",
+      "parle-moi de ce que tu as écrit",
+      "tu peux me répéter ta réponse ?",
+      "pourquoi tu parles pas ?",
     ]) {
       assert.equal(wantsSpokenReply(message), true, message);
     }

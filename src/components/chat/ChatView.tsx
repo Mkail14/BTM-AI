@@ -149,7 +149,11 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   const legacyVoice = useVoiceConversation((text) => sendRef.current(text, true));
   // Vocal en direct (Gemini Live, comme ChatGPT Voice) : chaque échange s'ajoute à la conversation.
   const liveTurnRef = useRef<(user: string, tamilya: string) => void>(() => {});
-  const liveVoice = useLiveVoiceConversation((userText, tamilya) => liveTurnRef.current(userText, tamilya));
+  // Même conversation qu'à l'écrit : à l'ouverture du vocal, Tamilya reçoit ce qui a été dit avant.
+  const liveVoice = useLiveVoiceConversation(
+    (userText, tamilya) => liveTurnRef.current(userText, tamilya),
+    conversationId,
+  );
   const voice = liveVoice.supported ? liveVoice : legacyVoice;
   const voiceEnabled = Boolean(user?.isAdmin) && voice.supported;
   // Ancien mode (dictée + réponse écrite lue) : appelé depuis l'envoi d'un message dicté.
