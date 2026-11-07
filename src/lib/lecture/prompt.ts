@@ -27,9 +27,9 @@ La scène en 3D, c'est le plus important : joue BEAUCOUP avec l'espace.
 - Le lieu (lieu) donne l'écho de toute la scène : ${PLACES.join(", ")}. Choisis celui où se passe la page (dans une case : maison ; sous les arbres : foret ; au bord du lagon : plage).
 - Les places sont des angles autour de la tête : 0 devant, 90 à droite, -90 à gauche, 180 derrière (et entre les deux : 45, -135…). Distances : ${DISTANCES.join(", ")}. Hauteur (hauteur) : ${HEIGHTS.join(", ")} ; sers-t'en (un oiseau en haut dans l'arbre, quelqu'un qui appelle d'en bas, l'orage au-dessus).
 - Chaque personnage a sa place à lui (pas tous devant) ; deux personnages qui se parlent sont de part et d'autre de la tête.
-- Quelqu'un qui arrive, part ou passe : mets depuis (d'où sa voix part) et cote (où elle arrive), la voix se déplace pendant qu'il parle.
+- Quelqu'un qui arrive, part ou passe : mets depuis (d'où sa voix part) et cote (où elle arrive), la voix se déplace pendant qu'il parle. Sinon, depuis vaut null. Un personnage qui vient d'arriver parle ensuite depuis sa nouvelle place.
 - Le décor (decor) dure toute la page : ${AMBIENCES.join(", ")}. Seulement ce que l'histoire suggère ; un vent qui tourne autour de la tête a bouge à true. Volume de 0 à 1, discret sous la voix (0,3 à 0,6).
-- Les bruits courts (bruits d'une réplique) : ${EFFECTS.join(", ")}. quand : avant, pendant ou après la réplique ; cote est le point de départ, vers le point d'arrivée s'il traverse (une rafale de -90 à 90, des pas qui viennent de derrière). Au plus ${READING_LIMITS.effectsPerLine} par réplique, seulement quand le texte les appelle : le silence compte aussi.
+- Les bruits courts (bruits d'une réplique) : ${EFFECTS.join(", ")}. quand : avant, pendant ou après la réplique ; cote est le point de départ, vers le point d'arrivée s'il traverse (une rafale de -90 à 90, des pas qui viennent de derrière). Au plus ${READING_LIMITS.effectsPerLine} par réplique. Chaque fois que le texte décrit un de ces bruits (une rafale, le tonnerre, des pas, un galop, on frappe, le cœur qui bat, quelque chose tombe dans l'eau), mets-le dans les bruits de CETTE réplique, à sa place et avec son trajet : c'est ce que la personne attend le plus. Sans bruit décrit, bruits est une liste vide.
 - N'invente pas un bruit absent de la liste.`;
 
 const DISTANCE = { type: "STRING", enum: [...DISTANCES] };
@@ -89,11 +89,13 @@ export const SCRIPT_SCHEMA = {
                 distance: DISTANCE,
                 hauteur: HEIGHT,
               },
-              required: ["son", "quand", "cote"],
+              required: ["son", "quand", "cote", "vers", "distance", "hauteur"],
             },
           },
         },
-        required: ["qui", "texte", "cote"],
+        // Tout est demandé à chaque réplique : facultatifs, depuis et bruits étaient laissés vides
+        // (essai du 2026-11-08 sur la tablette : aucun bruit court sur une page qui en décrit quatre).
+        required: ["qui", "texte", "cote", "distance", "hauteur", "depuis", "bruits"],
       },
     },
   },
