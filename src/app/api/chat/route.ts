@@ -6,7 +6,7 @@ import { canOrderFood } from "@/lib/food/access";
 import { canBuyBargeTickets } from "@/lib/barge/access";
 import { CYCLONE_BLOCK, cycloneBlock, detectCyclone } from "@/lib/cyclone/intent";
 import { detectSong } from "@/lib/music/intent";
-import { detectReading, readingText, withReadingBlock } from "@/lib/lecture/intent";
+import { isReadingRequest, readingText, withReadingBlock } from "@/lib/lecture/intent";
 import { BARGE_BLOCK, bargeBlockFor, bargeSpec, detectBargeTicket } from "@/lib/barge/intent";
 import { ATTESTATION_BLOCK, attestationBlock, detectAttestation, wantsOwnInfo } from "@/lib/attestation/intent";
 import { BTM_DEVIS_BLOCK, btmDevisBlockFor, btmDevisSpec, detectBtmDevis } from "@/lib/btm/intent";
@@ -428,12 +428,12 @@ export async function POST(request: NextRequest) {
   const cyclone = !body.voice && detectCyclone(body.message);
   // Chanson demandée (« chante-moi quelque chose ») : Tamilya écrit une chanson, chantée sous son message.
   const song = !body.voice && detectSong(body.message);
-  // Lecture en 3D demandée (« lis-moi cette page ») : essai réservé aux administrateurs.
-  const reading = Boolean(user?.isAdmin) && !body.voice && detectReading(body.message);
+  // Lecture en 3D demandée (« lis-moi cette page », ou demandée juste avant et le texte arrive) :
+  // essai réservé aux administrateurs.
+  const previousAsk = [...history].reverse().find((turn) => turn.role === "user")?.content ?? null;
+  const reading = Boolean(user?.isAdmin) && !body.voice && isReadingRequest(body.message, previousAsk);
   // Texte écrit ou collé (dans ce message ou le précédent) : lu tel quel, sans photo.
-  const readingSource = reading
-    ? readingText(body.message, [...history].reverse().find((turn) => turn.role === "user")?.content ?? null)
-    : null;
+  const readingSource = reading ? readingText(body.message, previousAsk) : null;
   // Demande d'attestation d'hébergement reconnue ici : le formulaire s'ouvre à coup sûr.
   // « Mets mes infos » juste après l'ouverture : c'est la même attestation.
   const attestationOpen = history.slice(-4).some((turn) => turn.role === "assistant" && turn.content.includes(ATTESTATION_BLOCK));

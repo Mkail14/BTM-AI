@@ -14,7 +14,13 @@ const normalize = (text: string) =>
     .replace(/\p{Diacritic}/gu, "")
     .replace(/[^a-z0-9]+/g, " ")} `;
 
-const VERB = "(?:lis|lit|lisez|lire|relis|relire|raconte|raconter|joue|jouer)";
+/**
+ * « Lis-moi » et ses fautes de frappe au téléphone, toujours suivies de « moi » ou « nous »
+ * (« Los moi cette histoire », 2026-11-08 : la lecture ne s'était pas lancée).
+ */
+const TYPO = "(?:los|lus|li|lie|lies|lix|liz|lid|lia|kis|lsi)(?= (?:moi|nous))";
+const READ = `(?:lis|lit|lisez|lire|relis|relire|${TYPO})`;
+const VERB = `(?:${READ}|raconte|raconter|joue|jouer)`;
 const WHO = "(?: moi| nous| lui)?";
 const WHAT = "(?:une|cette|la|ma|un|ce|mon|des|les|mes|ces|une autre|la suite de|une page de|un passage de|cette page de)";
 const THING = "(?:page|pages|livre|livres|passage|chapitre|extrait|conte|roman|bouquin)";
@@ -24,8 +30,9 @@ const NAMED = /\blecture (?:3d|immersive|en 3d)\b/;
  * Un texte déjà là (« lis-moi ce message », « lis-moi cette histoire », « lis-moi ça ») :
  * jamais « raconte-moi une histoire », qui en demande une nouvelle.
  */
-const READ_GIVEN =
-  /\b(?:lis|lit|lisez|lire|relis|relire)(?: moi| nous| lui)? (?:(?:ce|cette|mon|ma|le|la|mes|ces|tout ce|tout le) (?:message|messages|texte|histoire|recit|poeme|conte|passage|page)|ca|cela)\b/;
+const READ_GIVEN = new RegExp(
+  `\\b${READ}(?: moi| nous| lui)? (?:(?:ce|cette|mon|ma|le|la|mes|ces|tout ce|tout le) (?:message|messages|texte|histoire|recit|poeme|conte|passage|page)|ca|cela)\\b`,
+);
 
 /** « Lis-moi cette page », « lis-moi un livre », « lis-moi ce message », « lecture 3D ». */
 export const detectReading = (message: string) => {
@@ -35,6 +42,15 @@ export const detectReading = (message: string) => {
 
 /** Texte lu sans photo : de quoi faire une vraie page, pas plus qu'une page (Gemini et les voix suivent). */
 export const READING_TEXT = { min: 150, max: 6_000 } as const;
+
+/**
+ * Lecture demandée dans ce message, ou demandée juste avant et le texte arrive maintenant
+ * (« lis-moi cette histoire », puis l'histoire collée seule dans le message suivant).
+ */
+export function isReadingRequest(message: string, previous: string | null): boolean {
+  if (detectReading(message)) return true;
+  return Boolean(previous && detectReading(previous) && previous.trim().length < READING_TEXT.min && message.trim().length >= READING_TEXT.min);
+}
 
 const FENCE = "```";
 

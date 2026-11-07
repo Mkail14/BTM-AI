@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { detectReading, parseReadingBlock, readingText, withReadingBlock } from "../src/lib/lecture/intent";
+import { detectReading, isReadingRequest, parseReadingBlock, readingText, withReadingBlock } from "../src/lib/lecture/intent";
 import { AMBIENCES, assignVoices, buildScript, EFFECTS, PLACES, READING_LIMITS } from "../src/lib/lecture/script";
 import { between, ROOMS } from "../src/lib/lecture/soundscape";
 import { renderSamples } from "../src/lib/lecture/sounds";
@@ -142,6 +142,17 @@ describe("Lecture en 3D : texte écrit dans la conversation", () => {
     for (const message of ["raconte-moi une histoire", "lis une histoire sur Mayotte", "j'ai lu ton message"]) {
       assert.equal(detectReading(message), false, message);
     }
+  });
+
+  it("accepte les fautes de frappe, et le texte collé juste après la demande", () => {
+    for (const message of ["Los moi cette histoire", "li moi ce texte", "lie moi ce message", "lus moi cette page"]) {
+      assert.equal(detectReading(message), true, message);
+    }
+    for (const message of ["les moi", "lie le colis", "lus hier soir"]) assert.equal(detectReading(message), false, message);
+    assert.equal(isReadingRequest(story, "Los moi cette histoire"), true, "histoire collée après la demande");
+    assert.equal(readingText(story, "Los moi cette histoire"), story);
+    assert.equal(isReadingRequest("merci beaucoup", "lis moi cette histoire"), false, "message court : pas de lecture");
+    assert.equal(isReadingRequest(story, "salut ça va ?"), false, "texte sans demande : pas de lecture");
   });
 
   it("prend le texte du message, sans la phrase de demande, sinon celui du message précédent", () => {

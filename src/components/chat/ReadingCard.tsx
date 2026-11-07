@@ -127,6 +127,12 @@ export function ReadingCard({ spec }: { spec: string }) {
       // Les premières voix se préparent pendant que la personne met ses écouteurs.
       for (let i = 0; i <= AHEAD; i++) void voiceOf(i);
       setState({ status: "ready", script });
+      // La lecture démarre d'elle-même dès que la page est prête (demande de l'utilisateur : pas de
+      // bouton à toucher). L'app Android permet le son sans geste ; si un navigateur le bloque,
+      // le bouton « Je ferme les yeux » reste là.
+      const context = audio();
+      await Promise.race([context.resume().catch(() => {}), new Promise((resolve) => window.setTimeout(resolve, 800))]);
+      if (context.state === "running") void play(script);
     } catch {
       setState({ status: "error", message: "Connexion perdue pendant que je préparais la page : réessaie." });
     }
