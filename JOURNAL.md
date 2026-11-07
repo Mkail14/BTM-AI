@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `61fda8c` (2026-11-08)**
+**Dernier commit noté : `9a4a8c8` (2026-11-08)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -80,6 +80,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-08
+- **Tamilya chante** (`9a4a8c8`). Décision de l'utilisateur : pas de page d'essai visible ; Lyria reste discrète et aide Tamilya quand on lui demande de chanter. La page Admin › Chansons et sa route sont retirées. « Chante-moi… », « fais-moi une chanson… » (detectSong) : Tamilya écrit des paroles originales dans un bloc `chanson` (style + [Couplet] + [Refrain], 12 lignes au plus), la carte SongCard les fait chanter par Lyria (extrait de 30 s, /api/music) et le globe de Tamilya chante, en gonflant au rythme du son. Elle chante d'elle-même quand la chanson vient d'arriver ; dans une ancienne conversation, un bouton « Écoute-moi chanter » (pour ne pas dépenser une chanson à chaque visite). Comptes connectés, 3 chansons par jour (admins 20 par heure). Jamais la copie d'une chanson existante (refusé aussi par Google) : l'utilisateur voulait reprendre un chant de manifestation (« J'ai deux passions », Orchestre du nouveau monde), refusé faute de droits ; Tamilya propose la sienne dans le même esprit. Vérifié : 514 tests, types, lint. Pas encore vérifié : que la clé Gemini a accès à Lyria, la durée de composition, le son lui-même. À faire ensuite : chanter aussi en vocal, garder la chanson pour la réécouter sans la refaire.
 - **Essai des chansons de Tamilya** (`61fda8c`). Demande de l'utilisateur : que Tamilya chante sur demande, avec des instruments, comme une vidéo de référence (chorale de rue avec violons, Paris). Vidéo regardée image par image ; son analysé par calcul (décodé par Chrome) : environ 130 BPM, très régulier, légère accélération (128 → 132), intensité qui monte jusqu'à la fin. Ajouté : `src/lib/music/lyria.ts` (API « interactions », révision 2026-05-20), route `/api/admin/musique` (admins, 20 par heure) et page Admin › Chansons de Tamilya pour écouter un essai en français ou en shimaoré. Pas encore branché sur la conversation : on attend d'abord l'avis de l'utilisateur sur le son. Non vérifié : que la clé Gemini a accès à Lyria (l'essai le dira).
 
 ### 2026-11-07
