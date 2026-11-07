@@ -17,15 +17,19 @@ export const metadata: Metadata = { title: "Paramètres" };
 
 export default async function SettingsPage() {
   const { supabase, user } = await requireUser("/parametres");
-  const [profile, contact, saved, memories, demo, review] = await Promise.all([
+  // Le solde est lu en même temps que le reste (démo ou vrai portefeuille), pas après.
+  const balanceTask = usesDemoWallet(user).then(async (demo) => ({
+    demo,
+    balanceCents: demo ? (await readDemoWallet(user.id)).balanceCents : (await loadWallet(supabase, user.id, 1)).balanceCents,
+  }));
+  const [profile, contact, saved, memories, { demo, balanceCents }, review] = await Promise.all([
     getProfile(supabase, user.id),
     getProfileContact(supabase, user.id),
     listSavedAddresses(supabase),
     getMemories(supabase).catch(() => []),
-    usesDemoWallet(user),
+    balanceTask,
     getMyReview(user.id),
   ]);
-  const balanceCents = demo ? (await readDemoWallet(user.id)).balanceCents : (await loadWallet(supabase, user.id, 1)).balanceCents;
 
   return (
     <SettingsFrame isAdmin={user.isAdmin}>

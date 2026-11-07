@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { ActiveOrderTab } from "@/components/chat/OrderTracker";
+import dynamic from "next/dynamic";
 import { CelebrationToast } from "@/components/ui/Celebration";
 import {
   personaStyle,
@@ -14,6 +14,10 @@ import { clearAnonymousDraft } from "@/lib/chat/anonymous-draft";
 import type { ConversationSummary } from "@/lib/chat/types";
 import { Sidebar } from "./Sidebar";
 import { useKeyboardViewport } from "./useKeyboardViewport";
+
+// Pastille « Ma commande » : chargée après la page (elle tire le suivi de commande et le QR code,
+// inutiles tant qu'aucune commande n'est en cours) ; elle ne s'affiche de toute façon qu'après lecture du téléphone.
+const ActiveOrderTab = dynamic(() => import("@/components/chat/OrderTracker").then((m) => m.ActiveOrderTab), { ssr: false });
 
 type ChatShellValue = {
   conversations: ConversationSummary[];
