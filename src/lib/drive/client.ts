@@ -20,8 +20,20 @@ async function call(accessToken: string, path: string, init: RequestInit = {}): 
   if (response.ok) return response;
   const detail = await response.text().catch(() => "");
   if (detail.includes("storageQuotaExceeded")) throw new DriveFull();
-  // Jamais le corps : il peut citer le nom d'un document.
-  throw new Error(`Google Drive a répondu ${response.status}`);
+  // Jamais le corps : il peut citer le nom d'un document. Seulement le code de la raison
+  // (« accessNotConfigured » = API Drive pas activée dans Google Cloud, « insufficientPermissions »…).
+  throw new Error(`Google Drive a répondu ${response.status}${driveReason(detail)}`);
+}
+
+/** « (raison) » lue dans la réponse d'erreur de Google : un mot-code, jamais de texte libre. */
+function driveReason(detail: string): string {
+  try {
+    const body = JSON.parse(detail) as { error?: { status?: unknown; errors?: { reason?: unknown }[] } };
+    const reason = body.error?.errors?.[0]?.reason ?? body.error?.status;
+    return typeof reason === "string" && /^[A-Za-z_]{1,60}$/.test(reason) ? ` (${reason})` : "";
+  } catch {
+    return "";
+  }
 }
 
 export async function readDriveAccount(accessToken: string): Promise<{ email: string | null; used: number | null; limit: number | null }> {

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireUser } from "@/lib/auth/session";
 import { readDriveAccount } from "@/lib/drive/client";
 import { saveDriveConnection } from "@/lib/drive/connection";
+import { googleSubject, ownsGoogleIdentity } from "@/lib/drive/identity";
 import { exchangeDriveCode, readDriveState } from "@/lib/drive/oauth";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -17,8 +18,13 @@ async function linkGoogle(supabase: SupabaseClient, idToken: string): Promise<"o
   try {
     const { error } = await supabase.auth.linkIdentity({ provider: "google", token: idToken });
     if (!error) return "ok";
-    // Ce Google est déjà le compte Tamilya d'une autre personne : on ne le lui prend pas.
-    if (error.code === "identity_already_exists") return "pris";
+    if (error.code === "identity_already_exists") {
+      // Déjà relié à CE compte (la personne s'est connectée avec ce Google) : tout va bien.
+      const { data } = await supabase.auth.getUserIdentities();
+      if (ownsGoogleIdentity(data?.identities, googleSubject(idToken))) return "ok";
+      // Ce Google est le compte Tamilya d'une autre personne : on ne le lui prend pas.
+      return "pris";
+    }
     console.warn("[documents] Liaison Google refusée :", error.code ?? error.status);
   } catch (error) {
     console.warn("[documents] Liaison Google impossible", error instanceof Error ? error.message : "inconnue");
