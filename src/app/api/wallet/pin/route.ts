@@ -8,6 +8,7 @@ import { payStatus, removePin, savePin, setConsent, verifyPin, type PinCheck } f
 import { getProfile } from "@/lib/conversations/repository";
 import { PRINT_SIZE } from "@/lib/voice-live/voice-check";
 import { checkVoice, voiceStatus, type VoiceGate } from "@/lib/wallet/voice-print";
+import { grantPayment } from "@/lib/wallet/pay-auth";
 
 /**
  * Code de paiement à 4 chiffres (paiement à la voix par Tamilya).
@@ -17,6 +18,11 @@ import { checkVoice, voiceStatus, type VoiceGate } from "@/lib/wallet/voice-prin
  * Double vérification : si le compte a une voix inscrite, « verify » exige aussi
  * les empreintes des phrases entendues (voice). La voix est jugée AVANT le code :
  * une autre personne ne peut pas essayer des codes.
+ *
+ * Un code juste donne l'accord de payer (src/lib/wallet/pay-auth.ts), exigé par
+ * chaque route qui débite le portefeuille. « tap » : la personne paie elle-même
+ * au doigt, devant l'écran ; pas de vérification de voix, et l'accord ne vaut
+ * que pour un seul paiement.
  */
 
 const pin = z.string().regex(/^\d{4}$/);
@@ -24,7 +30,7 @@ const voice = z.object({
   parts: z.array(z.object({ print: z.array(z.number().finite()).length(PRINT_SIZE), seconds: z.number().min(0).max(30) })).max(12),
 });
 const bodySchema = z.discriminatedUnion("action", [
-  z.object({ action: z.literal("verify"), pin, voice: voice.optional() }),
+  z.object({ action: z.literal("verify"), pin, voice: voice.optional(), tap: z.boolean().optional() }),
   z.object({ action: z.literal("set"), pin, current: pin.optional() }),
   z.object({ action: z.literal("remove"), current: pin }),
   // Autorisation donnée une seule fois (consent) ou retirée (revoke).
@@ -75,7 +81,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = parsed.data;
-    if (body.action === "verify") {
+    if (body.action === "verify" && !body.tap) {
       const gate = await checkVoice(admin, user.id, body.voice);
       if (!gate.ok) return refuseVoice(gate, (await getProfile(admin, user.id).catch(() => null))?.displayName ?? "");
     }
@@ -88,6 +94,7 @@ export async function POST(request: NextRequest) {
             ? await removePin(admin, user.id, body.current)
             : await setConsent(admin, user.id, body.action === "consent");
     if (!check.ok) return explain(check);
+    if (body.action === "verify") await grantPayment(user.id, body.tap ? "once" : "window");
     return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     console.error("[code de paiement] Erreur", error instanceof Error ? error.message : "inconnue");

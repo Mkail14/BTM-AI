@@ -17,6 +17,7 @@ import { clientPoint, MAX_GROUP_STOPS } from "@/lib/food/group-order";
 import { getProfileContact, saveProfileAddress, saveProfilePhone } from "@/lib/profile-contact";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
+import { PIN_REQUIRED, takePaymentGrant } from "@/lib/wallet/pay-auth";
 import { readDemoWallet, recordDemoOperation, usesDemoWallet } from "@/lib/wallet/demo";
 import { formatEuros } from "@/lib/wallet/limits";
 
@@ -114,6 +115,9 @@ export async function POST(request: NextRequest) {
   if (scheduledMs !== null && !isSchedulable(scheduledMs, Date.now() - 5 * 60_000, order.restaurant.etaMinutes[1])) {
     return fail(400, "Cette heure de livraison n'est plus possible : choisis-en une autre.");
   }
+
+  // Code de paiement tapé juste à l'instant : sans lui, rien n'est débité (même en appelant l'API).
+  if (!(await takePaymentGrant(user.id))) return NextResponse.json(PIN_REQUIRED, { status: 403 });
 
   try {
     const limit = await consumeRateLimits([{ key: `food:${user.id}`, rules: RATE_LIMIT_POLICIES.foodOrder }]);

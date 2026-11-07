@@ -6,6 +6,7 @@ import { BARGE_MAX_QUANTITY, BARGE_ROUTE, BARGE_TICKETS, bargeDays, describeBarg
 import { orderCode } from "@/lib/food/order-code";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
+import { PIN_REQUIRED, takePaymentGrant } from "@/lib/wallet/pay-auth";
 import { readDemoWallet, recordDemoOperation, usesDemoWallet } from "@/lib/wallet/demo";
 import { formatEuros } from "@/lib/wallet/limits";
 
@@ -71,6 +72,9 @@ export async function POST(request: NextRequest) {
   if (!bargeDays().includes(parsed.data.day)) return fail(400, "Ce jour n'est plus disponible : choisis-en un autre.");
   const order = priceBargeOrder(parsed.data.cart);
   if (!order) return fail(400, "Ajoute au moins un ticket.");
+
+  // Code de paiement tapé juste à l'instant : sans lui, rien n'est débité (même en appelant l'API).
+  if (!(await takePaymentGrant(user.id))) return NextResponse.json(PIN_REQUIRED, { status: 403 });
 
   try {
     const limit = await consumeRateLimits([{ key: `barge:${user.id}`, rules: RATE_LIMIT_POLICIES.bargeTicket }]);

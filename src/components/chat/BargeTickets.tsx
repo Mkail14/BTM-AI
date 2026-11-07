@@ -10,6 +10,7 @@ import { parseBargeRequest } from "@/lib/barge/intent";
 import { blockKey as keyOf, moveBlockValue, readBlockValue } from "@/lib/chat/block-key";
 import { formatEuros } from "@/lib/wallet/limits";
 import { StyledQr } from "./OrderTicket";
+import { askPayPin } from "@/lib/wallet/pay-pin";
 
 const PERSONA = "var(--persona,var(--accent))";
 const TICKET_KEY = "btm-barge-ticket:";
@@ -164,6 +165,8 @@ export function BargeTickets({ query = "" }: { query?: string }) {
       setPayError(`Solde insuffisant : il te manque ${formatEuros(totalCents - data.balanceCents)}.`);
       return;
     }
+    // Code de paiement avant chaque paiement (déjà donné si Tamilya paie à la voix).
+    if (!(await askPayPin(`Tickets de barge · ${formatEuros(totalCents)}`))) return;
     setPaying(true);
     setPayError(null);
     try {

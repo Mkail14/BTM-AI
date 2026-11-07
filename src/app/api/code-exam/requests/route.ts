@@ -9,6 +9,7 @@ import { loadWallet } from "@/lib/wallet";
 import { readDemoWallet, recordDemoOperation, usesDemoWallet } from "@/lib/wallet/demo";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
+import { PIN_REQUIRED, takePaymentGrant } from "@/lib/wallet/pay-auth";
 
 const fail = (status: number, message: string) => NextResponse.json({ error: message }, { status });
 
@@ -115,6 +116,8 @@ export async function POST(request: NextRequest) {
   if (payment.mode !== "manual" && payment.balanceCents < payment.feeCents) {
     return fail(402, `Solde insuffisant : il manque ${((payment.feeCents - payment.balanceCents) / 100).toFixed(2).replace(".", ",")} € dans ton portefeuille.`);
   }
+  // Code de paiement tapé juste à l'instant : sans lui, rien n'est débité (même en appelant l'API).
+  if (payment.mode !== "manual" && !(await takePaymentGrant(user.id))) return NextResponse.json(PIN_REQUIRED, { status: 403 });
 
   // Écrite par le serveur seul (clé secrète), après les vérifications ci-dessus : un compte
   // ne peut pas créer de demande « payée » ni pour un faux créneau en appelant la base.

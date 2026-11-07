@@ -6,6 +6,7 @@ import { celebrate } from "@/components/ui/Celebration";
 import { IconClose } from "@/components/ui/icons";
 import { boardDone } from "@/lib/voice-live/stage";
 import { formatEuros } from "@/lib/wallet/limits";
+import { askPayPin } from "@/lib/wallet/pay-pin";
 import { authRequiredPath } from "@/lib/auth/redirect";
 import {
   CANDIDATE_FIELDS,
@@ -119,6 +120,8 @@ export function BookingDialog({ slot, onClose }: { slot: BookingSlot; onClose: (
   const back = () => setStep(STEPS[Math.max(index - 1, 0)]);
 
   async function send() {
+    // Code de paiement quand le portefeuille est débité (pas en simulation, où rien n'est payé).
+    if (payment && payment.mode !== "manual" && !(await askPayPin(`Examen du code · ${formatEuros(payment.feeCents)}`))) return;
     setSending(true);
     setServerError(null);
     try {
