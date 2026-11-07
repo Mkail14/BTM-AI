@@ -43,6 +43,7 @@ import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
+import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -132,6 +133,8 @@ public class MainActivity extends Activity {
     private final ArrayList<Runnable> ttsWaiting = new ArrayList<>();
 
     private TamilyaConnect connect;
+    /** Moteur et styles des cartes, rangés dans l'APK et mis à jour tout seuls. */
+    private MapCache mapCache;
     private ConnectivityManager connectivity;
     private ConnectivityManager.NetworkCallback networkCallback;
     private boolean online = true;
@@ -163,6 +166,7 @@ public class MainActivity extends Activity {
         offline = buildOfflineView();
         offline.setVisibility(View.GONE);
         content.addView(offline, match());
+        mapCache = new MapCache(this);
         connect = new TamilyaConnect(this, new TamilyaConnect.Host() {
             @Override
             public void requestConnectPermissions(String[] permissions) {
@@ -984,6 +988,13 @@ public class MainActivity extends Activity {
             Uri uri = request.getUrl();
             if (staysInApp(uri)) return false;
             openExternally(uri);
+        @Override
+        public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
+            // Carte déjà dans l'app : rien à télécharger (appelé hors du fil de l'écran).
+            WebResourceResponse kept = mapCache != null ? mapCache.intercept(request) : null;
+            return kept != null ? kept : super.shouldInterceptRequest(view, request);
+        }
+
             return true;
         }
 
