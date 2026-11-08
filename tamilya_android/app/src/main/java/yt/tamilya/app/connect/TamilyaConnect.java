@@ -274,12 +274,10 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         if (!needKey && !needDevice) return;
         syncing = true;
         io.execute(() -> {
+            // D'abord l'appareil (il rapporte aussi la clé du serveur), puis la clé seule si besoin, chacun
+            // dans son essai : avant le 2026-11-08, une clé refusée (site en maintenance) empêchait
+            // l'enregistrement, et un téléphone neuf ne s'activait jamais.
             try {
-                if (needKey) {
-                    JSONObject key = ConnectApi.serverKey();
-                    ConnectCrypto.publicKey(key.getString("publicKey"));
-                    store.setServerKey(key.getString("keyId"), key.getString("publicKey"), System.currentTimeMillis());
-                }
                 if (needDevice) {
                     KeyPair device = DeviceKeys.get();
                     JSONObject answer = ConnectApi.registerDevice(cookies, ConnectCrypto.b64(device.getPublic().getEncoded()));
@@ -292,7 +290,16 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
                     }
                 }
             } catch (Exception ignored) {
-                // Routes pas encore en ligne, ou réseau faible : rien à montrer.
+                // Routes pas encore en ligne, ou réseau faible : on réessaiera à la prochaine page.
+            }
+            try {
+                if (needKey && (store.serverKey().isEmpty() || System.currentTimeMillis() - store.keyFetchedAt() > KEY_REFRESH_MS)) {
+                    JSONObject key = ConnectApi.serverKey();
+                    ConnectCrypto.publicKey(key.getString("publicKey"));
+                    store.setServerKey(key.getString("keyId"), key.getString("publicKey"), System.currentTimeMillis());
+                }
+            } catch (Exception ignored) {
+                // Réseau faible ou site fermé : la clé gardée (ou celle de l'enregistrement) sert.
             } finally {
                 main.post(() -> {
                     syncing = false;
