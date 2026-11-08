@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Tamilya : l'app affiche elle-même https://tamilya.yt (WebView), sans passer par Chrome. -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
@@ -45,8 +46,13 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Tamilya">
 
+        <!-- Retour : Android 16 avec targetSdk 36 n'appelle plus onBackPressed. Sans
+             enableOnBackInvokedCallback="false", le bouton retour fermerait l'app au lieu de
+             revenir à la page d'avant ou de fermer Tamilya Connect. -->
         <activity
             android:name=".MainActivity"
+            android:enableOnBackInvokedCallback="false"
+            tools:targetApi="34"
             android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|uiMode|density"
             android:exported="true"
             android:launchMode="singleTask"
