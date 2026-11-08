@@ -6,6 +6,7 @@
  */
 
 import { createNoiseGate } from "./noise-gate";
+import { createPlayout, createVoiceOutput, fadeIn } from "./playout";
 import { createAmbiance, describeAmbiance } from "./ambiance";
 import { loadSilero, type VoiceDetector } from "./silero";
 import { forgetSpeech, keepSpeech, prepareVoiceCheck } from "./heard";
@@ -137,6 +138,8 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
   // Fréquence normale de l'appareil : sur iPhone, un micro forcé à 16 kHz arrivait
   // déformé (Gemini entendait « toutes les langues sauf le français »).
   const capture = new AudioContext();
+  // Sortie de la voix : coupe les très graves et limiteur anti-saturation (playout.ts).
+  const voiceOut = createVoiceOutput(playback);
   void playback.resume();
   void capture.resume();
   const closeAudio = () => {
@@ -154,7 +157,8 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
   }
 
   const sources = new Set<AudioBufferSourceNode>();
-  let nextTime = 0;
+  /** Programmation des morceaux de voix, avec repérage des trous pour le fondu anti-clic (playout.ts). */
+  const playout = createPlayout();
   let speechEndedAt: number | null = null;
   let speaking = false;
   let quietSince = 0;
@@ -187,7 +191,7 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
       } catch {}
     });
     sources.clear();
-    nextTime = 0;
+    playout.reset();
   };
 
   const finish = (error: string | null) => {
@@ -357,14 +361,16 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
       }
       const rate = Number(audio.mimeType.match(/rate=(\d+)/)?.[1] ?? 24000);
       const samples = fromBase64Pcm(audio.data);
+      const slot = playout.schedule(playback.currentTime, samples.length / rate);
+      // Voix qui repart (début ou après un trou) : fondu de 4 ms, sans clic.
+      if (slot.fresh) fadeIn(samples, rate);
+      if (slot.underrun) note(`voix en retard (trou n° ${playout.underruns})`);
       const buffer = playback.createBuffer(1, samples.length, rate);
       buffer.copyToChannel(samples as Float32Array<ArrayBuffer>, 0);
       const source = playback.createBufferSource();
       source.buffer = buffer;
-      source.connect(playback.destination);
-      nextTime = Math.max(nextTime, playback.currentTime + 0.02);
-      source.start(nextTime);
-      nextTime += buffer.duration;
+      source.connect(voiceOut);
+      source.start(slot.startAt);
       sources.add(source);
       source.onended = () => {
         sources.delete(source);
@@ -372,7 +378,11 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
       };
       callbacks.onState("parle");
     }
-    if (content.turnComplete) callbacks.onTurnComplete();
+    if (content.turnComplete) {
+      // Fin de la réponse : la prochaine voix repart à neuf (pas comptée comme un trou).
+      playout.reset();
+      callbacks.onTurnComplete();
+    }
   };
 
   /**
