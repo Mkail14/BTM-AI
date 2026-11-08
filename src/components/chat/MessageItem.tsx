@@ -106,8 +106,9 @@ const noop = () => {};
  * Avatar de Tamilya : son globe, à la couleur de sa personnalité. Il bouge
  * pendant qu'elle écrit, puis se fige. Au début d'une conversation, le grand
  * globe de l'accueil rétrécit et glisse jusqu'ici avant d'écrire.
+ * Mémorisé : la réponse se redessine à chaque lettre, le globe (qui s’anime seul) non.
  */
-function AwaAvatar({ writing }: { writing: boolean }) {
+const AwaAvatar = memo(function AwaAvatar({ writing }: { writing: boolean }) {
   const box = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {
     if (!writing) return;
@@ -138,7 +139,7 @@ function AwaAvatar({ writing }: { writing: boolean }) {
       <AwaBlob label="Tamilya" onActivate={noop} size="2rem" goo={2} busy={writing} still={!writing} />
     </span>
   );
-}
+});
 
 export const MessageItem = memo(function MessageItem({
   message,
@@ -206,7 +207,7 @@ function AssistantMessage({ message, question }: { message: UiMessage; question?
           writing ? (
             // Point qui clignote au bout du texte pendant que Tamilya écrit.
             <div className="typing-cursor">
-              <Markdown text={text} />
+              <Markdown text={text} streaming />
             </div>
           ) : (
             // Maître de Tamilya : sélection d'un passage pour le corriger (sans effet pour les autres).

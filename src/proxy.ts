@@ -46,7 +46,8 @@ const OPEN_WHEN_CLOSED = ["/maintenance", "/auth/", "/api/auth/", "/api/cron/", 
 
 export const config = {
   matcher: [
-    // Fichiers fixes (images, sons, polices, manifeste, détecteur de voix Silero, empreinte de voix, moteur des cartes) : servis tout de suite, sans passer par le proxy.
-    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|brand/|vad/|voiceprint/|maplibre/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|mp3|wav|ogg|woff2?|txt|xml)$).*)",
+    // Fichiers fixes (images, sons, polices, manifeste, détecteur de voix Silero, empreinte de voix, moteur des cartes,
+    // bruitages et musiques de la lecture) : servis tout de suite, sans passer par le proxy.
+    "/((?!_next/static|_next/image|favicon.ico|manifest.webmanifest|robots.txt|sitemap.xml|brand/|vad/|voiceprint/|maplibre/|sons/|musique/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|avif|ico|mp3|wav|ogg|webm|woff2?|txt|xml)$).*)",
   ],
 };

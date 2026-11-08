@@ -4,6 +4,7 @@ import { Children, isValidElement, memo, type ReactNode } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { markUnknownWords } from "@/lib/language/unknown-words";
+import { splitStableMarkdown } from "@/lib/chat/markdown-split";
 import { ATTESTATION_BLOCK, SIGNATURES_STEP } from "@/lib/attestation/intent";
 import { BARGE_BLOCK } from "@/lib/barge/intent";
 import { BTM_DEVIS_BLOCK } from "@/lib/btm/intent";
@@ -160,12 +161,28 @@ function safeUrl(url: string) {
   return ALLOWED_PROTOCOLS.test(url.trim()) ? url : "";
 }
 
-export const Markdown = memo(function Markdown({ text }: { text: string }) {
+const remarkPlugins = [remarkGfm];
+
+/** Un morceau de Markdown, ré-analysé seulement quand son texte change. */
+const MarkdownPart = memo(function MarkdownPart({ source }: { source: string }) {
+  return (
+    <ReactMarkdown remarkPlugins={remarkPlugins} components={components} urlTransform={safeUrl}>
+      {source}
+    </ReactMarkdown>
+  );
+});
+
+/**
+ * `streaming` : réponse en train de s'écrire. Le début déjà terminé n'est analysé qu'une fois,
+ * seule la fin est ré-analysée à chaque lettre (voir splitStableMarkdown) : même rendu, moins de calcul.
+ */
+export const Markdown = memo(function Markdown({ text, streaming = false }: { text: string; streaming?: boolean }) {
+  const source = groupYouTubeLines(markUnknownWords(stripEmoji(text)));
+  const { head, tail } = streaming ? splitStableMarkdown(source) : { head: "", tail: source };
   return (
     <div className="markdown">
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={components} urlTransform={safeUrl}>
-        {groupYouTubeLines(markUnknownWords(stripEmoji(text)))}
-      </ReactMarkdown>
+      {head ? <MarkdownPart source={head} /> : null}
+      <MarkdownPart source={tail} />
     </div>
   );
 });
