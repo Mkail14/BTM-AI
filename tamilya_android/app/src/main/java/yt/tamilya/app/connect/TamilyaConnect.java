@@ -118,7 +118,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
 
     /** Message en haut de l'écran ; rien à montrer tant que l'écran n'existe pas. */
     private void notice(String message) {
-        if (screen != null) notice(message);
+        if (screen != null) screen.setNotice(message);
     }
 
     public boolean isOpen() {
