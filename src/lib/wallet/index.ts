@@ -37,11 +37,16 @@ export async function loadWallet(supabase: SupabaseClient, userId: string, limit
  * Crédite le solde si Stripe confirme le paiement de cette session (une seule fois,
  * même appelé par le retour sur le site et par le webhook). Renvoie l'état final.
  */
-export async function settleTopup(sessionId: string, eventType?: string): Promise<"paid" | "pending" | "failed"> {
-  const admin = getSupabaseAdminClient();
+export async function settleTopup(
+  sessionId: string,
+  eventType?: string,
+  // Remplaçables par les tests seulement (aucun appel à Stripe ni à la base).
+  deps: { admin?: Pick<SupabaseClient, "rpc"> | null; readCheckout?: typeof getCheckout } = {},
+): Promise<"paid" | "pending" | "failed"> {
+  const admin = deps.admin === undefined ? getSupabaseAdminClient() : deps.admin;
   if (!admin) throw new Error("SUPABASE_SECRET_KEY manquante");
   // Toujours relu chez Stripe : on ne croit jamais un identifiant venu du navigateur.
-  const session = await getCheckout(sessionId);
+  const session = await (deps.readCheckout ?? getCheckout)(sessionId);
   if (session.metadata?.kind !== "wallet_topup") return "failed";
 
   if (session.payment_status === "paid") {
