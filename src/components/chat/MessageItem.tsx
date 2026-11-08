@@ -206,7 +206,7 @@ function AssistantMessage({ message, question }: { message: UiMessage; question?
           writing ? (
             // Point qui clignote au bout du texte pendant que Tamilya écrit.
             <div className="typing-cursor">
-              <Markdown text={text} />
+              <Markdown text={text} streaming />
             </div>
           ) : (
             // Maître de Tamilya : sélection d'un passage pour le corriger (sans effet pour les autres).
