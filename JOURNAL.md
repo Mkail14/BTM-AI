@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `0e09dff` (2026-11-08)**
+**Dernier commit noté : `3c143f5` (2026-11-08)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -92,6 +92,8 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-08
+- **Suppression de compte avec de l'argent** (`3c143f5`). Décision de l'utilisateur : compte banni, pas de remboursement ; sinon remboursement possible. Le portefeuille disparaît avec le compte : la demande de remboursement part par e-mail à contact@btm.yt avant la suppression, et la suppression est refusée si l'e-mail ne part pas.
+- **Prévenir les adresses abîmées** (`388c67e`). Décision de l'utilisateur : prévenir. Un message dans la conversation demande de vérifier l'adresse aux comptes inscrits pendant la faute, adresse jamais réenregistrée et sans « s ». Il disparaît dès que l'adresse est réenregistrée.
 - **Audit complet en autonomie** (demande de l'utilisateur, 2026-11-08). Deux équipes, fusionnées dans `0e09dff`, 600 tests sur 600 :
   - **Inscription : les « s » de l'adresse ne sont plus effacés** (`e9a6b3d`). Depuis le 2026-11-02, `/s+/` au lieu de `/s+/` : « rue des Roses » devenait « rue de Ro e ». Même faute pour le sujet d'une histoire au vocal. Un test refuse cette faute dans tout le code. Les adresses déjà abîmées sont à refaire par les personnes.
   - **Barge et repas : plus de faux « Pas de connexion » après un paiement** (`56f5ca2`) quand le téléphone ne peut pas garder l'achat.
