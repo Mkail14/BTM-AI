@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `05df5c6` (2026-11-08)**
+**Dernier commit noté : `b2698d3` (2026-11-08)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -50,6 +50,7 @@ Comment le tenir :
 | Bruits de la lecture | Fabriqués par le téléphone (bruit et sons purs) | Rien à télécharger avec le débit de Mayotte | Vrais enregistrements : plus réalistes, voir « Idées en attente » |
 | Équipe d'agents | Coordinateur en code + 5 spécialistes Gemini (chercheur, analyste, technicien, linguiste, planificateur) + vérificateur ; choix par règles, sans appel ; 3 au plus, en parallèle, un seul passage | Seulement les questions difficiles ; mesuré : +4 à 8 s avant le premier mot après réglage (16 à 19 s avant) ; réservé aux admins (AI_AGENTS=admin) en attendant l'avis de l'utilisateur | 10 agents lancés à chaque message (coût et lenteur) ; analyste sur les questions de shimaoré (inventait des mots) ; linguiste sans mot validé |
 | Lecture de la voix en direct | Programmation d'origine (20 ms) + fondu de 4 ms à chaque reprise + limiteur -3 dB et coupe des graves à 70 Hz | Plus de clic ni de saturation, sans retarder la voix | Marge d'avance adaptative (40 à 250 ms) : en simulation, plus de silence au total et première voix plus tardive |
+| Sons réglables des histoires | Fichier catalogue.json + sons ajoutés dans le stockage Supabase (dossier public « lecture-sons », créé tout seul au premier ajout) ; le navigateur envoie le fichier directement au stockage | Marche tout de suite, sans migration à appliquer ; pas de limite de taille de Vercel (4,5 Mo) | Table Postgres (migration à appliquer à la main) ; envoi par le serveur du site |
 | Affichage du chat pendant l'écriture | Début terminé relu une fois, seule la fin relue à chaque lettre | Avant, toute la réponse était relue 60 fois par seconde : de plus en plus lent avec la longueur | Paquet externe de découpe du Markdown (marked) : une dépendance de plus |
 
 ---
@@ -92,6 +93,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-08
+- **Page « Sons » dans l'admin** (`b2698d3`). Demande de l'utilisateur : il manque beaucoup de bruits dans les histoires ; il veut voir tous les sons, les brancher ou débrancher, les modifier et en ajouter, et que Tamilya les reprenne d'elle-même. /admin/sons : décors, bruits et musiques, chacun avec écoute, interrupteur, description (lue par Gemini), hauteur, largeur, « fait peur » ou « légère », fichier à remplacer ; ajout d'un son par envoi de fichier (3 Mo au plus). /api/lecture relit la liste à chaque histoire (gardée 20 s) : Gemini ne choisit que les sons branchés, le téléphone reçoit leurs adresses avec le début de l'histoire. Sans réglage, rien ne change. Pas encore essayé en vrai : premier ajout de son à faire par l'utilisateur.
 - **Tamilya Connect sans réponse pendant la maintenance** (`05df5c6`). Plainte de l'utilisateur : le téléphone voisin est trouvé, le message part, aucune réponse. Journaux des deux appareils : le relais (Redmi 15C) poste bien au serveur, qui répond la page d'attente (503, le proxy ne voit pas d'administrateur : le message arrive sans session) ; le relais réessaie sans fin. /api/mesh/relay reste ouverte, et le compte signataire décide (src/lib/mesh/closure.ts) : administrateur, vraie réponse ; sinon « Tamilya ouvre bientôt ». À vérifier sur les deux appareils une fois en ligne.
 - **Suppression de compte avec de l'argent** (`3c143f5`). Décision de l'utilisateur : compte banni, pas de remboursement ; sinon remboursement possible. Le portefeuille disparaît avec le compte : la demande de remboursement part par e-mail à contact@btm.yt avant la suppression, et la suppression est refusée si l'e-mail ne part pas.
 - **Prévenir les adresses abîmées** (`388c67e`). Décision de l'utilisateur : prévenir. Un message dans la conversation demande de vérifier l'adresse aux comptes inscrits pendant la faute, adresse jamais réenregistrée et sans « s ». Il disparaît dès que l'adresse est réenregistrée.
