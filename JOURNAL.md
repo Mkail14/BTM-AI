@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `3c143f5` (2026-11-08)**
+**Dernier commit noté : `05df5c6` (2026-11-08)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -92,6 +92,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-08
+- **Tamilya Connect sans réponse pendant la maintenance** (`05df5c6`). Plainte de l'utilisateur : le téléphone voisin est trouvé, le message part, aucune réponse. Journaux des deux appareils : le relais (Redmi 15C) poste bien au serveur, qui répond la page d'attente (503, le proxy ne voit pas d'administrateur : le message arrive sans session) ; le relais réessaie sans fin. /api/mesh/relay reste ouverte, et le compte signataire décide (src/lib/mesh/closure.ts) : administrateur, vraie réponse ; sinon « Tamilya ouvre bientôt ». À vérifier sur les deux appareils une fois en ligne.
 - **Suppression de compte avec de l'argent** (`3c143f5`). Décision de l'utilisateur : compte banni, pas de remboursement ; sinon remboursement possible. Le portefeuille disparaît avec le compte : la demande de remboursement part par e-mail à contact@btm.yt avant la suppression, et la suppression est refusée si l'e-mail ne part pas.
 - **Prévenir les adresses abîmées** (`388c67e`). Décision de l'utilisateur : prévenir. Un message dans la conversation demande de vérifier l'adresse aux comptes inscrits pendant la faute, adresse jamais réenregistrée et sans « s ». Il disparaît dès que l'adresse est réenregistrée.
 - **Audit complet en autonomie** (demande de l'utilisateur, 2026-11-08). Deux équipes, fusionnées dans `0e09dff`, 600 tests sur 600 :
