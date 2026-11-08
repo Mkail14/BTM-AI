@@ -86,7 +86,8 @@ final class ConnectMenu {
         }
     }
 
-    void show(JSONArray history, String currentId, JSONObject account) {
+    void show(JSONArray history, String currentId, JSONObject account, long since) {
+        yt.tamilya.app.Perf.untilDrawn("connect.menu", panel, since);
         panel.removeAllViews();
         panel.addView(top());
         panel.addView(historyTitle());

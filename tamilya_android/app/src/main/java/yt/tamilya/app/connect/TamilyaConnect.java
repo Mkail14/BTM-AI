@@ -38,6 +38,8 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import yt.tamilya.app.Perf;
+
 /**
  * Tamilya Connect : écrire à Tamilya sans internet. Le message passe de téléphone en
  * téléphone jusqu'à un téléphone connecté, qui le poste au serveur ; la réponse revient
@@ -127,6 +129,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
     }
 
     public void open() {
+        long opening = Perf.start("connect.open");
         // Simple fondu, sur place : rien ne monte.
         closing = false;
         screen.animate().cancel();
@@ -142,6 +145,8 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         }
         if (hasPermissions()) startRelay();
         else host.requestConnectPermissions(permissions());
+        Perf.end("connect.open", opening);
+        Perf.untilDrawn("connect.open", screen, opening);
     }
 
     public void onPermissionsResult() {
@@ -332,16 +337,21 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
     }
 
     private void showConversation(String id) {
+        long showing = Perf.start("connect.conversation");
         store.switchTo(id);
         historyShown = false;
         screen.setNotice(null);
         render();
+        Perf.end("connect.conversation", showing);
+        Perf.untilDrawn("connect.conversation", screen, showing);
     }
 
     /** Les trois barres : le même menu que dans Tamilya (historique, compte, solde). */
     @Override
     public void history() {
-        screen.showMenu(store.history(), store.conversationId(), store.account());
+        long menu = Perf.start("connect.menu");
+        screen.showMenu(store.history(), store.conversationId(), store.account(), menu);
+        Perf.end("connect.menu", menu);
     }
 
     /** Une page du site depuis le menu (Paramètres, Mes documents…) : Connect se ferme, la page s'ouvre. */
@@ -751,11 +761,16 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
     }
 
     private void render() {
+        long drawing = Perf.start("connect.render");
         cutStale();
         JSONArray messages = store.messages();
-        if (!isOpen()) return;
+        if (!isOpen()) {
+            Perf.end("connect.render.cache", drawing);
+            return;
+        }
         if (historyShown) screen.renderHistory(store.history(), store.conversationId());
         else screen.render(messages);
+        Perf.end("connect.render", drawing);
     }
 
     // --- Réseau

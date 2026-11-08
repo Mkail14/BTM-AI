@@ -222,8 +222,8 @@ final class ConnectScreen extends LinearLayout {
     }
 
     /** Les trois barres : le menu de Tamilya, glissé depuis la gauche (ConnectMenu). */
-    void showMenu(JSONArray history, String currentId, JSONObject account) {
-        new ConnectMenu(getContext(), this, actions).show(history, currentId, account);
+    void showMenu(JSONArray history, String currentId, JSONObject account, long since) {
+        new ConnectMenu(getContext(), this, actions).show(history, currentId, account, since);
     }
 
     View historyRow(JSONObject item, boolean current) {

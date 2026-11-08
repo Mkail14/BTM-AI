@@ -158,6 +158,13 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onCreate(Bundle state) {
+        // Version de test : temps dans logcat (TamilyaPerf). « --ez strict true » allume StrictMode.
+        Perf.on = (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+        if (Perf.on && getIntent().getBooleanExtra("strict", false)) {
+            android.os.StrictMode.setThreadPolicy(new android.os.StrictMode.ThreadPolicy.Builder()
+                    .detectAll().penaltyLog().build());
+        }
+        long created = Perf.start("onCreate");
         super.onCreate(state);
 
         LinearLayout root = new LinearLayout(this);
@@ -171,6 +178,7 @@ public class MainActivity extends Activity {
         offline.setVisibility(View.GONE);
         content.addView(offline, match());
         mapCache = new MapCache(this);
+        long built = Perf.start("connect.new");
         connect = new TamilyaConnect(this, new TamilyaConnect.Host() {
             @Override
             public void requestConnectPermissions(String[] permissions) {
@@ -217,6 +225,7 @@ public class MainActivity extends Activity {
                 MainActivity.this.feedback(kind);
             }
         });
+        Perf.end("connect.new", built);
         content.addView(connect.view(), match());
         splash = buildSplashView();
         content.addView(splash, match());
@@ -230,6 +239,7 @@ public class MainActivity extends Activity {
 
         if (state != null) web.restoreState(state);
         if (web.getUrl() == null) web.loadUrl(startUrl(getIntent()));
+        Perf.end("onCreate", created);
     }
 
     private static FrameLayout.LayoutParams match() {
@@ -1258,7 +1268,9 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onPause() {
+        long paused = Perf.start("onPause.flush");
         CookieManager.getInstance().flush();
+        Perf.end("onPause.flush", paused);
         web.onPause();
         // Le relais continue si son service tourne ; sinon il s'arrête ici.
         connect.pause();
