@@ -46,9 +46,12 @@ final class MeshRelay implements BleMesh.Events {
     };
     /** Le temps d'un envoi au serveur, écran éteint. */
     private static final long POST_WAKE_MS = 30_000;
-    /** Sans réponse, on redonne sa demande au voisin (il garde la réponse s'il l'a déjà). */
-    private static final long RESEND_MS = 20_000;
-    private static final int MAX_SENDS = 5;
+    /**
+     * Sans réponse, on redonne sa demande au voisin (il garde la réponse s'il l'a déjà, et ne
+     * la poste jamais deux fois au serveur). Un morceau perdu coûtait 20 s : maintenant 6 s.
+     */
+    private static final long RESEND_MS = 6_000;
+    private static final int MAX_SENDS = 12;
     private static MeshRelay shared;
 
     private Listener listener = NOBODY;
@@ -238,6 +241,7 @@ final class MeshRelay implements BleMesh.Events {
         // Refus : on oublie la demande ici, pour que son renvoi puisse repasser par ce téléphone.
         if (refused && !entry.own()) table.forget(id);
         if (entry.own()) {
+            Log.i(TAG, "Réponse reçue en " + (now() - entry.at) + " ms");
             if (refused) listener.onRefused(id, reply.optString("error"));
             else listener.onReply(id, reply);
         } else {

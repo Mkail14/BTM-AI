@@ -79,8 +79,14 @@ final class BleMesh {
     private static final long BACK_SCAN_MS = 1_500;
     private static final long BACK_PAUSE_WITH_PEERS_MS = 28_500;
     private static final long BACK_PAUSE_ALONE_MS = 58_500;
-    /** Après un échec ou un doublon, on laisse ce téléphone tranquille un moment. */
+    /** Après un doublon, on laisse ce téléphone tranquille un moment. */
     private static final long BACKOFF_MS = 45_000;
+    /** Après une connexion ratée : on retente vite (avant, 30 s d'attente puis 45 s de pause). */
+    private static final long FAILED_BACKOFF_MS = 3_000;
+    /** Android attend 30 s une connexion qui ne vient pas : on abandonne bien avant. */
+    private static final long CONNECT_TIMEOUT_MS = 8_000;
+    /** Liaison rapide tant que des messages passent, puis retour au rythme lent. */
+    private static final long FAST_IDLE_MS = 25_000;
     private static final long BUSY_RETRY_MS = 150;
 
     private final Context context;
@@ -121,6 +127,8 @@ final class BleMesh {
         int payload = 20 - HEADER;
         boolean ready;
         boolean busy;
+        boolean fast;
+        final Runnable slowDown = () -> setFast(this, false);
 
         Link(String address, BluetoothGatt gatt, BluetoothDevice device) {
             this.address = address;
@@ -331,11 +339,43 @@ final class BleMesh {
         if (until != null && now < until) return;
         Log.i(TAG, "Voisin trouvé");
         BluetoothGatt gatt = device.connectGatt(context, false, clientEvents, BluetoothDevice.TRANSPORT_LE);
-        if (gatt != null) links.put(address, new Link(address, gatt, device));
+        if (gatt == null) return;
+        Link link = new Link(address, gatt, device);
+        links.put(address, link);
+        main.postDelayed(() -> giveUp(link), CONNECT_TIMEOUT_MS);
+    }
+
+    /** Connexion toujours pas prête : on la coupe et on retente au prochain passage. */
+    private void giveUp(Link link) {
+        if (link.ready || links.get(link.address) != link) return;
+        Log.w(TAG, "Connexion trop lente, abandon");
+        avoid(link.address, FAILED_BACKOFF_MS);
+        link.gatt.disconnect();
+        link.gatt.close();
+        forget(link);
     }
 
     private void avoid(String address) {
-        backoff.put(address, System.currentTimeMillis() + BACKOFF_MS);
+        avoid(address, BACKOFF_MS);
+    }
+
+    private void avoid(String address, long ms) {
+        backoff.put(address, System.currentTimeMillis() + ms);
+    }
+
+    /**
+     * Seul l'appelant règle le rythme de la liaison. Au plus lent, chaque morceau attend
+     * son tour (0,1 s ou plus) : un message de quelques Ko prenait plusieurs secondes.
+     */
+    private void setFast(Link link, boolean value) {
+        if (!link.weCalled() || !link.ready || links.get(link.address) != link) return;
+        main.removeCallbacks(link.slowDown);
+        if (value) main.postDelayed(link.slowDown, FAST_IDLE_MS);
+        if (link.fast == value) return;
+        link.fast = value;
+        link.gatt.requestConnectionPriority(value
+                ? BluetoothGatt.CONNECTION_PRIORITY_HIGH
+                : BluetoothGatt.CONNECTION_PRIORITY_LOW_POWER);
     }
 
     // --- Quand on appelle un voisin
@@ -352,7 +392,7 @@ final class BleMesh {
                 } else {
                     if (!link.ready) {
                         Log.w(TAG, "Connexion échouée : " + status);
-                        avoid(link.address);
+                        avoid(link.address, FAILED_BACKOFF_MS);
                     }
                     gatt.close();
                     forget(link);
@@ -503,6 +543,7 @@ final class BleMesh {
         int size = Math.max(1, link.payload);
         int total = Math.max(1, (checked.length + size - 1) / size);
         int message = nextMessage++ & 0xFFFF;
+        setFast(link, true);
         for (int i = 0; i < total; i++) {
             int start = i * size;
             link.out.add(frame(DATA, message, i, total, checked, start, Math.min(size, checked.length - start)));
@@ -568,6 +609,7 @@ final class BleMesh {
             return;
         }
         if (link.peer == null) return;
+        setFast(link, true);
         byte[] complete = link.incoming.add(message, index, total, body);
         if (complete == null || complete.length < CHECK_BYTES) return;
         ByteBuffer whole = ByteBuffer.wrap(complete);
@@ -609,6 +651,7 @@ final class BleMesh {
     }
 
     private void forget(Link link) {
+        main.removeCallbacks(link.slowDown);
         links.remove(link.address);
         String peer = link.peer;
         if (peer != null && linkTo(peer) == null) {
