@@ -82,6 +82,37 @@ export const RECORDED: ReadonlySet<Ambience | Effect> = new Set<Ambience | Effec
 
 export const soundUrl = (sound: Ambience | Effect) => `/sons/${sound}.webm`;
 
+/**
+ * Musique de fond, comme au cinéma : une boucle de 40 s par ambiance (~105 Ko) (Kevin MacLeod, CC BY), dans
+ * public/musique/<id>.webm. Elle joue au milieu de la tête, sous les voix, et peut changer en
+ * cours d'histoire (le calme qui tourne à la peur). Crédits : public/musique/CREDITS.md.
+ */
+export const MOODS = {
+  horreur: "horreur : graves inquiétants, la peur",
+  suspense: "suspense : tension qui monte, on retient son souffle",
+  mystere: "mystère, enquête, secret",
+  film: "grand film américain : orchestre héroïque, émotion, moment épique",
+  action: "action, poursuite, danger rapide",
+  aventure: "aventure, voyage, découverte",
+  vlog: "vlog : léger et joyeux, la vie de tous les jours",
+  comedie: "comédie : malice, situation drôle",
+  triste: "tristesse, perte, mélancolie",
+  romantique: "amour, tendresse",
+  calme: "calme, douceur, avant de dormir",
+  magique: "conte, magie, merveilleux",
+} as const satisfies Record<string, string>;
+
+export type Mood = keyof typeof MOODS;
+export const MOOD_IDS = Object.keys(MOODS) as [Mood, ...Mood[]];
+export const musicUrl = (mood: Mood) => `/musique/${mood}.webm`;
+
+/**
+ * Histoires légères : les bruits qui font peur n'y ont pas leur place, même si Gemini en met
+ * (plainte du 2026-11-08 : une histoire drôle sonnait comme un film d'horreur).
+ */
+export const LIGHT_MOODS: ReadonlySet<Mood> = new Set<Mood>(["vlog", "comedie", "calme", "romantique", "magique"]);
+export const SCARY_SOUNDS: ReadonlySet<Ambience | Effect> = new Set<Ambience | Effect>(["coeur", "porte-grince", "tonnerre"]);
+
 export function defaultHeight(sound: Ambience | Effect): Height | undefined {
   return sound in BEDS ? (BEDS[sound as Ambience] as Bed).height : (SHOTS[sound as Effect] as Shot).height;
 }
@@ -89,3 +120,5 @@ export function defaultHeight(sound: Ambience | Effect): Height | undefined {
 /** Pour la consigne de Gemini : « id (ce que c'est) ». */
 export const describe = (sounds: readonly (Ambience | Effect)[]) =>
   sounds.map((s) => `${s} (${s in BEDS ? BEDS[s as Ambience].name : SHOTS[s as Effect].name})`).join(", ");
+
+export const describeMoods = () => MOOD_IDS.map((m) => `${m} (${MOODS[m]})`).join(", ");

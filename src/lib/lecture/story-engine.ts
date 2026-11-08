@@ -3,7 +3,8 @@ import type { GeminiVoiceId } from "@/lib/ai/voice/voices";
 import { announceReadingDone } from "./auto";
 import type { SceneLine, SceneMeta, SceneScript } from "./script";
 import { preloadResonance, ScenePlayer } from "./soundscape";
-import { preloadSounds } from "./sounds";
+import { LIGHT_MOODS, SCARY_SOUNDS, type Mood } from "./bank";
+import { preloadMusic, preloadSounds } from "./sounds";
 import { patchStory, unlockAudio, type StorySource } from "./stage";
 
 /**
@@ -161,6 +162,7 @@ async function prepare(story: Story, source: StorySource) {
         story.feed = { script: { ...event.meta, lines: [] }, done: false, waiters: [] };
         // Les vrais sons du décor partent tout de suite sur le réseau.
         preloadSounds(event.meta.ambiences.map((a) => a.sound));
+        if (event.meta.music) void preloadMusic(event.meta.music);
         story.items = event.meta.intro ? [{ text: event.meta.intro, voice: null }] : [];
         patchStory(story.key, { title: event.meta.title });
         void voiceOf(story, 0);
@@ -168,6 +170,7 @@ async function prepare(story: Story, source: StorySource) {
       } else if (event.type === "line" && event.line && story.feed) {
         story.feed.script.lines.push(event.line);
         preloadSounds(event.line.cues.map((c) => c.sound));
+        if (event.line.music && event.line.music !== "silence") void preloadMusic(event.line.music);
         story.items.push({ text: event.line.text, voice: event.line.voice });
         // Les toutes premières voix se préparent dès qu'elles arrivent.
         if (story.items.length <= AHEAD + 1) void voiceOf(story, story.items.length - 1);
@@ -230,11 +233,21 @@ async function play(story: Story, script: SceneScript) {
   setVoiceLevelSource(() => scene.level());
 
   // Le décor monte tout de suite (après au plus 4 s d'attente des vrais sons ; sinon, la version fabriquée).
+  // La musique monte dès qu'elle est arrivée, sans retenir l'histoire.
+  let mood: Mood | null = script.music;
+  void scene.setMusic(mood);
   await scene.prepare(script.ambiences.map((a) => a.sound), 4000);
-  scene.startAmbiences(script.ambiences, 3);
+  // Sous une musique légère, le décor reste un peu plus discret.
+  const light = mood !== null && LIGHT_MOODS.has(mood);
+  scene.startAmbiences(light ? script.ambiences.map((a) => ({ ...a, volume: a.volume * 0.75 })) : script.ambiences, 3);
   if (script.intro) {
     const intro = await voiceOf(story, 0);
-    if (intro && !scene.isStopped) await scene.playLine({ voice: null, side: 0, distance: "tout-pres", height: "milieu", from: null }, intro);
+    if (intro && !scene.isStopped) {
+      // La musique et le décor restent sous sa voix dès l'intro.
+      scene.duck(true);
+      await scene.playLine({ voice: null, side: 0, distance: "tout-pres", height: "milieu", from: null }, intro);
+      scene.duck(false);
+    }
     await scene.wait(0.6);
   } else {
     await scene.wait(script.ambiences.length ? 2 : 0.3);
@@ -244,21 +257,27 @@ async function play(story: Story, script: SceneScript) {
   for (let i = 0; !scene.isStopped; i++) {
     const line = await lineAt(story, i);
     if (!line || scene.isStopped) break;
+    if (line.music) {
+      mood = line.music === "silence" ? null : line.music;
+      void scene.setMusic(mood, line.music === "silence" ? 1.2 : 3);
+    }
+    // Une histoire légère ne fait pas peur : cœur, porte qui grince et tonnerre sont écartés.
+    const cues = mood !== null && LIGHT_MOODS.has(mood) ? line.cues.filter((c) => !SCARY_SOUNDS.has(c.sound)) : line.cues;
     for (let k = 1; k <= AHEAD; k++) void voiceOf(story, offset + i + k);
     // Un silence plus long quand la voix change : on sent qu'un autre parle.
     if (previous !== null && previous !== line.speaker) await scene.wait(0.35);
-    if (line.cues.length) await scene.prepare(line.cues.map((c) => c.sound), 1500);
-    const before = line.cues.filter((c) => c.when === "avant");
+    if (cues.length) await scene.prepare(cues.map((c) => c.sound), 1500);
+    const before = cues.filter((c) => c.when === "avant");
     if (before.length) await scene.wait(Math.min(1.6, Math.max(...before.map((c) => scene.playCue(c))) * 0.6));
     const voice = await voiceOf(story, offset + i);
     if (scene.isStopped) break;
-    for (const cue of line.cues.filter((c) => c.when === "pendant")) scene.playCue(cue, 0.3);
+    for (const cue of cues.filter((c) => c.when === "pendant")) scene.playCue(cue, 0.3);
     if (voice) {
       scene.duck(true);
       await scene.playLine(line, voice);
       scene.duck(false);
     }
-    const after = line.cues.filter((c) => c.when === "apres");
+    const after = cues.filter((c) => c.when === "apres");
     if (after.length) await scene.wait(Math.min(2, Math.max(...after.map((c) => scene.playCue(c))) * 0.7));
     await scene.wait(0.3);
     previous = line.speaker;

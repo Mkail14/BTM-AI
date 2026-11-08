@@ -1,5 +1,5 @@
-import { DISTANCES, HEIGHTS, NARRATOR, PLACES, READING_LIMITS } from "./script";
-import { AMBIENCES as ALL_AMBIENCES, EFFECTS as ALL_EFFECTS, describe } from "./bank";
+import { DISTANCES, HEIGHTS, MUSIC_CHANGES, NARRATOR, PLACES, READING_LIMITS } from "./script";
+import { AMBIENCES as ALL_AMBIENCES, EFFECTS as ALL_EFFECTS, MOOD_IDS, describe, describeMoods } from "./bank";
 import { isPlayable } from "./sounds";
 
 /** Seulement les sons qu'on peut vraiment jouer (enregistrés ou fabriqués). */
@@ -47,6 +47,8 @@ L'intro : une ou deux phrases à toi, dans tes mots, qui donnent envie : tu invi
 
 La fin (fin) : une phrase à toi, dite juste après l'histoire, quand la personne rouvre les yeux : tu prends de ses nouvelles ou tu lui demandes ce qu'elle en a pensé, avec tes mots, comme une amie ; pas de formule toute faite.
 
+La musique (musique), comme au cinéma : une musique de fond discrète sous les voix, choisie pour le ton de l'histoire : ${describeMoods()}. Presque toujours une ; null seulement si une musique ne convient pas (un texte religieux, une prière, une page de cours). C'est le ton qui décide : une histoire drôle n'a jamais horreur ni suspense. Dans une réplique, musique change l'ambiance à partir de là quand le ton bascule vraiment (le calme qui tourne à la peur, la poursuite qui finit dans la joie), deux ou trois fois au plus dans l'histoire ; « silence » coupe la musique (juste avant un moment fort). Sinon, musique vaut null dans la réplique.
+
 La scène en 3D, c'est le plus important : joue BEAUCOUP avec l'espace, comme un film de cinéma qu'on écouterait sans l'image. On doit sentir les gens bouger autour de sa tête.
 - Le lieu (lieu) donne l'écho de toute la scène : ${PLACES.join(", ")}. Choisis celui où se passe la page (dans une case : maison ; sous les arbres : foret ; au bord du lagon : plage).
 - Les places sont des angles autour de la tête : 0 devant, 90 à droite, -90 à gauche, 180 derrière (et entre les deux : 45, -135…). Distances : ${DISTANCES.join(", ")}. Hauteur (hauteur) : ${HEIGHTS.join(", ")} ; sers-t'en (un oiseau en haut dans l'arbre, quelqu'un qui appelle d'en bas, l'orage au-dessus).
@@ -79,6 +81,7 @@ export const SCRIPT_SCHEMA = {
     lieu: { type: "STRING", enum: [...PLACES] },
     intro: { type: "STRING" },
     fin: { type: "STRING" },
+    musique: { type: "STRING", enum: [...MOOD_IDS], nullable: true },
     decor: {
       type: "ARRAY",
       items: {
@@ -113,6 +116,7 @@ export const SCRIPT_SCHEMA = {
           depuis: { type: "OBJECT", nullable: true, properties: { cote: ANGLE, distance: DISTANCE, hauteur: HEIGHT }, required: ["cote", "distance"] },
           trajet: TRAJET,
           bruitage: { type: "BOOLEAN" },
+          musique: { type: "STRING", enum: [...MUSIC_CHANGES], nullable: true },
           bruits: {
             type: "ARRAY",
             items: {
@@ -132,11 +136,11 @@ export const SCRIPT_SCHEMA = {
         },
         // Tout est demandé à chaque réplique : facultatifs, depuis et bruits étaient laissés vides
         // (essai du 2026-11-08 sur la tablette : aucun bruit court sur une page qui en décrit quatre).
-        required: ["qui", "texte", "cote", "distance", "hauteur", "depuis", "trajet", "bruitage", "bruits"],
+        required: ["qui", "texte", "cote", "distance", "hauteur", "depuis", "trajet", "bruitage", "musique", "bruits"],
       },
     },
   },
-  required: ["lisible", "titre", "lieu", "intro", "fin", "decor", "personnages", "repliques"],
+  required: ["lisible", "titre", "lieu", "intro", "fin", "musique", "decor", "personnages", "repliques"],
   // Ordre imposé : tout le début d'abord, les répliques en dernier (lues au fil de l'eau, stream.ts).
-  propertyOrdering: ["lisible", "raison", "titre", "lieu", "intro", "fin", "decor", "personnages", "repliques"],
+  propertyOrdering: ["lisible", "raison", "titre", "lieu", "intro", "fin", "musique", "decor", "personnages", "repliques"],
 } as const;

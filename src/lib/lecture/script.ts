@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { GeminiVoiceId } from "@/lib/ai/voice/voices";
-import { AMBIENCES, EFFECTS, defaultHeight, type Ambience, type Effect } from "./bank";
+import { AMBIENCES, EFFECTS, MOOD_IDS, defaultHeight, type Ambience, type Effect, type Mood } from "./bank";
 
 /**
  * Script de scène d'une page lue par Tamilya : qui parle, avec quelle voix, d'où vient sa voix,
@@ -10,7 +10,11 @@ import { AMBIENCES, EFFECTS, defaultHeight, type Ambience, type Effect } from ".
  */
 
 /** Bruits de fond qui durent toute la page, et bruits courts à un moment précis : voir bank.ts. */
-export { AMBIENCES, EFFECTS, type Ambience, type Effect };
+export { AMBIENCES, EFFECTS, MOOD_IDS, type Ambience, type Effect, type Mood };
+
+/** Changement de musique à une réplique : une autre ambiance, ou « silence » (la musique s'arrête). */
+export const MUSIC_CHANGES = [...MOOD_IDS, "silence"] as const;
+export type MusicChange = (typeof MUSIC_CHANGES)[number];
 
 export const DISTANCES = ["tout-pres", "pres", "loin", "tres-loin"] as const;
 export type Distance = (typeof DISTANCES)[number];
@@ -57,6 +61,8 @@ const lineSchema = z.object({
   /** Narratrice seulement : elle imite un bruit (« toc, toc, toc ») et sa voix vient de l'endroit du bruit. */
   bruitage: z.boolean().catch(false).optional().default(false),
   bruits: z.array(effectSchema.nullable().catch(null)).max(10).catch([]).optional().default([]),
+  /** La musique change à partir de cette réplique (rare) ; null : elle continue. */
+  musique: z.enum(MUSIC_CHANGES).nullish().catch(null),
 });
 
 const characterSchema = z.object({
@@ -84,6 +90,8 @@ export const rawScriptSchema = z.object({
   intro: z.string().trim().max(400).catch(""),
   /** Après l'histoire : Tamilya prend des nouvelles de la personne (puis l'écoute 4 s). */
   fin: z.string().trim().max(300).catch("").optional().default(""),
+  /** Musique de fond du début ; null : pas de musique. */
+  musique: z.enum(MOOD_IDS).nullish().catch(null),
   decor: z.array(ambienceSchema.nullable().catch(null)).max(10).catch([]).optional().default([]),
   personnages: z.array(characterSchema.nullable().catch(null)).max(20).catch([]).optional().default([]),
   repliques: z.array(lineSchema.nullable().catch(null)).max(200).catch([]).optional().default([]),
@@ -107,9 +115,11 @@ export type SceneLine = {
   /** La narratrice imite un bruit : sa voix sort de l'endroit du bruit, pas du milieu de la tête. */
   placed: boolean;
   cues: SoundCue[];
+  /** La musique change avant cette réplique ; null : elle continue. */
+  music: MusicChange | null;
 };
 export type SceneAmbience = { sound: Ambience; side: number; distance: Distance; height: Height; volume: number; moving: boolean };
-export type SceneScript = { title: string; place: ScenePlace; intro: string; outro: string; ambiences: SceneAmbience[]; lines: SceneLine[] };
+export type SceneScript = { title: string; place: ScenePlace; intro: string; outro: string; music: Mood | null; ambiences: SceneAmbience[]; lines: SceneLine[] };
 
 /** Hauteur par défaut d'un bruit quand Gemini ne la donne pas. */
 const DEFAULT_HEIGHT = defaultHeight;
@@ -172,7 +182,7 @@ export function buildMeta(raw: unknown, narrator: GeminiVoiceId): MetaResult {
     .filter((a, i, all) => all.findIndex((b) => b.son === a.son) === i)
     .slice(0, READING_LIMITS.ambiences)
     .map((a) => ({ sound: a.son, side: a.cote, distance: a.distance, height: a.hauteur ?? DEFAULT_HEIGHT(a.son) ?? "milieu", volume: a.volume, moving: a.bouge }));
-  return { ok: true, meta: { title: data.titre, place: data.lieu, intro: data.intro, outro: data.fin, ambiences }, cast: { voices, names } };
+  return { ok: true, meta: { title: data.titre, place: data.lieu, intro: data.intro, outro: data.fin, music: data.musique ?? null, ambiences }, cast: { voices, names } };
 }
 
 function waypoints(raw: ({ cote: number; distance: Distance; hauteur?: Height | null } | null)[], fallback: Height): Waypoint[] {
@@ -210,6 +220,7 @@ export function buildLine(raw: unknown, cast: Cast): SceneLine | null {
         const end = c.vers === null || c.vers === undefined ? [] : [{ side: c.vers, distance: via.at(-1)?.distance ?? c.distance, height: cueHeight }];
         return { sound: c.son, when: c.quand, from: c.cote, to: c.vers ?? null, distance: c.distance, height: cueHeight, path: [...via, ...end] };
       }),
+    music: line.musique ?? null,
   };
 }
 

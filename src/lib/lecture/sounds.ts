@@ -1,4 +1,4 @@
-import { BEDS, RECORDED, soundUrl, type Ambience, type Effect } from "./bank";
+import { BEDS, RECORDED, musicUrl, soundUrl, type Ambience, type Effect, type Mood } from "./bank";
 
 /**
  * Bruits de la lecture en 3D. Les vrais enregistrements (bank.ts, public/sons) passent en premier ;
@@ -426,6 +426,34 @@ export function soundBuffer(ctx: BaseAudioContext, sound: Ambience | Effect): Au
   if (!buffer) {
     buffer = render(ctx, recipe);
     sounds.set(sound, buffer);
+  }
+  return buffer;
+}
+
+/** Lance le téléchargement d'une musique de fond (~130 Ko, déjà en boucle sans couture). */
+export function preloadMusic(mood: Mood) {
+  const key = `musique:${mood}`;
+  if (!bytes.has(key)) {
+    bytes.set(
+      key,
+      fetch(musicUrl(mood))
+        .then((r) => (r.ok ? r.arrayBuffer() : null))
+        .catch(() => null),
+    );
+  }
+  return bytes.get(key)!;
+}
+
+const music = new WeakMap<BaseAudioContext, Map<Mood, Promise<AudioBuffer | null>>>();
+
+/** La musique prête à jouer dans ce contexte, quand elle est arrivée ; null si elle n'arrive pas. */
+export function musicBuffer(ctx: BaseAudioContext, mood: Mood): Promise<AudioBuffer | null> {
+  let ready = music.get(ctx);
+  if (!ready) music.set(ctx, (ready = new Map()));
+  let buffer = ready.get(mood);
+  if (!buffer) {
+    buffer = preloadMusic(mood).then((data) => (data ? ctx.decodeAudioData(data.slice(0)).catch(() => null) : null));
+    ready.set(mood, buffer);
   }
   return buffer;
 }

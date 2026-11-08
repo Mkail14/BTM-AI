@@ -1,7 +1,7 @@
 import type { RoomDimensions, RoomMaterials, ResonanceAudio as ResonanceScene } from "resonance-audio";
 import type { Ambience, Distance, Height, SceneAmbience, SceneLine, ScenePlace, SoundCue } from "./script";
-import { BEDS } from "./bank";
-import { prepareSounds, soundBuffer } from "./sounds";
+import { BEDS, type Mood } from "./bank";
+import { musicBuffer, prepareSounds, soundBuffer } from "./sounds";
 
 /**
  * Scène sonore en 3D dans les écouteurs, au plus près de ce que fait Dolby Atmos au casque :
@@ -42,6 +42,9 @@ const DIRECT = 1;
 const ROOM_SEND = 0.55;
 /** Resonance rend plus bas que le son direct : on le remonte. */
 const SCENE_GAIN = 1.3;
+/** Musique de fond sous les voix (fichiers à -18 LUFS) ; décor et musique baissent de moitié quand quelqu'un parle. */
+const MUSIC_LEVEL = 0.32;
+const DUCKED = 0.5;
 /** Places réservées aux bruits courts (jusqu'à 3 par réplique, qui peuvent se chevaucher). */
 const CUE_SLOTS = 6;
 
@@ -208,6 +211,9 @@ export class ScenePlayer {
   private stereo: GainNode;
   private scene: ResonanceScene | null;
   private beds = new Map<GainNode, number>();
+  private music: { gain: GainNode; source: AudioBufferSourceNode } | null = null;
+  private wantedMusic: Mood | null = null;
+  private ducked = false;
   private voiceSpots = new Map<string, Spot>();
   /** Où chaque voix s'est arrêtée : elle repart de là à la réplique suivante. */
   private voicePlaces = new Map<string, Place>();
@@ -370,6 +376,37 @@ export class ScenePlayer {
     }
   }
 
+  /**
+   * Musique de fond : au milieu de la tête, sous les voix, sans écho de lieu (elle n'est pas dans la
+   * scène, comme au cinéma). Elle démarre dès qu'elle est arrivée, sans retenir l'histoire ; une
+   * nouvelle ambiance remplace l'ancienne en fondu, null l'arrête.
+   */
+  async setMusic(mood: Mood | null, fade = 3) {
+    if (this.stopped || mood === this.wantedMusic) return;
+    this.wantedMusic = mood;
+    const old = this.music;
+    if (old) {
+      this.music = null;
+      this.beds.delete(old.gain);
+      const now = this.ctx.currentTime;
+      old.gain.gain.cancelScheduledValues(now);
+      old.gain.gain.setTargetAtTime(0, now, fade / 4);
+      old.source.stop(now + fade * 1.5);
+    }
+    if (!mood) return;
+    const buffer = await musicBuffer(this.ctx, mood);
+    if (!buffer || this.stopped || this.wantedMusic !== mood) return;
+    const source = new AudioBufferSourceNode(this.ctx, { buffer, loop: true });
+    const gain = new GainNode(this.ctx, { gain: 0 });
+    source.connect(gain).connect(this.stereo);
+    const now = this.ctx.currentTime;
+    source.start(now);
+    this.track(source);
+    this.beds.set(gain, MUSIC_LEVEL);
+    gain.gain.setTargetAtTime(MUSIC_LEVEL * (this.ducked ? DUCKED : 1), now, fade / 4);
+    this.music = { gain, source };
+  }
+
   private setBeds(ratio: number, timeConstant: number) {
     const now = this.ctx.currentTime;
     for (const [bed, level] of this.beds) {
@@ -380,10 +417,13 @@ export class ScenePlayer {
 
   /** Le décor baisse sous la voix et remonte entre les répliques. */
   duck(on: boolean) {
-    this.setBeds(on ? 0.5 : 1, on ? 0.15 : 0.6);
+    this.ducked = on;
+    this.setBeds(on ? DUCKED : 1, on ? 0.15 : 0.6);
   }
 
+  /** Décor et musique s'éteignent (fin de l'histoire) ; une musique encore en route ne démarrera pas. */
   fadeOutAmbiences(seconds = 5) {
+    this.wantedMusic = null;
     this.setBeds(0, seconds / 4);
   }
 
