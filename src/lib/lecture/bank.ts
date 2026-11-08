@@ -23,7 +23,6 @@ export const BEDS = {
   nuit: { name: "nuit, grillons", width: 270 },
   oiseaux: { name: "oiseaux", width: 100, height: "haut" },
   foret: { name: "forêt tropicale", width: 300 },
-  village: { name: "village", width: 240 },
   marche: { name: "marché", width: 220 },
   rue: { name: "route, circulation", width: 160 },
   chantier: { name: "chantier", width: 120 },
@@ -65,7 +64,6 @@ export const SHOTS = {
   klaxon: { name: "klaxon" },
   bateau: { name: "moteur de bateau" },
   telephone: { name: "téléphone qui sonne" },
-  tambour: { name: "tambour" },
 } as const satisfies Record<string, Shot>;
 
 export type Ambience = keyof typeof BEDS;
@@ -73,9 +71,13 @@ export type Effect = keyof typeof SHOTS;
 export const AMBIENCES = Object.keys(BEDS) as [Ambience, ...Ambience[]];
 export const EFFECTS = Object.keys(SHOTS) as [Effect, ...Effect[]];
 
-/** Sons qui ont un vrai enregistrement dans public/sons (choisis à l'oreille le 2026-11-08). */
+/**
+ * Sons qui ont un vrai enregistrement dans public/sons (choisis à l'oreille le 2026-11-08).
+ * Retirés le 2026-11-08 : « village » (cloches d'église en boucle, faux pour Mayotte) et « tambour »
+ * (c'était une cloche de vache), avec leurs fichiers : à remplacer par de vrais sons de Mayotte.
+ */
 export const RECORDED: ReadonlySet<Ambience | Effect> = new Set<Ambience | Effect>([
-  "pluie", "pluie-tole", "vent", "vagues", "riviere", "nuit", "oiseaux", "foret", "village", "marche", "rue", "chantier", "foule", "enfants", "khoutba", "madrassa", "roussettes", "port", "cuisine", "pluie-fine", "adhan", "takbir", "tonnerre", "coeur", "frappe", "galop", "porte-grince", "toux", "bebe", "eternuement", "soupir", "applaudissements", "sifflet", "coq", "poule", "chevre", "zebu", "chien", "chat", "moto", "voiture", "camion", "klaxon", "bateau", "telephone", "tambour",
+  "pluie", "pluie-tole", "vent", "vagues", "riviere", "nuit", "oiseaux", "foret", "marche", "rue", "chantier", "foule", "enfants", "khoutba", "madrassa", "roussettes", "port", "cuisine", "pluie-fine", "adhan", "takbir", "tonnerre", "coeur", "frappe", "galop", "porte-grince", "toux", "bebe", "eternuement", "soupir", "applaudissements", "sifflet", "coq", "poule", "chevre", "zebu", "chien", "chat", "moto", "voiture", "camion", "klaxon", "bateau", "telephone",
 ]);
 
 export const soundUrl = (sound: Ambience | Effect) => `/sons/${sound}.webm`;

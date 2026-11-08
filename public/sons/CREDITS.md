@@ -12,7 +12,6 @@ Enregistrements libres venus de Wikimedia Commons, raccourcis, mis en mono et co
 | nuit | [Ringing cricket winding down.ogg](https://commons.wikimedia.org/wiki/File:Ringing_cricket_winding_down.ogg) | Jidanni | CC BY-SA 4.0 |
 | oiseaux | [Birds singing in garden.ogg](https://commons.wikimedia.org/wiki/File:Birds_singing_in_garden.ogg) | ezwa | Public domain |
 | foret | [The Loyalist - Jungle.ogg](https://commons.wikimedia.org/wiki/File:The_Loyalist_-_Jungle.ogg) | The Loyalist | CC BY 3.0 |
-| village | [Sound of church bells and birds.oga](https://commons.wikimedia.org/wiki/File:Sound_of_church_bells_and_birds.oga) | lezer | Public domain |
 | marche | [The Taste of Home.ogg](https://commons.wikimedia.org/wiki/File:The_Taste_of_Home.ogg) | ItzAbdullahi | CC BY-SA 4.0 |
 | rue | [Ambient sound street traffic Berlin 2026-05-17.oga](https://commons.wikimedia.org/wiki/File:Ambient_sound_street_traffic_Berlin_2026-05-17.oga) | SchlurcherBot | CC BY-SA 4.0 |
 | chantier | [Construction.ogg](https://commons.wikimedia.org/wiki/File:Construction.ogg) | Dsw4 | Public domain |
@@ -49,4 +48,3 @@ Enregistrements libres venus de Wikimedia Commons, raccourcis, mis en mono et co
 | klaxon | [Speeding-car-horn doppler effect sample.ogg](https://commons.wikimedia.org/wiki/File:Speeding-car-horn_doppler_effect_sample.ogg) | Magickallwiz | CC BY-SA 3.0 |
 | bateau | [WWS MSThti.ogg](https://commons.wikimedia.org/wiki/File:WWS_MSThti.ogg) | Work With Sounds / Werstas | CC BY 4.0 |
 | telephone | [Tone dialling phone germany.ogg](https://commons.wikimedia.org/wiki/File:Tone_dialling_phone_germany.ogg) | stephan | Public domain |
-| tambour | [Cowbell.ogg](https://commons.wikimedia.org/wiki/File:Cowbell.ogg) | Freddythehat at English Wikipedia | Public domain |
