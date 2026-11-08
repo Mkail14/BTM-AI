@@ -12,7 +12,7 @@ import { AMBIENCES, EFFECTS, defaultHeight, type Ambience, type Effect } from ".
 /** Bruits de fond qui durent toute la page, et bruits courts à un moment précis : voir bank.ts. */
 export { AMBIENCES, EFFECTS, type Ambience, type Effect };
 
-export const DISTANCES = ["tout-pres", "pres", "loin"] as const;
+export const DISTANCES = ["tout-pres", "pres", "loin", "tres-loin"] as const;
 export type Distance = (typeof DISTANCES)[number];
 /** Hauteur d'un son : le tonnerre en haut, des pas dans l'escalier en dessous. */
 export const HEIGHTS = ["haut", "milieu", "bas"] as const;
@@ -23,17 +23,23 @@ export type ScenePlace = (typeof PLACES)[number];
 
 export const NARRATOR = "narratrice";
 
-export const READING_LIMITS = { lines: 60, lineChars: 600, characters: 8, ambiences: 4, effectsPerLine: 3 } as const;
+export const READING_LIMITS = { lines: 60, lineChars: 600, characters: 8, ambiences: 4, effectsPerLine: 3, waypoints: 4 } as const;
 
 const angle = z.coerce.number().transform((n) => (Number.isFinite(n) ? Math.max(-180, Math.min(180, Math.round(n))) : 0));
 const distance = z.enum(DISTANCES).catch("pres");
 const height = z.enum(HEIGHTS).nullish().catch(null);
+
+/** Un point de passage : la voix ou le bruit passe par là pendant qu'il sonne. */
+const pointSchema = z.object({ cote: angle.catch(0), distance: distance.optional().default("pres"), hauteur: height });
+const trajet = z.array(pointSchema.nullable().catch(null)).max(10).catch([]).optional().default([]);
 
 const effectSchema = z.object({
   son: z.enum(EFFECTS),
   quand: z.enum(["avant", "pendant", "apres"]).catch("pendant"),
   cote: angle.catch(0),
   vers: angle.nullish().catch(null),
+  /** Points de passage entre le départ (cote) et l'arrivée (vers) : un scooter qui passe tout près puis repart loin. */
+  trajet,
   distance: distance.optional().default("pres"),
   hauteur: height,
 });
@@ -46,6 +52,10 @@ const lineSchema = z.object({
   hauteur: height,
   /** La voix arrive d'ailleurs et se déplace jusqu'à sa place (quelqu'un qui s'approche, qui passe). */
   depuis: z.object({ cote: angle.catch(0), distance: distance.optional().default("loin"), hauteur: height }).nullish().catch(null),
+  /** Points de passage pendant la réplique, avant d'arriver à sa place (quelqu'un qui tourne autour, qui fait les cent pas). */
+  trajet,
+  /** Narratrice seulement : elle imite un bruit (« toc, toc, toc ») et sa voix vient de l'endroit du bruit. */
+  bruitage: z.boolean().catch(false).optional().default(false),
   bruits: z.array(effectSchema.nullable().catch(null)).max(10).catch([]).optional().default([]),
 });
 
@@ -79,7 +89,10 @@ export const rawScriptSchema = z.object({
   repliques: z.array(lineSchema.nullable().catch(null)).max(200).catch([]).optional().default([]),
 });
 
-export type SoundCue = { sound: Effect; when: "avant" | "pendant" | "apres"; from: number; to: number | null; distance: Distance; height: Height };
+/** Une place autour de la tête (angle, distance, hauteur). */
+export type Waypoint = { side: number; distance: Distance; height: Height };
+/** path : les places où passe le bruit après son départ ; la dernière est son arrivée (vide : il ne bouge pas). */
+export type SoundCue = { sound: Effect; when: "avant" | "pendant" | "apres"; from: number; to: number | null; distance: Distance; height: Height; path: Waypoint[] };
 export type SceneLine = {
   /** null : la narratrice (la voix choisie par BTM pour Tamilya). */
   voice: GeminiVoiceId | null;
@@ -88,7 +101,11 @@ export type SceneLine = {
   side: number;
   distance: Distance;
   height: Height;
-  from: { side: number; distance: Distance; height: Height } | null;
+  from: Waypoint | null;
+  /** Places traversées pendant la réplique, avant d'arriver à sa place (side, distance, height). */
+  path: Waypoint[];
+  /** La narratrice imite un bruit : sa voix sort de l'endroit du bruit, pas du milieu de la tête. */
+  placed: boolean;
   cues: SoundCue[];
 };
 export type SceneAmbience = { sound: Ambience; side: number; distance: Distance; height: Height; volume: number; moving: boolean };
@@ -158,25 +175,41 @@ export function buildMeta(raw: unknown, narrator: GeminiVoiceId): MetaResult {
   return { ok: true, meta: { title: data.titre, place: data.lieu, intro: data.intro, outro: data.fin, ambiences }, cast: { voices, names } };
 }
 
+function waypoints(raw: ({ cote: number; distance: Distance; hauteur?: Height | null } | null)[], fallback: Height): Waypoint[] {
+  return raw
+    .filter((p): p is NonNullable<typeof p> => p !== null)
+    .slice(0, READING_LIMITS.waypoints)
+    .map((p) => ({ side: p.cote, distance: p.distance, height: p.hauteur ?? fallback }));
+}
+
 /** Une réplique, rangée dès qu'elle arrive. Null si elle est mal formée ou vide. */
 export function buildLine(raw: unknown, cast: Cast): SceneLine | null {
   const parsed = lineSchema.safeParse(raw);
   if (!parsed.success) return null;
   const line = parsed.data;
   const voice = line.qui === NARRATOR ? null : (cast.voices.get(line.qui) ?? null);
+  // La narratrice parle tout près, au milieu (c'est elle qui tient le livre), sauf quand elle imite un bruit.
+  const moves = voice !== null || line.bruitage;
+  const height = line.hauteur ?? "milieu";
   return {
     voice,
     speaker: voice ? (cast.names.get(line.qui) ?? line.qui) : "Tamilya",
     text: line.texte,
-    // La narratrice parle tout près, devant : c'est elle qui tient le livre.
-    side: voice ? line.cote : 0,
-    distance: voice ? line.distance : "tout-pres",
-    height: voice ? (line.hauteur ?? "milieu") : "milieu",
-    from: voice && line.depuis ? { side: line.depuis.cote, distance: line.depuis.distance, height: line.depuis.hauteur ?? line.hauteur ?? "milieu" } : null,
+    side: moves ? line.cote : 0,
+    distance: moves ? line.distance : "tout-pres",
+    height: moves ? height : "milieu",
+    from: moves && line.depuis ? { side: line.depuis.cote, distance: line.depuis.distance, height: line.depuis.hauteur ?? height } : null,
+    path: moves ? waypoints(line.trajet, height) : [],
+    placed: voice === null && line.bruitage,
     cues: line.bruits
       .filter((c): c is NonNullable<typeof c> => c !== null)
       .slice(0, READING_LIMITS.effectsPerLine)
-      .map((c) => ({ sound: c.son, when: c.quand, from: c.cote, to: c.vers ?? null, distance: c.distance, height: c.hauteur ?? DEFAULT_HEIGHT(c.son) ?? "milieu" })),
+      .map((c) => {
+        const cueHeight = c.hauteur ?? DEFAULT_HEIGHT(c.son) ?? "milieu";
+        const via = waypoints(c.trajet, cueHeight);
+        const end = c.vers === null || c.vers === undefined ? [] : [{ side: c.vers, distance: via.at(-1)?.distance ?? c.distance, height: cueHeight }];
+        return { sound: c.son, when: c.quand, from: c.cote, to: c.vers ?? null, distance: c.distance, height: cueHeight, path: [...via, ...end] };
+      }),
   };
 }
 

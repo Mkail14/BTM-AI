@@ -59,10 +59,48 @@ describe("Lecture en 3D : script de scène", () => {
     assert.equal(result.script.place, "plage");
     assert.equal(lines[2].height, "haut");
     assert.deepEqual(lines[1].from, { side: 170, distance: "loin", height: "milieu" });
-    assert.deepEqual(lines[0].cues, [{ sound: "rafale", when: "avant", from: -90, to: 90, distance: "pres", height: "milieu" }]);
+    assert.deepEqual(lines[0].cues, [
+      { sound: "rafale", when: "avant", from: -90, to: 90, distance: "pres", height: "milieu", path: [{ side: 90, distance: "pres", height: "milieu" }] },
+    ]);
+    assert.equal(lines[0].placed, false, "le récit reste au milieu");
     assert.equal(lines[2].cues[0].height, "bas", "des pas viennent du sol");
     assert.deepEqual(lines[2].cues.map((c) => c.sound), ["pas"], "bruit inconnu écarté");
     assert.deepEqual(ambiences.map((a) => a.sound), ["vagues", "vent"], "doublon et bruit inconnu écartés");
+  });
+
+  it("place la narratrice à l'endroit du bruit qu'elle imite, et suit les trajets", () => {
+    const result = buildScript(
+      {
+        ...raw,
+        repliques: [
+          { qui: "narratrice", texte: "Toc, toc, toc !", bruitage: true, cote: -80, distance: "pres", depuis: null, trajet: [] },
+          { qui: "narratrice", texte: "Personne ne répondit.", bruitage: false, cote: -80, distance: "loin" },
+          { qui: "pecheur", texte: "Je fais le tour.", cote: 90, trajet: [{ cote: -120, distance: "pres" }, { cote: 180, distance: "tout-pres", hauteur: "bas" }] },
+          {
+            qui: "narratrice",
+            texte: "Un scooter passa.",
+            bruits: [{ son: "pas", quand: "pendant", cote: -100, distance: "tres-loin", vers: 100, trajet: [{ cote: 0, distance: "tout-pres" }] }],
+          },
+        ],
+      },
+      "Leda",
+    );
+    assert.ok(result.ok);
+    const [knock, plain, walk, pass] = result.script.lines;
+    assert.deepEqual([knock.voice, knock.placed, knock.side, knock.distance], [null, true, -80, "pres"]);
+    assert.deepEqual([plain.placed, plain.side, plain.distance, plain.path], [false, 0, "tout-pres", []]);
+    assert.deepEqual(walk.path, [
+      { side: -120, distance: "pres", height: "milieu" },
+      { side: 180, distance: "tout-pres", height: "bas" },
+    ]);
+    assert.deepEqual(
+      pass.cues[0].path.map((p) => [p.side, p.distance]),
+      [
+        [0, "tout-pres"],
+        [100, "tout-pres"],
+      ],
+      "l'arrivée garde la distance du dernier point",
+    );
   });
 
   it("refuse une photo illisible avec la raison donnée", () => {
@@ -100,6 +138,24 @@ describe("Lecture en 3D : lieux et trajets", () => {
     const middle = between({ side: -90, distance: "loin", height: "bas" }, { side: 90, distance: "pres", height: "haut" }, 0.5);
     assert.equal(Math.round(middle.side), 0);
     assert.ok(middle.meters > 1.6 && middle.meters < 6);
+  });
+
+  it("un trajet passe par tous ses points, et ce qui traverse frôle la tête", () => {
+    const tour = [
+      { side: 90, distance: "pres" as const },
+      { side: 180, distance: "pres" as const },
+      { side: -90, distance: "pres" as const },
+    ];
+    assert.equal(Math.round(along(tour, 0).side), 90);
+    assert.equal(Math.round(Math.abs(along(tour, 0.5).side)), 180, "passe par derrière");
+    assert.equal(Math.round(along(tour, 1).side), -90);
+    const pass = flyby({ side: -80, distance: "loin" }, { side: 80, distance: "loin" });
+    assert.deepEqual(pass.map((p) => [Math.round(p.side), p.distance]), [
+      [-80, "loin"],
+      [0, "pres"],
+      [80, "loin"],
+    ]);
+    assert.equal(flyby({ side: 0, distance: "pres" }, { side: 40, distance: "pres" }).length, 2, "un petit pas de côté ne frôle rien");
   });
 });
 

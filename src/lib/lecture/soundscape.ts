@@ -15,13 +15,24 @@ import { prepareSounds, soundBuffer } from "./sounds";
  *   de la tête, aigus étouffés derrière. Mesuré dans Chrome : Resonance seul ne donnait que ~5 dB
  *   entre les oreilles pour un son sur le côté (~2 dB dans une pièce), et l'utilisateur ne sentait
  *   rien au casque. Avec les oreilles : des pas à gauche, 15 dB et 0,5 à 0,9 ms d'avance à gauche.
- * - La narratrice reste au milieu de la tête, sans écho : c'est elle qui tient le livre.
+ * - La narratrice reste au milieu de la tête, sans écho : c'est elle qui tient le livre. Quand
+ *   elle imite un bruit (« toc, toc, toc »), sa voix sort de l'endroit du bruit, puis revient.
+ * - Comme au cinéma, les voix et les bruits voyagent : par plusieurs points (quelqu'un qui tourne
+ *   autour de la tête), en gardant leur place d'une réplique à l'autre ; un bruit qui passe d'un
+ *   côté à l'autre frôle la tête, et sa hauteur de son monte puis descend (effet Doppler, un peu
+ *   forcé pour qu'on l'entende). Au loin, l'air étouffe les aigus ; tout près, la voix a plus de
+ *   graves et l'écart entre les oreilles grandit.
  *
  * Sans Resonance (chargement raté), le panneau 3D du navigateur (HRTF) prend le relais.
  * Toutes les attentes et tous les déplacements suivent l'horloge du son : la pause fige tout.
  */
 
-const METERS: Record<Distance, number> = { "tout-pres": 0.7, pres: 1.6, loin: 6 };
+const METERS: Record<Distance, number> = { "tout-pres": 0.7, pres: 1.6, loin: 6, "tres-loin": 14 };
+/** Un cran plus près : le milieu d'un bruit qui passe d'un côté à l'autre. */
+const CLOSER: Record<Distance, Distance> = { "tout-pres": "tout-pres", pres: "tout-pres", loin: "pres", "tres-loin": "loin" };
+/** Vitesse du son (m/s) et grossissement de l'effet Doppler (aux distances d'une scène, il serait inaudible). */
+const SOUND_SPEED = 343;
+const DOPPLER = 5;
 /** Hauteur en part de la distance (haut : ~40° au-dessus, bas : ~25° en dessous). */
 const LIFT: Record<Height, number> = { haut: 0.85, milieu: 0, bas: -0.45 };
 /** Largeur des bruits de fond, en degrés (360 : tout autour). */
@@ -57,13 +68,17 @@ export const ROOMS: Record<ScenePlace, Room> = {
   bateau: { dimensions: { width: 3, height: 2.2, depth: 8 }, materials: walls("wood-panel", "wood-panel") },
 };
 
-function point(place: Place, meters = METERS[place.distance]) {
+/** Une place précise, pendant un déplacement : distance en mètres et hauteur continues. */
+type Position = Place & { meters: number; lift: number };
+type Located = Place & { meters?: number; lift?: number };
+
+const liftOf = (place: Located) => place.lift ?? LIFT[place.height ?? "milieu"];
+
+function point(place: Located, meters = METERS[place.distance]) {
   const r = (place.side * Math.PI) / 180;
   // Auditeur en (0,0,0), qui regarde vers -z ; la droite est +x, le haut +y.
-  return { x: Math.sin(r) * meters, y: LIFT[place.height ?? "milieu"] * meters, z: -Math.cos(r) * meters };
+  return { x: Math.sin(r) * meters, y: liftOf(place) * meters, z: -Math.cos(r) * meters };
 }
-
-type Position = Place & { meters: number };
 
 /**
  * Les deux oreilles, comme le cerveau s'en sert pour savoir d'où vient un son :
@@ -77,6 +92,9 @@ type Position = Place & { meters: number };
  */
 function ears(ctx: BaseAudioContext, output: AudioNode) {
   const input = new GainNode(ctx, { gain: 1 });
+  // Tout près, la voix gagne des graves (comme quelqu'un qui parle à l'oreille).
+  const body = new BiquadFilterNode(ctx, { type: "lowshelf", frequency: 250, gain: 0 });
+  input.connect(body);
   const merger = new ChannelMergerNode(ctx, { numberOfInputs: 2 });
   merger.connect(output);
   const side = (channel: number) => {
@@ -84,7 +102,7 @@ function ears(ctx: BaseAudioContext, output: AudioNode) {
     const shadow = new BiquadFilterNode(ctx, { type: "lowpass", frequency: 18_000, Q: 0.5 });
     const air = new BiquadFilterNode(ctx, { type: "highshelf", frequency: 6_000, gain: 0 });
     const gain = new GainNode(ctx, { gain: 0 });
-    input.connect(delay).connect(shadow).connect(air).connect(gain).connect(merger, 0, channel);
+    body.connect(delay).connect(shadow).connect(air).connect(gain).connect(merger, 0, channel);
     return { delay, shadow, air, gain };
   };
   const left = side(0);
@@ -92,43 +110,88 @@ function ears(ctx: BaseAudioContext, output: AudioNode) {
   const smooth = (param: AudioParam, value: number) => param.setTargetAtTime(value, ctx.currentTime, 0.015);
   return {
     input,
-    set(angle: number, level: number, height: Height) {
+    set(angle: number, level: number, lift: number, meters: number) {
       const r = (angle * Math.PI) / 180;
       const lateral = Math.abs(Math.sin(r));
       const front = Math.cos(r);
       const itd = 0.000255 * (Math.asin(lateral) + lateral);
       const [near, far] = Math.sin(r) >= 0 ? [right, left] : [left, right];
       const behind = Math.max(0, -front);
-      const back = 18_000 * (4_500 / 18_000) ** behind;
+      // L'air étouffe les aigus avec la distance (≈ 15 kHz à 1,6 m, 7 kHz à 6 m, 4,5 kHz à 14 m).
+      const distant = 20_000 * Math.min(1, 1 / Math.max(1, meters) ** 0.55);
+      const back = Math.min(distant, 18_000 * (4_500 / 18_000) ** behind);
+      // Tout près, l'oreille opposée est encore plus dans l'ombre de la tête.
+      const close = Math.max(0, Math.min(1, (1.2 - meters) / 0.5));
+      smooth(body.gain, 5 * close);
       smooth(near.delay.delayTime, 0);
       smooth(far.delay.delayTime, itd);
       smooth(near.shadow.frequency, back);
       smooth(far.shadow.frequency, Math.min(back, 18_000 * (1_400 / 18_000) ** lateral));
       smooth(near.gain.gain, level * (1 + 0.25 * lateral));
-      smooth(far.gain.gain, level * (1 - 0.8 * lateral));
-      const lift = height === "haut" ? 5 : height === "bas" ? -4 : 0;
-      smooth(near.air.gain, lift);
-      smooth(far.air.gain, lift);
+      smooth(far.gain.gain, level * (1 - (0.8 + 0.12 * close) * lateral));
+      const shine = lift >= 0 ? lift * 5.9 : lift * 8.9;
+      smooth(near.air.gain, shine);
+      smooth(far.air.gain, shine);
     },
   };
 }
 
-/** Entre deux places, en arc autour de la tête (plus court chemin : de 170 à -170, par derrière). */
-export function between(from: Place, to: Place, x: number): Position {
+/** Longueur d'un bout de trajet (arc autour de la tête + rapprochement), pour garder une vitesse régulière. */
+function stretch(from: Place, to: Place): number {
+  let delta = Math.abs(to.side - from.side) % 360;
+  if (delta > 180) delta = 360 - delta;
+  const a = METERS[from.distance];
+  const b = METERS[to.distance];
+  return ((delta * Math.PI) / 180) * ((a + b) / 2) + Math.abs(b - a) + Math.abs(LIFT[to.height ?? "milieu"] - LIFT[from.height ?? "milieu"]) + 0.01;
+}
+
+/** Entre deux places, sans ralentir (x de 0 à 1). */
+function lerp(from: Place, to: Place, x: number): Position {
   let delta = to.side - from.side;
   if (delta > 180) delta -= 360;
   if (delta < -180) delta += 360;
-  const ease = x * x * (3 - 2 * x);
   const a = LIFT[from.height ?? "milieu"];
-  const lift = a + (LIFT[to.height ?? "milieu"] - a) * ease;
+  const lift = a + (LIFT[to.height ?? "milieu"] - a) * x;
   const height: Height = lift > 0.4 ? "haut" : lift < -0.2 ? "bas" : "milieu";
-  const meters = METERS[from.distance] + (METERS[to.distance] - METERS[from.distance]) * ease;
-  return { side: from.side + delta * ease, distance: to.distance, height, meters };
+  const meters = METERS[from.distance] + (METERS[to.distance] - METERS[from.distance]) * x;
+  let side = from.side + delta * x;
+  if (side > 180) side -= 360;
+  if (side < -180) side += 360;
+  return { side, distance: x < 0.5 ? from.distance : to.distance, height, meters, lift };
+}
+
+/** Le long d'un trajet à plusieurs points : démarre et s'arrête en douceur, vitesse régulière entre les deux. */
+export function along(points: Place[], x: number): Position {
+  if (points.length === 1) return lerp(points[0], points[0], 0);
+  const ease = x * x * (3 - 2 * x);
+  const lengths = points.slice(1).map((to, i) => stretch(points[i], to));
+  let rest = ease * lengths.reduce((sum, l) => sum + l, 0);
+  for (let i = 0; i < lengths.length; i++) {
+    if (rest <= lengths[i] || i === lengths.length - 1) return lerp(points[i], points[i + 1], Math.min(1, rest / lengths[i]));
+    rest -= lengths[i];
+  }
+  return lerp(points[0], points[0], 0);
+}
+
+/** Un bruit qui passe d'un côté à l'autre frôle la tête au lieu de tourner autour à distance égale. */
+export function flyby(from: Place, to: Place): Place[] {
+  let delta = to.side - from.side;
+  if (delta > 180) delta -= 360;
+  if (delta < -180) delta += 360;
+  if (Math.abs(delta) < 120 || from.distance === "tout-pres") return [from, to];
+  const middle: Place = { side: from.side + delta / 2, distance: CLOSER[from.distance], height: from.height };
+  return [from, middle, to];
+}
+
+/** Entre deux places, en arc autour de la tête (plus court chemin : de 170 à -170, par derrière). */
+export function between(from: Place, to: Place, x: number): Position {
+  return along([from, to], x);
 }
 
 /** Un son dans la scène : la source se branche sur input, la place change avec moveTo. */
-type Spot = { input: GainNode; moveTo(place: Place, meters?: number): void };
-type Path = { spot: Spot; from: Place; to: Place; start: number; duration: number };
+type Spot = { input: GainNode; moveTo(place: Located): void };
+/** rate : la vitesse de lecture du son, pour l'effet Doppler (bruits seulement : sur une voix, ce serait faux). */
+type Path = { spot: Spot; points: Place[]; start: number; duration: number; rate?: AudioParam; last?: { meters: number; time: number } };
 
 let resonanceModule: Promise<typeof import("resonance-audio") | null> | null = null;
 /** Charge Resonance une seule fois (à appeler tôt : pendant la préparation de la page). */
@@ -146,6 +209,8 @@ export class ScenePlayer {
   private scene: ResonanceScene | null;
   private beds = new Map<GainNode, number>();
   private voiceSpots = new Map<string, Spot>();
+  /** Où chaque voix s'est arrêtée : elle repart de là à la réplique suivante. */
+  private voicePlaces = new Map<string, Place>();
   private cueSpots: Spot[] = [];
   private cueSlot = 0;
   private paths = new Set<Path>();
@@ -203,22 +268,27 @@ export class ScenePlayer {
     if (source) input.connect(source.input);
     const spot: Spot = {
       input,
-      moveTo: (place, meters = METERS[place.distance]) => {
+      moveTo: (place) => {
+        const meters = place.meters ?? METERS[place.distance];
         if (source) {
           const p = point(place, meters);
           source.setPosition(p.x, p.y, p.z);
         }
-        ear.set(place.side, (focus * DIRECT) / Math.max(0.7, meters) ** 0.7, place.height ?? "milieu");
+        ear.set(place.side, (focus * DIRECT) / Math.max(0.7, meters) ** 0.7, liftOf(place), meters);
       },
     };
     spot.moveTo(place);
     return spot;
   }
 
-  /** Le son voyage de from à to, en arc autour de la tête. */
-  private glide(spot: Spot, from: Place, to: Place, start: number, duration: number) {
-    for (const path of this.paths) if (path.spot === spot) this.paths.delete(path);
-    this.paths.add({ spot, from, to, start, duration: Math.max(0.05, duration) });
+  /** Le son voyage par ces points, en arc autour de la tête (un seul point : il se pose là). */
+  private glide(spot: Spot, points: Place[], start: number, duration: number, rate?: AudioParam) {
+    for (const path of this.paths) {
+      if (path.spot !== spot) continue;
+      path.rate?.cancelScheduledValues(start);
+      this.paths.delete(path);
+    }
+    this.paths.add({ spot, points, start, duration: Math.max(0.05, duration), rate });
   }
 
   /** Avance les sons qui bougent (toutes les 25 ms). */
@@ -227,8 +297,17 @@ export class ScenePlayer {
     for (const path of this.paths) {
       if (now < path.start) continue;
       const x = Math.min(1, (now - path.start) / path.duration);
-      const position = between(path.from, path.to, x);
-      path.spot.moveTo(position, position.meters);
+      const position = along(path.points, x);
+      path.spot.moveTo(position);
+      if (path.rate) {
+        // Qui s'approche sonne plus aigu, qui s'éloigne plus grave.
+        if (path.last && now > path.last.time) {
+          const speed = (position.meters - path.last.meters) / (now - path.last.time);
+          const rate = Math.max(0.85, Math.min(1.18, SOUND_SPEED / (SOUND_SPEED + DOPPLER * speed)));
+          path.rate.setTargetAtTime(x >= 1 ? 1 : rate, now, 0.06);
+        }
+        path.last = { meters: position.meters, time: now };
+      }
       if (x >= 1) this.paths.delete(path);
     }
   }
@@ -283,7 +362,7 @@ export class ScenePlayer {
       const move = () => {
         if (this.stopped) return;
         const next: Place = { ...place, side: ambience.side + (Math.random() * 2 - 1) * reach };
-        this.glide(spot, current, next, this.ctx.currentTime, every - 0.3);
+        this.glide(spot, [current, next], this.ctx.currentTime, every - 0.3);
         current = next;
       };
       move();
@@ -308,41 +387,57 @@ export class ScenePlayer {
     this.setBeds(0, seconds / 4);
   }
 
-  /** Bruit court, à sa place ; s'il a une arrivée, il traverse pendant qu'il sonne. Renvoie sa durée (0 s'il n'est pas arrivé). */
+  /** Bruit court, à sa place ; s'il a un trajet, il voyage pendant qu'il sonne. Renvoie sa durée (0 s'il n'est pas arrivé). */
   playCue(cue: SoundCue, delay = 0): number {
     const buffer = soundBuffer(this.ctx, cue.sound);
     if (!buffer) return 0;
     const at = this.ctx.currentTime + delay;
     const from: Place = { side: cue.from, distance: cue.distance, height: cue.height };
+    const path: Place[] = cue.path ?? (cue.to === null ? [] : [{ ...from, side: cue.to }]);
+    const points = path.length === 1 ? flyby(from, path[0]) : [from, ...path];
     // Quelques places réutilisées à tour de rôle : une source 3D de plus à chaque bruit ferait ramer le téléphone.
     const slot = this.cueSlot++ % CUE_SLOTS;
     const spot = (this.cueSpots[slot] ??= this.spot(from));
-    this.glide(spot, from, from, at, 0.05);
-    if (cue.to !== null) this.glide(spot, from, { ...from, side: cue.to }, at, buffer.duration);
     const source = new AudioBufferSourceNode(this.ctx, { buffer });
+    this.glide(spot, [from], at, 0.05);
+    if (points.length > 1) this.glide(spot, points, at, buffer.duration, source.playbackRate);
     source.connect(new GainNode(this.ctx, { gain: 0.8 })).connect(spot.input);
     source.start(at);
     this.track(source);
     return buffer.duration;
   }
 
-  /** Une réplique : la narratrice au milieu de la tête, les personnages à leur place dans le lieu. */
-  playLine(line: Pick<SceneLine, "voice" | "side" | "distance" | "height" | "from">, voice: AudioBuffer): Promise<void> {
+  /**
+   * Une réplique : la narratrice au milieu de la tête (ou à l'endroit du bruit qu'elle imite),
+   * les personnages à leur place dans le lieu, qu'ils rejoignent en marchant s'ils en changent.
+   */
+  playLine(line: Pick<SceneLine, "voice" | "side" | "distance" | "height" | "from"> & Partial<Pick<SceneLine, "path" | "placed">>, voice: AudioBuffer): Promise<void> {
     if (this.stopped) return Promise.resolve();
     const source = new AudioBufferSourceNode(this.ctx, { buffer: voice });
-    if (line.voice === null) {
+    if (line.voice === null && !line.placed) {
       source.connect(this.stereo);
     } else {
+      const key = line.voice ?? "narratrice";
       const to: Place = { side: line.side, distance: line.distance, height: line.height };
-      // Une place par personnage, gardée d'une réplique à l'autre.
-      let spot = this.voiceSpots.get(line.voice);
-      if (!spot) this.voiceSpots.set(line.voice, (spot = this.spot(line.from ?? to)));
-      this.glide(spot, line.from ?? to, line.from ?? to, this.ctx.currentTime, 0.05);
-      // Quelqu'un qui s'approche ou qui passe : sa voix voyage pendant qu'il parle.
-      if (line.from) this.glide(spot, line.from, to, this.ctx.currentTime, Math.max(0.8, voice.duration * 0.8));
-      // Un personnage loin a besoin d'un peu plus de voix pour rester compréhensible.
-      const far = line.distance === "loin" || line.from?.distance === "loin";
-      source.connect(new GainNode(this.ctx, { gain: far ? 1.8 : 1.15 })).connect(spot.input);
+      // La narratrice qui imite un bruit part toujours de l'endroit du bruit ; un personnage repart d'où il était.
+      const start = line.from ?? (line.voice ? this.voicePlaces.get(key) : undefined) ?? to;
+      const points = [start, ...(line.path ?? []), to].filter(
+        (p, i, all) => i === 0 || p.side !== all[i - 1].side || p.distance !== all[i - 1].distance || p.height !== all[i - 1].height,
+      );
+      this.voicePlaces.set(key, to);
+      // Une place par voix, gardée d'une réplique à l'autre.
+      let spot = this.voiceSpots.get(key);
+      if (!spot) this.voiceSpots.set(key, (spot = this.spot(start)));
+      this.glide(spot, [start], this.ctx.currentTime, 0.05);
+      if (points.length > 1) {
+        // Un trajet décrit dure toute la réplique ; un simple changement de place, quelques pas.
+        const travels = Boolean(line.from) || Boolean(line.path?.length);
+        const duration = travels ? Math.max(0.8, voice.duration * 0.85) : Math.min(1.6, Math.max(0.6, voice.duration * 0.4));
+        this.glide(spot, points, this.ctx.currentTime, duration);
+      }
+      // Une voix loin a besoin d'un peu plus de force pour rester compréhensible.
+      const far = points.some((p) => p.distance === "tres-loin") ? 2.4 : points.some((p) => p.distance === "loin") ? 1.8 : 1.15;
+      source.connect(new GainNode(this.ctx, { gain: far })).connect(spot.input);
     }
     return new Promise((resolve) => {
       source.onended = () => resolve();
