@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `b2698d3` (2026-11-08)**
+**Dernier commit noté : `35bb5ef` (2026-11-08)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -93,6 +93,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-08
+- **Tamilya Connect : un téléphone neuf ne s'activait pas** (`35bb5ef`, et commit Android sur perf/connect-vitesse). Trouvé en testant avec le Redmi 15C : l'app demandait la clé publique du serveur avant d'enregistrer le téléphone, la maintenance refusait la clé, et l'enregistrement n'était jamais tenté. Clé publique ouverte pendant la maintenance, et l'app enregistre le téléphone d'abord. Essai réel : Redmi sans internet → tablette → site corrigé lancé sur l'ordinateur → réponse de Tamilya affichée sur le Redmi en environ 18 s.
 - **Page « Sons » dans l'admin** (`b2698d3`). Demande de l'utilisateur : il manque beaucoup de bruits dans les histoires ; il veut voir tous les sons, les brancher ou débrancher, les modifier et en ajouter, et que Tamilya les reprenne d'elle-même. /admin/sons : décors, bruits et musiques, chacun avec écoute, interrupteur, description (lue par Gemini), hauteur, largeur, « fait peur » ou « légère », fichier à remplacer ; ajout d'un son par envoi de fichier (3 Mo au plus). /api/lecture relit la liste à chaque histoire (gardée 20 s) : Gemini ne choisit que les sons branchés, le téléphone reçoit leurs adresses avec le début de l'histoire. Sans réglage, rien ne change. Pas encore essayé en vrai : premier ajout de son à faire par l'utilisateur.
 - **Tamilya Connect sans réponse pendant la maintenance** (`05df5c6`). Plainte de l'utilisateur : le téléphone voisin est trouvé, le message part, aucune réponse. Journaux des deux appareils : le relais (Redmi 15C) poste bien au serveur, qui répond la page d'attente (503, le proxy ne voit pas d'administrateur : le message arrive sans session) ; le relais réessaie sans fin. /api/mesh/relay reste ouverte, et le compte signataire décide (src/lib/mesh/closure.ts) : administrateur, vraie réponse ; sinon « Tamilya ouvre bientôt ». À vérifier sur les deux appareils une fois en ligne.
 - **Suppression de compte avec de l'argent** (`3c143f5`). Décision de l'utilisateur : compte banni, pas de remboursement ; sinon remboursement possible. Le portefeuille disparaît avec le compte : la demande de remboursement part par e-mail à contact@btm.yt avant la suppression, et la suppression est refusée si l'e-mail ne part pas.
