@@ -36,6 +36,8 @@ export type ChatStreamEvent =
   | { type: "speech"; text: string }
   /** Mode vocal : temps du serveur jusqu'au premier mot du modèle (chronométrage, /admin/voix). */
   | { type: "timing"; firstTokenMs: number }
+  /** Question difficile : l'équipe d'agents consultée avant la réponse (affiché pendant l'attente). */
+  | { type: "team"; agents: string[] }
   /** Mode maître : shimaoré retenu de ce message (affiché « ✓ Retenu » sous la réponse). */
   | { type: "learned"; words: { french: string; shimaore: string }[] }
   | { type: "done"; finishReason: FinishReason }

@@ -24,6 +24,8 @@ export type UiMessage = {
   notice?: string;
   /** Mode maître : shimaoré retenu du message auquel cette réponse répond. */
   learned?: { french: string; shimaore: string }[];
+  /** Question difficile : spécialistes consultés avant la réponse (montrés pendant l'attente). */
+  team?: string[];
 };
 
 /** Texte lisible d'une réponse : sans blocs spéciaux (commande, créneaux), sans Markdown. */
@@ -192,11 +194,14 @@ function AssistantMessage({ message, question }: { message: UiMessage; question?
       <AwaAvatar writing={writing} />
       <div className="relative min-w-0 flex-1 pt-1">
         {waiting ? (
-          <p className="flex h-6 items-center gap-1 text-[var(--persona,var(--fg-muted))]" aria-label="Tamilya rédige une réponse">
-            <span className="size-1.5 animate-bounce rounded-full bg-current" />
-            <span className="size-1.5 animate-bounce rounded-full bg-current [animation-delay:120ms]" />
-            <span className="size-1.5 animate-bounce rounded-full bg-current [animation-delay:240ms]" />
-          </p>
+          <div>
+            <p className="flex h-6 items-center gap-1 text-[var(--persona,var(--fg-muted))]" aria-label="Tamilya rédige une réponse">
+              <span className="size-1.5 animate-bounce rounded-full bg-current" />
+              <span className="size-1.5 animate-bounce rounded-full bg-current [animation-delay:120ms]" />
+              <span className="size-1.5 animate-bounce rounded-full bg-current [animation-delay:240ms]" />
+            </p>
+            {message.team?.length ? <p className="mt-1 text-xs text-fg-muted">Je consulte : {message.team.join(", ")}…</p> : null}
+          </div>
         ) : text ? (
           writing ? (
             // Point qui clignote au bout du texte pendant que Tamilya écrit.

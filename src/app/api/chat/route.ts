@@ -55,6 +55,9 @@ import { usesDemoWallet } from "@/lib/wallet/demo";
 import { loadRateLimitPolicies } from "@/lib/rate-limit/settings";
 import { getClientIp, hashIdentifier, isSameOrigin } from "@/lib/security/request";
 import { isChallenge, isComplexRequest, needsWebSearch } from "@/lib/ai/depth";
+import { planTeam } from "@/lib/ai/agents/plan";
+import { AGENT_LABELS, runTeam, teamBlock, teamSummary } from "@/lib/ai/agents/team";
+import { mayotteClock } from "@/lib/ai/clock";
 
 export const maxDuration = 120;
 
@@ -482,6 +485,16 @@ export async function POST(request: NextRequest) {
     foodOrder,
   });
   flow.step("prompt", true);
+  // Équipe d'agents (src/lib/ai/agents) : seulement pour une question difficile, à l'écrit, avec un compte,
+  // hors parcours dédiés. AI_AGENTS : « admin » (par défaut, essai réservé aux administrateurs), « all » ou « off ».
+  // Réservé d'abord aux administrateurs : l'équipe ajoute environ 10 s avant le premier mot (mesuré le 2026-11-08).
+  const agentsMode = process.env.AI_AGENTS?.trim() || "admin";
+  const agentsAllowed = agentsMode === "all" || (agentsMode === "admin" && Boolean(user?.isAdmin));
+  const dedicatedFlow = Boolean(foodQuery || foodGroup || bargeIntent || btmDevis || trip || cyclone || song || reading || attestation);
+  const teamPlan =
+    !agentsAllowed
+      ? null
+      : planTeam(body.message, { voice: Boolean(body.voice), master, dedicatedFlow, challenged, signedIn: Boolean(user) });
   // Mesures de vitesse, écrites dans les journaux du serveur en fin de réponse.
   const contextMs = Date.now() - startedAt;
   let firstTextMs: number | null = null;
@@ -579,16 +592,51 @@ export async function POST(request: NextRequest) {
         send({ type: "replace", text });
       };
 
+      // Équipe d'agents : notes préparées en parallèle, puis glissées dans les consignes de Tamilya,
+      // qui répond elle-même. Un agent en retard ou en panne est laissé de côté.
+      let finalSystem = system;
+      let finalSearch = search;
+      let teamSources: { title: string; url: string }[] = [];
+      if (teamPlan && teamPlan.specialists.length > 0) {
+        send({ type: "team", agents: teamPlan.specialists.map((id) => AGENT_LABELS[id]) });
+        try {
+          const result = await runTeam({
+            provider: ai.provider,
+            message: body.message,
+            history,
+            plan: teamPlan,
+            memories,
+            words: [...brain.lexicon, ...brain.words],
+            signal,
+            today: mayotteClock(),
+          });
+          console.info(`[agents] ${teamPlan.reason} : ${teamSummary(result)}`);
+          const block = teamBlock(result);
+          if (block) {
+            finalSystem = `${system}
+
+${block}`;
+            // Le chercheur a déjà cherché et trouvé ses sources : pas de seconde recherche, la réponse part plus vite.
+            if (result.sources.length) {
+              teamSources = result.sources;
+              finalSearch = false;
+            }
+          }
+        } catch (error) {
+          console.error("[agents] Équipe indisponible, Tamilya répond seule", error);
+        }
+      }
+
       // Chronométrage du vocal (journaux du serveur) : préparation avant l'appel au modèle.
       const modelStartMs = Date.now() - startedAt;
       try {
         for await (const chunk of ai.provider.stream({
-          system,
+          system: finalSystem,
           messages,
           persona: true,
           fast: body.voice,
           deep,
-          search,
+          search: finalSearch,
           // Réflexion approfondie : les « pensées » comptent dans la limite, on la relève pour ne pas couper la réponse.
           maxOutputTokens: body.voice
             ? Math.min(ai.config.maxOutputTokens, VOICE_MAX_OUTPUT_TOKENS)
@@ -629,7 +677,8 @@ export async function POST(request: NextRequest) {
         flush();
         closeTag();
         if (sentences) speakSentences(sentences.end());
-        // Sources de la recherche Google, sous la réponse (affichées et enregistrées avec elle).
+        // Sources de la recherche Google (la sienne, sinon celle du chercheur), sous la réponse.
+        if (!webSources.length) webSources = teamSources;
         if (webSources.length && text) {
           const list = `\n\n**Sources** : ${webSources.map((s) => `[${s.title.replace(/[\[\]]/g, "")}](${s.url})`).join(" · ")}`;
           text += list;

@@ -359,6 +359,13 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
           case "timing":
             if (spoken) markVoiceServer({ firstTokenMs: event.firstTokenMs });
             break;
+          case "team":
+            // Question difficile : Tamilya consulte son équipe, affiché sous les trois points d'attente.
+            if (!stale()) {
+              updateMessage(assistantId, (m) => ({ ...m, team: event.agents }));
+              setLiveStatus(`Tamilya consulte : ${event.agents.join(", ")}.`);
+            }
+            break;
           case "replace":
             // Mode maître : version corrigée de la réponse, à la place du texte reçu en direct.
             reply = event.text;

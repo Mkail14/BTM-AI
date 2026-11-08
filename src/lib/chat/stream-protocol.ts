@@ -5,7 +5,7 @@ export function encodeStreamEvent(event: ChatStreamEvent): string {
   return `${JSON.stringify(event)}\n`;
 }
 
-const EVENT_TYPES = new Set(["meta", "delta", "replace", "speech", "timing", "learned", "done", "error"]);
+const EVENT_TYPES = new Set(["meta", "delta", "replace", "speech", "timing", "team", "learned", "done", "error"]);
 
 function parseLine(line: string): ChatStreamEvent | null {
   const trimmed = line.trim();
