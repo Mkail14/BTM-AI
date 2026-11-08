@@ -12,7 +12,7 @@ const LOST = [
   "Toutes tes conversations avec Tamilya et leurs messages",
   "Ton profil et ton nom affiché",
   "Ce que Tamilya a retenu de toi, tes adresses et ton avis",
-  "Le solde de ton portefeuille",
+  "Le solde de ton portefeuille (il t'est remboursé, sauf si ton compte a été banni)",
   "Ton accès : il faudra créer un nouveau compte pour revenir",
 ];
 

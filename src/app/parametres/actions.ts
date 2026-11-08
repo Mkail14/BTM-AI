@@ -14,6 +14,8 @@ import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { deleteMyReview, saveMyReview } from "@/lib/reviews";
 import { publicName, reviewSchema } from "@/lib/reviews/rules";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { EMAIL_FROM_ADDRESS, emailConfigured, sendEmail } from "@/lib/email/send";
+import { euros, refundDecision, refundRequestEmail } from "@/lib/wallet/refund-on-delete";
 import { DELETE_CONFIRMATION } from "./confirmation";
 
 export type ProfileFormState = { status: "idle" | "saved" | "error"; message?: string };
@@ -61,6 +63,35 @@ export async function deleteAccountAction(confirmation: unknown): Promise<Profil
   const admin = getSupabaseAdminClient();
   if (!admin) return { status: "error", message: "La suppression est indisponible pour le moment." };
 
+  // Argent réel restant (le portefeuille disparaît avec le compte) : règle du 2026-11-08,
+  // compte banni = pas de remboursement, sinon remboursement dû. La demande part à l'équipe
+  // AVANT la suppression ; si elle ne part pas, on ne supprime pas (la trace serait perdue).
+  const [wallet, authUser] = await Promise.all([
+    admin.from("wallets").select("balance_cents").eq("user_id", user.id).maybeSingle(),
+    admin.auth.admin.getUserById(user.id),
+  ]);
+  if (wallet.error) {
+    console.error("[parametres] Solde illisible avant suppression", wallet.error);
+    return { status: "error", message: "La suppression est indisponible pour le moment. Réessaie." };
+  }
+  const refund = refundDecision({
+    balanceCents: Number(wallet.data?.balance_cents ?? 0),
+    demo: false,
+    bannedUntil: (authUser.data?.user as { banned_until?: string | null } | undefined)?.banned_until ?? null,
+  });
+  if (refund.kind === "request") {
+    try {
+      if (!emailConfigured()) throw new Error("e-mail non configuré");
+      await sendEmail(EMAIL_FROM_ADDRESS, refundRequestEmail({ userId: user.id, email: user.email ?? null, balanceCents: refund.balanceCents, at: new Date() }));
+    } catch (error) {
+      console.error("[parametres] Demande de remboursement non envoyée : suppression refusée", error);
+      return {
+        status: "error",
+        message: `Il te reste ${euros(refund.balanceCents)} : la demande de remboursement n'a pas pu partir. Réessaie dans un moment, ou écris à ${EMAIL_FROM_ADDRESS}.`,
+      };
+    }
+  }
+
   // Avant la suppression, qui efface le jeton : l'accès au Drive doit aussi être retiré chez Google.
   if (!user.isAdmin) await disconnectDrive(admin, user.id).catch(() => {});
 
@@ -78,7 +109,13 @@ export async function deleteAccountAction(confirmation: unknown): Promise<Profil
   // Efface les cookies de session (le jeton ne correspond plus à aucun compte).
   await supabase.auth.signOut({ scope: "local" }).catch(() => {});
   revalidatePath("/", "layout");
-  return { status: "saved", message: "Ton compte a été supprimé." };
+  return {
+    status: "saved",
+    message:
+      refund.kind === "request"
+        ? `Ton compte a été supprimé. Tes ${euros(refund.balanceCents)} vont t'être remboursés : l'équipe te contacte à ton adresse e-mail.`
+        : "Ton compte a été supprimé.",
+  };
 }
 
 /** Adresse du compte : livraisons et « près de chez moi » (bureau du code le plus proche…). */
