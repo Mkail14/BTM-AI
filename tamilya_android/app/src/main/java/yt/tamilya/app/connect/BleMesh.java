@@ -112,7 +112,8 @@ final class BleMesh {
         final BluetoothGatt gatt; // null : c'est lui qui s'est connecté à nous.
         final BluetoothDevice device;
         final ArrayDeque<byte[]> out = new ArrayDeque<>();
-        final Map<Integer, byte[][]> incoming = new HashMap<>();
+        /** Morceaux en attente, en nombre et en taille bornés (voir FrameAssembler). */
+        final FrameAssembler incoming = new FrameAssembler(Envelopes.MAX_BYTES + CHECK_BYTES);
         BluetoothGattCharacteristic pipe;
         String peer;
         int payload = 20 - HEADER;
@@ -148,8 +149,13 @@ final class BleMesh {
             events.onRadioProblem();
             return;
         }
+        // Android rend null si le Bluetooth s'éteint à ce moment : avant, plantage au démarrage du relais.
+        if (!openServer(manager)) {
+            Log.w(TAG, "Serveur Bluetooth indisponible");
+            events.onRadioProblem();
+            return;
+        }
         running = true;
-        openServer(manager);
         advertise();
         scanCycle.run();
     }
@@ -180,15 +186,24 @@ final class BleMesh {
         onScreen = value;
         if (!running) return;
         Log.i(TAG, value ? "Écoute à l'écran" : "Écoute économe");
+        // Les deux étapes du cycle : sans retirer « pause », chaque passage écran/arrière-plan
+        // ajoutait un cycle de plus. Les recherches se multipliaient, Android finissait par les bloquer.
         main.removeCallbacks(scanCycle);
+        main.removeCallbacks(pause);
         stopScan();
-        advertiser.stopAdvertising(advertising);
-        advertise();
+        try {
+            advertiser.stopAdvertising(advertising);
+            advertise();
+        } catch (RuntimeException e) {
+            // Bluetooth coupé à l'instant : avant, l'app plantait en quittant l'écran.
+            Log.w(TAG, "Annonce non relancée : " + e.getClass().getSimpleName());
+        }
         scanCycle.run();
     }
 
-    private void openServer(BluetoothManager manager) {
+    private boolean openServer(BluetoothManager manager) {
         server = manager.openGattServer(context, serverEvents);
+        if (server == null) return false;
         serverPipe = new BluetoothGattCharacteristic(PIPE,
                 BluetoothGattCharacteristic.PROPERTY_WRITE | BluetoothGattCharacteristic.PROPERTY_NOTIFY,
                 BluetoothGattCharacteristic.PERMISSION_WRITE);
@@ -197,6 +212,7 @@ final class BleMesh {
         BluetoothGattService service = new BluetoothGattService(SERVICE, BluetoothGattService.SERVICE_TYPE_PRIMARY);
         service.addCharacteristic(serverPipe);
         server.addService(service);
+        return true;
     }
 
     private void advertise() {
@@ -533,23 +549,10 @@ final class BleMesh {
             hello(link, new String(body, StandardCharsets.UTF_8));
             return;
         }
-        if (link.peer == null || total == 0 || index >= total || total > Envelopes.MAX_BYTES) return;
-        byte[][] parts = link.incoming.get(message);
-        if (parts == null || parts.length != total) {
-            parts = new byte[total][];
-            link.incoming.put(message, parts);
-        }
-        parts[index] = body;
-        int size = 0;
-        for (byte[] part : parts) {
-            if (part == null) return;
-            size += part.length;
-        }
-        link.incoming.remove(message);
-        ByteBuffer whole = ByteBuffer.allocate(size);
-        for (byte[] part : parts) whole.put(part);
-        whole.flip();
-        if (size < CHECK_BYTES) return;
+        if (link.peer == null) return;
+        byte[] complete = link.incoming.add(message, index, total, body);
+        if (complete == null || complete.length < CHECK_BYTES) return;
+        ByteBuffer whole = ByteBuffer.wrap(complete);
         long expected = whole.getLong();
         byte[] data = new byte[whole.remaining()];
         whole.get(data);
