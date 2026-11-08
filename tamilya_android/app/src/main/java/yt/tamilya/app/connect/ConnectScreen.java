@@ -40,6 +40,8 @@ final class ConnectScreen extends LinearLayout {
         void deleteMessage(String id);
         /** Page du site choisie dans le menu (« /parametres »). */
         void openPage(String path);
+        /** « Obtenir de l'aide » : la page d'aide de l'app, par-dessus Connect. */
+        void help();
     }
 
     private static final int INK = Color.parseColor("#111111");
@@ -229,29 +231,41 @@ final class ConnectScreen extends LinearLayout {
         LinearLayout row = new LinearLayout(getContext());
         row.setOrientation(HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(14), dp(12), dp(14), dp(12));
-        row.setBackground(round(current ? MINE : THEIRS, 14));
+        // Comme l'historique du site (ConversationItem.tsx) : une ligne simple, sans cadre ; seule la
+        // conversation ouverte est surlignée. Plus de mot « Tamilya » sur chaque ligne ni de corbeille
+        // partout : on supprime par un appui long (avec confirmation), comme sur le site au doigt.
+        row.setPadding(dp(12), dp(11), dp(12), dp(11));
+        if (current) row.setBackground(round(THEIRS, 10));
         row.setClickable(true);
         row.setOnClickListener(v -> actions.openConversation(item.optString("id")));
+        row.setOnLongClickListener(v -> {
+            v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+            actions.deleteConversation(item.optString("id"));
+            return true;
+        });
+        String name = item.optString("title", "Conversation");
+        row.setContentDescription(name + (connect ? ", Tamilya Connect" : "") + ". Appui long pour supprimer.");
 
-        TextView title = text(item.optString("title", "Conversation"), 15, CREAM);
+        TextView title = text(name, 15, current ? CREAM : Color.parseColor("#D9D4CB"));
+        if (current) title.setTypeface(title.getTypeface(), android.graphics.Typeface.BOLD);
         title.setSingleLine(true);
         title.setEllipsize(android.text.TextUtils.TruncateAt.END);
         row.addView(title, new LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-        TextView tag = text(connect ? "Connect" : "Tamilya", 12, connect ? ACCENT : MUTED);
-        tag.setPadding(dp(10), 0, 0, 0);
-        row.addView(tag);
-        android.widget.ImageView trash = new android.widget.ImageView(getContext());
-        trash.setImageResource(yt.tamilya.app.R.drawable.ic_corbeille);
-        trash.setColorFilter(MUTED);
-        trash.setPadding(dp(12), dp(4), 0, dp(4));
-        trash.setContentDescription("Supprimer cette conversation");
-        trash.setClickable(true);
-        trash.setOnClickListener(v -> actions.deleteConversation(item.optString("id")));
-        row.addView(trash, new LayoutParams(dp(36), dp(28)));
+        if (connect) {
+            // Petite marque discrète, comme sur le site.
+            TextView tag = text("Connect", 10, MUTED);
+            tag.setPadding(dp(6), dp(1), dp(6), dp(1));
+            android.graphics.drawable.GradientDrawable pill = new android.graphics.drawable.GradientDrawable();
+            pill.setCornerRadius(dp(10));
+            pill.setStroke(dp(1), SURFACE);
+            tag.setBackground(pill);
+            LayoutParams tagParams = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            tagParams.leftMargin = dp(8);
+            row.addView(tag, tagParams);
+        }
 
         LinearLayout box = new LinearLayout(getContext());
-        box.setPadding(0, dp(4), 0, dp(4));
+        box.setPadding(0, dp(1), 0, dp(1));
         box.addView(row, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         return box;
     }

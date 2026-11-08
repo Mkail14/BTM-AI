@@ -23,7 +23,8 @@ import yt.tamilya.app.R;
  * L'image du motif n'est préparée qu'au premier affichage, pour ne pas ralentir l'ouverture de l'app.
  */
 final class LagonDrawable extends Drawable {
-    private static final float LINES_OPACITY = 0.26f;
+    // 0,26 jusqu'au 2026-11-08 : sur la tablette, les lignes couvraient tout l'écran (« ça fait peur »).
+    private static final float LINES_OPACITY = 0.12f;
     private static final int LARGE_SCREEN_DP = 768;
     private static final int MAX_TILE_PX = 1024;
 

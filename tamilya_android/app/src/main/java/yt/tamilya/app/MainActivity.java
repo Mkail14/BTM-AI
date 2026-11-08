@@ -135,6 +135,8 @@ public class MainActivity extends Activity {
     private final ArrayList<Runnable> ttsWaiting = new ArrayList<>();
 
     private TamilyaConnect connect;
+    /** « Obtenir de l'aide » de l'app : la page /aide du site n'y est jamais ouverte. */
+    private HelpScreen help;
     /** Moteur et styles des cartes, rangés dans l'APK et mis à jour tout seuls. */
     private MapCache mapCache;
     private ConnectivityManager connectivity;
@@ -186,6 +188,33 @@ public class MainActivity extends Activity {
             public void openPage(String path) {
                 // Sans internet, la page dit qu'il faut internet, comme partout ailleurs dans l'app.
                 web.loadUrl(SITE_ORIGIN + path);
+            }
+
+            @Override
+            public void openHelp() {
+                help.show();
+            }
+        });
+        help = new HelpScreen(this, new HelpScreen.Host() {
+            @Override
+            public void openPage(String path) {
+                if (connect.isOpen()) connect.close();
+                web.loadUrl(SITE_ORIGIN + path);
+            }
+
+            @Override
+            public String cookies() {
+                return CookieManager.getInstance().getCookie(HOME);
+            }
+
+            @Override
+            public String accountEmail() {
+                return connect.accountEmail();
+            }
+
+            @Override
+            public void feedback(String kind) {
+                MainActivity.this.feedback(kind);
             }
         });
         content.addView(connect.view(), match());
@@ -524,6 +553,12 @@ public class MainActivity extends Activity {
                 || host.equals("checkout.stripe.com") || host.equals("hooks.stripe.com");
     }
 
+    /** La page /aide du site : dans l'app, c'est la page d'aide native qui s'ouvre. */
+    private static boolean isHelpPage(Uri uri) {
+        String path = uri.getPath();
+        return isSiteOrigin(uri) && path != null && (path.equals("/aide") || path.equals("/aide/"));
+    }
+
     private static boolean isSiteOrigin(Uri origin) {
         return origin != null && "https".equals(origin.getScheme()) && SITE_HOST.equals(origin.getHost());
     }
@@ -599,6 +634,20 @@ public class MainActivity extends Activity {
                 + "if(!window.TamilyaFiles)window.TamilyaFiles={savePdf:function(n,b){TamilyaNative.savePdf(token,String(n),String(b));}};"
                 // Prévient le site (fenêtre de connexion déjà ouverte) que le bouton Google natif est prêt.
                 + "try{window.dispatchEvent(new Event('tamilya-native-ready'));}catch(e){}"
+                // Pas de zoom dans l'app (deux doigts, double appui) : l'écran reste fixe, comme une app.
+                // La carte garde son propre zoom (MapLibre gère ses gestes lui-même).
+                + "if(!window.__tamilyaNoZoom){window.__tamilyaNoZoom=1;"
+                + "var vp='width=device-width,initial-scale=1,minimum-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content';"
+                + "var lock=function(){var m=document.querySelector('meta[name=viewport]');if(!m){m=document.createElement('meta');m.name='viewport';(document.head||document.documentElement).appendChild(m);}if(m.content!==vp)m.content=vp;};"
+                + "lock();new MutationObserver(lock).observe(document.head||document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['content']});"
+                // Le rond d'aide du site (HelpBubble.tsx) reste au site web : dans l'app, l'aide passe
+                // par « Obtenir de l'aide » du menu (HelpScreen).
+                + "var z=document.createElement('style');z.textContent='html,body{touch-action:pan-x pan-y}[data-help-bubble],.help-panel,.help-backdrop{display:none!important}';(document.head||document.documentElement).appendChild(z);"
+                + "document.addEventListener('touchmove',function(e){if(e.touches.length>1&&!(e.target.closest&&e.target.closest('.maplibregl-map')))e.preventDefault();},{passive:false,capture:true});"
+                + "document.addEventListener('gesturestart',function(e){e.preventDefault();});}"
+                // Liens vers /aide (menu du compte…) : la page d'aide de l'app, avant que le site ne change de page.
+                + "if(!window.__tamilyaHelp){window.__tamilyaHelp=1;document.addEventListener('click',function(e){var a=e.target&&e.target.closest&&e.target.closest('a[href]');"
+                + "if(!a||a.origin!==location.origin||(a.pathname!=='/aide'&&a.pathname!=='/aide/'))return;e.preventDefault();e.stopPropagation();TamilyaNative.openHelp(token);},true);}"
                 + "if(window.__tamilyaVoice)return;"
                 + "var st=document.createElement('style');"
                 + "st.textContent='.voice-halo{display:none!important}.voice-overlay[data-compact]::after{content:\"\";position:fixed;inset:-24px;z-index:-1;pointer-events:none;opacity:.35;border-radius:64px;box-shadow:inset 34px 0 60px -22px #4dd2ff,inset -34px 0 60px -22px #ff4dd8,inset 0 34px 60px -22px #7a5cff,inset 0 -34px 60px -22px #ff9a5c;transition:opacity .6s ease;animation:tamilya-glow 6s ease-in-out infinite alternate}.voice-overlay[data-compact]:has([data-state=waiting])::after{opacity:.6}.voice-overlay[data-compact]:has([data-state=speaking])::after{opacity:.9}@keyframes tamilya-glow{from{filter:hue-rotate(-22deg)}to{filter:hue-rotate(22deg)}}@media (prefers-reduced-motion:reduce){.voice-overlay[data-compact]::after{animation:none}}"
@@ -845,6 +894,12 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface
+        public void openHelp(String token) {
+            if (!bridgeToken.equals(token)) return;
+            main.post(() -> help.show());
+        }
+
+        @JavascriptInterface
         public void startListening(String token, String lang) {
             if (!bridgeToken.equals(token)) return;
             main.post(() -> startSpeech(lang));
@@ -1013,9 +1068,23 @@ public class MainActivity extends Activity {
         public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
             if (!request.isForMainFrame()) return false;
             Uri uri = request.getUrl();
+            if (isHelpPage(uri)) {
+                help.show();
+                return true;
+            }
             if (staysInApp(uri)) return false;
             openExternally(uri);
             return true;
+        }
+
+        @Override
+        public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
+            // Arrivée sur /aide sans clic (lien d'une autre app, navigation du site) : retour à la
+            // page d'avant, ou à l'accueil, et la page d'aide de l'app s'ouvre.
+            if (!isHelpPage(Uri.parse(String.valueOf(url)))) return;
+            if (view.canGoBack()) view.goBack();
+            else view.loadUrl(HOME);
+            help.show();
         }
 
         @Override
@@ -1175,7 +1244,8 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (connect.isOpen()) connect.close();
+        if (help.isOpen()) help.close();
+        else if (connect.isOpen()) connect.close();
         else if (web.canGoBack()) web.goBack();
         else super.onBackPressed();
     }

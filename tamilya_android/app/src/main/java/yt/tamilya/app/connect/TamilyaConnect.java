@@ -59,6 +59,8 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         void onConnectClosed();
         /** Ouvre une page du site dans l'app (« /parametres »). */
         void openPage(String path);
+        /** Ouvre la page d'aide de l'app (HelpScreen), sans fermer Connect. */
+        void openHelp();
     }
 
     private final Activity activity;
@@ -271,7 +273,12 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
 
     /** En ligne et connecté : garde la liste du compte et les dernières conversations pour le hors ligne. */
     private void refreshHistory(String accountCookies) {
-        if (accountCookies == null || !accountCookies.contains("-auth-token")) return;
+        if (accountCookies == null) return;
+        if (!accountCookies.contains("-auth-token")) {
+            // En ligne mais déconnecté : on oublie le nom et le solde (téléphone prêté ou partagé).
+            if (store.account().length() > 0) store.saveAccount(new JSONObject());
+            return;
+        }
         cookies = accountCookies;
         long now = System.currentTimeMillis();
         if (historySyncing || now - historySyncedAt < HISTORY_REFRESH_MS) return;
@@ -282,6 +289,13 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
                 for (String gone : store.pendingDeletes()) {
                     ConnectApi.deleteConversation(gone, accountCookies);
                     store.setPendingDelete(gone, false);
+                }
+                // Nom et solde, gardés pour le menu sans internet (sinon il affichait « Se connecter »
+                // alors que le compte était connecté). À part : un échec ne bloque pas l'historique.
+                try {
+                    store.saveAccount(ConnectApi.account(accountCookies));
+                } catch (Exception ignored) {
+                    // Dernier compte connu gardé.
                 }
                 JSONArray server = ConnectApi.conversations(accountCookies);
                 store.saveHistory(ConnectHistory.merge(server, store.history()));
@@ -335,6 +349,16 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
     public void openPage(String path) {
         close();
         host.openPage(path);
+    }
+
+    @Override
+    public void help() {
+        host.openHelp();
+    }
+
+    /** E-mail du compte lu au dernier passage avec internet, ou « ». */
+    public String accountEmail() {
+        return store.account().optString("email", "");
     }
 
     @Override

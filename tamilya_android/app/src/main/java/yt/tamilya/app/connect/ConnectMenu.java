@@ -47,6 +47,7 @@ final class ConnectMenu {
     private final View dim;
     private final LinearLayout panel;
     private boolean leaving;
+    private boolean hasHistory;
 
     ConnectMenu(Context context, ConnectScreen screen, ConnectScreen.Actions actions) {
         this.context = context;
@@ -90,6 +91,7 @@ final class ConnectMenu {
         panel.addView(top());
         panel.addView(historyTitle());
         panel.addView(historyList(history, currentId), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        hasHistory = history.length() > 0;
         panel.addView(bottom(account));
         dialog.show();
         // Glisse depuis la gauche, le fond s'assombrit.
@@ -159,7 +161,7 @@ final class ConnectMenu {
         ScrollView scroll = new ScrollView(context);
         LinearLayout list = new LinearLayout(context);
         list.setOrientation(LinearLayout.VERTICAL);
-        list.setPadding(dp(12), 0, dp(12), dp(8));
+        list.setPadding(dp(8), 0, dp(8), dp(8));
         if (history.length() == 0) {
             TextView empty = text("Tes conversations enregistrées apparaîtront ici. Il faut internet une première fois pour les récupérer.", 14, MUTED);
             empty.setPadding(dp(8), 0, dp(8), 0);
@@ -174,8 +176,11 @@ final class ConnectMenu {
             if (box instanceof ViewGroup && ((ViewGroup) box).getChildCount() > 0) {
                 ViewGroup row = (ViewGroup) ((ViewGroup) box).getChildAt(0);
                 row.setOnClickListener(then(() -> actions.openConversation(id)));
-                View trash = row.getChildAt(row.getChildCount() - 1);
-                if (trash != null && trash.isClickable()) trash.setOnClickListener(then(() -> actions.deleteConversation(id)));
+                row.setOnLongClickListener(v -> {
+                    v.performHapticFeedback(android.view.HapticFeedbackConstants.LONG_PRESS);
+                    then(() -> actions.deleteConversation(id)).onClick(v);
+                    return true;
+                });
             }
             list.addView(box);
         }
@@ -195,7 +200,9 @@ final class ConnectMenu {
 
         String name = account.optString("name", "");
         String email = account.optString("email", "");
-        if (name.isEmpty() && email.isEmpty()) {
+        // Compte pas encore retenu, mais un historique existe : la personne est connectée, on ne lui
+        // propose pas « Se connecter » (il faut juste internet une fois pour afficher son nom).
+        if (name.isEmpty() && email.isEmpty() && !hasHistory) {
             // Pas encore de compte connu sur ce téléphone : comme sur le site sans compte.
             box.addView(item("Paramètres", () -> actions.openPage("/parametres")));
             TextView login = text("Se connecter", 15, Color.WHITE);
@@ -227,7 +234,7 @@ final class ConnectMenu {
         menu.addView(item("Mes documents", () -> actions.openPage("/documents")));
         menu.addView(item("Paramètres", () -> actions.openPage("/parametres")));
         menu.addView(item("Utilisation", () -> actions.openPage("/utilisation")));
-        menu.addView(item("Obtenir de l'aide", () -> actions.openPage("/aide")));
+        menu.addView(item("Obtenir de l'aide", actions::help));
         View rule = new View(context);
         rule.setBackgroundColor(LINE);
         LinearLayout.LayoutParams ruleParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1);
@@ -250,7 +257,9 @@ final class ConnectMenu {
         who.setPadding(dp(8), dp(8), dp(8), dp(8));
         who.setClickable(true);
         who.setContentDescription("Mon compte");
-        String shown = name.isEmpty() ? email : name;
+        String nameOrEmail = name.isEmpty() ? email : name;
+        // Compte connecté mais pas encore retenu (jamais eu internet depuis) : libellé neutre.
+        String shown = nameOrEmail.isEmpty() ? "Mon compte" : nameOrEmail;
         TextView initial = text(shown.substring(0, 1).toUpperCase(Locale.FRANCE), 14, Color.WHITE);
         initial.setTypeface(initial.getTypeface(), Typeface.BOLD);
         initial.setGravity(Gravity.CENTER);
