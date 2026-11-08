@@ -160,6 +160,7 @@ public class MainActivity extends Activity {
     protected void onCreate(Bundle state) {
         // Version de test : temps dans logcat (TamilyaPerf). « --ez strict true » allume StrictMode.
         Perf.on = (getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0;
+        if (Perf.on) yt.tamilya.app.connect.ConnectApi.useTestRelay();
         if (Perf.on && getIntent().getBooleanExtra("strict", false)) {
             android.os.StrictMode.setThreadPolicy(new android.os.StrictMode.ThreadPolicy.Builder()
                     .detectAll().penaltyLog().build());

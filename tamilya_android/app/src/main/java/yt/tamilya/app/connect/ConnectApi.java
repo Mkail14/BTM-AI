@@ -13,8 +13,25 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 
 /** Appels au site pour Tamilya Connect. À lancer hors du fil principal. */
-final class ConnectApi {
+public final class ConnectApi {
     static final String BASE = "https://tamilya.yt";
+    /**
+     * Où poster les messages relayés. Version de test seulement : « adb shell setprop
+     * debug.tamilya.relay http://127.0.0.1:3100 » (+ adb reverse) les envoie au site lancé sur
+     * l'ordinateur, pour essayer une correction du serveur avant sa mise en ligne.
+     */
+    private static volatile String relayBase = BASE;
+
+    /** Appelé au démarrage de la version de test uniquement (MainActivity). */
+    public static void useTestRelay() {
+        try {
+            String value = (String) Class.forName("android.os.SystemProperties").getMethod("get", String.class).invoke(null, "debug.tamilya.relay");
+            // Seulement l'ordinateur branché (adb reverse) : jamais un autre serveur.
+            if (value != null && value.matches("http://(127\\.0\\.0\\.1|localhost):\\d{2,5}")) relayBase = value;
+        } catch (Exception ignored) {
+            // Propriété illisible : le vrai site.
+        }
+    }
     private static final int TIMEOUT_MS = 20_000;
     private static final int MAX_RESPONSE = 64 * 1024;
     /** Une conversation entière pèse plus qu'une enveloppe du relais. */
@@ -68,7 +85,7 @@ final class ConnectApi {
      */
     static String relay(String envelope) throws IOException {
         try {
-            return call("POST", "/api/mesh/relay", envelope, null);
+            return call("POST", relayBase, "/api/mesh/relay", envelope, null, MAX_RESPONSE);
         } catch (HttpError e) {
             String code = "unavailable";
             try {
@@ -98,7 +115,11 @@ final class ConnectApi {
     }
 
     private static String call(String method, String path, String body, String cookies, int maxResponse) throws IOException {
-        HttpURLConnection connection = (HttpURLConnection) new URL(BASE + path).openConnection();
+        return call(method, BASE, path, body, cookies, maxResponse);
+    }
+
+    private static String call(String method, String base, String path, String body, String cookies, int maxResponse) throws IOException {
+        HttpURLConnection connection = (HttpURLConnection) new URL(base + path).openConnection();
         try {
             connection.setRequestMethod(method);
             connection.setConnectTimeout(TIMEOUT_MS);
