@@ -98,6 +98,8 @@ final class BleMesh {
     private boolean running;
     private boolean scanning;
     private boolean onScreen = true;
+    /** Connect ouvert à l'écran : recherche à pleine vitesse. Sinon (site à l'écran), recherche équilibrée. */
+    private boolean eager;
     private int nextMessage;
 
     BleMesh(Context context, String self, Events events) {
@@ -178,6 +180,20 @@ final class BleMesh {
         if (server != null) server.close();
         server = null;
         backoff.clear();
+    }
+
+    /**
+     * Avant, l'app à l'écran cherchait à pleine vitesse 8 s sur 10, même sur le site avec internet.
+     * Maintenant, pleine vitesse seulement quand Connect est ouvert ; sinon mode équilibré
+     * (mêmes périodes, le téléphone relaie toujours), ce qui ménage la batterie.
+     */
+    void setEager(boolean value) {
+        if (eager == value) return;
+        eager = value;
+        if (!running || !scanning) return;
+        // Recherche en cours : relancée tout de suite avec la nouvelle vitesse.
+        stopScan();
+        startScan();
     }
 
     /** À l'écran : on cherche souvent. En arrière-plan : le strict minimum. */
@@ -269,9 +285,11 @@ final class BleMesh {
     private void startScan() {
         if (scanning) return;
         try {
-            // Période très courte : autant écouter à fond pendant qu'elle dure.
+            // Période très courte en arrière-plan : autant écouter à fond pendant qu'elle dure.
+            // À l'écran sans Connect ouvert, les périodes sont longues : mode équilibré.
+            int mode = onScreen && !eager ? ScanSettings.SCAN_MODE_BALANCED : ScanSettings.SCAN_MODE_LOW_LATENCY;
             ScanSettings settings = new ScanSettings.Builder()
-                    .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                    .setScanMode(mode)
                     .build();
             List<ScanFilter> filters = Collections.singletonList(
                     new ScanFilter.Builder().setServiceUuid(new ParcelUuid(SERVICE)).build());

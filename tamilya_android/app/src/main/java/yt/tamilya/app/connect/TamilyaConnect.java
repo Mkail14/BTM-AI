@@ -72,7 +72,10 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
     /** À part : lire l'historique ne doit pas retarder un message. */
     private final ExecutorService historyIo = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
-    private final ConnectScreen screen;
+    /** Place réservée dans l'activité ; l'écran lui-même n'est construit qu'à la première ouverture. */
+    private final android.widget.FrameLayout holder;
+    private ConnectScreen screen;
+    private int peerCount = -1;
     private final MeshRelay mesh;
     private boolean syncing;
 
@@ -80,26 +83,53 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         this.activity = activity;
         this.host = host;
         this.store = new ConnectStore(activity);
-        this.screen = new ConnectScreen(activity, this);
-        this.screen.setVisibility(View.GONE);
+        // Avant, l'écran (vues, globe, fond) était construit à chaque démarrage, même sans servir.
+        this.holder = new android.widget.FrameLayout(activity);
+        this.holder.setVisibility(View.GONE);
         this.mesh = MeshRelay.shared(activity);
         this.mesh.setListener(this);
         restorePending();
+        // Une fois : les anciennes conversations quittent SharedPreferences pour leurs fichiers, hors du fil principal.
+        historyIo.execute(() -> {
+            long moving = Perf.start("connect.migration");
+            int moved = store.migrateThreads();
+            Perf.end("connect.migration " + moved, moving);
+        });
     }
 
     public View view() {
+        return holder;
+    }
+
+    /** Construit l'écran la première fois qu'il sert. */
+    private ConnectScreen screen() {
+        if (screen == null) {
+            long building = Perf.start("connect.screen");
+            screen = new ConnectScreen(activity, this);
+            screen.setVisibility(View.GONE);
+            if (peerCount >= 0) screen.setPeers(peerCount);
+            holder.addView(screen, new android.widget.FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+            holder.setVisibility(View.VISIBLE);
+            Perf.end("connect.screen", building);
+        }
         return screen;
     }
 
+    /** Message en haut de l'écran ; rien à montrer tant que l'écran n'existe pas. */
+    private void notice(String message) {
+        if (screen != null) notice(message);
+    }
+
     public boolean isOpen() {
-        return screen.getVisibility() == View.VISIBLE && !closing;
+        return screen != null && screen.getVisibility() == View.VISIBLE && !closing;
     }
 
     private boolean closing;
 
     /** Fermeture par le geste : seulement quand la discussion est tout en bas. */
     public boolean atBottom() {
-        return screen.atBottom();
+        return screen == null || screen.atBottom();
     }
 
     /** Permissions de Nearby Connections, selon la version d'Android. */
@@ -125,13 +155,15 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
 
     /** Avancée du geste de fermeture : le fond change, le reste ne bouge pas. */
     public void setPull(float progress) {
-        screen.setPull(progress);
+        if (screen != null) screen.setPull(progress);
     }
 
     public void open() {
         long opening = Perf.start("connect.open");
         // Simple fondu, sur place : rien ne monte.
         closing = false;
+        screen();
+        mesh.setEager(true);
         screen.animate().cancel();
         screen.setPull(0f);
         screen.setAlpha(0f);
@@ -139,9 +171,9 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         screen.animate().alpha(1f).setDuration(FADE_MS).withEndAction(null).start();
         render();
         if (!store.ready()) {
-            screen.setNotice("Pour activer Tamilya Connect, ouvre l'app une fois avec internet, en étant connecté à ton compte.");
+            notice("Pour activer Tamilya Connect, ouvre l'app une fois avec internet, en étant connecté à ton compte.");
         } else {
-            screen.setNotice(null);
+            notice(null);
         }
         if (hasPermissions()) startRelay();
         else host.requestConnectPermissions(permissions());
@@ -151,10 +183,10 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
 
     public void onPermissionsResult() {
         if (hasPermissions()) {
-            if (store.ready()) screen.setNotice(null);
+            if (store.ready()) notice(null);
             startRelay();
         } else {
-            screen.setNotice("Autorise « Appareils à proximité » pour trouver des téléphones relais.");
+            notice("Autorise « Appareils à proximité » pour trouver des téléphones relais.");
         }
     }
 
@@ -169,6 +201,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         screen.animate().alpha(0f).setDuration(FADE_MS)
                 .withEndAction(() -> {
                     screen.setVisibility(View.GONE);
+                    mesh.setEager(false);
                     screen.setAlpha(1f);
                     screen.setPull(0f);
                     closing = false;
@@ -340,7 +373,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         long showing = Perf.start("connect.conversation");
         store.switchTo(id);
         historyShown = false;
-        screen.setNotice(null);
+        notice(null);
         render();
         Perf.end("connect.conversation", showing);
         Perf.untilDrawn("connect.conversation", screen, showing);
@@ -374,7 +407,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
     @Override
     public void newConversation() {
         if (waitingForReply()) {
-            screen.setNotice("Attends la réponse de Tamilya avant de changer de conversation.");
+            notice("Attends la réponse de Tamilya avant de changer de conversation.");
             return;
         }
         showConversation("");
@@ -388,7 +421,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
             return;
         }
         if (waitingForReply()) {
-            screen.setNotice("Attends la réponse de Tamilya avant de changer de conversation.");
+            notice("Attends la réponse de Tamilya avant de changer de conversation.");
             return;
         }
         if (store.hasThread(id)) {
@@ -397,7 +430,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         }
         String account = cookies;
         if (account == null) {
-            screen.setNotice("Cette conversation s'ouvrira quand tu auras internet.");
+            notice("Cette conversation s'ouvrira quand tu auras internet.");
             return;
         }
         historyIo.execute(() -> {
@@ -406,7 +439,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
                 store.saveThread(id, messages, "");
                 main.post(() -> showConversation(id));
             } catch (Exception e) {
-                main.post(() -> screen.setNotice("Cette conversation s'ouvrira quand tu auras internet."));
+                main.post(() -> notice("Cette conversation s'ouvrira quand tu auras internet."));
             }
         });
     }
@@ -453,7 +486,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
             return;
         }
         if (!store.ready()) {
-            screen.setNotice("Pour activer Tamilya Connect, ouvre l'app une fois avec internet, en étant connecté à ton compte.");
+            notice("Pour activer Tamilya Connect, ouvre l'app une fois avec internet, en étant connecté à ton compte.");
             return;
         }
         removeMessage(id);
@@ -647,7 +680,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
                 sendAction(actionId, label, code);
                 dialog.dismiss();
             } else {
-                screen.setNotice("Le code fait 4 chiffres.");
+                notice("Le code fait 4 chiffres.");
             }
         });
         row.addView(confirm, confirmParams);
@@ -691,7 +724,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
 
     private void request(JSONObject content, String shown) {
         if (!store.ready()) {
-            screen.setNotice("Pour activer Tamilya Connect, ouvre l'app une fois avec internet, en étant connecté à ton compte.");
+            notice("Pour activer Tamilya Connect, ouvre l'app une fois avec internet, en étant connecté à ton compte.");
             return;
         }
         String deviceId = store.deviceId();
@@ -720,9 +753,9 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
                     mesh.sendOwn(out.id, out.json);
                 });
             } catch (IllegalArgumentException e) {
-                main.post(() -> screen.setNotice("Message trop long : raccourcis-le."));
+                main.post(() -> notice("Message trop long : raccourcis-le."));
             } catch (Exception e) {
-                main.post(() -> screen.setNotice("Impossible de préparer le message. Réessaie."));
+                main.post(() -> notice("Impossible de préparer le message. Réessaie."));
             }
         });
     }
@@ -777,7 +810,8 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
 
     @Override
     public void onPeers(int count) {
-        screen.setPeers(count);
+        peerCount = count;
+        if (screen != null) screen.setPeers(count);
         render();
     }
 
@@ -898,7 +932,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
 
     @Override
     public void onProblem(String message) {
-        screen.setNotice(message);
+        notice(message);
     }
 
     private static JSONObject find(JSONArray messages, String id) {

@@ -104,6 +104,11 @@ final class MeshRelay implements BleMesh.Events {
         ble.setOnScreen(value);
     }
 
+    /** Tamilya Connect ouvert : on cherche les voisins le plus vite possible. */
+    void setEager(boolean value) {
+        ble.setEager(value);
+    }
+
     boolean running() {
         return running;
     }

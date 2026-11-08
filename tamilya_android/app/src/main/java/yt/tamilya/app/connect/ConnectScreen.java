@@ -64,6 +64,8 @@ final class ConnectScreen extends LinearLayout {
     private final Paint hintPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF ringBounds = new RectF();
     private float pull;
+    /** Ce qui est déjà à l'écran : on ne reconstruit la liste que si ça a changé. */
+    private String shown;
 
     ConnectScreen(Context context, Actions actions) {
         super(context);
@@ -206,6 +208,15 @@ final class ConnectScreen extends LinearLayout {
 
     /** Le même historique que sur le site, avec la marque de chaque conversation. */
     void renderHistory(JSONArray history, String currentId) {
+        String wanted = "h" + currentId + "\n" + history;
+        if (!wanted.equals(shown)) {
+            shown = wanted;
+            fillHistory(history, currentId);
+        }
+        scroll.post(() -> scroll.scrollTo(0, 0));
+    }
+
+    private void fillHistory(JSONArray history, String currentId) {
         list.removeAllViews();
         list.setGravity(Gravity.TOP);
         list.addView(text("Historique", 17, CREAM));
@@ -218,7 +229,6 @@ final class ConnectScreen extends LinearLayout {
             JSONObject item = history.optJSONObject(i);
             if (item != null) list.addView(historyRow(item, item.optString("id").equals(currentId)));
         }
-        scroll.post(() -> scroll.scrollTo(0, 0));
     }
 
     /** Les trois barres : le menu de Tamilya, glissé depuis la gauche (ConnectMenu). */
@@ -271,6 +281,16 @@ final class ConnectScreen extends LinearLayout {
     }
 
     void render(JSONArray messages) {
+        // Appelé à chaque changement du nombre de voisins, de statut… : souvent rien n'a bougé.
+        String wanted = "m" + messages;
+        if (!wanted.equals(shown)) {
+            shown = wanted;
+            fillMessages(messages);
+        }
+        scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
+    }
+
+    private void fillMessages(JSONArray messages) {
         list.removeAllViews();
         list.setGravity(messages.length() == 0 ? Gravity.CENTER : Gravity.TOP);
         if (messages.length() == 0) {
@@ -287,7 +307,6 @@ final class ConnectScreen extends LinearLayout {
             JSONObject message = messages.optJSONObject(i);
             if (message != null) list.addView(bubble(message));
         }
-        scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
     }
 
     private View bubble(JSONObject message) {
