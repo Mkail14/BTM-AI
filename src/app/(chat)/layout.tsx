@@ -3,12 +3,27 @@ import { ChatShell } from "@/components/layout/ChatShell";
 import { getAuthContext } from "@/lib/auth/session";
 import { getSiteFlags } from "@/lib/site/settings";
 import { SITE_STATUS_LABELS } from "@/lib/site/status";
+import { AddressCheckNotice } from "@/components/layout/AddressCheckNotice";
+import { needsAddressCheck } from "@/lib/auth/address-notice";
 
 export default async function ChatLayout({ children }: LayoutProps<"/">) {
   // Les administrateurs ont aussi le chat : c'est là qu'ils apprennent le shimaoré à Tamilya.
-  const { user } = await getAuthContext();
+  const { supabase, user } = await getAuthContext();
 
-  const flags = user?.isAdmin ? await getSiteFlags() : null;
+  // Adresse d'inscription peut-être abîmée (faute du 2026-11-02, address-notice.ts) : on prévient.
+  // Lu en même temps que les réglages ; une erreur ne bloque jamais la page.
+  const [flags, profile] = await Promise.all([
+    user?.isAdmin ? getSiteFlags() : null,
+    user && supabase
+      ? supabase
+          .from("profiles")
+          .select("address_line, address_updated_at, created_at")
+          .eq("id", user.id)
+          .maybeSingle()
+          .then(({ data }) => data, () => null)
+      : null,
+  ]);
+  const damagedLine = needsAddressCheck(profile) ? String(profile?.address_line) : null;
 
   return (
     <>
@@ -21,6 +36,7 @@ export default async function ChatLayout({ children }: LayoutProps<"/">) {
           {[flags.demoMode ? "Mode démo" : null, flags.status !== "online" ? SITE_STATUS_LABELS[flags.status] : null].filter(Boolean).join(" · ")}
         </Link>
       ) : null}
+      {damagedLine ? <AddressCheckNotice line={damagedLine} /> : null}
       <ChatShell>{children}</ChatShell>
     </>
   );
