@@ -210,7 +210,9 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return;
         getWindow().setDecorFitsSystemWindows(false);
         root.setOnApplyWindowInsetsListener((view, insets) -> {
-            Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.ime());
+            // displayCutout : Android 15+ dessine sous l'encoche ; en paysage, le bord de la page s'y cachait.
+            Insets bars = insets.getInsets(WindowInsets.Type.systemBars() | WindowInsets.Type.displayCutout()
+                    | WindowInsets.Type.ime());
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom);
             return WindowInsets.CONSUMED;
         });
@@ -1068,8 +1070,21 @@ public class MainActivity extends Activity {
                 request.grant(request.getResources());
                 return;
             }
+            // Fenêtre d'autorisation déjà ouverte : l'ancienne demande reçoit une réponse (sinon le
+            // micro de la page restait bloqué) et la nouvelle attend le choix de cette fenêtre.
+            if (pendingWebMic != null) {
+                pendingWebMic.deny();
+                pendingWebMic = request;
+                return;
+            }
             pendingWebMic = request;
             requestPermissions(new String[]{Manifest.permission.RECORD_AUDIO}, REQ_WEB_MIC);
+        }
+
+        @Override
+        public void onPermissionRequestCanceled(PermissionRequest request) {
+            // La page a renoncé (changement de page) : on ne répond plus à une demande morte.
+            if (pendingWebMic == request) pendingWebMic = null;
         }
 
         @Override

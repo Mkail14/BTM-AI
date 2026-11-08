@@ -48,7 +48,11 @@ final class MapCache {
 
     private final Context context;
     private final File root;
-    private final ExecutorService io = Executors.newSingleThreadExecutor();
+    /**
+     * Partagé par toute l'app : un MapCache est créé à chaque recréation de l'écran (moteur
+     * d'affichage arrêté, par exemple) et son fil n'était jamais arrêté.
+     */
+    private static final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Set<String> pending = ConcurrentHashMap.newKeySet();
     private final String bundledVersion;
     private volatile boolean stylesRefreshed;
