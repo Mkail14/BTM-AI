@@ -23,5 +23,7 @@ describe("Tamilya Connect pendant la maintenance (2026-11-08 : plus de silence s
   it("le proxy laisse passer la route du relais (sinon la page d'attente bloquait la réponse)", () => {
     const proxy = readFileSync(new URL("../src/proxy.ts", import.meta.url), "utf8");
     assert.match(proxy, /OPEN_WHEN_CLOSED = \[[^\]]*"\/api\/mesh\/relay"/);
+    // La clé publique aussi : un téléphone neuf en a besoin pour activer Connect.
+    assert.match(proxy, /OPEN_WHEN_CLOSED = \[[^\]]*"\/api\/mesh\/key"/);
   });
 });

@@ -42,9 +42,10 @@ export async function proxy(request: NextRequest) {
  * pouvoir se connecter), les tâches planifiées, le retour des paiements Stripe et
  * le relais vocal, qui prépare la voix des administrateurs (route protégée par ticket signé),
  * et Tamilya Connect : le message arrive par le téléphone d'un autre, sans session ; c'est le
- * compte signataire qui décide ensuite (src/lib/mesh/closure.ts).
+ * compte signataire qui décide ensuite (src/lib/mesh/closure.ts). La clé publique du serveur
+ * (/api/mesh/key) aussi : sans elle, un téléphone neuf ne pouvait pas activer Connect.
  */
-const OPEN_WHEN_CLOSED = ["/maintenance", "/auth/", "/api/auth/", "/api/cron/", "/api/ai/relay", "/api/voice/live/setup", "/api/wallet/webhook", "/api/mesh/relay", "/manifest.webmanifest", "/brand/"];
+const OPEN_WHEN_CLOSED = ["/maintenance", "/auth/", "/api/auth/", "/api/cron/", "/api/ai/relay", "/api/voice/live/setup", "/api/wallet/webhook", "/api/mesh/relay", "/api/mesh/key", "/manifest.webmanifest", "/brand/"];
 
 export const config = {
   matcher: [
