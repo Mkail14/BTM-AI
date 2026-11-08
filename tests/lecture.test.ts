@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { detectReading, isReadingRequest, parseReadingBlock, readingText, withReadingBlock } from "../src/lib/lecture/intent";
 import { AMBIENCES, assignVoices, buildScript, EFFECTS, PLACES, READING_LIMITS } from "../src/lib/lecture/script";
-import { between, ROOMS } from "../src/lib/lecture/soundscape";
+import { along, between, flyby, ROOMS } from "../src/lib/lecture/soundscape";
 import { renderSamples, SYNTHESIZED } from "../src/lib/lecture/sounds";
 import { buildSystemPrompt } from "../src/lib/ai/system-prompt";
 import { DEFAULT_PERSONALITY } from "../src/lib/ai/personalities";
