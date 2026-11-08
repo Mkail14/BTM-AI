@@ -52,6 +52,8 @@ const nextConfig: NextConfig = {
       { source: "/food/:file*", headers: [{ key: "Cache-Control", value: imageCache }] },
       // Banque de sons de la lecture : un son ne change pas sans changer de nom ; gardé une semaine, puis vérifié en arrière-plan.
       { source: "/sons/:file*", headers: [{ key: "Cache-Control", value: modelCache }] },
+      // Musiques de fond de la lecture (~105 Ko chacune) : même règle que les bruitages (sans en-tête, redemandées à chaque histoire).
+      { source: "/musique/:file*", headers: [{ key: "Cache-Control", value: modelCache }] },
     ];
   },
 };
