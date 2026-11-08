@@ -212,6 +212,14 @@ export function liveToolDeclarations(access: LiveAccess) {
 
 const arg = (args: Record<string, unknown>, key: string) => (typeof args[key] === "string" ? (args[key] as string).trim().slice(0, 300) : "");
 
+/**
+ * Sujet de l'histoire demandée au vocal (bouton lecture_3d), sur une ligne : espaces et retours
+ * à la ligne ramenés à un seul espace, 300 caractères au plus. Vide : lire le texte de la conversation.
+ */
+export function readingSubject(args: Record<string, unknown>): string {
+  return String(args.sujet ?? "").replace(/\s+/g, " ").trim().slice(0, 300);
+}
+
 /** Bloc à afficher pour un bouton actionné (null : bouton inconnu ou non autorisé pour ce compte). */
 export function liveToolBlock(name: string, args: Record<string, unknown>, access: LiveAccess): string | null {
   switch (name) {

@@ -39,6 +39,11 @@ export function normalizeDisplayName(name: string): string {
   return name.replace(/\s+/g, " ").trim().slice(0, MAX_DISPLAY_NAME_LENGTH);
 }
 
+/** Adresse écrite à l'inscription, sur une ligne (la base la revérifie dans handle_new_user). */
+export function normalizeAddressLine(line: string): string {
+  return line.replace(/\s+/g, " ").trim();
+}
+
 /** Fournisseurs de messagerie les plus courants (métropole, Mayotte, international). */
 const COMMON_DOMAINS = [
   "gmail.com",

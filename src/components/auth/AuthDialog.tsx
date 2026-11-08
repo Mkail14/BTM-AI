@@ -12,6 +12,7 @@ import { DISPOSABLE_EMAIL_MESSAGE, isDisposableEmail } from "@/lib/auth/disposab
 import {
   isPasswordValid,
   MAX_DISPLAY_NAME_LENGTH,
+  normalizeAddressLine,
   normalizeDisplayName,
   normalizeEmail,
   passwordChecks,
@@ -772,7 +773,7 @@ function SignUpForm({
         options: {
           emailRedirectTo: confirmationRedirect(next),
           // Recopiés dans le profil par la base (handle_new_user), qui les revérifie.
-          data: { display_name: name, address_commune: address.commune, address_line: address.line.replace(/s+/g, " ").trim() },
+          data: { display_name: name, address_commune: address.commune, address_line: normalizeAddressLine(address.line) },
         },
       });
       if (signUpError) {

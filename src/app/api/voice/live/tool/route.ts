@@ -13,7 +13,7 @@ import { getProfileContact } from "@/lib/profile-contact";
 import { tripBlock } from "@/lib/trip/intent";
 import { describeTrip, planTrip } from "@/lib/trip/plan";
 import { isSameOrigin } from "@/lib/security/request";
-import { liveToolBlock } from "@/lib/voice-live/tools";
+import { liveToolBlock, readingSubject } from "@/lib/voice-live/tools";
 
 /**
  * Vocal en direct : Tamilya a actionné un bouton (réservation du code, repas,
@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
   if (parsed.data.name === "lecture_3d") {
     // Une histoire demandée (sujet) est inventée ; sans sujet, le texte écrit plus haut est lu ;
     // sans texte non plus, c'est une histoire inventée (jamais de photo à prendre en plein appel).
-    const subject = String(parsed.data.args.sujet ?? "").replace(/s+/g, " ").trim().slice(0, 300);
+    const subject = readingSubject(parsed.data.args);
     let mode: ReadingMode = { kind: "histoire", request: subject || "Une histoire" };
     if (!subject) {
       const recent = parsed.data.conversationId && supabase ? await getRecentMessages(supabase, parsed.data.conversationId, 8).catch(() => []) : [];
