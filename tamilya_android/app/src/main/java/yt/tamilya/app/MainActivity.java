@@ -85,6 +85,8 @@ import java.util.Locale;
 public class MainActivity extends Activity {
 
     private static final String HOME = "https://tamilya.yt/";
+    /** Arrêts du moteur d'affichage : pas de relance sans fin si une page le fait tomber à chaque fois. */
+    private static final CrashGuard RENDER_GUARD = new CrashGuard();
     private static final String SITE_HOST = "tamilya.yt";
     private static final String SITE_ORIGIN = "https://tamilya.yt";
     /** Identifiant client Google « Web » du site (public : il figure dans toute page avec un bouton Google). */
@@ -1051,8 +1053,14 @@ public class MainActivity extends Activity {
 
         @Override
         public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
-            // Le moteur d'affichage s'est arrêté (manque de mémoire) : on repart proprement.
-            recreate();
+            // Le moteur d'affichage s'est arrêté (manque de mémoire) : on repart proprement,
+            // sauf s'il tombe encore et encore (même page en cause) : on ferme au lieu de boucler.
+            if (RENDER_GUARD.allowRestart(android.os.SystemClock.elapsedRealtime())) {
+                recreate();
+            } else {
+                Toast.makeText(MainActivity.this, "Tamilya n'arrive pas à afficher cette page. Rouvre l'app dans un moment.", Toast.LENGTH_LONG).show();
+                finish();
+            }
             return true;
         }
     }
