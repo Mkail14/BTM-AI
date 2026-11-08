@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `e66aed4` (2026-11-08)**
+**Dernier commit noté : `a284b77` (2026-11-08)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -48,6 +48,8 @@ Comment le tenir :
 | Données de Mayotte | API publiques françaises : annuaire service-public.gouv.fr, geo.api.gouv.fr, météo Open-Meteo | Gratuites, sans clé, officielles et couvrent Mayotte ; seulement quand la question en parle, donc pas de lenteur en plus | Brancher en vrac la liste GitHub « public-apis » (mondiale, presque rien sur Mayotte, beaucoup de clés et de liens morts) ; Météo-France et INSEE (clé obligatoire) pour plus tard |
 | Son 3D de la lecture | Resonance Audio (Google, Apache-2.0, ~38 Ko compressé, chargé seulement pour la lecture) pour le lieu et ses échos, plus un modèle des deux oreilles fait par nous (retard entre les oreilles, ombre de la tête) | Au casque, l'utilisateur ne sentait rien avec le volume seul ; mesuré dans Chrome : 3 à 5 dB entre les oreilles avant, 15 dB et 0,5 à 0,9 ms de retard après ; rien n'est chargé depuis internet pendant la lecture | Dolby Atmos (licence payante, impossible dans un navigateur) ; panneau 3D du navigateur seul (gardé en secours) |
 | Bruits de la lecture | Fabriqués par le téléphone (bruit et sons purs) | Rien à télécharger avec le débit de Mayotte | Vrais enregistrements : plus réalistes, voir « Idées en attente » |
+| Équipe d'agents | Coordinateur en code + 5 spécialistes Gemini (chercheur, analyste, technicien, linguiste, planificateur) + vérificateur ; choix par règles, sans appel ; 3 au plus, en parallèle, un seul passage | Seulement les questions difficiles ; mesuré : +4 à 8 s avant le premier mot après réglage (16 à 19 s avant) ; réservé aux admins (AI_AGENTS=admin) en attendant l'avis de l'utilisateur | 10 agents lancés à chaque message (coût et lenteur) ; analyste sur les questions de shimaoré (inventait des mots) ; linguiste sans mot validé |
+| Lecture de la voix en direct | Programmation d'origine (20 ms) + fondu de 4 ms à chaque reprise + limiteur -3 dB et coupe des graves à 70 Hz | Plus de clic ni de saturation, sans retarder la voix | Marge d'avance adaptative (40 à 250 ms) : en simulation, plus de silence au total et première voix plus tardive |
 
 ---
 
@@ -89,6 +91,8 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-08
+- **Équipe d'agents de Tamilya** (`3d12cfd`). Mission « extension master » de l'utilisateur : une vraie équipe d'agents, pas des agents fictifs. Pour une question difficile à l'écrit, Tamilya consulte 1 à 3 spécialistes en parallèle, un vérificateur relit, puis elle répond avec leurs notes (« Je consulte : recherche, plan… » pendant l'attente). Essai réel avec Gemini (`scripts/agents-bench.ts`) : premier réglage +16 à 19 s, linguiste et analyste qui inventaient du shimaoré ; après réglage +4 à 8 s, linguiste limité au dictionnaire validé. Réservé aux administrateurs (variable AI_AGENTS).
+- **Voix en direct sans clic ni saturation** (`a284b77`). Fondu de 4 ms quand la voix repart, limiteur et coupe des très graves. Une marge adaptative contre les trous du réseau a été essayée puis écartée (voir « Choix techniques »).
 - Vercel ne compilait plus : le test de la lecture 3D utilisait `along` et `flyby` sans les importer. Import ajouté (`e66aed4`).
 - **Lecture en 3D : musique de fond comme au cinéma** (`0f110b6`). Demande de l'utilisateur : des musiques d'ambiance derrière l'histoire, « comme dans un film » (horreur, film américain, vlog…). 12 ambiances (horreur, suspense, mystère, film, action, aventure, vlog, comédie, triste, romantique, calme, magique), 35 musiques de Kevin MacLeod écoutées par l'utilisateur sur une page d'écoute locale, une gardée par ambiance. Gemini choisit la musique au début du script et peut la changer à une réplique quand le ton bascule, ou la couper avant un moment fort. Elle joue au milieu de la tête, baisse sous les voix, démarre dès qu'elle arrive sans retenir l'histoire. Histoire légère : cœur, porte qui grince et tonnerre écartés. Vérifié : 553 tests, types, lint. Pas encore entendu sur la tablette. Crédits : `public/musique/CREDITS.md`.
 - **Lecture en 3D : plus de cloche d'église, le son suit le ton** (`306f280`). Plainte de l'utilisateur : dans une histoire de Mayotte, une cloche d'église tournait en boucle (« à Mayotte il y a plus de mosquées que d'églises »), et les histoires drôles sonnaient comme des histoires d'horreur. Cause : le décor « village » était l'enregistrement « Sound of church bells and birds » ; « tambour » était en fait une cloche de vache. Les deux sont retirés avec leurs fichiers (à remplacer par de vrais sons de Mayotte). Gemini doit accorder décor, bruits et lieu au ton : une histoire drôle sonne gaie (pas de cœur, porte qui grince, tonnerre, grotte ni grande salle), les sons qui font peur sont pour la peur et le suspense. En parallèle, une autre session ajoute la musique de fond par ambiance et le filtre côté code. Vérifié : tests, types, lint. Pas encore entendu par l'utilisateur.
