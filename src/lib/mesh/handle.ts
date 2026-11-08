@@ -10,6 +10,8 @@ import type { SessionUser } from "@/lib/auth/session";
 import { canBuyBargeTickets } from "@/lib/barge/access";
 import { bargeDays, describeBargeLines, priceBargeOrder } from "@/lib/barge/catalog";
 import { quickTitle } from "@/lib/chat/title";
+import { getSiteFlags } from "@/lib/site/flags";
+import { meshClosure } from "./closure";
 import type { ChatTurn } from "@/lib/chat/types";
 import { createConversation, getRecentMessages, insertMessage, markConnectConversation } from "@/lib/conversations/repository";
 import { canOrderFood } from "@/lib/food/access";
@@ -208,5 +210,8 @@ async function act(admin: SupabaseClient, user: SessionUser, payload: Extract<Me
 export async function handleMeshPayload(admin: SupabaseClient, userId: string, payload: MeshPayload): Promise<MeshReplyBody> {
   const user = await accountOf(admin, userId);
   if (!user) return failure("Ce compte n'existe plus.");
+  // Site fermé : seuls les administrateurs ont une vraie réponse (closure.ts).
+  const closed = meshClosure(user.isAdmin, (await getSiteFlags()).status);
+  if (closed) return failure(closed);
   return payload.kind === "chat" ? chat(admin, user, payload) : act(admin, user, payload);
 }

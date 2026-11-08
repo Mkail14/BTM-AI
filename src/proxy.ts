@@ -40,9 +40,11 @@ export async function proxy(request: NextRequest) {
 /**
  * Toujours ouverts : la page d'attente, la connexion (un administrateur doit
  * pouvoir se connecter), les tâches planifiées, le retour des paiements Stripe et
- * le relais vocal, qui prépare la voix des administrateurs (route protégée par ticket signé).
+ * le relais vocal, qui prépare la voix des administrateurs (route protégée par ticket signé),
+ * et Tamilya Connect : le message arrive par le téléphone d'un autre, sans session ; c'est le
+ * compte signataire qui décide ensuite (src/lib/mesh/closure.ts).
  */
-const OPEN_WHEN_CLOSED = ["/maintenance", "/auth/", "/api/auth/", "/api/cron/", "/api/ai/relay", "/api/voice/live/setup", "/api/wallet/webhook", "/manifest.webmanifest", "/brand/"];
+const OPEN_WHEN_CLOSED = ["/maintenance", "/auth/", "/api/auth/", "/api/cron/", "/api/ai/relay", "/api/voice/live/setup", "/api/wallet/webhook", "/api/mesh/relay", "/manifest.webmanifest", "/brand/"];
 
 export const config = {
   matcher: [
