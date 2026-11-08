@@ -307,6 +307,45 @@ final class ConnectScreen extends LinearLayout {
             JSONObject message = messages.optJSONObject(i);
             if (message != null) list.addView(bubble(message));
         }
+        // Dernier message envoyé encore sans réponse : Tamilya « réfléchit », comme les trois points du site.
+        JSONObject last = messages.length() > 0 ? messages.optJSONObject(messages.length() - 1) : null;
+        if (last != null && "me".equals(last.optString("from")) && WAITING.contains(last.optString("status"))) list.addView(thinking());
+    }
+
+    /** Statuts d'un message parti mais pas encore répondu. */
+    private static final java.util.Set<String> WAITING = new java.util.HashSet<>(java.util.Arrays.asList("searching", "relayed", "retry"));
+
+    /** Bulle de Tamilya avec trois points qui sautillent, jusqu'à l'arrivée de la réponse. */
+    private View thinking() {
+        LinearLayout box = new LinearLayout(getContext());
+        box.setGravity(Gravity.START);
+        box.setPadding(0, dp(6), 0, dp(6));
+        LinearLayout dots = new LinearLayout(getContext());
+        dots.setOrientation(HORIZONTAL);
+        dots.setGravity(Gravity.CENTER_VERTICAL);
+        dots.setPadding(dp(16), dp(14), dp(16), dp(14));
+        dots.setBackground(round(THEIRS, 18));
+        dots.setContentDescription("Tamilya prépare sa réponse");
+        java.util.List<android.animation.Animator> moves = new java.util.ArrayList<>();
+        for (int i = 0; i < 3; i++) {
+            View dot = new View(getContext());
+            dot.setBackground(round(MUTED, 4));
+            LayoutParams params = new LayoutParams(dp(7), dp(7));
+            if (i > 0) params.leftMargin = dp(5);
+            dots.addView(dot, params);
+            android.animation.ObjectAnimator move = android.animation.ObjectAnimator.ofFloat(dot, View.TRANSLATION_Y, 0f, -dp(4), 0f);
+            move.setDuration(600);
+            move.setStartDelay(i * 120L);
+            move.setRepeatCount(android.animation.ValueAnimator.INFINITE);
+            moves.add(move);
+        }
+        // Les points ne bougent que tant que la bulle est à l'écran (batterie).
+        dots.addOnAttachStateChangeListener(new OnAttachStateChangeListener() {
+            @Override public void onViewAttachedToWindow(View v) { for (android.animation.Animator m : moves) m.start(); }
+            @Override public void onViewDetachedFromWindow(View v) { for (android.animation.Animator m : moves) m.cancel(); }
+        });
+        box.addView(dots, new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        return box;
     }
 
     private View bubble(JSONObject message) {
