@@ -41,7 +41,8 @@ const FOLLOW =
  */
 const READ_GIVEN = new RegExp(
   // « teste », « txt » : fautes de frappe de « texte » (« Lis moi ce teste en 3d », 2026-11-08).
-  `\\b${READ}(?: moi| nous| lui)? (?:(?:ce|cette|mon|ma|le|la|mes|ces|tout ce|tout le) (?:message|messages|texte|textes|teste|tests?|txt|histoire|recit|poeme|conte|passage|page)|ca|cela)\\b`,
+  // « Raconte cette histoire "…" » (2026-11-08) : raconter un texte donné, c'est le lire, pas en inventer un.
+  `\\b(?:${READ}|raconte|racontes|raconter|racontez)(?: moi| nous| lui)? (?:(?:ce|cette|mon|ma|le|la|mes|ces|tout ce|tout le) (?:message|messages|texte|textes|teste|tests?|txt|histoire|recit|poeme|conte|passage|page)|ca|cela)\\b`,
 );
 /**
  * Une histoire nouvelle, inventée par Tamilya (« lis-moi une histoire », « raconte-moi un conte »,

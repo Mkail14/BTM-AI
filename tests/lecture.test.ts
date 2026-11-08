@@ -9,7 +9,7 @@ import { DEFAULT_PERSONALITY } from "../src/lib/ai/personalities";
 
 describe("Lecture en 3D : demande reconnue", () => {
   it("reconnaît une demande de lecture", () => {
-    for (const message of ["Lis-moi cette page", "tu peux me lire une page de mon livre ?", "lis moi un livre", "Raconte-moi ce chapitre", "lecture 3D", "lis-nous la suite de ce livre", "relis-moi ce passage"]) {
+    for (const message of ["Lis-moi cette page", "tu peux me lire une page de mon livre ?", "lis moi un livre", "Raconte-moi ce chapitre", "lecture 3D", "lis-nous la suite de ce livre", "relis-moi ce passage", "Raconte cette histoire", "raconte-moi ce texte"]) {
       assert.equal(detectReading(message), true, message);
     }
   });
