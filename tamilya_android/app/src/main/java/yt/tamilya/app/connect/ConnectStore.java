@@ -11,9 +11,29 @@ final class ConnectStore {
     private static final int MAX_MESSAGES = 60;
 
     private final SharedPreferences prefs;
+    /** Une conversation par fichier (voir ThreadFiles) ; les anciennes clés « thread: » y sont déplacées. */
+    private final ThreadFiles threads;
 
     ConnectStore(Context context) {
         prefs = context.getSharedPreferences("tamilya-connect", Context.MODE_PRIVATE);
+        threads = new ThreadFiles(new java.io.File(context.getFilesDir(), "connect-threads"));
+    }
+
+    /** À lancer hors du fil principal : déplace les anciennes conversations vers les fichiers. */
+    int migrateThreads() {
+        return threads.migrate(new ThreadFiles.Legacy() {
+            @Override
+            public java.util.Map<String, ?> all() {
+                return prefs.getAll();
+            }
+
+            @Override
+            public boolean remove(java.util.List<String> keys) {
+                SharedPreferences.Editor edit = prefs.edit();
+                for (String key : keys) edit.remove(key);
+                return edit.commit();
+            }
+        });
     }
 
     String deviceId() { return prefs.getString("deviceId", ""); }
@@ -68,12 +88,37 @@ final class ConnectStore {
         prefs.edit().putString("history", history.toString()).apply();
     }
 
-    boolean hasThread(String id) { return prefs.contains("thread:" + id); }
+    boolean hasThread(String id) { return threads.has(id) || prefs.contains("thread:" + id); }
     /** Date de la dernière version gardée : inutile de relire une conversation qui n'a pas bougé. */
-    String threadStamp(String id) { return prefs.getString("stamp:" + id, ""); }
+    String threadStamp(String id) {
+        return threads.has(id) ? threads.stamp(id) : prefs.getString("stamp:" + id, "");
+    }
 
     void saveThread(String id, JSONArray messages, String stamp) {
-        prefs.edit().putString("thread:" + id, messages.toString()).putString("stamp:" + id, stamp).apply();
+        keepThread(id, messages.toString(), stamp);
+    }
+
+    /** Écrit la conversation dans son fichier ; si le disque refuse, elle reste à l'ancienne place. */
+    private void keepThread(String id, String messages, String stamp) {
+        try {
+            threads.save(id, messages, stamp);
+            if (prefs.contains("thread:" + id) || prefs.contains("stamp:" + id)) {
+                prefs.edit().remove("thread:" + id).remove("stamp:" + id).apply();
+            }
+        } catch (java.io.IOException e) {
+            prefs.edit().putString("thread:" + id, messages).putString("stamp:" + id, stamp).apply();
+        }
+    }
+
+    /** Messages gardés d'une conversation : son fichier, sinon l'ancienne clé pas encore déplacée. */
+    private JSONArray thread(String id) {
+        String kept = threads.messages(id);
+        if (kept == null) return array("thread:" + id);
+        try {
+            return new JSONArray(kept);
+        } catch (JSONException e) {
+            return new JSONArray();
+        }
     }
 
     /** Retire une conversation du téléphone : de la liste et de ce qui est gardé. */
@@ -84,6 +129,7 @@ final class ConnectStore {
             org.json.JSONObject item = list.optJSONObject(i);
             if (item != null && !id.equals(item.optString("id"))) kept.put(item);
         }
+        threads.remove(id);
         prefs.edit().putString("history", kept.toString()).remove("thread:" + id).remove("stamp:" + id).apply();
     }
 
@@ -102,9 +148,9 @@ final class ConnectStore {
     /** Ouvre une conversation (vide : une nouvelle) et range celle qui était à l'écran. */
     void switchTo(String id) {
         String current = conversationId();
-        SharedPreferences.Editor edit = prefs.edit();
-        if (!current.isEmpty()) edit.putString("thread:" + current, messages().toString()).remove("stamp:" + current);
-        edit.putString("conversationId", id).putString("messages", id.isEmpty() ? "[]" : array("thread:" + id).toString()).apply();
+        // Date vide : la version du compte sera relue au prochain passage en ligne, comme avant.
+        if (!current.isEmpty()) keepThread(current, messages().toString(), "");
+        prefs.edit().putString("conversationId", id).putString("messages", id.isEmpty() ? "[]" : thread(id).toString()).apply();
     }
 
     private JSONArray array(String key) {
