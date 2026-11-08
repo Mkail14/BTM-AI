@@ -6,7 +6,8 @@ import { geminiKey } from "@/lib/ai/voice/gemini-tts";
 import { loadVoice } from "@/lib/ai/voice/settings";
 import { getAuthContext } from "@/lib/auth/session";
 import { READING_TEXT } from "@/lib/lecture/intent";
-import { scriptPrompt, SCRIPT_SCHEMA } from "@/lib/lecture/prompt";
+import { loadSoundCatalog } from "@/lib/lecture/catalog-store";
+import { scriptPrompt, scriptSchema } from "@/lib/lecture/prompt";
 import { buildLine, buildMeta, buildScript, READING_LIMITS, type Cast } from "@/lib/lecture/script";
 import { createScriptStream } from "@/lib/lecture/stream";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
@@ -54,17 +55,20 @@ export async function POST(request: NextRequest) {
   const { user } = await getAuthContext();
   if (!user) return NextResponse.json({ error: "Connecte-toi pour que je te lise une page." }, { status: 401 });
   if (!user.isAdmin) return NextResponse.json({ error: "La lecture en 3D arrive bientôt." }, { status: 403 });
+  // Les sons branchés dans /admin/sons, relus à chaque histoire (en même temps que le reste) : Gemini choisit parmi eux.
+  const catalogLoad = loadSoundCatalog();
   const limit = await consumeRateLimits([{ key: `lecture:${user.id}`, rules: RATE_LIMIT_POLICIES.reading }]).catch(() => null);
   if (!limit?.allowed) return NextResponse.json({ error: "J'ai beaucoup lu : laisse-moi souffler un peu, puis réessaie." }, { status: 429 });
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Je n'ai rien à lire : reprends la photo ou renvoie le texte." }, { status: 400 });
   const input = parsed.data;
+  const catalog = await catalogLoad;
   const parts =
     "image" in input
-      ? [{ inlineData: { mimeType: input.mimeType, data: input.image } }, { text: scriptPrompt("photo") }]
+      ? [{ inlineData: { mimeType: input.mimeType, data: input.image } }, { text: scriptPrompt("photo", catalog) }]
       : "text" in input
-        ? [{ text: `Texte :\n\n${input.text}` }, { text: scriptPrompt("texte") }]
-        : [{ text: `Demande de la personne : « ${input.story} »` }, { text: scriptPrompt("histoire") }];
+        ? [{ text: `Texte :\n\n${input.text}` }, { text: scriptPrompt("texte", catalog) }]
+        : [{ text: `Demande de la personne : « ${input.story} »` }, { text: scriptPrompt("histoire", catalog) }];
 
   const signal = AbortSignal.any([request.signal, AbortSignal.timeout(TIMEOUT_MS)]);
   let upstream: Response | null = null;
@@ -85,7 +89,7 @@ export async function POST(request: NextRequest) {
             temperature: 0.6,
             maxOutputTokens: 16_384,
             responseMimeType: "application/json",
-            responseSchema: SCRIPT_SCHEMA,
+            responseSchema: scriptSchema(catalog),
             ...(thinking && { thinkingConfig: thinking }),
           },
         }),
@@ -120,7 +124,7 @@ export async function POST(request: NextRequest) {
       const emit = (pieces: { meta?: unknown; lines: unknown[] }) => {
         if (failed) return;
         if (pieces.meta !== undefined) {
-          const meta = buildMeta(pieces.meta, narrator);
+          const meta = buildMeta(pieces.meta, narrator, catalog);
           if (!meta.ok) {
             failed = true;
             send({ type: "error", message: meta.reason });
@@ -165,7 +169,7 @@ export async function POST(request: NextRequest) {
           } catch {
             raw = null;
           }
-          const whole = raw ? buildScript(raw, narrator) : null;
+          const whole = raw ? buildScript(raw, narrator, catalog) : null;
           if (!whole?.ok) {
             failed = true;
             send({ type: "error", message: whole && !whole.ok ? whole.reason : BUSY });

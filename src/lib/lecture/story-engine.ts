@@ -4,7 +4,11 @@ import { announceReadingDone } from "./auto";
 import type { SceneLine, SceneMeta, SceneScript } from "./script";
 import { preloadResonance, ScenePlayer } from "./soundscape";
 import { LIGHT_MOODS, SCARY_SOUNDS, type Mood } from "./bank";
-import { preloadMusic, preloadSounds } from "./sounds";
+import { preloadMusic, preloadSounds, setSoundCatalog, soundInfo } from "./sounds";
+
+/** Réglages de /admin/sons d'abord (reçus avec l'histoire), sinon les sons d'origine. */
+const isLight = (mood: Mood | null) => mood !== null && (soundInfo(mood) ? soundInfo(mood)?.light === true : LIGHT_MOODS.has(mood));
+const isScary = (sound: string) => (soundInfo(sound) ? soundInfo(sound)?.scary === true : SCARY_SOUNDS.has(sound));
 import { patchStory, unlockAudio, type StorySource } from "./stage";
 
 /**
@@ -159,6 +163,8 @@ async function prepare(story: Story, source: StorySource) {
     let buffer = "";
     const handle = (event: { type?: string; meta?: SceneMeta; line?: SceneLine; message?: string }) => {
       if (event.type === "meta" && event.meta && !story.feed) {
+        // Les sons du moment (/admin/sons) : adresses, décors, sons qui font peur.
+        setSoundCatalog(event.meta.sons);
         story.feed = { script: { ...event.meta, lines: [] }, done: false, waiters: [] };
         // Les vrais sons du décor partent tout de suite sur le réseau.
         preloadSounds(event.meta.ambiences.map((a) => a.sound));
@@ -238,7 +244,7 @@ async function play(story: Story, script: SceneScript) {
   void scene.setMusic(mood);
   await scene.prepare(script.ambiences.map((a) => a.sound), 4000);
   // Sous une musique légère, le décor reste un peu plus discret.
-  const light = mood !== null && LIGHT_MOODS.has(mood);
+  const light = isLight(mood);
   scene.startAmbiences(light ? script.ambiences.map((a) => ({ ...a, volume: a.volume * 0.75 })) : script.ambiences, 3);
   if (script.intro) {
     const intro = await voiceOf(story, 0);
@@ -262,7 +268,7 @@ async function play(story: Story, script: SceneScript) {
       void scene.setMusic(mood, line.music === "silence" ? 1.2 : 3);
     }
     // Une histoire légère ne fait pas peur : cœur, porte qui grince et tonnerre sont écartés.
-    const cues = mood !== null && LIGHT_MOODS.has(mood) ? line.cues.filter((c) => !SCARY_SOUNDS.has(c.sound)) : line.cues;
+    const cues = isLight(mood) ? line.cues.filter((c) => !isScary(c.sound)) : line.cues;
     for (let k = 1; k <= AHEAD; k++) void voiceOf(story, offset + i + k);
     // Un silence plus long quand la voix change : on sent qu'un autre parle.
     if (previous !== null && previous !== line.speaker) await scene.wait(0.35);

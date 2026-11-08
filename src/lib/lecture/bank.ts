@@ -66,8 +66,12 @@ export const SHOTS = {
   telephone: { name: "téléphone qui sonne" },
 } as const satisfies Record<string, Shot>;
 
-export type Ambience = keyof typeof BEDS;
-export type Effect = keyof typeof SHOTS;
+/**
+ * Sons d'origine. Depuis le 2026-11-08, l'admin en ajoute et en débranche (/admin/sons, catalog.ts) :
+ * un décor, un bruit ou une musique est donc un simple identifiant, vérifié contre le catalogue du moment.
+ */
+export type Ambience = string;
+export type Effect = string;
 export const AMBIENCES = Object.keys(BEDS) as [Ambience, ...Ambience[]];
 export const EFFECTS = Object.keys(SHOTS) as [Effect, ...Effect[]];
 
@@ -76,11 +80,11 @@ export const EFFECTS = Object.keys(SHOTS) as [Effect, ...Effect[]];
  * Retirés le 2026-11-08 : « village » (cloches d'église en boucle, faux pour Mayotte) et « tambour »
  * (c'était une cloche de vache), avec leurs fichiers : à remplacer par de vrais sons de Mayotte.
  */
-export const RECORDED: ReadonlySet<Ambience | Effect> = new Set<Ambience | Effect>([
+export const RECORDED: ReadonlySet<string> = new Set<string>([
   "pluie", "pluie-tole", "vent", "vagues", "riviere", "nuit", "oiseaux", "foret", "marche", "rue", "chantier", "foule", "enfants", "khoutba", "madrassa", "roussettes", "port", "cuisine", "pluie-fine", "adhan", "takbir", "tonnerre", "coeur", "frappe", "galop", "porte-grince", "toux", "bebe", "eternuement", "soupir", "applaudissements", "sifflet", "coq", "poule", "chevre", "zebu", "chien", "chat", "moto", "voiture", "camion", "klaxon", "bateau", "telephone",
 ]);
 
-export const soundUrl = (sound: Ambience | Effect) => `/sons/${sound}.webm`;
+export const soundUrl = (sound: string) => `/sons/${sound}.webm`;
 
 /**
  * Musique de fond, comme au cinéma : une boucle de 40 s par ambiance (~105 Ko) (Kevin MacLeod, CC BY), dans
@@ -102,23 +106,14 @@ export const MOODS = {
   magique: "conte, magie, merveilleux",
 } as const satisfies Record<string, string>;
 
-export type Mood = keyof typeof MOODS;
+export type Mood = string;
 export const MOOD_IDS = Object.keys(MOODS) as [Mood, ...Mood[]];
-export const musicUrl = (mood: Mood) => `/musique/${mood}.webm`;
+export const musicUrl = (mood: string) => `/musique/${mood}.webm`;
 
 /**
  * Histoires légères : les bruits qui font peur n'y ont pas leur place, même si Gemini en met
  * (plainte du 2026-11-08 : une histoire drôle sonnait comme un film d'horreur).
  */
-export const LIGHT_MOODS: ReadonlySet<Mood> = new Set<Mood>(["vlog", "comedie", "calme", "romantique", "magique"]);
-export const SCARY_SOUNDS: ReadonlySet<Ambience | Effect> = new Set<Ambience | Effect>(["coeur", "porte-grince", "tonnerre"]);
-
-export function defaultHeight(sound: Ambience | Effect): Height | undefined {
-  return sound in BEDS ? (BEDS[sound as Ambience] as Bed).height : (SHOTS[sound as Effect] as Shot).height;
-}
-
-/** Pour la consigne de Gemini : « id (ce que c'est) ». */
-export const describe = (sounds: readonly (Ambience | Effect)[]) =>
-  sounds.map((s) => `${s} (${s in BEDS ? BEDS[s as Ambience].name : SHOTS[s as Effect].name})`).join(", ");
-
-export const describeMoods = () => MOOD_IDS.map((m) => `${m} (${MOODS[m]})`).join(", ");
+export const LIGHT_MOODS: ReadonlySet<string> = new Set<string>(["vlog", "comedie", "calme", "romantique", "magique"]);
+/** Sons d'origine qui font peur (réglable ensuite pour chaque son dans /admin/sons). */
+export const SCARY_SOUNDS: ReadonlySet<string> = new Set<string>(["coeur", "porte-grince", "tonnerre"]);

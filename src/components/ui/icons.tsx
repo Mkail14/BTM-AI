@@ -35,6 +35,12 @@ export const IconStop = (p: IconProps) => (
   </Icon>
 );
 
+export const IconPlay = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M8 5.5v13l10.5-6.5z" fill="currentColor" stroke="none" />
+  </Icon>
+);
+
 export const IconPlus = (p: IconProps) => (
   <Icon {...p}>
     <path d="M12 5v14M5 12h14" />

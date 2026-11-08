@@ -1,7 +1,7 @@
 import type { RoomDimensions, RoomMaterials, ResonanceAudio as ResonanceScene } from "resonance-audio";
 import type { Ambience, Distance, Height, SceneAmbience, SceneLine, ScenePlace, SoundCue } from "./script";
 import { BEDS, type Mood } from "./bank";
-import { musicBuffer, prepareSounds, soundBuffer } from "./sounds";
+import { musicBuffer, prepareSounds, soundBuffer, soundInfo } from "./sounds";
 
 /**
  * Scène sonore en 3D dans les écouteurs, au plus près de ce que fait Dolby Atmos au casque :
@@ -36,7 +36,7 @@ const DOPPLER = 5;
 /** Hauteur en part de la distance (haut : ~40° au-dessus, bas : ~25° en dessous). */
 const LIFT: Record<Height, number> = { haut: 0.85, milieu: 0, bas: -0.45 };
 /** Largeur des bruits de fond, en degrés (360 : tout autour). */
-const WIDTH = (sound: Ambience): number => BEDS[sound].width;
+const WIDTH = (sound: Ambience): number => soundInfo(sound)?.width ?? (sound in BEDS ? BEDS[sound as keyof typeof BEDS].width : 120);
 /** Niveau du son direct (les « oreilles ») et part envoyée au lieu (Resonance) pour un son précis. */
 const DIRECT = 1;
 const ROOM_SEND = 0.55;

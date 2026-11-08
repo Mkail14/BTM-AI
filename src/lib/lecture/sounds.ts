@@ -1,4 +1,5 @@
 import { BEDS, RECORDED, musicUrl, soundUrl, type Ambience, type Effect, type Mood } from "./bank";
+import type { PlayableSound, PlayableSounds } from "./catalog";
 
 /**
  * Bruits de la lecture en 3D. Les vrais enregistrements (bank.ts, public/sons) passent en premier ;
@@ -344,30 +345,53 @@ function render(ctx: BaseAudioContext, [seconds, fill]: [number, Fill]) {
   return buffer;
 }
 
-const recipeOf = (sound: Ambience | Effect) => (sound in BEDS ? AMBIENCE_FILLS[sound as Ambience] : EFFECT_FILLS[sound as Effect]);
+const recipeOf = (sound: Ambience | Effect) => AMBIENCE_FILLS[sound] ?? EFFECT_FILLS[sound];
 
 /** Sons qui existent en version fabriquée (secours quand l'enregistrement n'est pas arrivé). */
 export const SYNTHESIZED = [...Object.keys(AMBIENCE_FILLS), ...Object.keys(EFFECT_FILLS)] as (Ambience | Effect)[];
 
+/**
+ * Catalogue du moment (/admin/sons), reçu au début de chaque histoire : adresse de chaque son,
+ * largeur des décors, sons qui font peur, musiques légères. Sans lui, les sons d'origine.
+ */
+let catalog: PlayableSounds | null = null;
+export function setSoundCatalog(sounds: PlayableSounds | null | undefined) {
+  if (sounds && typeof sounds === "object") catalog = sounds;
+}
+export const soundInfo = (sound: string): PlayableSound | undefined => catalog?.[sound];
+
+/** Adresse du fichier d'un son ; null : pas de fichier (version fabriquée seulement). */
+function urlOf(sound: string): string | null {
+  if (catalog) return catalog[sound]?.url ?? null;
+  return RECORDED.has(sound) ? soundUrl(sound) : null;
+}
+const isBed = (sound: string) => (catalog?.[sound] ? catalog[sound].kind === "decor" : sound in BEDS);
+
 /** Un son est jouable s'il a un enregistrement ou une version fabriquée. */
-export const isPlayable = (sound: Ambience | Effect) => RECORDED.has(sound) || recipeOf(sound) !== undefined;
+export const isPlayable = (sound: Ambience | Effect) => urlOf(sound) !== null || recipeOf(sound) !== undefined;
 
 /**
- * Fichiers téléchargés, partagés par tous les contextes audio : chaque son ne passe qu'une fois sur
- * le réseau (et le navigateur le garde ensuite en cache).
+ * Fichiers téléchargés, rangés par adresse et partagés par tous les contextes audio : chaque son ne
+ * passe qu'une fois sur le réseau (et le navigateur le garde ensuite en cache).
  */
 const bytes = new Map<string, Promise<ArrayBuffer | null>>();
+
+function download(url: string) {
+  let data = bytes.get(url);
+  if (!data) {
+    data = fetch(url)
+      .then((r) => (r.ok ? r.arrayBuffer() : null))
+      .catch(() => null);
+    bytes.set(url, data);
+  }
+  return data;
+}
 
 /** Lance le téléchargement des sons (dès que le script les annonce, avant qu'on en ait besoin). */
 export function preloadSounds(sounds: Iterable<Ambience | Effect>) {
   for (const sound of sounds) {
-    if (!RECORDED.has(sound) || bytes.has(sound)) continue;
-    bytes.set(
-      sound,
-      fetch(soundUrl(sound))
-        .then((r) => (r.ok ? r.arrayBuffer() : null))
-        .catch(() => null),
-    );
+    const url = urlOf(sound);
+    if (url) void download(url);
   }
 }
 
@@ -393,20 +417,19 @@ const recorded = new WeakMap<BaseAudioContext, Map<string, AudioBuffer>>();
  * arrivé sera joué en version fabriquée (ou pas du tout s'il n'y en a pas).
  */
 export async function prepareSounds(ctx: BaseAudioContext, sounds: Iterable<Ambience | Effect>, timeoutMs = 2500) {
-  const list = [...new Set(sounds)].filter((s) => RECORDED.has(s));
-  preloadSounds(list);
   let ready = recorded.get(ctx);
   if (!ready) recorded.set(ctx, (ready = new Map()));
   const done = ready;
-  const jobs = list
-    .filter((s) => !done.has(s))
-    .map(async (sound) => {
-      const data = await bytes.get(sound);
+  const jobs = [...new Set(sounds)]
+    .map((sound) => ({ sound, url: urlOf(sound) }))
+    .filter((s): s is { sound: string; url: string } => s.url !== null && !done.has(s.url))
+    .map(async ({ sound, url }) => {
+      const data = await download(url);
       if (!data) return;
       try {
         // decodeAudioData vide le tableau qu'on lui donne : on garde l'original pour les autres contextes.
         const buffer = await ctx.decodeAudioData(data.slice(0));
-        done.set(sound, sound in BEDS ? seamless(ctx, buffer) : buffer);
+        done.set(url, isBed(sound) ? seamless(ctx, buffer) : buffer);
       } catch {
         // Fichier illisible sur ce téléphone : la version fabriquée prendra le relais.
       }
@@ -416,7 +439,8 @@ export async function prepareSounds(ctx: BaseAudioContext, sounds: Iterable<Ambi
 
 /** Son prêt à jouer : l'enregistrement s'il est prêt, sinon la version fabriquée, sinon null. */
 export function soundBuffer(ctx: BaseAudioContext, sound: Ambience | Effect): AudioBuffer | null {
-  const real = recorded.get(ctx)?.get(sound);
+  const url = urlOf(sound);
+  const real = url ? recorded.get(ctx)?.get(url) : undefined;
   if (real) return real;
   const recipe = recipeOf(sound);
   if (!recipe) return null;
@@ -431,29 +455,22 @@ export function soundBuffer(ctx: BaseAudioContext, sound: Ambience | Effect): Au
 }
 
 /** Lance le téléchargement d'une musique de fond (~130 Ko, déjà en boucle sans couture). */
-export function preloadMusic(mood: Mood) {
-  const key = `musique:${mood}`;
-  if (!bytes.has(key)) {
-    bytes.set(
-      key,
-      fetch(musicUrl(mood))
-        .then((r) => (r.ok ? r.arrayBuffer() : null))
-        .catch(() => null),
-    );
-  }
-  return bytes.get(key)!;
+export function preloadMusic(mood: Mood): Promise<ArrayBuffer | null> {
+  const url = catalog ? (catalog[mood]?.kind === "musique" ? catalog[mood].url : null) : musicUrl(mood);
+  return url ? download(url) : Promise.resolve(null);
 }
 
-const music = new WeakMap<BaseAudioContext, Map<Mood, Promise<AudioBuffer | null>>>();
+const music = new WeakMap<BaseAudioContext, Map<string, Promise<AudioBuffer | null>>>();
 
 /** La musique prête à jouer dans ce contexte, quand elle est arrivée ; null si elle n'arrive pas. */
 export function musicBuffer(ctx: BaseAudioContext, mood: Mood): Promise<AudioBuffer | null> {
   let ready = music.get(ctx);
   if (!ready) music.set(ctx, (ready = new Map()));
-  let buffer = ready.get(mood);
+  const key = catalog?.[mood]?.url ?? mood;
+  let buffer = ready.get(key);
   if (!buffer) {
     buffer = preloadMusic(mood).then((data) => (data ? ctx.decodeAudioData(data.slice(0)).catch(() => null) : null));
-    ready.set(mood, buffer);
+    ready.set(key, buffer);
   }
   return buffer;
 }

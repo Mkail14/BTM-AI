@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { GeminiVoiceId } from "@/lib/ai/voice/voices";
-import { AMBIENCES, EFFECTS, MOOD_IDS, defaultHeight, type Ambience, type Effect, type Mood } from "./bank";
+import { AMBIENCES, EFFECTS, MOOD_IDS, type Ambience, type Effect, type Mood } from "./bank";
+import { BUILTIN_CATALOG, playableSounds, usableSounds, type CatalogSound, type PlayableSounds } from "./catalog";
 
 /**
  * Script de scène d'une page lue par Tamilya : qui parle, avec quelle voix, d'où vient sa voix,
@@ -14,7 +15,7 @@ export { AMBIENCES, EFFECTS, MOOD_IDS, type Ambience, type Effect, type Mood };
 
 /** Changement de musique à une réplique : une autre ambiance, ou « silence » (la musique s'arrête). */
 export const MUSIC_CHANGES = [...MOOD_IDS, "silence"] as const;
-export type MusicChange = (typeof MUSIC_CHANGES)[number];
+export type MusicChange = Mood | "silence";
 
 export const DISTANCES = ["tout-pres", "pres", "loin", "tres-loin"] as const;
 export type Distance = (typeof DISTANCES)[number];
@@ -29,6 +30,9 @@ export const NARRATOR = "narratrice";
 
 export const READING_LIMITS = { lines: 60, lineChars: 600, characters: 8, ambiences: 4, effectsPerLine: 3, waypoints: 4 } as const;
 
+/** Un son est un identifiant ; il n'est gardé que s'il est dans le catalogue du moment (catalog.ts). */
+const soundId = z.string().trim().min(1).max(40);
+
 const angle = z.coerce.number().transform((n) => (Number.isFinite(n) ? Math.max(-180, Math.min(180, Math.round(n))) : 0));
 const distance = z.enum(DISTANCES).catch("pres");
 const height = z.enum(HEIGHTS).nullish().catch(null);
@@ -38,7 +42,7 @@ const pointSchema = z.object({ cote: angle.catch(0), distance: distance.optional
 const trajet = z.array(pointSchema.nullable().catch(null)).max(10).catch([]).optional().default([]);
 
 const effectSchema = z.object({
-  son: z.enum(EFFECTS),
+  son: soundId,
   quand: z.enum(["avant", "pendant", "apres"]).catch("pendant"),
   cote: angle.catch(0),
   vers: angle.nullish().catch(null),
@@ -62,7 +66,7 @@ const lineSchema = z.object({
   bruitage: z.boolean().catch(false).optional().default(false),
   bruits: z.array(effectSchema.nullable().catch(null)).max(10).catch([]).optional().default([]),
   /** La musique change à partir de cette réplique (rare) ; null : elle continue. */
-  musique: z.enum(MUSIC_CHANGES).nullish().catch(null),
+  musique: soundId.nullish().catch(null),
 });
 
 const characterSchema = z.object({
@@ -73,7 +77,7 @@ const characterSchema = z.object({
 });
 
 const ambienceSchema = z.object({
-  son: z.enum(AMBIENCES),
+  son: soundId,
   cote: angle.catch(0),
   distance: distance.optional().default("loin"),
   hauteur: height,
@@ -91,7 +95,7 @@ export const rawScriptSchema = z.object({
   /** Après l'histoire : Tamilya prend des nouvelles de la personne (puis l'écoute 4 s). */
   fin: z.string().trim().max(300).catch("").optional().default(""),
   /** Musique de fond du début ; null : pas de musique. */
-  musique: z.enum(MOOD_IDS).nullish().catch(null),
+  musique: soundId.nullish().catch(null),
   decor: z.array(ambienceSchema.nullable().catch(null)).max(10).catch([]).optional().default([]),
   personnages: z.array(characterSchema.nullable().catch(null)).max(20).catch([]).optional().default([]),
   repliques: z.array(lineSchema.nullable().catch(null)).max(200).catch([]).optional().default([]),
@@ -119,10 +123,26 @@ export type SceneLine = {
   music: MusicChange | null;
 };
 export type SceneAmbience = { sound: Ambience; side: number; distance: Distance; height: Height; volume: number; moving: boolean };
-export type SceneScript = { title: string; place: ScenePlace; intro: string; outro: string; music: Mood | null; ambiences: SceneAmbience[]; lines: SceneLine[] };
+export type SceneScript = {
+  title: string;
+  place: ScenePlace;
+  intro: string;
+  outro: string;
+  music: Mood | null;
+  ambiences: SceneAmbience[];
+  lines: SceneLine[];
+  /** Sons branchés dans /admin/sons, avec leur adresse : le téléphone les joue d'après cette liste. */
+  sons?: PlayableSounds;
+};
 
-/** Hauteur par défaut d'un bruit quand Gemini ne la donne pas. */
-const DEFAULT_HEIGHT = defaultHeight;
+/** Sons utilisables de l'histoire, rangés par sorte. */
+type SoundSet = { decors: Map<string, CatalogSound>; bruits: Map<string, CatalogSound>; musiques: Map<string, CatalogSound>; playable: PlayableSounds };
+
+function soundSet(catalog: CatalogSound[]): SoundSet {
+  const usable = usableSounds(catalog);
+  const of = (kind: CatalogSound["kind"]) => new Map(usable.filter((s) => s.kind === kind).map((s) => [s.id, s]));
+  return { decors: of("decor"), bruits: of("bruit"), musiques: of("musique"), playable: playableSounds(catalog) };
+}
 
 export type ScriptResult = { ok: true; script: SceneScript } | { ok: false; reason: string };
 
@@ -161,13 +181,14 @@ export function assignVoices(characters: { id: string; genre: "homme" | "femme";
 /** Début du script, sans les répliques : de quoi lancer le décor et la voix de Tamilya. */
 export type SceneMeta = Omit<SceneScript, "lines">;
 /** Distribution : voix et noms des personnages, pour ranger chaque réplique dès qu'elle arrive. */
-export type Cast = { voices: Map<string, GeminiVoiceId>; names: Map<string, string> };
+export type Cast = { voices: Map<string, GeminiVoiceId>; names: Map<string, string>; sounds: SoundSet };
 export type MetaResult = { ok: true; meta: SceneMeta; cast: Cast } | { ok: false; reason: string };
 
 const UNREADABLE = "Je n'arrive pas à lire cette page. Reprends la photo bien à plat, avec de la lumière.";
 
 /** Titre, lieu, intro, décor et distribution (tout ce qui vient avant les répliques). */
-export function buildMeta(raw: unknown, narrator: GeminiVoiceId): MetaResult {
+export function buildMeta(raw: unknown, narrator: GeminiVoiceId, catalog: CatalogSound[] = BUILTIN_CATALOG): MetaResult {
+  const sounds = soundSet(catalog);
   const parsed = rawScriptSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, reason: "Je n'ai pas réussi à préparer cette page. Réessaie." };
   const data = parsed.data;
@@ -178,11 +199,16 @@ export function buildMeta(raw: unknown, narrator: GeminiVoiceId): MetaResult {
   const voices = assignVoices(characters, narrator);
   const names = new Map(characters.map((c) => [c.id, c.nom || c.id]));
   const ambiences: SceneAmbience[] = data.decor
-    .filter((a): a is NonNullable<typeof a> => a !== null)
+    .filter((a): a is NonNullable<typeof a> => a !== null && sounds.decors.has(a.son))
     .filter((a, i, all) => all.findIndex((b) => b.son === a.son) === i)
     .slice(0, READING_LIMITS.ambiences)
-    .map((a) => ({ sound: a.son, side: a.cote, distance: a.distance, height: a.hauteur ?? DEFAULT_HEIGHT(a.son) ?? "milieu", volume: a.volume, moving: a.bouge }));
-  return { ok: true, meta: { title: data.titre, place: data.lieu, intro: data.intro, outro: data.fin, music: data.musique ?? null, ambiences }, cast: { voices, names } };
+    .map((a) => ({ sound: a.son, side: a.cote, distance: a.distance, height: a.hauteur ?? sounds.decors.get(a.son)?.height ?? "milieu", volume: a.volume, moving: a.bouge }));
+  const music = data.musique && sounds.musiques.has(data.musique) ? data.musique : null;
+  return {
+    ok: true,
+    meta: { title: data.titre, place: data.lieu, intro: data.intro, outro: data.fin, music, ambiences, sons: sounds.playable },
+    cast: { voices, names, sounds },
+  };
 }
 
 function waypoints(raw: ({ cote: number; distance: Distance; hauteur?: Height | null } | null)[], fallback: Height): Waypoint[] {
@@ -212,21 +238,21 @@ export function buildLine(raw: unknown, cast: Cast): SceneLine | null {
     path: moves ? waypoints(line.trajet, height) : [],
     placed: voice === null && line.bruitage,
     cues: line.bruits
-      .filter((c): c is NonNullable<typeof c> => c !== null)
+      .filter((c): c is NonNullable<typeof c> => c !== null && cast.sounds.bruits.has(c.son))
       .slice(0, READING_LIMITS.effectsPerLine)
       .map((c) => {
-        const cueHeight = c.hauteur ?? DEFAULT_HEIGHT(c.son) ?? "milieu";
+        const cueHeight = c.hauteur ?? cast.sounds.bruits.get(c.son)?.height ?? "milieu";
         const via = waypoints(c.trajet, cueHeight);
         const end = c.vers === null || c.vers === undefined ? [] : [{ side: c.vers, distance: via.at(-1)?.distance ?? c.distance, height: cueHeight }];
         return { sound: c.son, when: c.quand, from: c.cote, to: c.vers ?? null, distance: c.distance, height: cueHeight, path: [...via, ...end] };
       }),
-    music: line.musique ?? null,
+    music: line.musique === "silence" || (line.musique && cast.sounds.musiques.has(line.musique)) ? line.musique : null,
   };
 }
 
 /** Vérifie et range la réponse complète de Gemini. Ce qui est mal formé est écarté, pas deviné. */
-export function buildScript(raw: unknown, narrator: GeminiVoiceId): ScriptResult {
-  const meta = buildMeta(raw, narrator);
+export function buildScript(raw: unknown, narrator: GeminiVoiceId, catalog: CatalogSound[] = BUILTIN_CATALOG): ScriptResult {
+  const meta = buildMeta(raw, narrator, catalog);
   if (!meta.ok) return meta;
   const rawLines = raw && typeof raw === "object" && Array.isArray((raw as { repliques?: unknown }).repliques) ? (raw as { repliques: unknown[] }).repliques : [];
   const lines = rawLines
