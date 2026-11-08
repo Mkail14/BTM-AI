@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `a284b77` (2026-11-08)**
+**Dernier commit noté : `0e09dff` (2026-11-08)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -50,6 +50,7 @@ Comment le tenir :
 | Bruits de la lecture | Fabriqués par le téléphone (bruit et sons purs) | Rien à télécharger avec le débit de Mayotte | Vrais enregistrements : plus réalistes, voir « Idées en attente » |
 | Équipe d'agents | Coordinateur en code + 5 spécialistes Gemini (chercheur, analyste, technicien, linguiste, planificateur) + vérificateur ; choix par règles, sans appel ; 3 au plus, en parallèle, un seul passage | Seulement les questions difficiles ; mesuré : +4 à 8 s avant le premier mot après réglage (16 à 19 s avant) ; réservé aux admins (AI_AGENTS=admin) en attendant l'avis de l'utilisateur | 10 agents lancés à chaque message (coût et lenteur) ; analyste sur les questions de shimaoré (inventait des mots) ; linguiste sans mot validé |
 | Lecture de la voix en direct | Programmation d'origine (20 ms) + fondu de 4 ms à chaque reprise + limiteur -3 dB et coupe des graves à 70 Hz | Plus de clic ni de saturation, sans retarder la voix | Marge d'avance adaptative (40 à 250 ms) : en simulation, plus de silence au total et première voix plus tardive |
+| Affichage du chat pendant l'écriture | Début terminé relu une fois, seule la fin relue à chaque lettre | Avant, toute la réponse était relue 60 fois par seconde : de plus en plus lent avec la longueur | Paquet externe de découpe du Markdown (marked) : une dépendance de plus |
 
 ---
 
@@ -91,6 +92,13 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-08
+- **Audit complet en autonomie** (demande de l'utilisateur, 2026-11-08). Deux équipes, fusionnées dans `0e09dff`, 600 tests sur 600 :
+  - **Inscription : les « s » de l'adresse ne sont plus effacés** (`e9a6b3d`). Depuis le 2026-11-02, `/s+/` au lieu de `/s+/` : « rue des Roses » devenait « rue de Ro e ». Même faute pour le sujet d'une histoire au vocal. Un test refuse cette faute dans tout le code. Les adresses déjà abîmées sont à refaire par les personnes.
+  - **Barge et repas : plus de faux « Pas de connexion » après un paiement** (`56f5ca2`) quand le téléphone ne peut pas garder l'achat.
+  - **Portefeuille : recharge Stripe et vérification d'origine testées** (`1715fa0`).
+  - **Chat : seule la fin de la réponse est relue pendant l'écriture** (`5ea0c46`). Mesuré : 2,3 → 0,44 ms par image pour 1 770 caractères ; rendu identique sur 1 980 cas.
+  - **Sons et musiques de la lecture servis sans le proxy** (`f857dae`) : en maintenance ils recevaient la page d'attente ; musiques gardées 7 jours en cache.
+  - **Panneau d'aide chargé à part** (`cd292b8`), environ 4,5 Ko brotli en moins au démarrage de chaque page ; **globe de la réponse non redessiné à chaque lettre** (`a9695a9`).
 - **Équipe d'agents de Tamilya** (`3d12cfd`). Mission « extension master » de l'utilisateur : une vraie équipe d'agents, pas des agents fictifs. Pour une question difficile à l'écrit, Tamilya consulte 1 à 3 spécialistes en parallèle, un vérificateur relit, puis elle répond avec leurs notes (« Je consulte : recherche, plan… » pendant l'attente). Essai réel avec Gemini (`scripts/agents-bench.ts`) : premier réglage +16 à 19 s, linguiste et analyste qui inventaient du shimaoré ; après réglage +4 à 8 s, linguiste limité au dictionnaire validé. Réservé aux administrateurs (variable AI_AGENTS).
 - **Voix en direct sans clic ni saturation** (`a284b77`). Fondu de 4 ms quand la voix repart, limiteur et coupe des très graves. Une marge adaptative contre les trous du réseau a été essayée puis écartée (voir « Choix techniques »).
 - Vercel ne compilait plus : le test de la lecture 3D utilisait `along` et `flyby` sans les importer. Import ajouté (`e66aed4`).
