@@ -7,7 +7,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { boardDone } from "@/lib/voice-live/stage";
 import type { BargeResponse, BargeTicketBought } from "@/app/api/barge/route";
 import { parseBargeRequest } from "@/lib/barge/intent";
-import { blockKey as keyOf, moveBlockValue, readBlockValue } from "@/lib/chat/block-key";
+import { blockKey as keyOf, moveBlockValue, readBlockValue, saveBlockValue } from "@/lib/chat/block-key";
 import { formatEuros } from "@/lib/wallet/limits";
 import { StyledQr } from "./OrderTicket";
 import { askPayPin } from "@/lib/wallet/pay-pin";
@@ -181,7 +181,7 @@ export function BargeTickets({ query = "" }: { query?: string }) {
         return;
       }
       savedKey.current = blockKey(root.current);
-      localStorage.setItem(savedKey.current, JSON.stringify(body));
+      saveBlockValue(savedKey.current, JSON.stringify(body));
       setBought(body);
       boardDone(root.current);
       setCart({});

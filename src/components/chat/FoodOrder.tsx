@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import type { FoodResponse } from "@/app/api/food/route";
 import type { FoodCartLine, FoodItem, FoodRestaurant } from "@/lib/food/catalog";
 import { MAYOTTE_COMMUNES, type GeoPoint } from "@/lib/address-fields";
-import { blockKey as keyOf, moveBlockValue, readBlockValue } from "@/lib/chat/block-key";
+import { blockKey as keyOf, moveBlockValue, readBlockValue, saveBlockValue } from "@/lib/chat/block-key";
 import { DISH_KINDS, dishKindOf, illustrationOf, matchFoodQuery, normalizeFood } from "@/lib/food/match";
 import { COMMUNE_CENTERS, distanceKm, locateMe, PETITE_TERRE } from "@/lib/geo/communes";
 import { boardDone } from "@/lib/voice-live/stage";
@@ -633,7 +633,7 @@ export function FoodOrder({ query = "", group = false }: { query?: string; group
 
   const onPlaced = (order: PlacedOrder) => {
     savedKey.current = blockKey(root.current, query);
-    localStorage.setItem(savedKey.current, JSON.stringify(order));
+    saveBlockValue(savedKey.current, JSON.stringify(order));
     window.dispatchEvent(new Event(ORDER_EVENT));
     boardDone(root.current);
     setPlaced(order);

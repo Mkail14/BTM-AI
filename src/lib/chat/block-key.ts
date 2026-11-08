@@ -21,14 +21,36 @@ export function blockKey(prefix: string, el: HTMLElement | null, selector: strin
  */
 export function readBlockValue(key: string, own = false): string | null {
   if (window.location.pathname === FRESH && !own) return null;
-  return localStorage.getItem(key);
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Garde l'achat sur l'appareil. Ne lève jamais d'erreur : le stockage peut être plein
+ * ou bloqué, et l'achat est déjà payé ; une erreur ici s'afficherait comme un paiement
+ * raté et pousserait à repayer. Faux si rien n'a pu être gardé.
+ */
+export function saveBlockValue(key: string, value: string): boolean {
+  try {
+    localStorage.setItem(key, value);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /** L'adresse de la conversation a changé (« / » → /c/<id>) : la valeur suit. */
 export function moveBlockValue(oldKey: string, newKey: string) {
   if (oldKey === newKey) return;
-  const value = localStorage.getItem(oldKey);
-  if (value === null) return;
-  localStorage.setItem(newKey, value);
-  localStorage.removeItem(oldKey);
+  try {
+    const value = localStorage.getItem(oldKey);
+    if (value === null) return;
+    localStorage.setItem(newKey, value);
+    localStorage.removeItem(oldKey);
+  } catch {
+    // Stockage indisponible : l'achat reste sous l'ancienne clé.
+  }
 }
