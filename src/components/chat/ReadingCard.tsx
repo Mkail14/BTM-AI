@@ -1,421 +1,62 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { BookOpen, Camera, Headphones, Pause, Play, RotateCcw, Square, X } from "lucide-react";
-import { setVoiceLevelSource } from "@/lib/chat/voice-level";
-import type { GeminiVoiceId } from "@/lib/ai/voice/voices";
-import { parseReadingSpec } from "@/lib/lecture/intent";
-import { announceReadingDone, takeReadingAutoStart } from "@/lib/lecture/auto";
-import type { SceneLine, SceneMeta, SceneScript } from "@/lib/lecture/script";
-import { preloadResonance, ScenePlayer } from "@/lib/lecture/soundscape";
-import { preloadSounds } from "@/lib/lecture/sounds";
-import { AwaBlob } from "./AwaBlob";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { BookOpen, Camera, RotateCcw } from "lucide-react";
+import { parseReadingSpec, READING_BLOCK } from "@/lib/lecture/intent";
+import { takeReadingAutoStart } from "@/lib/lecture/auto";
+import { getServerStories, getStories, playStory, playStoryOnce, subscribeStories, unlockAudio, type StorySource } from "@/lib/lecture/stage";
+import { useMessageInfo } from "./message-context";
 
 /**
- * Lecture en 3D : la personne prend une page de livre en photo (ou a écrit le texte dans la
- * conversation : le serveur le glisse dans le bloc, « texte » puis le texte), Gemini la met en scène
- * (/api/lecture), et Tamilya la lit dans les écouteurs, avec une voix par personnage et des
- * bruits qui tournent autour de la tête (src/lib/lecture/soundscape.ts).
- *
- * Lancée d'elle-même (« lis-moi une histoire ») : le grand globe de Tamilya s'ouvre en plein écran,
- * comme le vocal, et raconte ; aucun texte de chargement (demande de l'utilisateur). À la fin, elle
- * prend des nouvelles, puis le vocal écoute 4 s la réponse avant de revenir à l'écrit.
+ * Lecture en 3D dans la conversation : une simple ligne. L'histoire se joue dans le grand globe
+ * de Tamilya, en plein écran (StoryStage), jamais dans la conversation (demande de l'utilisateur,
+ * répétée : pas de « lecteur » avec ses boutons). Une réponse reçue à l'instant ouvre le globe toute
+ * seule dès que le serveur a fini d'envoyer ; une ancienne conversation montre « Réécouter ».
+ * Une vraie page de livre (« page ») demande d'abord la photo.
  */
 
-type State =
-  | { status: "idle" }
-  | { status: "preparing" }
-  | { status: "ready"; script: SceneScript }
-  | { status: "playing"; script: SceneScript; index: number; paused: boolean }
-  | { status: "done"; script: SceneScript }
-  | { status: "error"; message: string };
+const FENCE = "```";
 
-type Source = { text: string } | { story: string };
-type Voiced = { text: string; voice: GeminiVoiceId | null };
-/** Page qui arrive au fil de l'eau : les répliques s'ajoutent, la lecture les attend si besoin. */
-type Feed = { script: SceneScript; done: boolean; waiters: (() => void)[] };
-
-const noop = () => {};
-/** Photo envoyée : assez grande pour lire le texte, assez légère pour le débit de Mayotte. */
-const MAX_SIDE = 1400;
-/** Répliques préparées d'avance pendant que Tamilya lit. */
-const AHEAD = 3;
-
-async function shrinkPhoto(file: File): Promise<string> {
-  const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.round(bitmap.width * scale);
-  canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.75));
-  if (!blob) throw new Error("photo");
-  const bytes = new Uint8Array(await blob.arrayBuffer());
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  return btoa(binary);
+/** Le bloc complet dans la réponse entière (le texte affiché s'écrit encore lettre à lettre). */
+function fullSpec(content: string | undefined, typed: string) {
+  if (!content) return typed;
+  const start = content.indexOf(FENCE + READING_BLOCK);
+  if (start < 0) return typed;
+  const from = start + FENCE.length + READING_BLOCK.length;
+  const end = content.indexOf(FENCE, from);
+  return end < 0 ? typed : content.slice(from, end);
 }
 
 export function ReadingCard({ spec }: { spec: string }) {
-  const mode = parseReadingSpec(spec);
-  // « texte » ou « histoire » seuls : le serveur va y glisser le texte ou la demande à la fin de la réponse.
-  const waiting = mode === null;
-  // Ce qu'on envoie à /api/lecture : le texte collé, ou la demande d'histoire inventée (sinon, une photo).
-  const source: Source | null = mode?.kind === "texte" ? { text: mode.text } : mode?.kind === "histoire" ? { story: mode.request } : null;
-  const invented = mode?.kind === "histoire";
-  const [state, setState] = useState<State>({ status: "idle" });
-  const firstSpec = useRef(spec);
-  // Lancée depuis le vocal en direct (auto.ts) : elle démarre seule dès son ouverture.
-  const live = useRef(false);
-  const autoChecked = useRef(false);
-  if (!autoChecked.current) {
-    autoChecked.current = true;
-    if (takeReadingAutoStart(spec)) live.current = true;
-  }
-  const feed = useRef<Feed | null>(null);
-  const started = useRef(false);
+  const message = useMessageInfo();
+  const block = fullSpec(message?.content, spec).replace(/\r/g, "").trim();
+  const mode = parseReadingSpec(block);
+  const source: StorySource | null = mode?.kind === "texte" ? { text: mode.text } : mode?.kind === "histoire" ? { story: mode.request } : null;
+  // Une clé par réponse : la même demande deux fois donne deux histoires.
+  const key = `${message?.id ?? "vocal"}:${block}`;
+  // Lancée depuis le vocal en direct (auto.ts) : vérifié une seule fois, à l'ouverture.
+  const [fromVoice] = useState(() => takeReadingAutoStart(spec));
   const input = useRef<HTMLInputElement>(null);
-  const ctx = useRef<AudioContext | null>(null);
-  const player = useRef<ScenePlayer | null>(null);
-  const voices = useRef(new Map<number, Promise<AudioBuffer | null>>());
-  const items = useRef<Voiced[]>([]);
-  const wakeLock = useRef<WakeLockSentinel | null>(null);
-  /** Plein écran avec le grand globe : seulement quand l'histoire démarre d'elle-même. */
-  const [stage, setStage] = useState(false);
-  // Lu à la fin de l'histoire, bien après le démarrage : la valeur à jour, pas celle du démarrage.
-  const onStageRef = useRef(false);
+  const { stories } = useSyncExternalStore(subscribeStories, getStories, getServerStories);
+  const story = stories.get(key);
+
+  const fresh = Boolean(fromVoice || (message?.fresh && message.done));
   useEffect(() => {
-    onStageRef.current = stage;
-  });
-  /** Écran fermé pendant la préparation : l'histoire ne démarre pas toute seule derrière. */
-  const cancelled = useRef(false);
-  const outroVoice = useRef<Promise<AudioBuffer | null> | null>(null);
-
-  useEffect(
-    () => () => {
-      setVoiceLevelSource(null);
-      player.current?.stop();
-      void wakeLock.current?.release().catch(() => {});
-      if (!player.current) void ctx.current?.close().catch(() => {});
-    },
-    [],
-  );
-
-  /** Le son a besoin d'un geste de la personne pour démarrer : on l'ouvre au moment du toucher. */
-  function audio(): AudioContext {
-    if (!ctx.current || ctx.current.state === "closed") ctx.current = new AudioContext();
-    void ctx.current.resume().catch(() => {});
-    return ctx.current;
-  }
-
-  function speak(item: Voiced): Promise<AudioBuffer | null> {
-    const load = async () => {
-      const response = await fetch("/api/voice/speak", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(item.voice ? { text: item.text, voice: item.voice } : { text: item.text }),
-        signal: AbortSignal.timeout(45_000),
-      });
-      if (!response.ok) throw new Error(String(response.status));
-      return audio().decodeAudioData(await response.arrayBuffer());
-    };
-    // Un essai de plus si la connexion a sauté.
-    return load().catch(() => load().catch(() => null));
-  }
-
-  function voiceOf(index: number): Promise<AudioBuffer | null> {
-    const item = items.current[index];
-    if (!item) return Promise.resolve(null);
-    let pending = voices.current.get(index);
-    if (!pending) {
-      const load = async () => {
-        const response = await fetch("/api/voice/speak", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(item.voice ? { text: item.text, voice: item.voice } : { text: item.text }),
-          signal: AbortSignal.timeout(45_000),
-        });
-        if (!response.ok) throw new Error(String(response.status));
-        return audio().decodeAudioData(await response.arrayBuffer());
-      };
-      // Un essai de plus si la connexion a sauté.
-      pending = load().catch(() => load().catch(() => null));
-      voices.current.set(index, pending);
-    }
-    return pending;
-  }
-
-  /** La réplique i dès qu'elle est arrivée ; null quand la page est finie. */
-  function lineAt(i: number): Promise<SceneLine | null> {
-    const current = feed.current;
-    if (!current) return Promise.resolve(null);
-    return new Promise((resolve) => {
-      const check = () => {
-        if (current.script.lines[i]) resolve(current.script.lines[i]);
-        else if (current.done) resolve(null);
-        else current.waiters.push(check);
-      };
-      check();
-    });
-  }
-
-  function wake(current: Feed) {
-    const waiters = current.waiters.splice(0);
-    for (const waiter of waiters) waiter();
-  }
-
-  function finish(current: Feed | null) {
-    if (!current || current.done) return;
-    current.done = true;
-    wake(current);
-  }
-
-  /**
-   * La page arrive au fil de l'eau (/api/lecture) : le décor et l'intro dès le début du script,
-   * puis chaque réplique. La lecture démarre tout de suite, sans attendre la page entière.
-   */
-  async function prepare(source: File | Source) {
-    started.current = true;
-    setState({ status: "preparing" });
-    // Le son s'ouvre maintenant (geste ou app Android) ; le moteur 3D se télécharge pendant que Gemini lit.
-    audio();
-    void preloadResonance();
-    let current: Feed | null = null;
-    const fail = (message: string) => {
-      finish(current);
-      if (!current || !current.script.lines.length) {
-        player.current?.stop();
-        setState({ status: "error", message });
-      }
-    };
-    try {
-      const payload = source instanceof File ? { image: await shrinkPhoto(source), mimeType: "image/jpeg" } : source;
-      const response = await fetch("/api/lecture", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        signal: AbortSignal.timeout(90_000),
-      });
-      if (!response.ok || !response.body) {
-        const body = (await response.json().catch(() => null)) as { error?: string } | null;
-        setState({ status: "error", message: body?.error ?? "Je n'arrive pas à préparer la page : réessaie." });
-        return;
-      }
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = "";
-      const handle = (event: { type?: string; meta?: SceneMeta; line?: SceneLine; message?: string }) => {
-        if (event.type === "meta" && event.meta && !current) {
-          current = { script: { ...event.meta, lines: [] }, done: false, waiters: [] };
-          // Les vrais sons du décor partent tout de suite sur le réseau.
-          preloadSounds(event.meta.ambiences.map((a) => a.sound));
-          feed.current = current;
-          items.current = event.meta.intro ? [{ text: event.meta.intro, voice: null }] : [];
-          voices.current.clear();
-          void voiceOf(0);
-          void startPlaying(current.script);
-        } else if (event.type === "line" && event.line && current) {
-          current.script.lines.push(event.line);
-          preloadSounds(event.line.cues.map((c) => c.sound));
-          items.current.push({ text: event.line.text, voice: event.line.voice });
-          // Les toutes premières voix se préparent dès qu'elles arrivent.
-          if (items.current.length <= AHEAD + 1) void voiceOf(items.current.length - 1);
-          wake(current);
-        } else if (event.type === "end") {
-          finish(current);
-          const outro = current?.script.outro;
-          if (outro && !outroVoice.current) outroVoice.current = speak({ text: outro, voice: null });
-        } else if (event.type === "error") {
-          fail(event.message ?? "Je n'arrive pas à préparer la page : réessaie.");
-        }
-      };
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (value) buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = done ? "" : (lines.pop() ?? "");
-        for (const line of lines) {
-          if (!line.trim()) continue;
-          try {
-            handle(JSON.parse(line));
-          } catch {
-            // Ligne coupée : ignorée.
-          }
-        }
-        if (done) break;
-      }
-      if (!current) fail("Je n'arrive pas à préparer la page : réessaie.");
-      else finish(current);
-    } catch {
-      fail("Connexion perdue pendant que je préparais la page : réessaie.");
-    }
-  }
-
-  /**
-   * La lecture démarre d'elle-même dès le début du script (demande de l'utilisateur : pas de bouton
-   * à toucher). L'app Android permet le son sans geste ; si un navigateur le bloque, le bouton
-   * « Je ferme les yeux » reste là.
-   */
-  async function startPlaying(script: SceneScript) {
-    setState({ status: "ready", script });
-    if (cancelled.current) return;
-    const context = audio();
-    await Promise.race([context.resume().catch(() => {}), new Promise((resolve) => window.setTimeout(resolve, 800))]);
-    if (context.state === "running") void play(script);
-  }
-
-  async function play(script: SceneScript) {
-    player.current?.stop();
-    const scene = await ScenePlayer.create(audio(), script.place);
-    player.current = scene;
-    try {
-      wakeLock.current = await navigator.wakeLock?.request("screen");
-    } catch {
-      // L'écran pourra s'éteindre : le son continue en général.
-    }
-    const offset = script.intro ? 1 : 0;
-    setState({ status: "playing", script, index: -1, paused: false });
-    setVoiceLevelSource(() => scene.level());
-
-    // Le décor monte tout de suite, pendant que la voix de Tamilya arrive.
-    // (après au plus 4 s d'attente des vrais sons ; sinon, la version fabriquée).
-    await scene.prepare(script.ambiences.map((a) => a.sound), 4000);
-    scene.startAmbiences(script.ambiences, 3);
-    if (script.intro) {
-      const intro = await voiceOf(0);
-      if (intro && !scene.isStopped) await scene.playLine({ voice: null, side: 0, distance: "tout-pres", height: "milieu", from: null }, intro);
-      await scene.wait(0.6);
-    } else {
-      await scene.wait(script.ambiences.length ? 2 : 0.3);
-    }
-
-    let previous: string | null = null;
-    for (let i = 0; !scene.isStopped; i++) {
-      const line = await lineAt(i);
-      if (!line || scene.isStopped) break;
-      for (let k = 1; k <= AHEAD; k++) void voiceOf(offset + i + k);
-      setState((s) => (s.status === "playing" ? { ...s, index: i } : s));
-      // Un silence plus long quand la voix change : on sent qu'un autre parle.
-      if (previous !== null && previous !== line.speaker) await scene.wait(0.35);
-      if (line.cues.length) await scene.prepare(line.cues.map((c) => c.sound), 1500);
-      const before = line.cues.filter((c) => c.when === "avant");
-      if (before.length) await scene.wait(Math.min(1.6, Math.max(...before.map((c) => scene.playCue(c))) * 0.6));
-      const voice = await voiceOf(offset + i);
-      if (scene.isStopped) break;
-      for (const cue of line.cues.filter((c) => c.when === "pendant")) scene.playCue(cue, 0.3);
-      if (voice) {
-        scene.duck(true);
-        await scene.playLine(line, voice);
-        scene.duck(false);
-      }
-      const after = line.cues.filter((c) => c.when === "apres");
-      if (after.length) await scene.wait(Math.min(2, Math.max(...after.map((c) => scene.playCue(c))) * 0.7));
-      await scene.wait(0.3);
-      previous = line.speaker;
-    }
-
-    if (!scene.isStopped) {
-      scene.fadeOutAmbiences(5);
-      await scene.wait(1.6);
-      // Elle prend des nouvelles, à sa façon (phrase écrite par Gemini avec l'histoire).
-      const outro = onStageRef.current && script.outro ? await (outroVoice.current ??= speak({ text: script.outro, voice: null })) : null;
-      if (outro && !scene.isStopped) await scene.playLine({ voice: null, side: 0, distance: "tout-pres", height: "milieu", from: null }, outro);
-      await scene.wait(outro ? 0.4 : 3.6);
-      const completed = !scene.isStopped;
-      scene.stop();
-      setVoiceLevelSource(null);
-      setState({ status: "done", script });
-      setStage(false);
-      announceReadingDone({ converse: completed && Boolean(outro) });
-    }
-    void wakeLock.current?.release().catch(() => {});
-    wakeLock.current = null;
-  }
-
-  function stop(script: SceneScript) {
-    setVoiceLevelSource(null);
-    setStage(false);
-    player.current?.stop();
-    void wakeLock.current?.release().catch(() => {});
-    wakeLock.current = null;
-    setState({ status: "done", script });
-    announceReadingDone();
-  }
-
-  async function togglePause() {
-    if (state.status !== "playing" || !player.current) return;
-    if (state.paused) await player.current.resume();
-    else await player.current.pause();
-    setState({ ...state, paused: !state.paused });
-  }
-
-  // Texte tout juste arrivé dans la réponse (ou lecture lancée depuis le vocal) : elle se prépare
-  // et démarre d'elle-même, tout de suite. Une ancienne conversation rouverte montre un bouton
-  // (pour ne pas refaire la mise en scène à chaque visite).
-  useEffect(() => {
-    if (spec !== firstSpec.current) live.current = true;
-    if (!live.current || started.current || !source) return;
-    cancelled.current = false;
-    setStage(true);
-    void prepare(source);
-    // prepare lit l'état à jour à chaque rendu.
+    if (fresh && source) playStoryOnce(key, source);
+    // source dépend de key.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spec]);
+  }, [fresh, key]);
 
   function takePhoto() {
-    audio();
+    unlockAudio();
     input.current?.click();
   }
 
-  const playing = state.status === "playing" && !state.paused;
-  const line = state.status === "playing" && state.index >= 0 ? state.script.lines[state.index] : null;
-
-  const onStage = stage && (state.status === "preparing" || state.status === "ready" || state.status === "playing");
-  const stageScreen =
-    onStage && typeof document !== "undefined"
-      ? createPortal(
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label="Tamilya raconte une histoire"
-            className="voice-overlay fixed inset-0 z-[60] flex flex-col items-center px-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] text-white"
-          >
-            <p className="text-sm font-medium tracking-[0.3em] text-white/50 uppercase">Tamilya</p>
-            <div className="flex w-full flex-1 items-center justify-center">
-              {/* Le grand globe raconte : il gonfle au rythme de ce qu'on entend. Le toucher met en pause. */}
-              <AwaBlob
-                label={state.status === "playing" && state.paused ? "Reprendre l'histoire" : "Mettre l'histoire en pause"}
-                onActivate={() => void togglePause()}
-                immediate
-                busy={state.status !== "playing"}
-                size="min(60vw, 16rem)"
-                goo={13}
-              />
-            </div>
-            <span className="sr-only" aria-live="polite">
-              {state.status === "playing" ? (state.paused ? "En pause" : "Tamilya raconte") : "Tamilya se prépare"}
-            </span>
-            <button
-              type="button"
-              onClick={() => {
-                if ("script" in state) return stop(state.script);
-                cancelled.current = true;
-                setStage(false);
-              }}
-              aria-label="Arrêter l'histoire"
-              className="grid size-12 place-items-center rounded-full bg-white/10 transition hover:bg-white/20"
-            >
-              <X size={20} aria-hidden="true" />
-            </button>
-          </div>,
-          document.body,
-        )
-      : null;
+  const title = story?.title || (mode?.kind === "page" ? "Lecture d'une page" : "Histoire");
+  const busy = story && (story.status === "preparing" || story.status === "ready" || story.status === "playing" || story.status === "paused");
 
   return (
-    <figure className="not-prose my-3 flex flex-col gap-3 rounded-2xl border border-border bg-bg-subtle p-4">
+    <div className="not-prose my-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
       <input
         ref={input}
         type="file"
@@ -427,108 +68,23 @@ export function ReadingCard({ spec }: { spec: string }) {
         onChange={(event) => {
           const file = event.target.files?.[0];
           event.target.value = "";
-          if (file) void prepare(file);
+          if (file) playStory(`${key}:${file.name}:${file.lastModified}`, { photo: file });
         }}
       />
-      <div className="flex items-center gap-4">
-        <div aria-hidden="true" inert className="grid size-16 shrink-0 place-items-center">
-          <AwaBlob label="Tamilya" onActivate={noop} size="3.5rem" goo={4} busy={playing || state.status === "preparing"} still={!playing && state.status !== "preparing"} />
-        </div>
-        <div className="flex min-w-0 flex-1 flex-col gap-2">
-          <figcaption className="text-sm font-medium">
-            {state.status === "preparing" || waiting
-              ? source || waiting
-                ? invented
-                  ? "J'invente ton histoire…"
-                  : "Je prépare ton histoire…"
-                : "Je découvre ta page…"
-              : state.status === "ready" || state.status === "playing" || state.status === "done"
-                ? state.script.title || (invented ? "Ton histoire" : "Ta page")
-                : "Lecture en 3D"}
-          </figcaption>
-
-          {(state.status === "idle" || state.status === "error") && !waiting ? (
-            source ? (
-              <button type="button" onClick={() => void prepare(source)} className="btn-rose inline-flex h-11 items-center gap-2 self-start rounded-full px-5 text-sm font-medium">
-                <BookOpen size={18} aria-hidden="true" /> {invented ? "Écouter une histoire" : "Préparer la lecture"}
-              </button>
-            ) : (
-              <button type="button" onClick={takePhoto} className="btn-rose inline-flex h-11 items-center gap-2 self-start rounded-full px-5 text-sm font-medium">
-                <Camera size={18} aria-hidden="true" /> Prendre la page en photo
-              </button>
-            )
-          ) : null}
-
-          {state.status === "preparing" || waiting ? (
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-border" role="progressbar" aria-label="Préparation de la page">
-              <div className="h-full w-1/3 animate-pulse rounded-full bg-accent" />
-            </div>
-          ) : null}
-
-          {state.status === "ready" ? (
-            <button type="button" onClick={() => void play(state.script)} className="btn-rose inline-flex h-11 items-center gap-2 self-start rounded-full px-5 text-sm font-medium">
-              <Play size={18} aria-hidden="true" /> Je ferme les yeux
-            </button>
-          ) : null}
-
-          {state.status === "playing" ? (
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => void togglePause()}
-                aria-label={state.paused ? "Reprendre la lecture" : "Mettre en pause"}
-                className="btn-rose grid size-11 place-items-center rounded-full"
-              >
-                {state.paused ? <Play size={18} aria-hidden="true" /> : <Pause size={18} aria-hidden="true" />}
-              </button>
-              <button
-                type="button"
-                onClick={() => stop(state.script)}
-                aria-label="Arrêter la lecture"
-                className="zone-appui grid size-11 place-items-center rounded-full border border-border"
-              >
-                <Square size={16} aria-hidden="true" />
-              </button>
-              <span className="text-xs text-fg-muted">
-                {state.index >= 0 ? `${state.index + 1} / ${state.script.lines.length}` : ""}
-              </span>
-            </div>
-          ) : null}
-
-          {state.status === "done" ? (
-            <div className="flex flex-wrap gap-2">
-              <button type="button" onClick={() => void play(state.script)} className="zone-appui inline-flex items-center gap-1 text-sm font-medium text-accent">
-                <RotateCcw size={14} aria-hidden="true" /> Réécouter
-              </button>
-              {source ? null : (
-                <button type="button" onClick={takePhoto} className="zone-appui inline-flex items-center gap-1 text-sm font-medium text-accent">
-                  <Camera size={14} aria-hidden="true" /> Une autre page
-                </button>
-              )}
-            </div>
-          ) : null}
-
-          {state.status === "error" ? (
-            <p role="alert" className="text-sm text-fg-muted">
-              {state.message}
-            </p>
-          ) : null}
-        </div>
-      </div>
-
-      {state.status === "preparing" || state.status === "ready" || waiting ? (
-        <p className="flex items-center gap-2 text-sm text-fg-muted">
-          <Headphones size={16} aria-hidden="true" className="shrink-0" /> Mets tes écouteurs : les voix et les bruits viennent de tous les côtés.
-        </p>
+      <span className="inline-flex min-w-0 items-center gap-1.5 font-medium">
+        <BookOpen size={16} aria-hidden="true" className="shrink-0 text-accent" />
+        <span className="truncate">{title}</span>
+      </span>
+      {mode?.kind === "page" ? (
+        <button type="button" onClick={takePhoto} className="zone-appui inline-flex items-center gap-1 font-medium text-accent">
+          <Camera size={14} aria-hidden="true" /> Prendre la page en photo
+        </button>
+      ) : source && !busy ? (
+        <button type="button" onClick={() => playStory(key, source)} className="zone-appui inline-flex items-center gap-1 font-medium text-accent">
+          <RotateCcw size={14} aria-hidden="true" /> {story ? "Réécouter" : "Écouter"}
+        </button>
       ) : null}
-
-      {line ? (
-        <p className="text-sm leading-relaxed" aria-live="polite">
-          <span className="font-medium">{line.speaker} : </span>
-          {line.text}
-        </p>
-      ) : null}
-      {stageScreen}
-    </figure>
+      {story?.status === "error" && story.message ? <span className="w-full text-fg-muted">{story.message}</span> : null}
+    </div>
   );
 }

@@ -10,6 +10,7 @@ import { EnvBadge } from "@/components/layout/EnvBadge";
 import { DialogHost } from "@/components/ui/ConfirmDialog";
 import { PayPinHost } from "@/components/ui/PayPinHost";
 import { PressHaptics } from "@/components/ui/PressHaptics";
+import { StoryStage } from "@/components/chat/StoryStage";
 import { ThemeScript } from "@/components/ui/ThemeScript";
 import { getAuthContext } from "@/lib/auth/session";
 import { getProfile } from "@/lib/conversations/repository";
@@ -84,6 +85,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         <PressHaptics />
         <DialogHost />
         <PayPinHost />
+        {/* Grand globe de Tamilya quand elle raconte une histoire (lecture en 3D), hors de la conversation. */}
+        <StoryStage />
         <EnvBadge isAdmin={initialUser?.isAdmin ?? false} />
       </body>
     </html>

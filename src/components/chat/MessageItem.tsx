@@ -1,7 +1,7 @@
 "use client";
 
 import { Check } from "lucide-react";
-import { memo, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
+import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { speak } from "@/lib/chat/voice";
 import { IconCheck, IconCopy, IconRetry, IconSpeaker, IconStop } from "@/components/ui/icons";
 import type { ChatRole } from "@/lib/chat/types";
@@ -11,6 +11,7 @@ import { takeGlobeOrigin } from "./globe-origin";
 import { Markdown } from "./Markdown";
 import { AttestationAsk } from "./attestation-ask";
 import { useTypewriter } from "./useTypewriter";
+import { MessageContext } from "./message-context";
 
 export type UiMessageStatus = "complete" | "streaming" | "interrupted" | "error";
 
@@ -181,8 +182,10 @@ function AssistantMessage({ message, question }: { message: UiMessage; question?
   const writing = streaming || typing;
   const waiting = writing && !text;
   const readable = writing ? "" : plainText(message.content);
+  const info = useMemo(() => ({ id: message.id, fresh: animate, done: !streaming, content: message.content }), [message.id, animate, streaming, message.content]);
 
   return (
+    <MessageContext value={info}>
     <AttestationAsk value={question ?? ""}>
     <article className="group flex min-w-0 gap-2.5 sm:gap-3" aria-busy={writing}>
       <h3 className="sr-only">Tamilya a répondu :</h3>
@@ -248,5 +251,6 @@ function AssistantMessage({ message, question }: { message: UiMessage; question?
       </div>
     </article>
     </AttestationAsk>
+    </MessageContext>
   );
 }
