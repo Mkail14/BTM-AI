@@ -963,21 +963,23 @@ public class MainActivity extends Activity {
         public void savePdf(String token, String name, String base64) {
             if (!bridgeToken.equals(token)) return;
             if (name == null || base64 == null || base64.length() > MAX_PDF_BASE64) return;
-            main.post(() -> MainActivity.this.savePdf(name, base64));
+            // Jusqu'à 11 Mo à décoder : à part, pour ne figer ni l'écran (fil principal) ni la page.
+            new Thread(() -> {
+                byte[] pdf;
+                try {
+                    pdf = Base64.decode(base64, Base64.DEFAULT);
+                } catch (IllegalArgumentException e) {
+                    return;
+                }
+                if (isPdf(pdf)) main.post(() -> MainActivity.this.savePdf(name, pdf));
+            }, "tamilya-pdf").start();
         }
     }
 
     /** La personne choisit où ranger le fichier : aucune permission de stockage n'est nécessaire. */
-    private void savePdf(String name, String base64) {
+    private void savePdf(String name, byte[] pdf) {
         String page = web == null ? null : web.getUrl();
         if (page == null || !isSiteOrigin(Uri.parse(page))) return;
-        byte[] pdf;
-        try {
-            pdf = Base64.decode(base64, Base64.DEFAULT);
-        } catch (IllegalArgumentException e) {
-            return;
-        }
-        if (!isPdf(pdf)) return;
         pendingPdf = pdf;
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT)
                 .addCategory(Intent.CATEGORY_OPENABLE)
@@ -1005,13 +1007,19 @@ public class MainActivity extends Activity {
         byte[] pdf = pendingPdf;
         pendingPdf = null;
         if (target == null) return;
-        try (OutputStream out = getContentResolver().openOutputStream(target)) {
-            if (pdf == null || out == null) throw new IOException("Fichier indisponible");
-            out.write(pdf);
-            Toast.makeText(this, R.string.pdf_saved, Toast.LENGTH_LONG).show();
-        } catch (IOException | SecurityException e) {
-            Toast.makeText(this, R.string.pdf_failed, Toast.LENGTH_LONG).show();
-        }
+        // Écriture de plusieurs Mo : à part aussi ; le message s'affiche ensuite sur l'écran.
+        new Thread(() -> {
+            int result;
+            try (OutputStream out = getContentResolver().openOutputStream(target)) {
+                if (pdf == null || out == null) throw new IOException("Fichier indisponible");
+                out.write(pdf);
+                result = R.string.pdf_saved;
+            } catch (IOException | SecurityException e) {
+                result = R.string.pdf_failed;
+            }
+            int shown = result;
+            main.post(() -> Toast.makeText(this, shown, Toast.LENGTH_LONG).show());
+        }, "tamilya-pdf").start();
     }
 
     private final class SpeechListener implements RecognitionListener {
@@ -1297,6 +1305,8 @@ public class MainActivity extends Activity {
             tts.shutdown();
             tts = null;
         }
+        // Retirée de l'écran avant destroy(), comme le demande WebView : sinon elle peut rester en mémoire.
+        if (web.getParent() instanceof ViewGroup) ((ViewGroup) web.getParent()).removeView(web);
         web.destroy();
         web = null;
         super.onDestroy();
