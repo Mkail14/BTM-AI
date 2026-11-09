@@ -387,11 +387,11 @@ export function AttestationHebergement({ resume = false, mode = "" }: { resume?:
                       <input type="file" accept="image/*" className="sr-only" disabled={reading !== null} onChange={(e) => void pick(person, e)} />
                     </label>
                   </div>
-                  <div className="grid h-20 w-28 shrink-0 place-items-center rounded-xl border border-dashed border-border bg-white p-1.5 sm:w-36">
+                  <div className="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-dashed border-border bg-white p-1.5 sm:w-36">
                     {signature ? (
                       // Image locale en data: : le composant Image de Next ne s'applique pas ici.
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={signature.url} alt={`Signature : ${nameOf(person)}`} className="max-h-full max-w-full object-contain" />
+                      <img src={signature.url} alt={`Signature : ${nameOf(person)}`} className="block size-full object-contain" />
                     ) : (
                       <span className="text-center text-[11px] text-neutral-500">Signature</span>
                     )}

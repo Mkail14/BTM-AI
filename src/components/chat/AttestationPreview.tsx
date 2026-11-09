@@ -15,11 +15,11 @@ function SignatureBox({ title, name, url }: { title: string; name: string; url?:
   return (
     <div className="min-w-0">
       <p className="font-semibold">{title}</p>
-      <div className="mt-1 grid h-16 place-items-center rounded border border-dashed border-neutral-300 p-1">
+      <div className="mt-1 flex h-16 items-center justify-center overflow-hidden rounded border border-dashed border-neutral-300 p-1">
         {url ? (
           // Image locale en data: : le composant Image de Next ne s'applique pas ici.
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={url} alt={`Signature : ${name}`} className="max-h-full max-w-full object-contain" />
+          <img src={url} alt={`Signature : ${name}`} className="block size-full object-contain" />
         ) : (
           <span className="text-center text-[11px] text-neutral-500">À signer à la main</span>
         )}
