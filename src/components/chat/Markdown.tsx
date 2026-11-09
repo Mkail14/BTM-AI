@@ -173,12 +173,14 @@ const MarkdownPart = memo(function MarkdownPart({ source }: { source: string }) 
 });
 
 /**
- * `streaming` : réponse en train de s'écrire. Le début déjà terminé n'est analysé qu'une fois,
- * seule la fin est ré-analysée à chaque lettre (voir splitStableMarkdown) : même rendu, moins de calcul.
+ * Pendant l'écriture, le début déjà terminé n'est analysé qu'une fois, seule la fin est ré-analysée
+ * à chaque lettre (voir splitStableMarkdown) : même rendu, moins de calcul. Le découpage est le même
+ * une fois la réponse finie : les tableaux (cyclones, barge…) ne changent pas de place, donc ne se
+ * rechargent pas quand Tamilya termine.
  */
-export const Markdown = memo(function Markdown({ text, streaming = false }: { text: string; streaming?: boolean }) {
+export const Markdown = memo(function Markdown({ text }: { text: string }) {
   const source = groupYouTubeLines(markUnknownWords(stripEmoji(text)));
-  const { head, tail } = streaming ? splitStableMarkdown(source) : { head: "", tail: source };
+  const { head, tail } = splitStableMarkdown(source);
   return (
     <div className="markdown">
       {head ? <MarkdownPart source={head} /> : null}
