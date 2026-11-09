@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `3f90bf8` (2026-11-09)**
+**Dernier commit noté : `3126770` (2026-11-09)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -59,6 +59,10 @@ Comment le tenir :
 
 ## Idées en attente
 
+### « Je vais bien » dans Tamilya Connect (noté le 2026-11-09)
+- Après un cyclone ou une coupure, un message court à ses proches, relayé de téléphone en téléphone. Proposé, pas encore validé par l'utilisateur.
+- SOS écarté : dans une crise qui touche tout le monde, les secours sont débordés et on ne peut rien promettre (fausse sécurité, responsabilité de BTM).
+
 ### Scan des tickets de barge (noté le 2026-11-09)
 - Le ticket n'a plus de date : il sert jusqu'à son scan, une seule fois, seulement à Mamoudzou (le sens Petite-Terre → Grande-Terre est gratuit).
 - Le scan reste à voir avec STM : de préférence brancher Tamilya sur leurs machines de scan (moins de charge pour nous) ; sinon faire notre propre outil. Rien de fait en attendant.
@@ -99,6 +103,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-09
+- **Mémoire de Tamilya comme ChatGPT** (`3126770`). L'utilisateur n'aimait pas le bloc « Ce qu'elle retient de toi » (toute la liste étalée dans les Paramètres). Maintenant : une ligne « Souvenirs » avec interrupteur et bouton « Gérer » ; la liste s'ouvre dans une fenêtre (poubelle par souvenir, « Tout effacer »). Mémoire coupée : réglage gardé dans le compte (`user_metadata.memoire_coupee`, sans migration ; le jeton est rafraîchi tout de suite) ; Tamilya ne lit ni n'ajoute de souvenirs à l'écrit, au vocal et dans Connect ; les souvenirs restent effaçables. Sous la réponse, mention discrète « Mémoire mise à jour » à ouvrir (ce qui a été retenu + lien « Gérer la mémoire ») : l'apprentissage part maintenant pendant la réponse, attendu 6 s au plus (sinon enregistré sans la mention). Vérifié : types, lint, 647 tests. Pas encore vu à l'écran.
 - **Chansons : un parolier rapide avant Lyria** (`3f90bf8`). Remarque de l'utilisateur : Lyria chante bien mais les paroles « sentent l'IA » ; il veut « rapide et efficace » (Gemini Pro écarté, trop lent). Flash réécrit les paroles de Tamilya deux fois en parallèle (`src/lib/music/lyricist.ts`), le code note les trois versions sans appel (`src/lib/music/lyric-score.ts` : clichés d'IA, mots vagues, rimes riches, vers de même longueur, même mot qui rime avec lui-même) et Lyria chante la meilleure ; 7 s au plus, sinon la version de Tamilya. Paroles non françaises (shimaoré) jamais réécrites. Le globe affiche les paroles chantées (gardées avec le son sur l'appareil). Essai réel par le relais (`scripts/lyricist-bench.ts`) : une réécriture gagne sur les deux chansons, plus aucun cliché, ~5 s pour les réécritures (pas encore mesuré en ligne). Vérifié : types, 647 tests.
 - **Barge : ticket sans date** (`91d0891`). Le ticket n'a plus de jour de validité : il sert jusqu'à son scan à Mamoudzou, une seule fois (choix du jour retiré du tableau, de /api/barge et de Tamilya Connect). Le scan reste à voir avec STM (voir « Idées en attente »).
 - **Chanson : le globe s'ouvre seul** (`14849d9`). Demande de l'utilisateur : en demandant une chanson par écrit, il voyait une carte « Écoute-moi chanter » à toucher, et les paroles s'affichaient pendant le chargement. Cause : le globe ne s'ouvrait que s'il voyait le bloc s'écrire, or il arrive souvent d'un coup. Maintenant, comme les histoires : une réponse reçue à l'instant ouvre le globe dès qu'elle est finie ; dans la conversation, une simple ligne « Chanson · Réécouter ». Pendant la composition : seulement le globe et les messages d'attente, les paroles n'apparaissent que quand elle chante. Vérifié : types, lint. Pas encore essayé sur le site (iPhone peut bloquer le son : le globe dit alors « Touche-moi pour m'écouter »).
