@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { detectSong, lyriaPrompt, parseSongSpec, SONG_LIMITS, voiceSongSpec } from "../src/lib/music/intent";
+import { fadeAt, ORBIT, orbitAt, SONG_FADE } from "../src/lib/music/song-space";
 
 describe("Chansons de Tamilya : demande reconnue", () => {
   it("reconnaît une demande de chanter", () => {
@@ -39,6 +40,8 @@ describe("Chansons de Tamilya : bloc et demande à Lyria", () => {
     const prompt = lyriaPrompt(parseSongSpec(block)!);
     assert.match(prompt, /^Original song: chant de rue joyeux/);
     assert.match(prompt, /Do not imitate any existing song or artist/);
+    assert.match(prompt, /real human singer/);
+    assert.match(prompt, /Never stop abruptly/);
     assert.match(prompt, /Tamilya chante\nMayotte avec elle$/);
   });
 });
@@ -54,5 +57,32 @@ describe("Chansons de Tamilya : en vocal (bouton chanter)", () => {
     assert.equal(voiceSongSpec(undefined, "La la la"), "La la la");
     assert.equal(voiceSongSpec("jazz", "  "), null);
     assert.equal(voiceSongSpec("jazz", Array.from({ length: 40 }, (_, i) => `vers ${i}`).join("\n")), null);
+  });
+});
+
+describe("Chansons de Tamilya : au casque", () => {
+  it("baisse doucement sur les dernières secondes au lieu de couper net", () => {
+    assert.equal(fadeAt(10, 30), 1);
+    assert.equal(fadeAt(30 - SONG_FADE, 30), 1);
+    assert.ok(fadeAt(28.5, 30) > 0.4 && fadeAt(28.5, 30) < 0.6);
+    assert.equal(fadeAt(30, 30), 0);
+    assert.equal(fadeAt(5, Number.NaN), 1);
+  });
+
+  it("fait un tour autour de la tête de temps en temps, puis revient devant", () => {
+    assert.equal(orbitAt(3, 30), null);
+    assert.equal(orbitAt(ORBIT.first + 0.001, 30)?.angle.toFixed(0), "0");
+    const middle = orbitAt(ORBIT.first + ORBIT.length / 2, 30)!;
+    assert.ok(Math.abs(Math.abs(middle.angle) - 180) < 1, "derrière la tête au milieu du tour");
+    assert.equal(orbitAt(ORBIT.first + ORBIT.length + 1, 30), null);
+    assert.equal(orbitAt(5, Number.NaN), null);
+  });
+
+  it("ne tourne jamais pendant la baisse finale", () => {
+    // Un tour qui finirait dans la baisse n'a pas lieu.
+    assert.equal(orbitAt(ORBIT.first + ORBIT.every + 1, 32), null);
+    for (let t = 0; t < 30; t += 0.25) {
+      if (orbitAt(t, 30)) assert.ok(t < 30 - SONG_FADE);
+    }
   });
 });

@@ -64,11 +64,20 @@ export function voiceSongSpec(style: unknown, lyrics: unknown): string | null {
  */
 export const SONG_RETRY_STYLES = ["", "gentle original acoustic pop, guitar and light percussion, medium tempo"] as const;
 
-/** Demande envoyée à Lyria : style, rappel « chanson originale », puis les paroles. */
+/**
+ * Demande envoyée à Lyria : style, rappel « chanson originale », puis les paroles.
+ * L'utilisateur (2026-11-09) trouvait le chant « robot » et la fin coupée net : on demande une
+ * vraie chanteuse enregistrée en studio (souffle, nuances, petites imperfections) et une fin
+ * jouée, terminée avant la fin de l'extrait.
+ */
 export function lyriaPrompt(spec: SongSpec): string {
   return [
     `Original song${spec.style ? `: ${spec.style}` : ""}.`,
     "Sung by a warm, clear female lead voice, with real instruments. Do not imitate any existing song or artist.",
+    "The voice must sound like a real human singer recorded in a studio: natural breaths, soft vibrato, expressive dynamics, slight human imperfections, no robotic or auto-tuned sound, no vocoder.",
+    "Acoustic, organic mix with live-played instruments and a warm natural room.",
+    "Balanced, clean modern master: a warm, round, well-defined bassline you can feel, tight kick, clear vocal in front, airy highs. Not boomy, not muddy, not overloaded.",
+    "Give the song a real ending inside the clip: the last line resolves, the final chord rings out and fades to silence. Never stop abruptly.",
     "Sing exactly these lyrics, in their own language:",
     "",
     spec.lyrics,

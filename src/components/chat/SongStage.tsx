@@ -3,7 +3,7 @@
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import { getServerSong, getSong, stopSong, subscribeSong, toggleSong } from "@/lib/music/song-stage";
+import { getServerSong, getSong, songProgress, stopSong, subscribeSong, toggleSong } from "@/lib/music/song-stage";
 import { AwaBlob } from "./AwaBlob";
 
 /**
@@ -29,16 +29,21 @@ export function SongStage() {
       <div className="flex w-full flex-1 flex-col items-center justify-center gap-6">
         <AwaBlob label={label} onActivate={toggleSong} immediate busy={active.status === "preparing"} size="min(60vw, 16rem)" goo={13} />
         {/* Place gardée : le globe ne saute pas quand le message s'efface. */}
-        <div className="min-h-6 max-w-xs text-center">
+        <div className="flex min-h-28 w-full max-w-sm flex-col items-center gap-3 text-center">
           {active.status === "preparing" ? (
-            <WaitingNote key={active.key} />
+            <>
+              <WaitingNote key={active.key} />
+              <LyricsPreview lines={active.lines} />
+            </>
           ) : active.status === "error" ? (
             <p role="alert" className="text-sm text-white/80">
               {active.message}
             </p>
           ) : active.status === "ready" ? (
             <p className="text-sm text-white/70">Touche-moi pour m&apos;écouter</p>
-          ) : null}
+          ) : (
+            <SungLine lines={active.lines} />
+          )}
         </div>
       </div>
       <span className="sr-only" aria-live="polite">
@@ -54,6 +59,51 @@ export function SongStage() {
       </button>
     </div>,
     document.body,
+  );
+}
+
+/** Pendant qu'elle compose : le début des paroles, en pâle, qui s'efface vers le bas (sans défilement). */
+function LyricsPreview({ lines }: { lines: string[] }) {
+  if (!lines.length) return null;
+  return (
+    <div className="max-h-24 overflow-hidden text-sm leading-relaxed text-white/45 [mask-image:linear-gradient(to_bottom,black_55%,transparent)]">
+      {lines.slice(0, 5).map((line, i) => (
+        <p key={i}>{line}</p>
+      ))}
+    </div>
+  );
+}
+
+/** Part de la chanson laissée à l'intro et à la fin, sans paroles. */
+const INTRO = 0.06;
+const OUTRO = 0.04;
+
+/**
+ * Pendant qu'elle chante : la phrase en cours, et la suivante en pâle, comme un karaoké.
+ * Le moment de chaque phrase est estimé au prorata de la durée (la musique ne le donne pas).
+ */
+function SungLine({ lines }: { lines: string[] }) {
+  const [index, setIndex] = useState(0);
+  useEffect(() => {
+    const tick = () => {
+      const progress = songProgress();
+      if (progress === null || !lines.length) return;
+      const share = Math.min(0.999, Math.max(0, (progress - INTRO) / (1 - INTRO - OUTRO)));
+      setIndex(Math.floor(share * lines.length));
+    };
+    tick();
+    const timer = window.setInterval(tick, 200);
+    return () => window.clearInterval(timer);
+  }, [lines]);
+
+  if (!lines.length) return null;
+  return (
+    <div aria-hidden="true" className="flex flex-col items-center gap-2">
+      <p key={index} className="animate-[voice-fade-in_400ms_ease-out] text-lg leading-snug font-medium text-white">
+        {lines[index]}
+      </p>
+      {lines[index + 1] ? <p className="text-sm text-white/45">{lines[index + 1]}</p> : null}
+    </div>
   );
 }
 

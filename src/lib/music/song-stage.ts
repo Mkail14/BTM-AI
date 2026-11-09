@@ -11,13 +11,18 @@
  */
 
 import { setVoiceLevelSource } from "@/lib/chat/voice-level";
+import { ears } from "@/lib/lecture/ears";
 import { unlockAudio } from "@/lib/lecture/stage";
+import { parseSongSpec } from "./intent";
+import { fadeAt, orbitAt } from "./song-space";
 
 export type SongView = {
   key: string;
   /** ready : prête, mais le navigateur attend un toucher pour lancer le son. */
   status: "preparing" | "ready" | "playing" | "paused" | "error";
   message?: string;
+  /** Les phrases chantées (sans les balises [Couplet], [Refrain]…), écrites sous le globe. */
+  lines: string[];
 };
 
 type Snapshot = { active: SongView | null };
@@ -40,6 +45,24 @@ function show(view: SongView | null) {
 function patch(key: string, next: Partial<SongView>) {
   if (snapshot.active?.key !== key) return; // fermé entre-temps
   show({ ...snapshot.active, ...next });
+}
+
+/** Phrases chantées : les paroles sans les balises ni les lignes vides. */
+export function songLines(spec: string): string[] {
+  const lyrics = parseSongSpec(spec)?.lyrics ?? "";
+  return lyrics
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line && !/^\[.*\]$/.test(line));
+}
+
+/**
+ * Où en est la chanson (0 à 1), ou null si elle ne joue pas encore. La musique ne donne pas le
+ * moment de chaque phrase : le globe les fait avancer au prorata du temps écoulé.
+ */
+export function songProgress(): number | null {
+  if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) return null;
+  return Math.min(1, audio.currentTime / audio.duration);
 }
 
 /** Empreinte courte des paroles : même chanson, même clé. */
@@ -101,9 +124,13 @@ export async function hasSavedSong(key: string): Promise<boolean> {
 let audio: HTMLAudioElement | null = null;
 let audioUrl: string | null = null;
 let run = 0;
+/** Suivi de la baisse finale et des tours autour de la tête. */
+let motion: number | null = null;
 
 function release() {
   run++;
+  if (motion !== null) window.clearInterval(motion);
+  motion = null;
   setVoiceLevelSource(null);
   if (audio) {
     audio.pause();
@@ -112,6 +139,21 @@ function release() {
   }
   if (audioUrl) URL.revokeObjectURL(audioUrl);
   audioUrl = null;
+}
+
+/**
+ * Couleur du son, sans exagérer (demande de l'utilisateur, 2026-11-09 : « comme le son Apple dans
+ * les oreilles ») : graves profonds un peu plus présents, bas-médium nettoyé (ce qui rend boueux),
+ * un peu d'air dans les aigus, et un limiteur doux contre la saturation.
+ */
+function polish(ctx: AudioContext, from: AudioNode, to: AudioNode) {
+  const headroom = new GainNode(ctx, { gain: 0.85 });
+  const rumble = new BiquadFilterNode(ctx, { type: "highpass", frequency: 25, Q: 0.7 });
+  const bass = new BiquadFilterNode(ctx, { type: "lowshelf", frequency: 90, gain: 3 });
+  const mud = new BiquadFilterNode(ctx, { type: "peaking", frequency: 300, Q: 1, gain: -1.5 });
+  const air = new BiquadFilterNode(ctx, { type: "highshelf", frequency: 10_000, gain: 1.5 });
+  const limiter = new DynamicsCompressorNode(ctx, { threshold: -3, knee: 3, ratio: 12, attack: 0.003, release: 0.15 });
+  from.connect(headroom).connect(rumble).connect(bass).connect(mud).connect(air).connect(limiter).connect(to);
 }
 
 async function compose(spec: string): Promise<Blob> {
@@ -133,7 +175,7 @@ export function playSong(spec: string) {
   const key = songKey(spec);
   release();
   const mine = run;
-  show({ key, status: "preparing" });
+  show({ key, status: "preparing", lines: songLines(spec) });
   // Le son doit s'ouvrir pendant le geste de la personne : avant toute attente.
   const context = unlockAudio();
   void (async () => {
@@ -161,8 +203,29 @@ export function playSong(spec: string) {
       if (context.state !== "running") throw new Error("son bloqué");
       const analyser = context.createAnalyser();
       analyser.fftSize = 512;
-      context.createMediaElementSource(element).connect(analyser);
+      // Chanson → baisse finale → au milieu (stéréo d'origine) ou en tour autour de la tête → sortie.
+      const fade = new GainNode(context, { gain: 1 });
+      const middle = new GainNode(context, { gain: 1 });
+      const around = new GainNode(context, { gain: 0 });
+      const head = ears(context, around);
+      polish(context, context.createMediaElementSource(element), fade);
+      fade.connect(middle).connect(analyser);
+      fade.connect(head.input);
+      around.connect(analyser);
       analyser.connect(context.destination);
+      let turning = false;
+      motion = window.setInterval(() => {
+        const now = context.currentTime;
+        fade.gain.setTargetAtTime(fadeAt(element.currentTime, element.duration), now, 0.05);
+        const orbit = orbitAt(element.currentTime, element.duration);
+        if (orbit) head.set(orbit.angle, 1, orbit.lift, 1.3);
+        // Passage en douceur entre le milieu et le tour (tous deux partent et reviennent devant).
+        if (Boolean(orbit) !== turning) {
+          turning = Boolean(orbit);
+          middle.gain.setTargetAtTime(turning ? 0 : 1, now, 0.35);
+          around.gain.setTargetAtTime(turning ? 1 : 0, now, 0.35);
+        }
+      }, 40);
       const data = new Uint8Array(analyser.fftSize);
       setVoiceLevelSource(() => {
         analyser.getByteTimeDomainData(data);
@@ -171,7 +234,12 @@ export function playSong(spec: string) {
         return Math.min(1, Math.sqrt(sum / data.length) * 4);
       });
     } catch {
-      // Sans Web Audio, la musique joue quand même ; le globe bouge sans suivre le volume.
+      // Sans Web Audio, la musique joue quand même, au milieu ; le globe bouge sans suivre le volume.
+      // La fin baisse quand même là où le navigateur laisse régler le volume (pas sur iPhone).
+      if (motion !== null) window.clearInterval(motion);
+      motion =window.setInterval(() => {
+        element.volume = fadeAt(element.currentTime, element.duration);
+      }, 100);
     }
     element.onplay = () => patch(key, { status: "playing" });
     element.onpause = () => {
