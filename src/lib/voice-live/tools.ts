@@ -154,7 +154,7 @@ export function liveToolDeclarations(access: LiveAccess) {
         type: "OBJECT",
         properties: {
           style: text("Le style en quelques mots : genre, ambiance, tempo, instruments (ex. « reggae joyeux, guitare et percussions, tempo moyen »). Jamais de nom d'artiste."),
-          paroles: text("Tes paroles inventées : « [Couplet] » puis 4 lignes, « [Refrain] » puis 2 à 4 lignes, un vers par ligne, 12 lignes au plus. Simples, qui riment, jamais celles d'une chanson existante. En shimaoré, seulement avec des mots que tu connais vraiment."),
+          paroles: text("Tes paroles inventées : « [Couplet] » puis 4 lignes, « [Refrain] » puis 2 à 4 lignes, un vers par ligne, 12 lignes au plus. Travaillées comme une vraie parolière (images précises, rimes riches, pas de clichés), jamais celles d'une chanson existante. En shimaoré, seulement avec des mots que tu connais vraiment."),
         },
         required: ["paroles"],
       },

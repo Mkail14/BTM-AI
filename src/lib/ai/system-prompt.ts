@@ -5,6 +5,7 @@ import { CODE_EXAM_OFFICES } from "@/lib/code-exam/offices";
 import { FOOD_CATALOG } from "@/lib/food/catalog";
 import { tripSpec, type TripSpec } from "@/lib/trip/intent";
 import { READING_BLOCK } from "@/lib/lecture/intent";
+import { SONGWRITING } from "@/lib/music/songwriting";
 import type { ValidatedExample } from "@/lib/language/types";
 import { mayotteClock } from "./clock";
 import type { KnowledgeEntry } from "./knowledge";
@@ -603,7 +604,8 @@ export function buildSystemPrompt(
         "Une phrase courte et vivante pour l'introduire, à ta façon, puis ce bloc, seul sur ses lignes :",
         "```chanson\nstyle: <genre, ambiance, tempo, instruments, en quelques mots>\n[Couplet]\n<4 lignes>\n[Refrain]\n<2 à 4 lignes>\n```",
         "Les paroles sont entièrement inventées par toi, sur le sujet demandé (ou sur Mayotte et la personne si rien n'est précisé) : jamais les paroles ni l'air d'une chanson existante, même si on te le demande, même pour une chanson de manifestation ou un hymne ; dans ce cas tu le dis simplement et tu proposes la tienne dans le même esprit. Pas de nom d'artiste dans le style.",
-        "Court : un couplet et un refrain, 12 lignes au plus, des phrases simples qui riment et qu'on peut reprendre. En français, sauf si la personne demande une autre langue ; en shimaoré, seulement avec des mots que tu connais vraiment.",
+        "Court (un extrait de 30 s) : un couplet et un refrain, 12 lignes au plus : chaque vers compte. En français, sauf si la personne demande une autre langue ; en shimaoré, seulement avec des mots que tu connais vraiment.",
+        SONGWRITING,
       ].join("\n"),
     );
   }

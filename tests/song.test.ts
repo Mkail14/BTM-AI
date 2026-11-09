@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { detectSong, lyriaPrompt, parseSongSpec, SONG_LIMITS, voiceSongSpec } from "../src/lib/music/intent";
 import { fadeAt, ORBIT, orbitAt, SONG_FADE } from "../src/lib/music/song-space";
+import { SONGWRITING } from "../src/lib/music/songwriting";
+import { LIVE_RULES } from "../src/lib/voice-live/rules";
 
 describe("Chansons de Tamilya : demande reconnue", () => {
   it("reconnaît une demande de chanter", () => {
@@ -84,5 +86,14 @@ describe("Chansons de Tamilya : au casque", () => {
     for (let t = 0; t < 30; t += 0.25) {
       if (orbitAt(t, 30)) assert.ok(t < 30 - SONG_FADE);
     }
+  });
+});
+
+describe("Chansons de Tamilya : paroles travaillées", () => {
+  it("ne demande plus des phrases simples, décrit le métier par genre (écrit et vocal)", () => {
+    assert.doesNotMatch(SONGWRITING, /phrases simples/);
+    assert.match(SONGWRITING, /Rap sombre/);
+    assert.match(SONGWRITING, /sans copier un seul de ses vers/);
+    assert.ok(LIVE_RULES.includes(SONGWRITING));
   });
 });
