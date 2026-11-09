@@ -390,6 +390,9 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             );
             break;
           }
+          case "remembered":
+            updateMessage(assistantId, (m) => ({ ...m, remembered: event.items }));
+            break;
           case "done":
             settled = true;
             updateMessage(assistantId, (m) =>

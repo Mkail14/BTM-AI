@@ -42,7 +42,7 @@ import { startFlowTrace } from "@/lib/ai/flow-trace";
 import { ALL_APIS_CUT, flowCutStop, loadFlowCutsForMessage } from "@/lib/ai/flow-cuts";
 import { buildDossier } from "@/lib/ai/dossier";
 import { extractMemories, type MemoryFact } from "@/lib/ai/memory";
-import { getMemories, learnFromMessage, saveMemories } from "@/lib/ai/memory-store";
+import { describeMemoryUpdates, getMemories, isMemoryOn, learnFromMessage, newMemoryUpdates, saveMemories } from "@/lib/ai/memory-store";
 import { getPastTalks } from "@/lib/ai/past-talks-store";
 import { withRecentReplies } from "@/lib/ai/past-talks";
 import { collectUnknownWords } from "@/lib/ai/word-requests";
@@ -211,6 +211,8 @@ export async function POST(request: NextRequest) {
   // Une seule personnalité pour tout le monde (professionnelle), réglée depuis /admin, en cache.
   const personalityInstructionsTask = loadPersonalityInstructions(DEFAULT_PERSONALITY);
   personalityInstructionsTask.catch(() => {});
+  // Mémoire coupée dans les Paramètres : Tamilya ne lit ni n'ajoute de souvenirs.
+  const memoryOnTask = user && supabase ? isMemoryOn(supabase) : Promise.resolve(false);
   // Mémoire de Tamilya déjà enregistrée (les faits de ce message s'y ajoutent plus bas).
   const storedMemoriesTask =
     user && supabase
@@ -296,6 +298,9 @@ export async function POST(request: NextRequest) {
   // Nouvelle conversation : son titre (le sujet en quelques mots) est donné par l'IA après la première réponse.
   let newConversation = false;
   let memories: MemoryFact[] = [];
+  let memoryOn = false;
+  // Ce que Tamilya retient de ce message (« Mémoire mise à jour » sous la réponse).
+  let remembered: string[] = [];
   // Message de la personne : enregistré pendant que le modèle répond (attendu
   // avant d'enregistrer la réponse, pour garder l'ordre).
   let userMessageSaved: Promise<unknown> = Promise.resolve();
@@ -305,9 +310,9 @@ export async function POST(request: NextRequest) {
     // attendre, et ajouté tout de suite à la mémoire lue : il sert dès cette réponse.
     const facts = extractMemories(body.message);
     if (facts.length > 0) {
-      const saved = saveMemories(supabase, user.id, facts).catch((error: unknown) =>
-        console.error("[chat] Mémoire non enregistrée (migration awa_brain appliquée ?)", error),
-      );
+      const saved = memoryOnTask
+        .then((on) => (on ? saveMemories(supabase, user.id, facts) : undefined))
+        .catch((error: unknown) => console.error("[chat] Mémoire non enregistrée (migration awa_brain appliquée ?)", error));
       after(() => saved);
     }
 
@@ -373,7 +378,12 @@ export async function POST(request: NextRequest) {
       return fixedReply(conversationId, reply);
     }
 
-    memories = mergeMemories(facts, await storedMemoriesTask);
+    memoryOn = await memoryOnTask;
+    if (memoryOn) {
+      const stored = await storedMemoriesTask;
+      remembered = describeMemoryUpdates(stored, newMemoryUpdates(stored, facts));
+      memories = mergeMemories(facts, stored);
+    }
   } else {
     if (body.conversationId) {
       flow.step("prompt", false, "session expirée");
@@ -519,6 +529,7 @@ export async function POST(request: NextRequest) {
   // Avec le maître, le relevé du shimaoré part tout de suite, en parallèle de la réponse :
   // les mots retenus s'affichent sous la réponse (« ✓ Retenu »), il sait que Tamilya a appris.
   let learning: Promise<TaughtWord[]> | null = null;
+  let remembering: Promise<string[]> | null = null;
   if (user && supabase) {
     const previousReply = [...history].reverse().find((turn) => turn.role === "assistant")?.content ?? null;
     // Avec le maître, un seul appel de fond : le relevé du shimaoré (sa mémoire passe par extractMemories).
@@ -530,12 +541,17 @@ export async function POST(request: NextRequest) {
       const pending = learning;
       after(() => pending);
     }
-    if (!master) {
-      after(() =>
-        learnFromMessage(supabase, user.id, ai.provider, { message: body.message, previousReply, memories }).catch((error: unknown) =>
-          console.error("[chat] Apprentissage de fond non enregistré", error),
-        ),
-      );
+    // Mémoire : lancée tout de suite, en parallèle de la réponse, pour annoncer « Mémoire mise à jour ».
+    if (!master && memoryOn) {
+      const known = memories;
+      remembering = learnFromMessage(supabase, user.id, ai.provider, { message: body.message, previousReply, memories: known })
+        .then((updates) => describeMemoryUpdates(known, updates))
+        .catch((error: unknown) => {
+          console.error("[chat] Apprentissage de fond non enregistré", error);
+          return [];
+        });
+      const pending = remembering;
+      after(() => pending);
     }
   }
 
@@ -767,6 +783,12 @@ ${block}`;
             const learned = await Promise.race([learning, new Promise<TaughtWord[]>((resolve) => setTimeout(() => resolve([]), LEARN_WAIT_MS))]);
             if (learned.length) send({ type: "learned", words: learned.slice(0, 20) });
           }
+          // Souvenirs de ce message : ceux repérés tout de suite, plus ceux du modèle s'il a fini à temps.
+          const later = remembering
+            ? await Promise.race([remembering, new Promise<string[]>((resolve) => setTimeout(() => resolve([]), LEARN_WAIT_MS))])
+            : [];
+          const items = [...new Set([...remembered, ...later])];
+          if (items.length) send({ type: "remembered", items: items.slice(0, 10) });
           send({ type: "done", finishReason: finish });
         }
       } catch (error) {

@@ -29,6 +29,7 @@ export type SettingsData = {
   home: AddressDraft | null;
   saved: SavedAddress[] | null;
   memories: { kind: string; content: string }[];
+  memoryOn: boolean;
   review: MyReview | null;
   publicName: string;
 };
@@ -65,7 +66,7 @@ export function SettingsContent({ data }: { data: SettingsData }) {
         {data.isAdmin ? <VoiceTalkMode /> : null}
         {data.isAdmin ? <PaymentPin /> : null}
         {data.isAdmin ? <VoicePrint /> : null}
-        <AwaMemory facts={data.memories} />
+        <AwaMemory facts={data.memories} on={data.memoryOn} />
       </>
     ),
     apparence: <ThemeChoice />,

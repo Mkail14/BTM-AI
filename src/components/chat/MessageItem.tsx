@@ -3,7 +3,7 @@
 import { Check } from "lucide-react";
 import { memo, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { speak } from "@/lib/chat/voice";
-import { IconCheck, IconCopy, IconRetry, IconSpeaker, IconStop } from "@/components/ui/icons";
+import { IconCheck, IconCopy, IconRetry, IconSparkle, IconSpeaker, IconStop } from "@/components/ui/icons";
 import type { ChatRole } from "@/lib/chat/types";
 import { Correctable } from "./Correctable";
 import { AwaBlob } from "./AwaBlob";
@@ -24,6 +24,8 @@ export type UiMessage = {
   notice?: string;
   /** Mode maître : shimaoré retenu du message auquel cette réponse répond. */
   learned?: { french: string; shimaore: string }[];
+  /** Ce que Tamilya vient de retenir sur la personne : « Mémoire mise à jour », discret, à ouvrir. */
+  remembered?: string[];
   /** Question difficile : spécialistes consultés avant la réponse (montrés pendant l'attente). */
   team?: string[];
 };
@@ -223,6 +225,26 @@ function AssistantMessage({ message, question }: { message: UiMessage; question?
               </li>
             ))}
           </ul>
+        ) : null}
+
+        {/* Comme ChatGPT : une petite mention, qu'on ouvre pour voir ce qui a été retenu. */}
+        {message.remembered?.length && !typing ? (
+          <details className="group mt-2 text-xs text-fg-muted">
+            <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full py-1 transition hover:text-fg [&::-webkit-details-marker]:hidden">
+              <IconSparkle aria-hidden="true" width={14} height={14} />
+              Mémoire mise à jour
+            </summary>
+            <div className="mt-1.5 rounded-xl border border-border bg-bg-subtle px-3 py-2.5">
+              <ul className="space-y-1 text-fg">
+                {message.remembered.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+              <a href="/parametres?rubrique=awa" className="mt-2 inline-block font-medium text-fg-muted underline-offset-2 hover:text-fg hover:underline">
+                Gérer la mémoire
+              </a>
+            </div>
+          </details>
         ) : null}
 
         {message.status === "interrupted" && !typing ? (

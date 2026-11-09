@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getMemories } from "@/lib/ai/memory-store";
+import { getMemories, isMemoryOn } from "@/lib/ai/memory-store";
 import { requireUser } from "@/lib/auth/session";
 import { maskPhone } from "@/lib/code-exam/candidate";
 import { getProfile } from "@/lib/conversations/repository";
@@ -27,13 +27,14 @@ export default async function SettingsPage() {
         balanceCents: demo ? (await readDemoWallet(user.id)).balanceCents : (await loadWallet(supabase, user.id, 1)).balanceCents,
       }))
     : Promise.resolve({ demo: false, balanceCents: 0 });
-  const [profile, contact, saved, memories, { demo, balanceCents }, review] = await Promise.all([
+  const [profile, contact, saved, memories, { demo, balanceCents }, review, memoryOn] = await Promise.all([
     getProfile(supabase, user.id),
     getProfileContact(supabase, user.id),
     listSavedAddresses(supabase),
     getMemories(supabase).catch(() => []),
     balanceTask,
     getMyReview(user.id),
+    isMemoryOn(supabase),
   ]);
 
   return (
@@ -49,6 +50,7 @@ export default async function SettingsPage() {
           home: contact.address,
           saved,
           memories,
+          memoryOn,
           review,
           publicName: publicName(profile.displayName),
         }}

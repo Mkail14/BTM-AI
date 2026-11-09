@@ -40,6 +40,8 @@ export type ChatStreamEvent =
   | { type: "team"; agents: string[] }
   /** Mode maître : shimaoré retenu de ce message (affiché « ✓ Retenu » sous la réponse). */
   | { type: "learned"; words: { french: string; shimaore: string }[] }
+  /** Ce que Tamilya vient de retenir sur la personne (« Mémoire mise à jour » sous la réponse). */
+  | { type: "remembered"; items: string[] }
   | { type: "done"; finishReason: FinishReason }
   | { type: "error"; code: ChatErrorCode; message: string };
 

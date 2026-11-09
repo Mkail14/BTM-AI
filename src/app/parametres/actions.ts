@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { addressSchema, MAX_SAVED_ADDRESSES, savedAddressSchema } from "@/lib/address";
+import { MEMORY_OFF_KEY } from "@/lib/ai/memory-store";
 import { getAuthContext } from "@/lib/auth/session";
 import { maskPhone, normalizePhone } from "@/lib/code-exam/candidate";
 import { disconnectDrive } from "@/lib/drive/connection";
@@ -172,6 +173,22 @@ export async function forgetMemoryAction(kind?: unknown): Promise<ProfileFormSta
   });
   revalidatePath("/parametres");
   return { status: "saved", message: kind === undefined ? "Tamilya a tout oublié." : "Souvenir effacé." };
+}
+
+/** Mémoire de Tamilya allumée ou coupée (gardé dans le compte ; le jeton est rafraîchi tout de suite). */
+export async function setMemoryOnAction(on: unknown): Promise<ProfileFormState> {
+  if (typeof on !== "boolean") return { status: "error", message: "Choix inconnu." };
+  const { supabase, user } = await getAuthContext();
+  if (!supabase || !user) return { status: "error", message: "Ta session a expiré. Reconnecte-toi." };
+  const { error } = await supabase.auth.updateUser({ data: { [MEMORY_OFF_KEY]: !on } });
+  if (error) {
+    console.error("[parametres] Mémoire non réglée", error);
+    return { status: "error", message: "Le réglage n'a pas été enregistré. Réessaie." };
+  }
+  // Le jeton porte le réglage : on le refait pour que Tamilya en tienne compte dès le prochain message.
+  await supabase.auth.refreshSession().catch(() => null);
+  revalidatePath("/parametres");
+  return { status: "saved", message: on ? "Mémoire activée." : "Mémoire désactivée." };
 }
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;

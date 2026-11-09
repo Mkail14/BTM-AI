@@ -6,7 +6,7 @@ import { loadAwaBrain } from "@/lib/ai/brain";
 import { VOICE_NODE } from "@/lib/ai/flow-events";
 import { startFlowTrace } from "@/lib/ai/flow-trace";
 import { extractMemories } from "@/lib/ai/memory";
-import { getMemories, learnFromMessage, saveMemories } from "@/lib/ai/memory-store";
+import { getMemories, isMemoryOn, learnFromMessage, saveMemories } from "@/lib/ai/memory-store";
 import { getAuthContext } from "@/lib/auth/session";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
@@ -32,6 +32,7 @@ const bodySchema = z.object({
 
 /** Même mémoire qu'à l'écrit : ce qui est dit à la voix sert dès le prochain appel. */
 async function rememberSpoken(supabase: SupabaseClient, userId: string, message: string, previousReply: string | null) {
+  if (!(await isMemoryOn(supabase))) return;
   await saveMemories(supabase, userId, extractMemories(message));
   const ai = await getAIProvider();
   if (!ai.ok) return;
