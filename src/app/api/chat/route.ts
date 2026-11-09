@@ -43,6 +43,8 @@ import { ALL_APIS_CUT, flowCutStop, loadFlowCutsForMessage } from "@/lib/ai/flow
 import { buildDossier } from "@/lib/ai/dossier";
 import { extractMemories, type MemoryFact } from "@/lib/ai/memory";
 import { getMemories, learnFromMessage, saveMemories } from "@/lib/ai/memory-store";
+import { getPastTalks } from "@/lib/ai/past-talks-store";
+import { withRecentReplies } from "@/lib/ai/past-talks";
 import { collectUnknownWords } from "@/lib/ai/word-requests";
 import { learnWordsFromMessage, teachWords } from "@/lib/ai/words-store";
 import { createUnknownTagFilter } from "@/lib/language/unknown-tag";
@@ -217,6 +219,14 @@ export async function POST(request: NextRequest) {
           return [] as MemoryFact[];
         })
       : Promise.resolve([] as MemoryFact[]);
+  // Anciennes discussions : de quoi elle se souvient, et ses derniers débuts de réponse à ne pas redire.
+  const pastTalksTask =
+    user && supabase
+      ? getPastTalks(supabase, user.id, { excludeId: body.conversationId }).catch((error: unknown) => {
+          console.error("[chat] Anciennes discussions indisponibles", error);
+          return null;
+        })
+      : Promise.resolve(null);
   // Dossier : ce que la personne a fait sur le site (réservations du code…), pour que Tamilya le remarque d'elle-même.
   const dossierTask =
     user && supabase
@@ -444,6 +454,9 @@ export async function POST(request: NextRequest) {
   const attestation = !body.voice && (detectAttestation(body.message) || (attestationOpen && wantsOwnInfo(body.message)));
   // Jour voulu pour le code (« demain », « vendredi matin ») : calculé ici, les modèles se trompent de date.
   const codeWhen = parseCodeExamWhen(body.message);
+  const pastTalksRead = await pastTalksTask;
+  const recentReplies = history.filter((turn) => turn.role === "assistant").slice(-4).map((turn) => turn.content);
+  const pastTalks = withRecentReplies(pastTalksRead ?? { talks: [], openings: [] }, recentReplies);
   const system = buildSystemPrompt(DEFAULT_PERSONALITY, {
     personalityInstructions,
     identity: brain.identity,
@@ -456,6 +469,7 @@ export async function POST(request: NextRequest) {
     live,
     library,
     memories,
+    pastTalks,
     dossier,
     teacher: master,
     voice: body.voice,

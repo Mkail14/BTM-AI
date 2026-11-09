@@ -56,7 +56,7 @@ ${source === "histoire" ? INVENTED : GIVEN(source)}
 
 Les personnages : un id court (ex. « vieil-homme », « fillette »), son nom s'il en a un, son genre et son âge, pour lui choisir une voix.
 
-L'intro : une ou deux phrases à toi, dans tes mots, qui donnent envie : tu invites la personne à mettre ses écouteurs, à fermer les yeux, et tu plantes le décor sans rien dévoiler. Ton caractère, chaleureux et vivant ; pas de formule toute faite.
+L'intro : une ou deux phrases à toi, dans tes mots, qui donnent envie et plantent le décor sans rien dévoiler. Invente-la pour CETTE histoire : un son, une odeur, un lieu de Mayotte, une question qu'on se pose, une confidence… Ne commence pas par les écouteurs ni par « ferme les yeux » : c'est la phrase que tu dis toujours, la personne la connaît déjà. Ton caractère, chaleureux et vivant ; pas de formule toute faite.
 
 La fin (fin) : une phrase à toi, dite juste après l'histoire, quand la personne rouvre les yeux : tu prends de ses nouvelles ou tu lui demandes ce qu'elle en a pensé, avec tes mots, comme une amie ; pas de formule toute faite.
 

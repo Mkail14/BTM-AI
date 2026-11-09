@@ -4,6 +4,8 @@ import { knowledgeFor, lexiconFor, loadAwaBrain, loadRecentWords, wordsFor } fro
 import { withRecentWords } from "@/lib/ai/words";
 import { buildDossier } from "@/lib/ai/dossier";
 import { getMemoriesFor } from "@/lib/ai/memory-store";
+import { getPastTalks } from "@/lib/ai/past-talks-store";
+import { withRecentReplies } from "@/lib/ai/past-talks";
 import { getRecentMessages } from "@/lib/conversations/repository";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
 import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
@@ -68,6 +70,10 @@ export async function POST(request: NextRequest) {
 
   const admin = getSupabaseAdminClient();
   const sessionUser = { id: ticket.uid, email: null, isAdmin: ticket.admin, isPrincipalAdmin: false };
+  // Anciennes discussions (sans celle en cours, déjà donnée plus bas en entier).
+  const pastTalksTask = admin
+    ? getPastTalks(admin, ticket.uid, { excludeId: ticket.cid }).catch(() => null)
+    : Promise.resolve(null);
   const [brain, recentWords, profile, voice, memories, dossier, news, food, barge, corrections] = await Promise.all([
     loadAwaBrain(),
     loadRecentWords().catch(() => []),
@@ -86,8 +92,12 @@ export async function POST(request: NextRequest) {
     loadVoiceCorrections().catch(() => []),
   ]);
   // Conversation vérifiée pour ce compte à la signature du ticket (route session).
-  const earlier =
-    admin && ticket.cid ? earlierConversation(await getRecentMessages(admin, ticket.cid, EARLIER_MESSAGES).catch(() => [])) : null;
+  const earlierMessages = admin && ticket.cid ? await getRecentMessages(admin, ticket.cid, EARLIER_MESSAGES).catch(() => []) : [];
+  const earlier = earlierMessages.length ? earlierConversation(earlierMessages) : null;
+  const pastTalks = withRecentReplies(
+    (await pastTalksTask) ?? { talks: [], openings: [] },
+    earlierMessages.filter((m) => m.role === "assistant").slice(-4).map((m) => m.content),
+  );
   // Une seule personnalité pour tout le monde.
   const personality = DEFAULT_PERSONALITY;
   const personalityInstructions = await loadPersonalityInstructions(personality).catch(() => undefined);
@@ -101,6 +111,7 @@ export async function POST(request: NextRequest) {
     words: withRecentWords(wordsFor(brain, "", ticket.admin), recentWords),
     knowledge: knowledgeFor(brain, ""),
     memories,
+    pastTalks,
     dossier,
     // Pas de mode maître (« shimaoré uniquement ») à l'oral : elle refusait de parler français même
     // quand on le lui demandait. Elle garde tout son vocabulaire et suit la langue de la personne.
