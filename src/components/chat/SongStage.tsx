@@ -2,9 +2,10 @@
 
 import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { IconClose } from "@/components/ui/icons";
 import { getServerSong, getSong, songProgress, stopSong, subscribeSong, toggleSong } from "@/lib/music/song-stage";
 import { AwaBlob } from "./AwaBlob";
+import { useLeavingStage } from "./stage-fade";
 
 /**
  * Le grand globe de Tamilya qui chante, en plein écran comme les histoires. Monté une seule fois
@@ -12,7 +13,8 @@ import { AwaBlob } from "./AwaBlob";
  * au rythme de la musique. Toucher le globe : pause ; la croix : stop.
  */
 export function SongStage() {
-  const { active } = useSyncExternalStore(subscribeSong, getSong, getServerSong);
+  const { active: current } = useSyncExternalStore(subscribeSong, getSong, getServerSong);
+  const { shown: active, leaving } = useLeavingStage(current);
   if (!active || typeof document === "undefined") return null;
   const playing = active.status === "playing";
   const label =
@@ -23,8 +25,11 @@ export function SongStage() {
       role="dialog"
       aria-modal="true"
       aria-label="Tamilya chante"
-      className="voice-overlay fixed inset-0 z-[60] flex flex-col items-center px-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] text-white"
+      data-leaving={leaving ? "" : undefined}
+      className="voice-overlay stage-swap fixed inset-0 z-[60] flex flex-col items-center px-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] text-white"
     >
+      {/* Même fond que le vocal : on passe de l'un à l'autre sans voir de différence. */}
+      <span aria-hidden="true" className="voice-aurora" />
       <p className="text-sm font-medium tracking-[0.3em] text-white/50 uppercase">Tamilya</p>
       <div className="flex w-full flex-1 flex-col items-center justify-center gap-6">
         <AwaBlob label={label} onActivate={toggleSong} immediate busy={active.status === "preparing"} size="min(60vw, 16rem)" goo={13} />
@@ -51,9 +56,9 @@ export function SongStage() {
         type="button"
         onClick={stopSong}
         aria-label="Arrêter la chanson"
-        className="grid size-12 place-items-center rounded-full bg-white/10 transition hover:bg-white/20"
+        className="voice-glass grid h-[3.125rem] w-[5.75rem] place-items-center rounded-full transition"
       >
-        <X size={20} aria-hidden="true" />
+        <IconClose width={20} height={20} />
       </button>
     </div>,
     document.body,

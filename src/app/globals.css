@@ -466,6 +466,49 @@ html[data-theme="dark"] {
   }
 }
 
+/*
+ * Histoire et chanson : elles arrivent par-dessus le vocal (même fond) en fondu lent, le globe
+ * grossit doucement ; à la fin, l'écran s'efface au lieu de disparaître d'un coup (stage-fade.ts).
+ */
+.stage-swap {
+  animation: stage-in 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.stage-swap > :not(.voice-aurora) {
+  animation: stage-content-in 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.stage-swap[data-leaving] {
+  pointer-events: none;
+  animation: stage-out 450ms ease-in forwards;
+}
+
+@keyframes stage-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes stage-content-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+@keyframes stage-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .stage-swap,
+  .stage-swap > :not(.voice-aurora) {
+    animation-duration: 1ms;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .voice-overlay,
   .voice-aurora::before,
