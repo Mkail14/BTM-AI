@@ -23,9 +23,9 @@ const ids = (sounds: CatalogSound[]) => (sounds.length ? sounds.map((s) => s.id)
  * histoire »), l'inventer directement en répliques. Puis imaginer la scène sonore en 3D.
  * On décrit ce qu'on attend, sans imposer de phrase.
  */
-export type ScriptSource = "photo" | "texte" | "histoire";
+export type ScriptSource = "photo" | "texte" | "histoire" | "ecrite";
 
-const GIVEN = (source: "photo" | "texte") => `Le texte :
+const GIVEN = (source: "photo" | "texte" | "ecrite") => `Le texte :
 - Recopie le texte de la page mot pour mot, dans sa langue, sans rien résumer, ajouter ni corriger. Ignore les numéros de page, les en-têtes et les notes de bas de page.${
   source === "texte"
     ? "\n- Texte collé : lis seulement l'histoire. Ignore la mise en forme (#, **, ---), les titres de page et tout ce qui n'en fait pas partie (consignes, listes de vérification, commentaires autour)."
@@ -58,7 +58,9 @@ export const scriptPrompt = (source: ScriptSource, catalog: CatalogSound[] = BUI
     ? "La personne t'envoie la photo d'une page de livre."
     : source === "texte"
       ? "La personne t'a donné le texte ci-dessus, écrit ou collé dans la conversation."
-      : "La personne t'a demandé une histoire (sa demande est ci-dessus) : c'est toi qui l'inventes."
+      : source === "ecrite"
+        ? "La personne t'a demandé une histoire : la voici ci-dessus, déjà écrite par ton conteur. Tu la lis telle quelle."
+        : "La personne t'a demandé une histoire (sa demande est ci-dessus) : c'est toi qui l'inventes."
 } Elle va mettre des écouteurs et fermer les yeux : tu prépares la mise en scène sonore, pour qu'elle se sente DANS l'histoire.
 
 ${source === "histoire" ? INVENTED : GIVEN(source)}

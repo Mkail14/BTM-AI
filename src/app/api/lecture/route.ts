@@ -10,6 +10,7 @@ import { loadSoundCatalog } from "@/lib/lecture/catalog-store";
 import { scriptPrompt, scriptSchema } from "@/lib/lecture/prompt";
 import { buildLine, buildMeta, buildScript, READING_LIMITS, type Cast } from "@/lib/lecture/script";
 import { createScriptStream } from "@/lib/lecture/stream";
+import { writeStory } from "@/lib/lecture/writer";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
 
@@ -23,7 +24,8 @@ import { isSameOrigin } from "@/lib/security/request";
  * Avant, on attendait toute la page : ~13 s mesurées sur la tablette avant le premier son.
  */
 
-export const maxDuration = 60;
+/** Conteur Pro (15 s au plus) puis mise en scène Flash (55 s au plus). */
+export const maxDuration = 75;
 
 /** Photo réduite par le téléphone (1400 px, JPEG) : ~150 à 300 Ko, soit ~400 Ko en base64. Marge large. */
 const MAX_BASE64 = 2_000_000;
@@ -63,20 +65,26 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Je n'ai rien à lire : reprends la photo ou renvoie le texte." }, { status: 400 });
   const input = parsed.data;
   const catalog = await catalogLoad;
-  const parts =
-    "image" in input
-      ? [{ inlineData: { mimeType: input.mimeType, data: input.image } }, { text: scriptPrompt("photo", catalog) }]
-      : "text" in input
-        ? [{ text: `Texte :\n\n${input.text}` }, { text: scriptPrompt("texte", catalog) }]
-        : [{ text: `Demande de la personne : « ${input.story} »` }, { text: scriptPrompt("histoire", catalog) }];
 
-  const signal = AbortSignal.any([request.signal, AbortSignal.timeout(TIMEOUT_MS)]);
   let upstream: Response | null = null;
   let narrator: Awaited<ReturnType<typeof loadVoice>>;
+  let signal = request.signal;
   try {
     const [key, voice] = await Promise.all([geminiKey(), loadVoice()]);
     narrator = voice;
-    const models = pickModels(await listKeyModels(key, signal));
+    const available = await listKeyModels(key, request.signal);
+    // Histoire demandée : le conteur (Pro) l'écrit d'abord ; sans lui, Flash l'invente comme avant.
+    const written = "story" in input ? await writeStory(input.story, catalog, key, available, request.signal) : null;
+    const parts =
+      "image" in input
+        ? [{ inlineData: { mimeType: input.mimeType, data: input.image } }, { text: scriptPrompt("photo", catalog) }]
+        : "text" in input
+          ? [{ text: `Texte :\n\n${input.text}` }, { text: scriptPrompt("texte", catalog) }]
+          : written
+            ? [{ text: `Demande de la personne : « ${input.story} »\n\nL'histoire :\n\n${written}` }, { text: scriptPrompt("ecrite", catalog) }]
+            : [{ text: `Demande de la personne : « ${input.story} »` }, { text: scriptPrompt("histoire", catalog) }];
+    signal = AbortSignal.any([request.signal, AbortSignal.timeout(TIMEOUT_MS)]);
+    const models = pickModels(available);
     for (const model of models.length ? models : ["gemini-2.5-flash"]) {
       // Réflexion au plus court : la mise en scène n'en a pas besoin, et chaque seconde compte.
       const thinking = thinkingSettings(model)[0];

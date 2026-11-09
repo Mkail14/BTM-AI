@@ -5,6 +5,7 @@ import { parseReadingSpec, readingMode, withSceneBlock } from "../src/lib/lectur
 import { SCRIPT_SCHEMA, scriptPrompt } from "../src/lib/lecture/prompt";
 import { buildLine, buildMeta } from "../src/lib/lecture/script";
 import { createScriptStream } from "../src/lib/lecture/stream";
+import { pickWriterModels, writerPrompt } from "../src/lib/lecture/writer";
 import { LIVE_RULES } from "../src/lib/voice-live/rules";
 import { liveToolDeclarations } from "../src/lib/voice-live/tools";
 
@@ -115,6 +116,15 @@ describe("Lecture en 3D : histoire inventée par Tamilya", () => {
     assert.match(scriptPrompt("histoire"), /Invente une histoire originale/);
     assert.doesNotMatch(scriptPrompt("histoire"), /Recopie le texte/);
     assert.match(scriptPrompt("texte"), /Recopie le texte/);
+  });
+
+  it("le conteur Pro écrit l'histoire, puis Tamilya la lit telle quelle et la met en scène", () => {
+    assert.deepEqual(pickWriterModels(["gemini-2.5-flash", "gemini-2.5-pro", "gemini-3-pro", "gemini-3-pro-preview", "gemini-2.5-pro-tts"]), ["gemini-3-pro", "gemini-2.5-pro"]);
+    assert.deepEqual(pickWriterModels(["gemini-2.5-flash"]), [], "sans Pro, Flash invente comme avant");
+    assert.match(writerPrompt("une histoire drôle de chèvre", []), /une histoire drôle de chèvre/);
+    assert.match(scriptPrompt("ecrite"), /Recopie le texte/);
+    assert.match(scriptPrompt("ecrite"), /déjà écrite par ton conteur/);
+    assert.doesNotMatch(scriptPrompt("ecrite"), /Invente une histoire originale/);
   });
 });
 
