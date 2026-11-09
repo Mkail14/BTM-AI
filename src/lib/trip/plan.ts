@@ -2,6 +2,7 @@ import "server-only";
 import type { Address } from "@/lib/address";
 import { COMMUNE_CENTERS, PETITE_TERRE, distanceKm, nearestCommune, type Point } from "@/lib/geo/communes";
 import { geocodeAddress, geocodeQuery, snapToRoad, type GeocodePrecision } from "@/lib/geo/geocode";
+import { findVillage, placeKey } from "@/lib/geo/villages";
 import { getMayotteServices, matchServices, servicesAsked } from "@/lib/live/services";
 import { formatMinutes } from "./intent";
 
@@ -42,17 +43,10 @@ export type TripPlan = {
 
 export type TripFailure = "no_destination" | "no_origin" | "no_route";
 
-const plain = (text: string) =>
-  text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .trim();
-
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 /**
- * Un lieu nommé : service public, commune, puis recherche sur la carte.
+ * Un lieu nommé : service public, commune, village (liste du site), puis recherche sur la carte.
  * `near` : parmi plusieurs services du même type (CSSM, gendarmerie…), le plus proche de ce point.
  */
 export async function resolvePlace(text: string, near?: Point): Promise<(TripPlace & { phones: string[]; hours: string | null; link: string | null }) | null> {
@@ -66,8 +60,11 @@ export async function resolvePlace(text: string, near?: Point): Promise<(TripPla
       return { label: service.name, detail: service.address, point: await snapToRoad(service.point), phones: service.phones, hours: service.hours, link: service.link };
     }
   }
-  const commune = Object.keys(COMMUNE_CENTERS).find((name) => plain(name) === plain(query));
+  const commune = Object.keys(COMMUNE_CENTERS).find((name) => placeKey(name) === placeKey(query));
   if (commune) return { label: commune, detail: null, point: await snapToRoad(COMMUNE_CENTERS[commune]), phones: [], hours: null, link: null };
+  // Villages et quartiers gardés dans le site : la carte en ligne ne répond pas toujours au serveur.
+  const village = findVillage(query);
+  if (village) return { label: village.name, detail: nearestCommune(village.point), point: await snapToRoad(village.point), phones: [], hours: null, link: null };
   const point = await geocodeQuery(query);
   return point ? { label: capitalize(query), detail: nearestCommune(point), point, phones: [], hours: null, link: null } : null;
 }

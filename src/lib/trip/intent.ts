@@ -19,7 +19,7 @@ const normalize = (text: string) =>
 
 /** Une demande de trajet, de temps ou de chemin. */
 const ASKS =
-  /\b(combien de temps|ca prend combien|c'?est loin|comment (?:aller|y aller|je vais|on va|me rendre|se rendre)|pour aller|aller (?:a|au|aux|jusqu)|me rendre|se rendre|trajet|itineraire|chemin|en voiture|en taxi|en bus|a pied)\b/;
+  /\b(combien de temps|ca prend combien|c'?est loin|comment (?:aller|y aller|je vais|on va|me rendre|se rendre)|pour aller|aller (?:a|au|aux|jusqu|de|d'|depuis)|me rendre|se rendre|trajet|itineraire|chemin|en voiture|en taxi|en bus|a pied)\b/;
 /** Questions sur une livraison ou une commande : le suivi y répond, pas un trajet. */
 const NOT_A_TRIP = /\b(livraison|livreur|commande|colis|barge)\b/;
 /** Départ « de chez moi » : l'adresse du compte. */
