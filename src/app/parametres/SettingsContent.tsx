@@ -23,7 +23,8 @@ export type SettingsData = {
   displayName: string | null;
   email: string | null;
   isAdmin: boolean;
-  balance: string;
+  /** Null : pas de portefeuille pour ce compte (réservé aux admins pour l'instant). */
+  balance: string | null;
   maskedPhone: string | null;
   home: AddressDraft | null;
   saved: SavedAddress[] | null;

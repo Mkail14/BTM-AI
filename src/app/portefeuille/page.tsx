@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { MigrationWarning } from "@/components/admin/form";
 import { requireUser } from "@/lib/auth/session";
 import { loadWallet, settleTopup } from "@/lib/wallet";
+import { canUseWallet } from "@/lib/wallet/access";
 import { readDemoWallet, usesDemoWallet } from "@/lib/wallet/demo";
 import { stripeConfigured } from "@/lib/wallet/stripe";
 import { SettingsFrame } from "../parametres/SettingsFrame";
@@ -11,6 +13,8 @@ export const metadata: Metadata = { title: "Portefeuille" };
 
 export default async function WalletPage({ searchParams }: PageProps<"/portefeuille">) {
   const { supabase, user } = await requireUser("/portefeuille");
+  // Réservé aux admins tant qu'aucun partenariat n'est signé.
+  if (!canUseWallet(user)) redirect("/parametres");
   const params = await searchParams;
   const sessionId = typeof params.recharge === "string" ? params.recharge : null;
 

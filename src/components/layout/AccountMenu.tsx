@@ -9,10 +9,11 @@ import { IconChevronUpDown, IconGauge, IconHelp, IconLogout, IconSettings, IconW
 import { formatEuros } from "@/lib/wallet/limits";
 
 /** Solde du portefeuille (demo : solde fictif de la démonstration), relu à chaque changement de page et au retour sur l'onglet. */
-function useBalance(): { cents: number; demo: boolean } | null {
+function useBalance(enabled: boolean): { cents: number; demo: boolean } | null {
   const pathname = usePathname();
   const [balance, setBalance] = useState<{ cents: number; demo: boolean } | null>(null);
   useEffect(() => {
+    if (!enabled) return;
     let alive = true;
     const load = () =>
       fetch("/api/wallet", { cache: "no-store" })
@@ -27,7 +28,7 @@ function useBalance(): { cents: number; demo: boolean } | null {
       alive = false;
       window.removeEventListener("focus", load);
     };
-  }, [pathname]);
+  }, [pathname, enabled]);
   return balance;
 }
 
@@ -53,7 +54,9 @@ export function AccountMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuId = useId();
-  const balance = useBalance();
+  // Portefeuille réservé aux admins tant qu'aucun partenariat n'est signé (le serveur refuse aussi).
+  const walletOn = Boolean(user.isAdmin);
+  const balance = useBalance(walletOn);
 
   const name = user.displayName || user.email || "Mon compte";
   const initial = name.trim().charAt(0).toUpperCase() || "?";
@@ -125,7 +128,7 @@ export function AccountMenu({
           ) : null}
           {/* Portefeuille et administration sont déjà à l'extérieur (solde, Tableau de bord) :
               le portefeuille ne revient ici que si la barre repliée cache le solde. */}
-          {compact ? (
+          {compact && walletOn ? (
             <Link href="/portefeuille" role="menuitem" onClick={close} className={`${itemClass} max-md:hidden`}>
               <IconWallet /> Portefeuille
               {balance !== null ? (
@@ -187,6 +190,7 @@ export function AccountMenu({
         <IconChevronUpDown width={16} height={16} className={`shrink-0 text-fg-muted ${compact ? "md:hidden" : ""}`} />
       </button>
       {/* Solde du portefeuille : un clic ouvre la page pour recharger ou voir l'historique. */}
+      {walletOn ? (
       <Link
         href="/portefeuille"
         onClick={onNavigate}
@@ -198,6 +202,7 @@ export function AccountMenu({
         {balance !== null ? formatEuros(balance.cents) : "—"}
         {balance?.demo ? <span className="font-normal text-fg-muted">démo</span> : null}
       </Link>
+      ) : null}
       </div>
     </div>
   );

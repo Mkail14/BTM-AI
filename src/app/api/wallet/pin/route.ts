@@ -9,6 +9,7 @@ import { getProfile } from "@/lib/conversations/repository";
 import { PRINT_SIZE } from "@/lib/voice-live/voice-check";
 import { checkVoice, voiceStatus, type VoiceGate } from "@/lib/wallet/voice-print";
 import { grantPayment } from "@/lib/wallet/pay-auth";
+import { canUseWallet } from "@/lib/wallet/access";
 
 /**
  * Code de paiement à 4 chiffres (paiement à la voix par Tamilya).
@@ -63,6 +64,7 @@ export async function GET() {
   const { user } = await getAuthContext();
   const admin = getSupabaseAdminClient();
   if (!user || !admin) return fail(401, "Connexion requise.");
+  if (!canUseWallet(user)) return fail(403, "Le portefeuille arrive bientôt.");
   const [status, voiceInfo] = await Promise.all([payStatus(admin, user.id), voiceStatus(admin, user.id)]);
   return NextResponse.json({ ...status, voice: voiceInfo.enrolled }, { headers: { "Cache-Control": "no-store" } });
 }
@@ -72,6 +74,7 @@ export async function POST(request: NextRequest) {
   const { user } = await getAuthContext();
   const admin = getSupabaseAdminClient();
   if (!user || !admin) return fail(401, "Connexion requise.");
+  if (!canUseWallet(user)) return fail(403, "Le portefeuille arrive bientôt.");
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail(400, "Le code fait 4 chiffres.");
 

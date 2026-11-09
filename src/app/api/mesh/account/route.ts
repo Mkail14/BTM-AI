@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth/session";
 import { getProfile } from "@/lib/conversations/repository";
+import { canUseWallet } from "@/lib/wallet/access";
 import { readDemoWallet, usesDemoWallet } from "@/lib/wallet/demo";
 
 /**
@@ -18,7 +19,9 @@ export async function GET() {
   }
   let balanceCents: number | null = null;
   let demo = false;
-  if (await usesDemoWallet(user)) {
+  if (!canUseWallet(user)) {
+    // Portefeuille réservé aux admins pour l'instant : pas de solde affiché.
+  } else if (await usesDemoWallet(user)) {
     balanceCents = (await readDemoWallet(user.id)).balanceCents;
     demo = true;
   } else {

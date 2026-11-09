@@ -64,7 +64,8 @@ export function SettingsView({
   name: string;
   email: string | null;
   isAdmin: boolean;
-  balance: string;
+  /** Null : pas de portefeuille pour ce compte (réservé aux admins pour l'instant). */
+  balance: string | null;
   panels: Record<SettingsTab, ReactNode>;
   /** Rubriques où il manque quelque chose (adresse, téléphone). */
   toComplete?: SettingsTab[];
@@ -152,6 +153,7 @@ export function SettingsView({
           <div>
             <p className={GROUP_TITLE}>Raccourcis</p>
             <ul className={LIST}>
+              {balance !== null ? (
               <li>
                 <a href="/portefeuille" className={`${ITEM} ${IDLE}`}>
                   <IconWallet width={18} height={18} className="shrink-0 text-fg-muted" />
@@ -160,6 +162,7 @@ export function SettingsView({
                   <Chevron />
                 </a>
               </li>
+              ) : null}
               <li>
                 <a href="/documents" className={`${ITEM} ${IDLE}`}>
                   <IconFolder width={18} height={18} className="shrink-0 text-fg-muted" />

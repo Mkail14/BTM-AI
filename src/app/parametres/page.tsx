@@ -8,6 +8,7 @@ import { getMyReview } from "@/lib/reviews";
 import { publicName } from "@/lib/reviews/rules";
 import { listSavedAddresses } from "@/lib/saved-addresses";
 import { loadWallet } from "@/lib/wallet";
+import { canUseWallet } from "@/lib/wallet/access";
 import { readDemoWallet, usesDemoWallet } from "@/lib/wallet/demo";
 import { formatEuros } from "@/lib/wallet/limits";
 import { SettingsContent } from "./SettingsContent";
@@ -18,10 +19,14 @@ export const metadata: Metadata = { title: "Paramètres" };
 export default async function SettingsPage() {
   const { supabase, user } = await requireUser("/parametres");
   // Le solde est lu en même temps que le reste (démo ou vrai portefeuille), pas après.
-  const balanceTask = usesDemoWallet(user).then(async (demo) => ({
-    demo,
-    balanceCents: demo ? (await readDemoWallet(user.id)).balanceCents : (await loadWallet(supabase, user.id, 1)).balanceCents,
-  }));
+  // Portefeuille réservé aux admins tant qu'aucun partenariat n'est signé : rien à lire pour les autres.
+  const walletOn = canUseWallet(user);
+  const balanceTask = walletOn
+    ? usesDemoWallet(user).then(async (demo) => ({
+        demo,
+        balanceCents: demo ? (await readDemoWallet(user.id)).balanceCents : (await loadWallet(supabase, user.id, 1)).balanceCents,
+      }))
+    : Promise.resolve({ demo: false, balanceCents: 0 });
   const [profile, contact, saved, memories, { demo, balanceCents }, review] = await Promise.all([
     getProfile(supabase, user.id),
     getProfileContact(supabase, user.id),
@@ -39,7 +44,7 @@ export default async function SettingsPage() {
           displayName: profile.displayName,
           email: user.email,
           isAdmin: user.isAdmin,
-          balance: `${formatEuros(balanceCents)}${demo ? " (démo)" : ""}`,
+          balance: walletOn ? `${formatEuros(balanceCents)}${demo ? " (démo)" : ""}` : null,
           maskedPhone: contact.phone ? maskPhone(contact.phone) : null,
           home: contact.address,
           saved,

@@ -4,6 +4,7 @@ import { getAuthContext } from "@/lib/auth/session";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { canUseWallet } from "@/lib/wallet/access";
 import { readDemoWallet, recordDemoOperation, usesDemoWallet } from "@/lib/wallet/demo";
 import { formatEuros, topupError, WALLET_MAX_BALANCE } from "@/lib/wallet/limits";
 import { createTopupCheckout, stripeConfigured } from "@/lib/wallet/stripe";
@@ -17,6 +18,7 @@ export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return fail(403, "Requête refusée.");
   const { supabase, user } = await getAuthContext();
   if (!supabase || !user) return fail(401, "Connecte-toi pour recharger ton portefeuille.");
+  if (!canUseWallet(user)) return fail(403, "Le portefeuille arrive bientôt.");
 
   // Mode démo : recharge fictive, sans carte ni Stripe.
   if (await usesDemoWallet(user)) {

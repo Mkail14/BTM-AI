@@ -1,11 +1,13 @@
 import { NextResponse } from "next/server";
 import { getAuthContext } from "@/lib/auth/session";
+import { canUseWallet } from "@/lib/wallet/access";
 import { forgetDemoWallet, readDemoWallet, usesDemoWallet } from "@/lib/wallet/demo";
 
 /** Solde affiché en bas de la barre latérale (fictif pour ceux qui essaient la démonstration de commande de repas). */
 export async function GET() {
   const { supabase, user } = await getAuthContext();
   if (!supabase || !user) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
+  if (!canUseWallet(user)) return NextResponse.json({ error: "Le portefeuille arrive bientôt." }, { status: 403 });
   if (await usesDemoWallet(user)) {
     const demo = await readDemoWallet(user.id);
     return NextResponse.json({ balanceCents: demo.balanceCents, demo: true }, { headers: { "Cache-Control": "no-store" } });
