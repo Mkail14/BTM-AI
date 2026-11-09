@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `35bb5ef` (2026-11-08)**
+**Dernier commit noté : `eaaf8a2` (2026-11-09)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -91,6 +91,10 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+### 2026-11-09
+- **Tamilya plus libre et qui se souvient** (`eaaf8a2`). Plainte de l'utilisateur : elle répète les mêmes choses (« Jéjé » à chaque bonjour, « mets tes écouteurs et ferme les yeux » avant chaque histoire, avec la même intonation). Causes : « Jéjé » était le seul salut de son lexique oral, et les consignes de la lecture lui imposaient la phrase des écouteurs. Corrigé : « Jéjé » devient un mot parmi d'autres ; l'intro des histoires s'invente pour chaque histoire, sans commencer par les écouteurs ; nouvelle consigne « Liberté » (saluer autrement à chaque fois, imaginer, proposer, sans quitter le sujet). Mémoire des anciennes discussions : à l'écrit et en vocal, elle reçoit ses 6 dernières conversations (titre, date, ce que la personne disait) et ses derniers débuts de réponse, à ne pas redire. Pas encore essayé en vrai.
+- **« Raconte cette histoire » lit le texte donné** (`ff44f84`, rattrapé : commit fait sans mise à jour du journal). Tamilya fait ce qu'on demande et ne présente pas un texte apporté comme un classique.
 
 ### 2026-11-08
 - **Tamilya Connect : un téléphone neuf ne s'activait pas** (`35bb5ef`, et commit Android sur perf/connect-vitesse). Trouvé en testant avec le Redmi 15C : l'app demandait la clé publique du serveur avant d'enregistrer le téléphone, la maintenance refusait la clé, et l'enregistrement n'était jamais tenté. Clé publique ouverte pendant la maintenance, et l'app enregistre le téléphone d'abord. Essai réel : Redmi sans internet → tablette → site corrigé lancé sur l'ordinateur → réponse de Tamilya affichée sur le Redmi en environ 18 s.
