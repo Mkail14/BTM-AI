@@ -306,13 +306,17 @@ export class ScenePlayer {
       bed.gain.setValueAtTime(0, now);
       bed.gain.linearRampToValueAtTime(level, now + fadeIn);
       this.beds.set(bed, level);
-      // Même immobile, un bruit de fond respire un peu : la scène reste vivante.
+      // Un décor qui bouge (le vent) tourne lentement autour de la tête, toujours dans le même sens :
+      // l'oreille suit le mouvement. Avant, il sautait au hasard jusqu'à 140° : ça sonnait n'importe où.
+      // Immobile, il respire seulement un peu autour de sa place.
       let current = place;
-      const reach = ambience.moving ? 140 : 25;
       const every = ambience.moving ? 6 : 11;
+      let turn = 0;
       const move = () => {
         if (this.stopped) return;
-        const next: Place = { ...place, side: ambience.side + (Math.random() * 2 - 1) * reach };
+        turn += 1;
+        const side = ambience.moving ? ambience.side + turn * 30 : ambience.side + (Math.random() * 2 - 1) * 15;
+        const next: Place = { ...place, side: ((((side + 180) % 360) + 360) % 360) - 180 };
         this.glide(spot, [current, next], this.ctx.currentTime, every - 0.3);
         current = next;
       };

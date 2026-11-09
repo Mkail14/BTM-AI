@@ -218,6 +218,34 @@ function waypoints(raw: ({ cote: number; distance: Distance; hauteur?: Height | 
     .map((p) => ({ side: p.cote, distance: p.distance, height: p.hauteur ?? fallback }));
 }
 
+/** Côté net d'un son répété qui part du milieu (gauche d'abord, comme on lit). */
+const SIDE = 70;
+
+/**
+ * Un même bruit immobile répété dans une réplique (« toc », « toc ») ne revient jamais au même
+ * endroit à la suite : il passe de l'autre côté, comme en binaural ou en musique. Un bruit
+ * qui voyage garde son trajet.
+ */
+export function alternateRepeats(cues: SoundCue[]): SoundCue[] {
+  // Pour chaque bruit : où Gemini l'avait mis la dernière fois, et où il a vraiment sonné.
+  const last = new Map<string, { asked: number; played: number }>();
+  const still = (cue: SoundCue) => cue.to === null && cue.path.length === 0;
+  return cues.map((cue) => {
+    if (!still(cue)) return cue;
+    const before = last.get(cue.sound);
+    let from = cue.from;
+    if (before && (Math.abs(cue.from - before.asked) < 45 || Math.abs(cue.from - before.played) < 45)) {
+      // Même endroit que le précédent : de l'autre côté.
+      from = Math.abs(before.played) < 30 ? SIDE : -before.played;
+    } else if (!before && Math.abs(from) < 30 && cues.filter((c) => c.sound === cue.sound && still(c)).length > 1) {
+      // Premier d'une série qui part du milieu : à gauche, le suivant ira à droite.
+      from = -SIDE;
+    }
+    last.set(cue.sound, { asked: cue.from, played: from });
+    return from === cue.from ? cue : { ...cue, from };
+  });
+}
+
 /** Une réplique, rangée dès qu'elle arrive. Null si elle est mal formée ou vide. */
 export function buildLine(raw: unknown, cast: Cast): SceneLine | null {
   const parsed = lineSchema.safeParse(raw);
@@ -237,15 +265,17 @@ export function buildLine(raw: unknown, cast: Cast): SceneLine | null {
     from: moves && line.depuis ? { side: line.depuis.cote, distance: line.depuis.distance, height: line.depuis.hauteur ?? height } : null,
     path: moves ? waypoints(line.trajet, height) : [],
     placed: voice === null && line.bruitage,
-    cues: line.bruits
-      .filter((c): c is NonNullable<typeof c> => c !== null && cast.sounds.bruits.has(c.son))
-      .slice(0, READING_LIMITS.effectsPerLine)
-      .map((c) => {
-        const cueHeight = c.hauteur ?? cast.sounds.bruits.get(c.son)?.height ?? "milieu";
-        const via = waypoints(c.trajet, cueHeight);
-        const end = c.vers === null || c.vers === undefined ? [] : [{ side: c.vers, distance: via.at(-1)?.distance ?? c.distance, height: cueHeight }];
-        return { sound: c.son, when: c.quand, from: c.cote, to: c.vers ?? null, distance: c.distance, height: cueHeight, path: [...via, ...end] };
-      }),
+    cues: alternateRepeats(
+      line.bruits
+        .filter((c): c is NonNullable<typeof c> => c !== null && cast.sounds.bruits.has(c.son))
+        .slice(0, READING_LIMITS.effectsPerLine)
+        .map((c) => {
+          const cueHeight = c.hauteur ?? cast.sounds.bruits.get(c.son)?.height ?? "milieu";
+          const via = waypoints(c.trajet, cueHeight);
+          const end = c.vers === null || c.vers === undefined ? [] : [{ side: c.vers, distance: via.at(-1)?.distance ?? c.distance, height: cueHeight }];
+          return { sound: c.son, when: c.quand, from: c.cote, to: c.vers ?? null, distance: c.distance, height: cueHeight, path: [...via, ...end] };
+        }),
+    ),
     music: line.musique === "silence" || (line.musique && cast.sounds.musiques.has(line.musique)) ? line.musique : null,
   };
 }

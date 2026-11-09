@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { detectReading, isReadingRequest, parseReadingBlock, readingText, withReadingBlock } from "../src/lib/lecture/intent";
-import { AMBIENCES, assignVoices, buildScript, EFFECTS, PLACES, READING_LIMITS } from "../src/lib/lecture/script";
+import { alternateRepeats, AMBIENCES, assignVoices, buildScript, EFFECTS, PLACES, READING_LIMITS, type SoundCue } from "../src/lib/lecture/script";
 import { along, between, flyby, ROOMS } from "../src/lib/lecture/soundscape";
 import { renderSamples, SYNTHESIZED } from "../src/lib/lecture/sounds";
 import { buildSystemPrompt } from "../src/lib/ai/system-prompt";
@@ -260,5 +260,23 @@ describe("Lecture en 3D : banque de sons", () => {
     const { isPlayable } = await import("../src/lib/lecture/sounds");
     for (const sound of RECORDED) assert.ok(existsSync(`public${soundUrl(sound)}`), `${sound} : fichier manquant`);
     for (const sound of [...AMBIENCES, ...EFFECTS]) assert.ok(isPlayable(sound), `${sound} : aucun son`);
+  });
+});
+
+describe("Lecture en 3D : les sons répétés alternent les côtés", () => {
+  const cue = (from: number, extra: Partial<SoundCue> = {}): SoundCue => ({ sound: "frapper", when: "pendant", from, to: null, distance: "pres", height: "milieu", path: [], ...extra });
+
+  it("toc au milieu, toc au milieu : gauche puis droite", () => {
+    assert.deepEqual(alternateRepeats([cue(0), cue(0), cue(0)]).map((c) => c.from), [-70, 70, -70]);
+  });
+
+  it("deux fois à gauche : la seconde passe à droite", () => {
+    assert.deepEqual(alternateRepeats([cue(-90), cue(-80)]).map((c) => c.from), [-90, 90]);
+  });
+
+  it("déjà de part et d'autre, ou un bruit qui voyage : rien ne change", () => {
+    assert.deepEqual(alternateRepeats([cue(-90), cue(90)]).map((c) => c.from), [-90, 90]);
+    const moving = [cue(0, { to: 90 }), cue(0, { to: -90 })];
+    assert.deepEqual(alternateRepeats(moving), moving);
   });
 });
