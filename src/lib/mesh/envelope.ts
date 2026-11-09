@@ -28,13 +28,31 @@ export type RequestEnvelope = z.infer<typeof requestEnvelopeSchema>;
 
 const replyKey = base64(64);
 
+/** Tickets choisis dans le tableau de barge de l'app (le prix est toujours recalculé par le serveur). */
+const meshCart = z
+  .array(z.strictObject({ ticketId: z.string().regex(/^[a-z0-9-]{1,20}$/), quantity: z.number().int().min(0).max(20) }))
+  .min(1)
+  .max(12);
+
 export const payloadSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("chat"), text: z.string().trim().min(1).max(MESH_MAX_TEXT), conversationId: z.uuid().optional(), replyKey }),
-  z.strictObject({ kind: z.literal("action"), actionId: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/), pin: z.string().regex(/^\d{4}$/).optional(), replyKey }),
+  z.strictObject({
+    kind: z.literal("action"),
+    actionId: z.string().regex(/^[A-Za-z0-9_-]{16,64}$/),
+    pin: z.string().regex(/^\d{4}$/).optional(),
+    cart: meshCart.optional(),
+    replyKey,
+  }),
 ]);
 export type MeshPayload = z.infer<typeof payloadSchema>;
 
-export type MeshAction = { id: string; label: string; pay: boolean };
+export type MeshCartLine = { ticketId: string; quantity: number };
+
+/**
+ * Choix affiché sous la réponse. table « barge » : l'app dessine son tableau de tickets
+ * (rangé dans l'APK, sans internet), rempli avec cart. Une ancienne app montre le bouton label.
+ */
+export type MeshAction = { id: string; label: string; pay: boolean; table?: "barge"; cart?: MeshCartLine[] };
 export type MeshReplyBody = { status: "ok" | "error"; text: string; conversationId?: string; actions: MeshAction[] };
 export type ReplyEnvelope = { v: 1; type: "reply"; id: string; nonce: string; ct: string };
 

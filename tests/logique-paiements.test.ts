@@ -154,14 +154,14 @@ describe("Tamilya Connect : choix touché (billet, repas)", () => {
   });
 
   it("dit franchement que rien n'est payé", () => {
-    const barge = bargeDemoText({ what: "2× Piéton", day: "2026-11-07", totalCents: 200, code: "BTM-7K3Q" });
+    const barge = bargeDemoText({ what: "2× Piéton", totalCents: 200, code: "BTM-7K3Q" });
     const food = foodDemoText({ item: "Pizza", restaurant: "Jeje", totalCents: 1250, line: "1 rue X", commune: "Mamoudzou", code: "BTM-7K3Q" });
     for (const text of [barge, food]) {
       assert.match(text, /de démonstration enregistrée?/);
       assert.match(text, /rien n'est payé/);
       assert.doesNotMatch(text, /Billet payé|Commande payée/);
     }
-    assert.match(barge, /07\/11\/2026/);
+    assert.match(barge, /valable jusqu'au scan/);
     assert.match(food, /Mamoudzou/);
   });
 });

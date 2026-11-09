@@ -73,14 +73,22 @@ describe("Tamilya Connect : chiffrement et signature", () => {
     assert.ok(!payloadSchema.safeParse({ kind: "action", actionId: "court", replyKey }).success);
     assert.ok(!payloadSchema.safeParse({ kind: "chat", text: "", replyKey }).success);
   });
+
+  it("le tableau de barge de l'app envoie des tickets, jamais un prix", () => {
+    const action = { kind: "action", actionId: "a".repeat(24), pin: "4821", replyKey };
+    assert.ok(payloadSchema.safeParse({ ...action, cart: [{ ticketId: "pieton", quantity: 2 }, { ticketId: "pl-15", quantity: 1 }] }).success);
+    assert.ok(!payloadSchema.safeParse({ ...action, cart: [] }).success);
+    assert.ok(!payloadSchema.safeParse({ ...action, cart: [{ ticketId: "pieton", quantity: 21 }] }).success);
+    assert.ok(!payloadSchema.safeParse({ ...action, cart: [{ ticketId: "pieton", quantity: 1, priceCents: 1 }] }).success);
+  });
 });
 
 describe("Tamilya Connect : choix proposés sans internet", () => {
-  it("billet de barge : prix du catalogue, aujourd'hui ou demain", () => {
+  it("billet de barge : prix du catalogue, sans date", () => {
     const today = bargeOffer("Je veux 2 tickets de barge");
     assert.equal(today?.kind, "barge");
-    assert.match(today!.label, /aujourd'hui : 2× Piéton · 2\s€/);
-    assert.match(bargeOffer("un ticket de barge pour demain avec ma voiture")!.label, /demain : 1× Voiture · 15\s€/);
+    assert.match(today!.label, /Dzaoudzi : 2× Piéton · 2\s€/);
+    assert.match(bargeOffer("un ticket de barge pour demain avec ma voiture")!.label, /Dzaoudzi : 1× Voiture · 15\s€/);
     assert.equal(bargeOffer("La barge part à quelle heure ?"), null);
   });
 

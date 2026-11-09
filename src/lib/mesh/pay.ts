@@ -45,12 +45,9 @@ export async function settleAction(steps: SettleSteps): Promise<{ ok: boolean; t
   return { ok: true, text: prepared.text(steps.code()) };
 }
 
-/** « 2026-11-07 » → « 07/11/2026 ». */
-const frenchDay = (day: string) => day.split("-").reverse().join("/");
-
 /** Billet de démonstration : rien n'est débité, aucun vrai billet n'est émis. */
-export function bargeDemoText(o: { what: string; day: string; totalCents: number; code: string }): string {
-  return `Billet de démonstration enregistré : rien n'est payé et aucun vrai billet n'est émis. ${o.what}, ${BARGE_ROUTE.from} → ${BARGE_ROUTE.to}, le ${frenchDay(o.day)}, ${formatEuros(o.totalCents)}. Code de démonstration : ${o.code}.`;
+export function bargeDemoText(o: { what: string; totalCents: number; code: string }): string {
+  return `Billet de démonstration enregistré : rien n'est payé et aucun vrai billet n'est émis. ${o.what}, ${BARGE_ROUTE.from} → ${BARGE_ROUTE.to}, ${formatEuros(o.totalCents)}, sans date : valable jusqu'au scan. Code de démonstration : ${o.code}.`;
 }
 
 /** Commande de démonstration : rien n'est débité, aucun restaurant ne la reçoit. */

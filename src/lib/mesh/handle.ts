@@ -8,7 +8,7 @@ import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
 import { hasAdminRole, hasPrincipalAdminRole } from "@/lib/auth/roles";
 import type { SessionUser } from "@/lib/auth/session";
 import { canBuyBargeTickets } from "@/lib/barge/access";
-import { bargeDays, describeBargeLines, priceBargeOrder } from "@/lib/barge/catalog";
+import { describeBargeLines, priceBargeOrder } from "@/lib/barge/catalog";
 import { quickTitle } from "@/lib/chat/title";
 import { getSiteFlags } from "@/lib/site/flags";
 import { meshClosure } from "./closure";
@@ -21,7 +21,7 @@ import { getProfileContact } from "@/lib/profile-contact";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { usesDemoWallet } from "@/lib/wallet/demo";
 import { describePinWait, verifyPin } from "@/lib/wallet/pin";
-import type { MeshAction, MeshPayload, MeshReplyBody } from "./envelope";
+import type { MeshAction, MeshCartLine, MeshPayload, MeshReplyBody } from "./envelope";
 import { bargeOffer, foodOffers, type Offer } from "./offers";
 import { ALREADY_USED, bargeDemoText, foodDemoText, settleAction, type PreparedAction } from "./pay";
 import { createAction, readAction, spendAction, type StoredAction } from "./store";
@@ -34,7 +34,9 @@ son téléphone n'a pas internet, son message est passé de téléphone en tél�
 const INSTRUCTIONS = `Ta façon de répondre avec Tamilya Connect (prime sur les règles de style générales) :
 - Chaque message voyage lentement : réponds en une à trois phrases courtes, texte simple, sans Markdown, sans lien ni image.
 - Pas de carte ni de suivi du livreur, pas de vidéo, pas de vocal ici.
-- Billet de barge ou repas : si des choix sont possibles, ils s'affichent en boutons sous ta réponse, avec leur prix. Dis-lui de toucher celui qui lui va ; n'invente aucun prix, horaire ni plat.
+- Billet de barge : un tableau s'affiche sous ta réponse, avec les tickets demandés et leur prix. Dis-lui d'ajuster le nombre de tickets si besoin, puis de toucher « Payer ».
+- Repas : si des plats sont possibles, ils s'affichent en boutons sous ta réponse, avec leur prix. Dis-lui de toucher celui qui lui va.
+- N'invente aucun prix, horaire ni plat.
 - Si elle demande quelque chose qui demande internet (vidéo, carte, page web), dis-lui que ce sera possible quand elle aura retrouvé internet.`;
 
 const FAILED = "Tamilya n'a pas pu répondre pour l'instant. Réessaie dans un moment.";
@@ -133,7 +135,9 @@ async function chat(admin: SupabaseClient, user: SessionUser, payload: Extract<M
   const actions: MeshAction[] = [];
   for (const offer of choices.offers) {
     const id = await createAction(admin, { userId: user.id, kind: offer.kind, data: { ...offer.data, conversationId }, label: offer.label });
-    actions.push({ id, label: offer.label, pay: true });
+    // Barge : l'app dessine son tableau de tickets, rempli avec ce qui a été demandé.
+    const cart = offer.kind === "barge" ? (offer.data.cart as MeshCartLine[]) : null;
+    actions.push(cart ? { id, label: offer.label, pay: true, table: "barge", cart } : { id, label: offer.label, pay: true });
   }
   await insertMessage(admin, { conversationId, userId: user.id, role: "user", content: payload.text });
   await insertMessage(admin, { conversationId, userId: user.id, role: "assistant", content: `${text}${actions.length ? `\n\n${actions.map((a) => `• ${a.label}`).join("\n")}` : ""}` });
@@ -154,14 +158,13 @@ async function checkPin(user: SessionUser, admin: SupabaseClient, pin: string | 
 const refuse = (text: string): PreparedAction => ({ ok: false, text });
 
 /** Billet de barge : tout ce qui peut refuser d'avance, sans toucher au choix. */
-async function prepareBarge(user: SessionUser, action: StoredAction): Promise<PreparedAction> {
+async function prepareBarge(user: SessionUser, action: StoredAction, chosen?: MeshCartLine[]): Promise<PreparedAction> {
   if (!(await canBuyBargeTickets(user)) || !(await usesDemoWallet(user))) return refuse("L'achat de tickets de barge n'est pas disponible.");
-  const day = String(action.data.day ?? "");
-  if (!bargeDays().includes(day)) return refuse("Ce jour n'est plus disponible : redemande un billet.");
-  const order = priceBargeOrder((action.data.cart as { ticketId: string; quantity: number }[]) ?? []);
+  // Tickets choisis dans le tableau de l'app, sinon ceux proposés. Prix toujours ceux du catalogue.
+  const order = priceBargeOrder(chosen ?? (action.data.cart as MeshCartLine[]) ?? []);
   if (!order) return refuse("Ce billet n'existe plus : redemande un billet.");
   const what = describeBargeLines(order.lines.map((l) => ({ label: l.ticket.label, detail: l.ticket.detail, quantity: l.quantity })));
-  return { ok: true, kind: "barge", text: (code) => bargeDemoText({ what, day, totalCents: order.totalCents, code }) };
+  return { ok: true, kind: "barge", text: (code) => bargeDemoText({ what, totalCents: order.totalCents, code }) };
 }
 
 /** Repas : tout ce qui peut refuser d'avance (plat disparu, adresse ou téléphone manquant), sans toucher au choix. */
@@ -192,7 +195,7 @@ async function act(admin: SupabaseClient, user: SessionUser, payload: Extract<Me
   // Ordre sûr (src/lib/mesh/pay.ts) : refus prévisibles et code faux ne font pas perdre le choix ;
   // le choix n'est marqué « utilisé » qu'en dernier, une seule fois même en parallèle.
   const settled = await settleAction({
-    prepare: () => (action.kind === "barge" ? prepareBarge(user, action) : prepareFood(admin, user, action)),
+    prepare: () => (action.kind === "barge" ? prepareBarge(user, action, payload.cart) : prepareFood(admin, user, action)),
     checkPin: () => checkPin(user, admin, payload.pin),
     allow: async (kind) =>
       (await consumeRateLimits([{ key: `${kind}:${user.id}`, rules: LIMIT_RULES[kind] }]).catch(() => ({ allowed: false as const }))).allowed,

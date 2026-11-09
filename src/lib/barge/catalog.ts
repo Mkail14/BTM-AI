@@ -1,7 +1,7 @@
 /**
  * Tickets de barge (Grande-Terre ↔ Petite-Terre). On ne paie qu'au départ de
  * Mamoudzou : le retour depuis Dzaoudzi (Petite-Terre) est gratuit.
- * Un ticket est valable toute la journée choisie.
+ * Un ticket n'a pas de date : il reste valable jusqu'à son scan à Mamoudzou, une seule fois.
  */
 
 import { DEMO_PAYMENTS } from "@/lib/wallet/demo-mode";
@@ -33,17 +33,8 @@ export const BARGE_TICKETS: readonly BargeTicketType[] = [
 ];
 
 export const BARGE_MAX_QUANTITY = 20;
-/** Jours proposés à l'achat : aujourd'hui et les suivants. */
-export const BARGE_DAYS_AHEAD = 7;
 
 export type BargeCartLine = { ticketId: string; quantity: number };
-
-/** Date du jour à Mayotte (UTC+3), « AAAA-MM-JJ ». */
-export const mayotteDay = (offsetDays = 0) =>
-  new Date(Date.now() + 3 * 3_600_000 + offsetDays * 86_400_000).toISOString().slice(0, 10);
-
-/** Jours achetables, du jour même à BARGE_DAYS_AHEAD jours plus tard. */
-export const bargeDays = () => Array.from({ length: BARGE_DAYS_AHEAD + 1 }, (_, i) => mayotteDay(i));
 
 /** Prix calculé à partir du catalogue (jamais celui envoyé par le navigateur). null si un ticket n'existe pas. */
 export function priceBargeOrder(cart: readonly BargeCartLine[]) {

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getAuthContext } from "@/lib/auth/session";
 import { canBuyBargeTickets } from "@/lib/barge/access";
-import { BARGE_MAX_QUANTITY, BARGE_ROUTE, BARGE_TICKETS, bargeDays, describeBargeLines, priceBargeOrder, type BargeTicketType } from "@/lib/barge/catalog";
+import { BARGE_MAX_QUANTITY, BARGE_ROUTE, BARGE_TICKETS, describeBargeLines, priceBargeOrder, type BargeTicketType } from "@/lib/barge/catalog";
 import { orderCode } from "@/lib/food/order-code";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
@@ -18,12 +18,10 @@ export type BargeResponse = {
   demo: boolean;
   route: typeof BARGE_ROUTE;
   tickets: readonly BargeTicketType[];
-  /** Jours achetables (« AAAA-MM-JJ »), le premier est aujourd'hui à Mayotte. */
-  days: string[];
   balanceCents: number;
 };
 
-/** Tarifs, jours et solde. 403 si l'achat de tickets n'est pas ouvert à ce compte. */
+/** Tarifs et solde. 403 si l'achat de tickets n'est pas ouvert à ce compte. */
 export async function GET() {
   const { supabase, user } = await getAuthContext();
   if (!supabase || !user) return fail(401, "Connecte-toi pour acheter un ticket.");
@@ -31,24 +29,22 @@ export async function GET() {
   // Aucun ticket réel n'est émis : seulement en démonstration (solde fictif, src/lib/wallet/demo.ts).
   if (!(await usesDemoWallet(user))) return fail(503, NOT_OPEN);
   const wallet = await readDemoWallet(user.id);
-  const body: BargeResponse = { demo: true, route: BARGE_ROUTE, tickets: BARGE_TICKETS, days: bargeDays(), balanceCents: wallet.balanceCents };
+  const body: BargeResponse = { demo: true, route: BARGE_ROUTE, tickets: BARGE_TICKETS, balanceCents: wallet.balanceCents };
   return NextResponse.json(body, { headers: { "Cache-Control": "no-store" } });
 }
 
 const purchaseSchema = z.object({
-  day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   cart: z
     .array(z.object({ ticketId: z.string().max(30), quantity: z.number().int().min(0).max(BARGE_MAX_QUANTITY) }))
     .min(1)
     .max(BARGE_TICKETS.length),
 });
 
-/** Ce que renvoie POST : le billet à montrer à l'embarquement. */
+/** Ce que renvoie POST : le billet à montrer à l'embarquement. Sans date : valable jusqu'à son scan à Mamoudzou. */
 export type BargeTicketBought = {
   ok: true;
   demo: boolean;
   code: string;
-  day: string;
   lines: { label: string; detail: string; emoji: string; quantity: number }[];
   totalCents: number;
   boughtAt: string;
@@ -69,7 +65,6 @@ export async function POST(request: NextRequest) {
   // Achat lu et vérifié avant de compter un essai : une erreur de saisie ne consomme pas le quota.
   const parsed = purchaseSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail(400, "Achat invalide.");
-  if (!bargeDays().includes(parsed.data.day)) return fail(400, "Ce jour n'est plus disponible : choisis-en un autre.");
   const order = priceBargeOrder(parsed.data.cart);
   if (!order) return fail(400, "Ajoute au moins un ticket.");
 
@@ -101,7 +96,6 @@ export async function POST(request: NextRequest) {
     ok: true,
     demo: true,
     code: orderCode(),
-    day: parsed.data.day,
     lines,
     totalCents: order.totalCents,
     boughtAt: new Date().toISOString(),

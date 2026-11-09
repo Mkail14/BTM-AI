@@ -20,26 +20,14 @@ function blockKey(el: HTMLElement | null) {
   return keyOf(TICKET_KEY, el, "[data-barge-block]");
 }
 
-/** Billet acheté depuis ce bloc, gardé sur l'appareil jusqu'au lendemain du jour de validité. */
+/** Billet acheté depuis ce bloc, gardé sur l'appareil : sans date, il sert jusqu'à son scan. */
 function savedTicket(key: string): BargeTicketBought | null {
   try {
-    const ticket = JSON.parse(readBlockValue(key) ?? "null") as BargeTicketBought | null;
-    if (!ticket) return null;
-    return Date.parse(`${ticket.day}T23:59:59+03:00`) + 86_400_000 > Date.now() ? ticket : null;
+    return JSON.parse(readBlockValue(key) ?? "null") as BargeTicketBought | null;
   } catch {
     return null;
   }
 }
-
-/** « Aujourd'hui », « Demain », puis « ven. 6 nov. » */
-function dayLabel(day: string, index: number) {
-  if (index === 0) return "Aujourd'hui";
-  if (index === 1) return "Demain";
-  return new Date(`${day}T12:00:00+03:00`).toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", timeZone: "Indian/Mayotte" });
-}
-
-const longDay = (day: string) =>
-  new Date(`${day}T12:00:00+03:00`).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", timeZone: "Indian/Mayotte" });
 
 function Step({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled?: boolean; children: ReactNode }) {
   return (
@@ -64,7 +52,7 @@ function BoughtTicket({ ticket }: { ticket: BargeTicketBought }) {
         <div className="px-4 pt-4 text-center">
           <p className="text-xs font-semibold tracking-wider text-fg-muted uppercase">Billet de barge{ticket.demo ? " · démo" : ""}</p>
           <p className="mt-1 font-semibold">Mamoudzou → Dzaoudzi</p>
-          <p className="text-xs text-fg-muted">Valable le {longDay(ticket.day)}</p>
+          <p className="text-xs text-fg-muted">Sans date · valable jusqu&apos;au scan</p>
         </div>
         <div className="mx-auto mt-3 w-48 rounded-xl bg-white p-2">
           <StyledQr text={ticket.code} label={`QR code du billet ${ticket.code}`} />
@@ -92,7 +80,7 @@ function BoughtTicket({ ticket }: { ticket: BargeTicketBought }) {
           <span className="tabular-nums">{formatEuros(ticket.totalCents)}</span>
         </div>
       </div>
-      <p className="mt-3 text-center text-xs text-fg-muted">Montre ce QR code à l&apos;embarquement, à Mamoudzou.</p>
+      <p className="mt-3 text-center text-xs text-fg-muted">Montre ce QR code à l&apos;embarquement, à Mamoudzou. Une fois scanné, il ne sert plus.</p>
     </div>
   );
 }
@@ -107,7 +95,6 @@ export function BargeTickets({ query = "" }: { query?: string }) {
   const root = useRef<HTMLElement>(null);
   const [data, setData] = useState<BargeResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [day, setDay] = useState<string | null>(null);
   const [cart, setCart] = useState<Record<string, number>>(() => parseBargeRequest(query));
   const [others, setOthers] = useState(false);
   const [paying, setPaying] = useState(false);
@@ -136,10 +123,7 @@ export function BargeTickets({ query = "" }: { query?: string }) {
         const body = (await res.json().catch(() => null)) as (BargeResponse & { error?: string }) | null;
         if (cancelled) return;
         if (!res.ok || !body) setError(body?.error ?? "Les tickets de barge sont indisponibles pour le moment.");
-        else {
-          setData(body);
-          setDay(body.days[0] ?? null);
-        }
+        else setData(body);
       })
       .catch(() => !cancelled && setError("Connexion impossible : réessaie dans un instant."));
     return () => {
@@ -160,7 +144,7 @@ export function BargeTickets({ query = "" }: { query?: string }) {
   };
 
   async function pay() {
-    if (!data || !day || count === 0 || paying) return;
+    if (!data || count === 0 || paying) return;
     if (totalCents > data.balanceCents) {
       setPayError(`Solde insuffisant : il te manque ${formatEuros(totalCents - data.balanceCents)}.`);
       return;
@@ -173,7 +157,7 @@ export function BargeTickets({ query = "" }: { query?: string }) {
       const res = await fetch("/api/barge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ day, cart: lines.map((l) => ({ ticketId: l.ticket.id, quantity: l.quantity })) }),
+        body: JSON.stringify({ cart: lines.map((l) => ({ ticketId: l.ticket.id, quantity: l.quantity })) }),
       });
       const body = (await res.json().catch(() => null)) as (BargeTicketBought & { error?: string }) | null;
       if (!res.ok || !body?.ok) {
@@ -207,7 +191,7 @@ export function BargeTickets({ query = "" }: { query?: string }) {
 
   if (bought) return shell(<BoughtTicket ticket={bought} />);
   if (error) return shell(<p className="p-4 text-fg-muted">{error}</p>);
-  if (!data || !day) {
+  if (!data) {
     return shell(
       <div aria-label="Chargement des tickets" className="space-y-3 p-4">
         <div className="h-10 animate-pulse rounded-xl bg-bg-subtle" />
@@ -228,29 +212,9 @@ export function BargeTickets({ query = "" }: { query?: string }) {
           <p className="truncate font-semibold">
             {data.route.from} → {data.route.to}
           </p>
-          <p className="truncate text-xs text-fg-muted">Retour gratuit · valable toute la journée</p>
+          <p className="truncate text-xs text-fg-muted">Sans date · valable jusqu&apos;au scan</p>
         </div>
         {data.demo ? <span className="shrink-0 rounded-full bg-warning-soft px-2 py-0.5 text-[10px] font-semibold text-warning">Démo</span> : null}
-      </div>
-
-      {/* Jour du voyage */}
-      <div className="flex gap-1.5 overflow-x-auto px-4 pt-3 [scrollbar-width:none]" role="radiogroup" aria-label="Jour du voyage">
-        {data.days.map((d, i) => {
-          const active = d === day;
-          return (
-            <button
-              key={d}
-              type="button"
-              role="radio"
-              aria-checked={active}
-              onClick={() => setDay(d)}
-              className={`shrink-0 rounded-full border px-3 py-1 text-xs font-medium transition ${active ? "border-transparent text-white" : "border-border text-fg-muted hover:text-fg"}`}
-              style={active ? { background: PERSONA } : undefined}
-            >
-              {dayLabel(d, i)}
-            </button>
-          );
-        })}
       </div>
 
       {/* Tickets demandés, et rien d'autre */}

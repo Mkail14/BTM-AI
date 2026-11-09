@@ -1,4 +1,4 @@
-import { BARGE_ROUTE, describeBargeLines, mayotteDay, priceBargeOrder } from "@/lib/barge/catalog";
+import { BARGE_ROUTE, describeBargeLines, priceBargeOrder } from "@/lib/barge/catalog";
 import { detectBargeTicket, parseBargeRequest } from "@/lib/barge/intent";
 import { FOOD_CATALOG, priceOrder, type FoodRestaurant } from "@/lib/food/catalog";
 import { detectFoodOrder } from "@/lib/food/intent";
@@ -14,19 +14,17 @@ export type Offer = { kind: "barge" | "food"; label: string; data: Record<string
 
 export const MAX_FOOD_OFFERS = 3;
 
-/** Billet de barge demandé : aujourd'hui, ou demain si c'est dit. */
+/** Billet de barge demandé : sans date, valable jusqu'à son scan. */
 export function bargeOffer(message: string): Offer | null {
   if (detectBargeTicket(message) !== "buy") return null;
   const cart = Object.entries(parseBargeRequest(message)).map(([ticketId, quantity]) => ({ ticketId, quantity }));
   const order = priceBargeOrder(cart);
   if (!order) return null;
-  const tomorrow = /\bdemain\b/i.test(message);
-  const day = mayotteDay(tomorrow ? 1 : 0);
   const what = describeBargeLines(order.lines.map((l) => ({ label: l.ticket.label, detail: l.ticket.detail, quantity: l.quantity })));
   return {
     kind: "barge",
-    label: `Barge ${BARGE_ROUTE.from} → ${BARGE_ROUTE.to}, ${tomorrow ? "demain" : "aujourd'hui"} : ${what} · ${formatEuros(order.totalCents)}`.slice(0, 160),
-    data: { day, cart },
+    label: `Barge ${BARGE_ROUTE.from} → ${BARGE_ROUTE.to} : ${what} · ${formatEuros(order.totalCents)}`.slice(0, 160),
+    data: { cart },
   };
 }
 
