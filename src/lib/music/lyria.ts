@@ -63,6 +63,7 @@ export async function generateSong(prompt: string, model: LyriaModel = "clip"): 
     throw new LyriaError(body.error?.message?.slice(0, 300) ?? `Lyria a répondu ${response.status}`, response.status);
   }
   const { audio, mimeType, text } = readInteraction(body);
-  if (!audio) throw new LyriaError(text ? `Pas de son, seulement du texte : ${text.slice(0, 200)}` : "Lyria n'a renvoyé aucun son.", 502);
+  // Pas de son : Lyria a refusé sans le dire (souvent un texte d'explication), comme un refus de contenu.
+  if (!audio) throw new LyriaError(text ? `Pas de son, seulement du texte : ${text.slice(0, 200)}` : "Lyria n'a renvoyé aucun son.", 422);
   return { audio, mimeType, text, model: LYRIA_MODELS[model], ms: Date.now() - started };
 }

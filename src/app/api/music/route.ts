@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getAuthContext } from "@/lib/auth/session";
-import { lyriaPrompt, parseSongSpec } from "@/lib/music/intent";
+import { lyriaPrompt, parseSongSpec, SONG_RETRY_STYLES } from "@/lib/music/intent";
 import { generateSong, LyriaError } from "@/lib/music/lyria";
+import { logSongRefusal } from "@/lib/music/refusals";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
 
@@ -28,19 +29,35 @@ export async function POST(request: NextRequest) {
   const limit = await consumeRateLimits([{ key: `music:${user.id}`, rules }]).catch(() => null);
   if (!limit?.allowed) return NextResponse.json({ error: "J'ai assez chanté pour aujourd'hui : redemande-moi demain.", reason: "limit" }, { status: 429 });
 
-  try {
-    const song = await generateSong(lyriaPrompt(spec), "clip");
-    return new NextResponse(new Uint8Array(song.audio), {
-      headers: { "Content-Type": song.mimeType, "Cache-Control": "private, max-age=86400" },
-    });
-  } catch (error) {
-    const status = error instanceof LyriaError ? error.status : 502;
-    console.error("[chanson] Lyria", status, error instanceof Error ? error.message : "inconnue");
-    // Refus de contenu (chanson trop proche d'une existante…) ou panne : on le dit simplement.
-    const refused = status === 400 || status === 403;
-    return NextResponse.json(
-      { error: refused ? "Je n'arrive pas à chanter celle-là : demande-m'en une autre." : "Ma voix chantée ne répond pas : réessaie dans un instant." },
-      { status: refused ? 422 : 502 },
-    );
+  // Google refuse parfois une chanson (trop proche d'une existante, filtre de contenu) : on
+  // réessaie tout seul avec un style plus simple. Une seule chanson comptée dans la limite.
+  const attempts = [spec, ...SONG_RETRY_STYLES.map((style) => ({ ...spec, style }))];
+  const started = Date.now();
+  let status = 502;
+  for (const [index, attempt] of attempts.entries()) {
+    try {
+      const song = await generateSong(lyriaPrompt(attempt), "clip");
+      return new NextResponse(new Uint8Array(song.audio), {
+        headers: { "Content-Type": song.mimeType, "Cache-Control": "private, max-age=86400" },
+      });
+    } catch (error) {
+      status = error instanceof LyriaError ? error.status : 502;
+      const reason = error instanceof Error ? error.message : "inconnue";
+      console.error("[chanson] Lyria", index + 1, status, reason);
+      if (!isRefusal(status)) break; // panne : réessayer ne servirait à rien
+      await logSongRefusal({ attempt: index + 1, status, reason, style: attempt.style, lyrics: attempt.lyrics });
+      // Un refus arrive vite ; s'il a traîné, plus le temps d'un autre essai avant la coupure (120 s).
+      if (Date.now() - started > RETRY_BEFORE_MS) break;
+    }
   }
+  return NextResponse.json(
+    { error: isRefusal(status) ? "Je n'arrive pas à chanter celle-là : demande-m'en une autre." : "Ma voix chantée ne répond pas : réessaie dans un instant." },
+    { status: isRefusal(status) ? 422 : 502 },
+  );
 }
+
+/** Au-delà, pas de nouvel essai : une chanson prend jusqu'à ~50 s et la route est coupée à 120 s. */
+const RETRY_BEFORE_MS = 45_000;
+
+/** Refus de Google (et non panne) ; « pas de son » (422 de generateSong) compte aussi. */
+const isRefusal = (status: number) => status === 400 || status === 403 || status === 422;

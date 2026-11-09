@@ -50,6 +50,12 @@ export function parseSongSpec(block: string): SongSpec | null {
   return { style, lyrics: text };
 }
 
+/**
+ * Style des nouveaux essais quand Google refuse : d'abord sans le style écrit par Tamilya (il
+ * peut rappeler un morceau ou un artiste), puis un style très neutre.
+ */
+export const SONG_RETRY_STYLES = ["", "gentle original acoustic pop, guitar and light percussion, medium tempo"] as const;
+
 /** Demande envoyée à Lyria : style, rappel « chanson originale », puis les paroles. */
 export function lyriaPrompt(spec: SongSpec): string {
   return [
