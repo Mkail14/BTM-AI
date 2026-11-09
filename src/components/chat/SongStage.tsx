@@ -31,10 +31,8 @@ export function SongStage() {
         {/* Place gardée : le globe ne saute pas quand le message s'efface. */}
         <div className="flex min-h-28 w-full max-w-sm flex-col items-center gap-3 text-center">
           {active.status === "preparing" ? (
-            <>
-              <WaitingNote key={active.key} />
-              <LyricsPreview lines={active.lines} />
-            </>
+            // Pas de paroles ici : elles n'apparaissent que quand elle chante (demande, 2026-11-09).
+            <WaitingNote key={active.key} />
           ) : active.status === "error" ? (
             <p role="alert" className="text-sm text-white/80">
               {active.message}
@@ -59,18 +57,6 @@ export function SongStage() {
       </button>
     </div>,
     document.body,
-  );
-}
-
-/** Pendant qu'elle compose : le début des paroles, en pâle, qui s'efface vers le bas (sans défilement). */
-function LyricsPreview({ lines }: { lines: string[] }) {
-  if (!lines.length) return null;
-  return (
-    <div className="max-h-24 overflow-hidden text-sm leading-relaxed text-white/45 [mask-image:linear-gradient(to_bottom,black_55%,transparent)]">
-      {lines.slice(0, 5).map((line, i) => (
-        <p key={i}>{line}</p>
-      ))}
-    </div>
   );
 }
 
