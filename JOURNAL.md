@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `e9a5241` (2026-11-09)**
+**Dernier commit noté : `396424c` (2026-11-09)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -93,6 +93,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-09
+- **Vocal : Tamilya chante pour de vrai** (`396424c`). Remarque de l'utilisateur : en vocal, Tamilya disait ne pas savoir chanter, alors qu'à l'écrit elle chante (Lyria). La voix du direct (Gemini Live) ne sait que fredonner. Nouveau bouton du vocal `chanter` (style + paroles écrites par elle) : le bloc chanson s'ajoute à la conversation, le grand globe chante avec Lyria (même route /api/music, même limite par jour), l'appel se met en pause après sa petite phrase et reprend tout seul à la fin (ou à la croix). Si le bouton ne marche pas, elle chante encore de sa propre voix. Sur iPhone, si le son est bloqué hors toucher, la musique ne passe plus par Web Audio (sinon silence) : « Touche-moi pour m'écouter ».
 - **Chanson refusée : nouveaux essais automatiques** (`e9a5241`). Remarque de l'utilisateur : parfois « Je n'arrive pas à chanter celle-là ». Ce message vient d'un refus de Google (Lyria). Les journaux Vercel gratuits ne gardent que 30 min, donc la vraie raison est inconnue. Maintenant, si Google refuse, la route réessaie seule : sans le style écrit par Tamilya, puis avec un style neutre (pop acoustique douce). Pas de nouvel essai après 45 s (coupure à 120 s), ni en cas de panne. Une seule chanson comptée dans la limite. « Pas de son, seulement du texte » compte comme un refus. Chaque refus est noté (raison de Google, style, paroles ; jamais le compte) dans un dossier privé du stockage Supabase « chansons-refusees », créé tout seul : pas de migration. Pas encore essayé en vrai.
 - **Chanson : Tamilya chante dans le grand globe** (`5511d89`). Demande de l'utilisateur : quand on lui écrit « chante », plus de carte avec une barre de chargement ; le grand globe s'ouvre tout seul comme pour les histoires, des messages font patienter dessous (« Je compose ta chanson… », « J'accorde les instruments… »…), puis il gonfle au rythme de la musique. Toucher le globe : pause ; la croix : stop. Les paroles restent dans la conversation avec un bouton « Écoute-moi chanter ». Autre remarque : relancer recomposait une autre chanson. Maintenant la chanson composée est gardée sur l'appareil (IndexedDB, sous l'empreinte des paroles) : la relancer rejoue la même, sans dépenser une chanson du quota. Limite : sur un autre appareil, elle est recomposée. Pas encore essayé en vrai.
 - **Accueil sans compte : même globe qu'une fois connecté** (`c6a2cbd`). Remarque de l'utilisateur : le globe de Tamilya de l'accueil sans compte n'est pas le même que les autres. Différences : plus petit (8 rem au lieu de 8,5), bords plus flous (8 au lieu de 7), rose plus clair en mode sombre (--accent au lieu de la couleur de Tamilya) et un halo coloré derrière. Tout est aligné sur le globe de la conversation, halo retiré sur cette page (gardé sur /developpeurs et /partenaires). Pas encore vu en vrai.
