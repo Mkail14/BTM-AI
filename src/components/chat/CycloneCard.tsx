@@ -162,7 +162,7 @@ function CyclonePanel({ cyclones: nearby, updatedAt, onClose }: { cyclones: Cycl
         {/* Carte de l'océan Indien : toute la place libre. */}
         <div className="relative min-h-[8rem] flex-1">
           <div className="absolute inset-0">
-            <CycloneMap key={world.status === "ok" ? "monde" : "ocean-indien"} cyclones={cyclones} focus={focus} onPick={setFocus} ghost={ghost} />
+            <CycloneMap key={world.status === "ok" ? "monde" : "ocean-indien"} cyclones={cyclones} focus={focus} onPick={setFocus} ghost={ghost && chosen ? { id: chosen.id, lat: ghost.lat, lng: ghost.lng } : null} />
           </div>
           <div className="absolute inset-x-0 top-0 z-10 flex items-center gap-2 p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
             <button

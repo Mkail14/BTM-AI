@@ -22,8 +22,8 @@ type Props = {
   /** Système choisi en bas : la carte se cadre sur lui. null : vue d'ensemble. */
   focus: string | null;
   onPick: (id: string) => void;
-  /** Position rejouée (curseur du temps) : un cyclone fantôme s'y place. null : rien à rejouer. */
-  ghost?: { lat: number; lng: number } | null;
+  /** Position rejouée (curseur du temps) : le cyclone `id` lui-même s'y déplace, il n'y en a qu'un. null : dernière mesure. */
+  ghost?: { id: string; lat: number; lng: number } | null;
 };
 
 type Geo = { type: "FeatureCollection"; features: unknown[] };
@@ -86,8 +86,7 @@ const FIT = { padding: { top: 70, bottom: 40, left: 40, right: 40 }, maxZoom: 7 
 export function CycloneMap({ cyclones, focus, onPick, ghost = null }: Props) {
   const frame = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
-  const markers = useRef<Marker[]>([]);
-  const ghostMarker = useRef<Marker | null>(null);
+  const markers = useRef(new Map<string, Marker>());
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const latest = useRef({ cyclones, onPick });
@@ -146,12 +145,8 @@ export function CycloneMap({ cyclones, focus, onPick, ghost = null }: Props) {
           const el = pin("map-cyclone", `<span class="map-cyclone-ring"></span><span class="map-cyclone-dot">${CYCLONE_SVG}</span>`, c.name);
           el.style.cursor = "pointer";
           el.addEventListener("click", () => latest.current.onPick(c.id));
-          markers.current.push(new maplibre.Marker({ element: el }).setLngLat([c.now.lng, c.now.lat]).addTo(created));
+          markers.current.set(c.id, new maplibre.Marker({ element: el }).setLngLat([c.now.lng, c.now.lat]).addTo(created));
         }
-        // Cyclone fantôme du curseur du temps : caché tant qu'on ne rejoue pas.
-        const ghostEl = pin("map-cyclone map-cyclone-ghost", `<span class="map-cyclone-dot">${CYCLONE_SVG}</span>`);
-        ghostMarker.current = new maplibre.Marker({ element: ghostEl }).setLngLat([MAYOTTE.lng, MAYOTTE.lat]).addTo(created);
-        ghostEl.style.visibility = "hidden";
         setReady(true);
       });
     })().catch((error) => {
@@ -160,8 +155,7 @@ export function CycloneMap({ cyclones, focus, onPick, ghost = null }: Props) {
     });
     return () => {
       cancelled = true;
-      markers.current = [];
-      ghostMarker.current = null;
+      markers.current = new Map();
       created?.remove();
       map.current = null;
     };
@@ -175,17 +169,13 @@ export function CycloneMap({ cyclones, focus, onPick, ghost = null }: Props) {
     m.fitBounds(boundsOf(chosen.length ? chosen : cyclones), { ...FIT, duration: 800 });
   }, [ready, focus, cyclones]);
 
-  // Curseur du temps : le fantôme suit la position rejouée.
+  // Curseur du temps : le cyclone lui-même suit la position rejouée (jamais de second cyclone) ; les autres restent à leur dernière mesure.
   useEffect(() => {
-    const g = ghostMarker.current;
-    if (!ready || !g) return;
-    const el = g.getElement();
-    if (!ghost) {
-      el.style.visibility = "hidden";
-      return;
+    if (!ready) return;
+    for (const c of latest.current.cyclones) {
+      const at = ghost?.id === c.id ? ghost : c.now;
+      markers.current.get(c.id)?.setLngLat([at.lng, at.lat]);
     }
-    g.setLngLat([ghost.lng, ghost.lat]);
-    el.style.visibility = "visible";
   }, [ready, ghost]);
 
   return (

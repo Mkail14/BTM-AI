@@ -11,7 +11,7 @@ import { hapticPress } from "@/lib/chat/haptics";
  * - une phrase « depuis hier 15 h : 375 km vers l'ouest, 16 km/h, 375 km plus près » ;
  * - un avertissement si la dernière mesure est vieille (sinon on croit qu'il ne bouge pas) ;
  * - la courbe de sa distance à Mayotte (trait plein : mesuré ; pointillés : prévu) ;
- * - un curseur du temps et « Rejouer » : un cyclone fantôme parcourt le trajet sur la carte.
+ * - un curseur du temps et « Rejouer » : le cyclone parcourt son trajet sur la carte.
  */
 
 const PERSONA = "var(--persona,var(--accent))";
@@ -38,7 +38,7 @@ export function CycloneTimeline({ cyclone, onMove }: Props) {
   const motion = useMemo(() => motionOf(cyclone), [cyclone]);
   const age = ageHours(cyclone);
 
-  // Rendu avec key={cyclone.id} : un autre système repart de sa dernière mesure. En partant, le fantôme disparaît.
+  // Rendu avec key={cyclone.id} : un autre système repart de sa dernière mesure. En partant, le cyclone revient à sa dernière mesure.
   useEffect(() => () => onMove(null), [onMove]);
 
   const moveTo = (value: number) => {
@@ -50,7 +50,7 @@ export function CycloneTimeline({ cyclone, onMove }: Props) {
     moveRef.current = moveTo;
   });
 
-  // Relecture : le fantôme part du début et va jusqu'au bout de la prévision.
+  // Relecture : le cyclone part du début et va jusqu'au bout de la prévision.
   useEffect(() => {
     if (!playing) return;
     const start = performance.now();
