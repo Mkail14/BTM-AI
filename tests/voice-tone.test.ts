@@ -33,6 +33,7 @@ test("à l'oral, elle fait d'abord et ne salue qu'une fois", async () => {
   assert.match(LIVE_PRIORITY, /AUCUNE question/);
   assert.match(LIVE_PRIORITY, /se dit \[le mot en shimaoré\], c'est bien ça/);
   assert.match(LIVE_PRIORITY, /ne salue qu'une fois/);
+  assert.match(LIVE_RULES, /appelle tout de suite le bouton chanter/);
   assert.match(LIVE_RULES, /chante vraiment, avec ta voix et en rythme, dès le premier mot/);
   assert.doesNotMatch(VOICE_TONE, /Qu'est-ce qu'on fait ensemble/);
 });

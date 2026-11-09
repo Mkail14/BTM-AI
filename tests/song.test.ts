@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { detectSong, lyriaPrompt, parseSongSpec, SONG_LIMITS } from "../src/lib/music/intent";
+import { detectSong, lyriaPrompt, parseSongSpec, SONG_LIMITS, voiceSongSpec } from "../src/lib/music/intent";
 
 describe("Chansons de Tamilya : demande reconnue", () => {
   it("reconnaît une demande de chanter", () => {
@@ -40,5 +40,19 @@ describe("Chansons de Tamilya : bloc et demande à Lyria", () => {
     assert.match(prompt, /^Original song: chant de rue joyeux/);
     assert.match(prompt, /Do not imitate any existing song or artist/);
     assert.match(prompt, /Tamilya chante\nMayotte avec elle$/);
+  });
+});
+
+describe("Chansons de Tamilya : en vocal (bouton chanter)", () => {
+  it("fait le bloc à partir du style et des paroles", () => {
+    const spec = voiceSongSpec("reggae joyeux", "[Couplet]\nSur la barge\n[Refrain]\nMayotte");
+    assert.equal(spec, "style: reggae joyeux\n[Couplet]\nSur la barge\n[Refrain]\nMayotte");
+    assert.deepEqual(parseSongSpec(spec!), { style: "reggae joyeux", lyrics: "[Couplet]\nSur la barge\n[Refrain]\nMayotte" });
+  });
+
+  it("accepte des paroles sans style, refuse des paroles vides ou trop longues", () => {
+    assert.equal(voiceSongSpec(undefined, "La la la"), "La la la");
+    assert.equal(voiceSongSpec("jazz", "  "), null);
+    assert.equal(voiceSongSpec("jazz", Array.from({ length: 40 }, (_, i) => `vers ${i}`).join("\n")), null);
   });
 });

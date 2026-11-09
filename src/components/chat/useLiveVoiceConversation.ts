@@ -2,6 +2,8 @@
 
 import { markReadingAutoStart, READING_DONE_EVENT, type ReadingDone } from "@/lib/lecture/auto";
 import { getStories, subscribeStories } from "@/lib/lecture/stage";
+import { SONG_BLOCK, voiceSongSpec } from "@/lib/music/intent";
+import { getSong, playSongOnce, subscribeSong } from "@/lib/music/song-stage";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { boardCount, CANCELLED, describeBoard, scrollConversation, touchBoard, waitForBoard, writeBoard } from "@/lib/voice-live/board";
 import { buildSnapLexicon, snapToLexicon, type SnapLexicon } from "@/lib/language/snap-lexicon";
@@ -82,6 +84,8 @@ export function useLiveVoiceConversation(
   const unanswered = useRef<(() => void) | null>(null);
   /** L'appel a été mis en pause pour une lecture en 3D : il reprend quand elle est finie. */
   const pausedForReading = useRef(false);
+  /** Tamilya chante (Lyria, bouton « chanter ») : l'appel se met en pause et reprend à la fin de la chanson. */
+  const pausedForSong = useRef(false);
   /**
    * Pendant que l'histoire se prépare, Tamilya dit une petite phrase d'attente ; l'appel se met
    * en pause quand elle a fini (ou quand l'histoire se fait entendre, ou au bout de 8 s).
@@ -234,6 +238,21 @@ export function useLiveVoiceConversation(
           setBoard(true);
           requestAnimationFrame(() => scrollConversation("bas"));
           return "Les vidéos sont affichées, les plus vues d'abord : elle touche celle qu'elle veut. Dis-le en une petite phrase à toi, courte et différente des fois précédentes : ne les décris pas, ne les lis pas, ne pose aucune question.";
+        }
+        // Chanson : comme une histoire, l'appel se met en pause après sa petite phrase (sa voix et la
+        // chanson jamais en même temps, et le micro n'entend pas la musique) et reprend à la fin.
+        if (name === "chanter") {
+          const spec = voiceSongSpec(args.style, args.paroles);
+          if (!spec) return "Paroles vides ou trop longues : réécris-les plus court (12 lignes au plus) et rappelle chanter, sans rien dire.";
+          setStage(false);
+          turnRef.current(hidePin(userText.current.trim(), "")[0], `\`\`\`${SONG_BLOCK}\n${spec}\n\`\`\``, true);
+          userText.current = "";
+          setBoard(true);
+          pausedForSong.current = true;
+          playSongOnce(spec);
+          window.clearTimeout(readingPause.current.timer);
+          readingPause.current = { timer: window.setTimeout(() => pauseForReading(readingPause, stopRef), READING_TALK_MAX_MS), spoke: false, turnDone: false };
+          return "Ta chanson se compose et va être chantée avec ta voix chantée et des instruments. Dis-lui juste une petite phrase à toi, courte, que tu la prépares : ne dis pas les paroles, ne chante pas, pas de question.";
         }
         if (name === "defiler_conversation") return scrollConversation(String(args.vers ?? ""));
         if (name === "autoriser_paiement") return acceptPayment();
@@ -428,6 +447,33 @@ export function useLiveVoiceConversation(
     };
     window.addEventListener(READING_DONE_EVENT, resume);
     return () => window.removeEventListener(READING_DONE_EVENT, resume);
+  }, [start]);
+
+  // Chanson lancée en vocal : dès qu'elle se fait entendre, l'appel se met en pause (si Tamilya
+  // parle encore) ; une fois finie ou arrêtée, l'appel reprend tout seul.
+  useEffect(() => {
+    const unsubscribe = subscribeSong(() => {
+      if (!pausedForSong.current) return;
+      const song = getSong().active;
+      if (song?.status === "playing" && readingPause.current.timer) {
+        window.clearTimeout(readingPause.current.timer);
+        readingPause.current = { ...NO_READING_PAUSE };
+        stopRef.current();
+        return;
+      }
+      if (song) return;
+      pausedForSong.current = false;
+      // Arrêtée pendant sa petite phrase : l'appel n'a pas été coupé, il continue.
+      if (readingPause.current.timer) {
+        window.clearTimeout(readingPause.current.timer);
+        readingPause.current = { ...NO_READING_PAUSE };
+        return;
+      }
+      if (!session.current && !opening.current) start();
+    });
+    return () => {
+      unsubscribe();
+    };
   }, [start]);
 
   /** Message écrit qui demande sa voix (« chante ») : à appeler à l'envoi, le toucher ouvre le micro sur iPhone. */

@@ -149,11 +149,16 @@ export function playSong(spec: string) {
     }
     memory.set(key, blob);
     if (mine !== run) return;
+    // Lancée par Tamilya en vocal (pas d'un toucher) : sur iPhone, le son Web Audio peut rester
+    // bloqué. On ne branche alors pas la musique dessus, sinon elle jouerait sans aucun bruit.
+    if (context.state !== "running") await Promise.race([context.resume().catch(() => {}), new Promise((resolve) => setTimeout(resolve, 300))]);
+    if (mine !== run) return;
 
     audioUrl = URL.createObjectURL(blob);
     const element = new Audio(audioUrl);
     audio = element;
     try {
+      if (context.state !== "running") throw new Error("son bloqué");
       const analyser = context.createAnalyser();
       analyser.fftSize = 512;
       context.createMediaElementSource(element).connect(analyser);

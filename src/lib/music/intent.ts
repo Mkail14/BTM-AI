@@ -50,6 +50,14 @@ export function parseSongSpec(block: string): SongSpec | null {
   return { style, lyrics: text };
 }
 
+/** Chanson demandée en vocal (bouton « chanter ») : le contenu du bloc ```chanson```, ou null si illisible. */
+export function voiceSongSpec(style: unknown, lyrics: unknown): string | null {
+  const head = typeof style === "string" && style.trim() ? `style: ${style.trim().replace(/\s+/g, " ")}\n` : "";
+  const body = typeof lyrics === "string" ? lyrics.replace(/\\n/g, "\n").trim() : "";
+  const spec = `${head}${body}`;
+  return body && parseSongSpec(spec) ? spec : null;
+}
+
 /**
  * Style des nouveaux essais quand Google refuse : d'abord sans le style écrit par Tamilya (il
  * peut rappeler un morceau ou un artiste), puis un style très neutre.

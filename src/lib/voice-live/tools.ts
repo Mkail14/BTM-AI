@@ -147,6 +147,19 @@ export function liveToolDeclarations(access: LiveAccess) {
       },
     },
     {
+      name: "chanter",
+      description:
+        "Chante pour de vrai, avec ta voix chantée et des instruments : à appeler tout de suite, sans rien dire avant, dès qu'on te demande de chanter ou une chanson (« chante », « chante-moi une berceuse », « fais-moi une chanson »). Tu écris toi-même les paroles. L'appel se met en pause pendant la chanson et reprend après.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          style: text("Le style en quelques mots : genre, ambiance, tempo, instruments (ex. « reggae joyeux, guitare et percussions, tempo moyen »). Jamais de nom d'artiste."),
+          paroles: text("Tes paroles inventées : « [Couplet] » puis 4 lignes, « [Refrain] » puis 2 à 4 lignes, un vers par ligne, 12 lignes au plus. Simples, qui riment, jamais celles d'une chanson existante. En shimaoré, seulement avec des mots que tu connais vraiment."),
+        },
+        required: ["paroles"],
+      },
+    },
+    {
       name: "carte_cyclones",
       description:
         "Ouvre à l'écran la carte des cyclones de l'océan Indien (en cours et en formation) : leur position, le trajet fait et prévu, la distance de Mayotte. À utiliser dès que la personne parle de cyclone, de tempête ou de dépression tropicale. Renvoie aussi ce qu'il faut dire.",
