@@ -2,12 +2,13 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getAuthContext } from "@/lib/auth/session";
 import { lyriaPrompt, parseSongSpec, SONG_RETRY_STYLES } from "@/lib/music/intent";
+import { bestLyrics } from "@/lib/music/lyricist";
 import { generateSong, LyriaError } from "@/lib/music/lyria";
 import { logSongRefusal } from "@/lib/music/refusals";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
 
-/** Lyria compose un extrait de 30 s : bien moins d'une minute, avec de la marge. */
+/** Parolier (7 s au plus) puis Lyria, qui compose un extrait de 30 s : bien moins d'une minute, avec de la marge. */
 export const maxDuration = 120;
 
 const bodySchema = z.object({ spec: z.string().min(1).max(2_000) });
@@ -22,12 +23,17 @@ export async function POST(request: NextRequest) {
   const { user } = await getAuthContext();
   if (!user) return NextResponse.json({ error: "Connecte-toi pour m'entendre chanter.", reason: "login" }, { status: 401 });
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
-  const spec = parsed.success ? parseSongSpec(parsed.data.spec) : null;
-  if (!spec) return NextResponse.json({ error: "Ces paroles ne peuvent pas être chantées." }, { status: 400 });
+  const written = parsed.success ? parseSongSpec(parsed.data.spec) : null;
+  if (!written) return NextResponse.json({ error: "Ces paroles ne peuvent pas être chantées." }, { status: 400 });
 
   const rules = user.isAdmin ? RATE_LIMIT_POLICIES.musicAdmin : RATE_LIMIT_POLICIES.music;
   const limit = await consumeRateLimits([{ key: `music:${user.id}`, rules }]).catch(() => null);
   if (!limit?.allowed) return NextResponse.json({ error: "J'ai assez chanté pour aujourd'hui : redemande-moi demain.", reason: "limit" }, { status: 429 });
+
+  // Le parolier : deux réécritures par Flash en même temps, le code garde la meilleure des trois.
+  const choice = await bestLyrics(written, request.signal);
+  const spec = choice.spec;
+  console.info("[chanson] Parolier", { version: choice.pick, ms: choice.ms, notes: choice.scores.map((s) => s.score) });
 
   // Google refuse parfois une chanson (trop proche d'une existante, filtre de contenu) : on
   // réessaie tout seul avec un style plus simple. Une seule chanson comptée dans la limite.
@@ -38,7 +44,12 @@ export async function POST(request: NextRequest) {
     try {
       const song = await generateSong(lyriaPrompt(attempt), "clip");
       return new NextResponse(new Uint8Array(song.audio), {
-        headers: { "Content-Type": song.mimeType, "Cache-Control": "private, max-age=86400" },
+        headers: {
+          "Content-Type": song.mimeType,
+          "Cache-Control": "private, max-age=86400",
+          // Paroles vraiment chantées (peut-être réécrites) : le globe les affiche à la place de celles de Tamilya.
+          "X-Song-Lyrics": encodeURIComponent(spec.lyrics),
+        },
       });
     } catch (error) {
       status = error instanceof LyriaError ? error.status : 502;

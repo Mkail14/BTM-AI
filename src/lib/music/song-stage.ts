@@ -74,7 +74,7 @@ export function songKey(spec: string): string {
 
 // --- Garde des chansons déjà composées -------------------------------------------------
 
-const memory = new Map<string, Blob>();
+const memory = new Map<string, { blob: Blob; lyrics: string | null }>();
 const DB = "tamilya-chansons";
 const STORE = "chansons";
 
@@ -91,13 +91,22 @@ function openDb(): Promise<IDBDatabase | null> {
   });
 }
 
-async function loadSaved(key: string): Promise<Blob | null> {
+type Saved = { blob: Blob; lyrics: string | null };
+
+/** Chanson gardée : le son, et les paroles chantées si le parolier les a réécrites. */
+async function loadSaved(key: string): Promise<Saved | null> {
   const db = await openDb();
   if (!db) return null;
   return new Promise((resolve) => {
     try {
       const request = db.transaction(STORE).objectStore(STORE).get(key);
-      request.onsuccess = () => resolve(request.result instanceof Blob ? request.result : null);
+      const value: unknown = request.result;
+      // Anciennes chansons : le son seul.
+      if (value instanceof Blob) resolve({ blob: value, lyrics: null });
+      else if (value && typeof value === "object" && (value as Saved).blob instanceof Blob) {
+        const saved = value as Saved;
+        resolve({ blob: saved.blob, lyrics: typeof saved.lyrics === "string" ? saved.lyrics : null });
+      } else resolve(null);
       request.onerror = () => resolve(null);
     } catch {
       resolve(null);
@@ -105,10 +114,10 @@ async function loadSaved(key: string): Promise<Blob | null> {
   });
 }
 
-async function save(key: string, blob: Blob) {
+async function save(key: string, saved: Saved) {
   const db = await openDb();
   try {
-    db?.transaction(STORE, "readwrite").objectStore(STORE).put(blob, key);
+    db?.transaction(STORE, "readwrite").objectStore(STORE).put(saved, key);
   } catch {
     // Stockage plein ou bloqué : la chanson reste en mémoire pour cette visite.
   }
@@ -156,7 +165,7 @@ function polish(ctx: AudioContext, from: AudioNode, to: AudioNode) {
   from.connect(headroom).connect(rumble).connect(bass).connect(mud).connect(air).connect(limiter).connect(to);
 }
 
-async function compose(spec: string): Promise<Blob> {
+async function compose(spec: string): Promise<Saved> {
   const response = await fetch("/api/music", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -167,8 +176,18 @@ async function compose(spec: string): Promise<Blob> {
     const body = (await response.json().catch(() => null)) as { error?: string } | null;
     throw new Error(body?.error ?? "Ma voix chantée ne répond pas : réessaie dans un instant.");
   }
-  return response.blob();
+  const header = response.headers.get("X-Song-Lyrics");
+  let lyrics: string | null = null;
+  try {
+    lyrics = header ? decodeURIComponent(header) : null;
+  } catch {
+    lyrics = null;
+  }
+  return { blob: await response.blob(), lyrics };
 }
+
+/** Phrases à afficher : celles chantées par Lyria si elles ont été réécrites. */
+const linesFor = (spec: string, lyrics: string | null) => songLines(lyrics ?? spec);
 
 /** Ouvre le globe et chante (la chanson déjà composée si elle existe, sinon on la compose). */
 export function playSong(spec: string) {
@@ -179,18 +198,20 @@ export function playSong(spec: string) {
   // Le son doit s'ouvrir pendant le geste de la personne : avant toute attente.
   const context = unlockAudio();
   void (async () => {
-    let blob = memory.get(key) ?? (await loadSaved(key));
-    if (!blob) {
+    let saved = memory.get(key) ?? (await loadSaved(key));
+    if (!saved) {
       try {
-        blob = await compose(spec);
+        saved = await compose(spec);
       } catch (error) {
         if (mine === run) patch(key, { status: "error", message: error instanceof Error ? error.message : "Connexion perdue pendant que je composais : réessaie." });
         return;
       }
-      void save(key, blob);
+      void save(key, saved);
     }
-    memory.set(key, blob);
+    memory.set(key, saved);
     if (mine !== run) return;
+    if (saved.lyrics) patch(key, { lines: linesFor(spec, saved.lyrics) });
+    const blob = saved.blob;
     // Lancée par Tamilya en vocal (pas d'un toucher) : sur iPhone, le son Web Audio peut rester
     // bloqué. On ne branche alors pas la musique dessus, sinon elle jouerait sans aucun bruit.
     if (context.state !== "running") await Promise.race([context.resume().catch(() => {}), new Promise((resolve) => setTimeout(resolve, 300))]);
