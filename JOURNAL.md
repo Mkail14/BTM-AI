@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `0c383a2` (2026-11-10)**
+**Dernier commit noté : `bc10e48` (2026-11-10)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -61,7 +61,7 @@ Comment le tenir :
 
 ### « Je vais bien » dans Tamilya Connect (noté le 2026-11-09)
 - Après un cyclone ou une coupure, un message court à ses proches, relayé de téléphone en téléphone. Proposé, pas encore validé par l'utilisateur.
-- SOS écarté : dans une crise qui touche tout le monde, les secours sont débordés et on ne peut rien promettre (fausse sécurité, responsabilité de BTM).
+- SOS d'abord écarté (secours débordés en crise, fausse sécurité), puis demandé par l'utilisateur le 2026-11-10 et fait (`bc10e48`) : pas de promesse, le compteur de relais dit si l'alerte peut passer, BTM ne garantit rien sans relais.
 
 ### Scan des tickets de barge (noté le 2026-11-09)
 - Le ticket n'a plus de date : il sert jusqu'à son scan, une seule fois, seulement à Mamoudzou (le sens Petite-Terre → Grande-Terre est gratuit).
@@ -103,6 +103,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-10
+- **SOS de Tamilya Connect** (`bc10e48`). Demande de l'utilisateur : en écrivant « SOS » à Tamilya Connect (app Android seulement, jamais sur le site), ses proches sont prévenus par mail avec sa position et sa batterie. Côté site : rubrique « SOS » dans les Paramètres, 4 adresses au plus (table `sos_contacts`, serveur seulement, migration `20261209000000_proches_sos.sql`), chaque nouveau proche reçoit un mail qui le prévient ; nouveau type de message `sos` dans Connect, qui passe même site fermé ou Tamilya en pause, limité à 3 par heure ; trace dans `sos_alerts` (sans la position). La gendarmerie ne reçoit pas de mail (elle ne traite pas les urgences par mail) : le mail aux proches et l'app disent d'appeler le 112. Côté app : 10 s pour annuler, nombre de relais affiché, bouton « Appeler le 112 ». Vérifié : types, lint, tests. **À faire : appliquer la migration sur Supabase et mettre `SMTP_PASSWORD` sur Vercel, sinon aucun mail ne part.**
 - **Lecture en 3D : sons placés comme en binaural** (`0c383a2`). Remarque de l'utilisateur : Tamilya met les sons n'importe où, ça sonne bizarre ; il veut l'usage habituel (« toc » à gauche, « toc » à droite, comme en musique). Cause : la consigne disait à Gemini de « jouer BEAUCOUP avec l'espace », « utiliser toute la sphère », faire « bouger souvent » les personnages ; et le vent sautait au hasard jusqu'à 140° toutes les 6 s. Maintenant (`src/lib/lecture/prompt.ts`) : peu de places nettes (gauche, droite, devant), narratrice au centre, chaque personnage garde sa place comme un instrument, les sons qui se répondent alternent les côtés, mouvement seulement quand le texte le dit, derrière/en haut/tout près réservés aux effets précis. Sécurité dans le code (`alternateRepeats`, script.ts) : un même bruit immobile répété dans une réplique passe de l'autre côté. Le vent tourne de 30° en 30°, toujours dans le même sens. Vérifié : 22 tests de la lecture, types, lint. Pas encore écouté au casque.
 
 ### 2026-11-09
