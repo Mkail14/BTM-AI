@@ -15,6 +15,10 @@ export type StoryView = {
   status: "preparing" | "ready" | "playing" | "paused" | "done" | "error";
   title: string;
   message?: string;
+  /** Ce qui se prépare : une histoire inventée, ou un texte / une page à lire. */
+  kind?: "histoire" | "lecture";
+  /** Sa première voix se fait entendre : le message d'attente sous le globe s'efface. */
+  started?: boolean;
 };
 
 type Snapshot = { active: StoryView | null; stories: ReadonlyMap<string, StoryView> };
@@ -46,7 +50,7 @@ const engine = () => import("./story-engine");
 
 /** Ouvre le globe et raconte (ou rejoue l'histoire déjà préparée sous cette clé). */
 export function playStory(key: string, source: StorySource) {
-  patchStory(key, { status: "preparing", message: undefined }, true);
+  patchStory(key, { status: "preparing", message: undefined, started: false, kind: "story" in source ? "histoire" : "lecture" }, true);
   // Le son doit s'ouvrir pendant le geste de la personne : avant le chargement du moteur.
   unlockAudio();
   void engine().then((m) => m.runStory(key, source));

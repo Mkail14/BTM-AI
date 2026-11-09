@@ -1,6 +1,7 @@
 "use client";
 
 import { markReadingAutoStart, READING_DONE_EVENT, type ReadingDone } from "@/lib/lecture/auto";
+import { getStories, subscribeStories } from "@/lib/lecture/stage";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { boardCount, CANCELLED, describeBoard, scrollConversation, touchBoard, waitForBoard, writeBoard } from "@/lib/voice-live/board";
 import { buildSnapLexicon, snapToLexicon, type SnapLexicon } from "@/lib/language/snap-lexicon";
@@ -29,6 +30,18 @@ const hidePin = (user: string, tamilya: string): [string, string] => (takePinTur
  */
 /** Silence accepté après la question de fin d'une histoire, avant de revenir à l'écrit. */
 const BRIEF_SILENCE_MS = 4_000;
+/** Au plus, le temps laissé à Tamilya pour sa phrase d'attente avant une histoire. */
+const READING_TALK_MAX_MS = 8_000;
+type ReadingPause = { timer: number; spoke: boolean; turnDone: boolean };
+const NO_READING_PAUSE: ReadingPause = { timer: 0, spoke: false, turnDone: false };
+
+/** Fin de la phrase d'attente : l'appel se met en pause pour l'histoire (rien si déjà fait). */
+function pauseForReading(pending: { current: ReadingPause }, stop: { current: () => void }) {
+  if (!pending.current.timer) return;
+  window.clearTimeout(pending.current.timer);
+  pending.current = { ...NO_READING_PAUSE };
+  stop.current();
+}
 
 export function useLiveVoiceConversation(
   onTurn: (user: string, tamilya: string, board?: boolean) => void,
@@ -70,6 +83,12 @@ export function useLiveVoiceConversation(
   /** L'appel a été mis en pause pour une lecture en 3D : il reprend quand elle est finie. */
   const pausedForReading = useRef(false);
   /**
+   * Pendant que l'histoire se prépare, Tamilya dit une petite phrase d'attente ; l'appel se met
+   * en pause quand elle a fini (ou quand l'histoire se fait entendre, ou au bout de 8 s).
+   */
+  const readingPause = useRef<ReadingPause>({ ...NO_READING_PAUSE });
+  const liveState = useRef<string>("");
+  /**
    * Après une histoire, Tamilya a pris des nouvelles : le vocal s'ouvre pour écouter la réponse.
    * Sans un mot pendant 4 s, il se referme et on revient à l'écrit (demande de l'utilisateur).
    */
@@ -100,6 +119,8 @@ export function useLiveVoiceConversation(
   }, []);
 
   const stop = useCallback(() => {
+    window.clearTimeout(readingPause.current.timer);
+    readingPause.current = { ...NO_READING_PAUSE };
     generation.current++;
     opening.current = false;
     // Appel fermé pendant qu'elle répond : ce qui vient d'être dit (un mot appris…) n'est pas perdu.
@@ -136,6 +157,13 @@ export function useLiveVoiceConversation(
       firstMessage,
       conversationId: () => currentConversation.current,
       onState: (live) => {
+        liveState.current = live;
+        // Sa phrase d'attente est finie (réponse complète et plus aucun son) : pause pour l'histoire.
+        if (live === "parle" && readingPause.current.timer) readingPause.current.spoke = true;
+        if (live === "écoute" && readingPause.current.turnDone) {
+          pauseForReading(readingPause, stopRef);
+          return;
+        }
         if (live === "connexion") setState("waiting");
         else if (live === "écoute") {
           voiceSpeakEnd();
@@ -183,6 +211,12 @@ export function useLiveVoiceConversation(
         if (user || tamilya) turnRef.current(user, tamilya);
         userText.current = "";
         tamilyaText.current = "";
+        // Réponse après le lancement d'une histoire : on attend la fin du son, sauf si elle s'est tue.
+        const pending = readingPause.current;
+        if (pending.timer && pending.spoke) {
+          pending.turnDone = true;
+          if (liveState.current === "écoute") pauseForReading(readingPause, stopRef);
+        }
       },
       onToolCall: async (name, args, signal) => {
         // Tableau déjà à l'écran : Tamilya agit directement dessus, sans passer par le serveur.
@@ -222,8 +256,9 @@ export function useLiveVoiceConversation(
         // Annulée pendant le chargement : pas de nouveau tableau, la personne a changé d'avis.
         if (signal.aborted) return CANCELLED;
         if (data?.time) return data.time;
-        // Lecture en 3D : la carte s'ajoute à la conversation et démarre seule ; l'appel se met en
-        // pause pendant la lecture (deux voix en même temps dans les écouteurs) et reprend à la fin.
+        // Lecture en 3D : la carte s'ajoute à la conversation et démarre seule. Tamilya dit une
+        // petite phrase pendant qu'elle se prépare, puis l'appel se met en pause pendant la lecture
+        // (deux voix en même temps dans les écouteurs) et reprend à la fin.
         if (data?.reading) {
           const spec = data.reading.replace(/^```[^\n]*\n/, "").replace(/\n?```$/, "");
           markReadingAutoStart(spec);
@@ -234,9 +269,10 @@ export function useLiveVoiceConversation(
           requestAnimationFrame(() => scrollConversation("bas"));
           if (spec.startsWith("texte") || spec.startsWith("histoire")) {
             pausedForReading.current = true;
-            window.setTimeout(() => stopRef.current(), 300);
+            window.clearTimeout(readingPause.current.timer);
+            readingPause.current = { timer: window.setTimeout(() => pauseForReading(readingPause, stopRef), READING_TALK_MAX_MS), spoke: false, turnDone: false };
           }
-          return data.info ?? "La lecture démarre : ne dis rien.";
+          return data.info ?? "La lecture se prépare : dis-lui en une phrase courte, à ta façon, de se préparer à écouter.";
         }
         // Carte du trajet : comme les vidéos, elle s'ajoute à la conversation (et s'ouvre en grand d'elle-même).
         if (data?.trip) {
@@ -353,9 +389,31 @@ export function useLiveVoiceConversation(
     else setChoosing(true);
   }, [open]);
 
+  // L'histoire se fait entendre alors que Tamilya parle encore : l'appel se met en pause tout de
+  // suite (jamais deux voix en même temps dans les écouteurs).
+  useEffect(() => {
+    const unsubscribe = subscribeStories(() => {
+      const pending = readingPause.current;
+      if (!pending.timer || !getStories().active?.started) return;
+      window.clearTimeout(pending.timer);
+      readingPause.current = { ...NO_READING_PAUSE };
+      stopRef.current();
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
   // Lecture en 3D finie (ou arrêtée) : l'appel mis en pause reprend tout seul.
   useEffect(() => {
     const resume = (event: Event) => {
+      // Histoire arrêtée (ou en échec) pendant sa phrase d'attente : l'appel n'a pas été coupé, il continue.
+      if (readingPause.current.timer) {
+        window.clearTimeout(readingPause.current.timer);
+        readingPause.current = { ...NO_READING_PAUSE };
+        pausedForReading.current = false;
+        return;
+      }
       if (pausedForReading.current) {
         pausedForReading.current = false;
         start();

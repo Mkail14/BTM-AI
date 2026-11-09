@@ -237,6 +237,13 @@ async function play(story: Story, script: SceneScript) {
   const offset = script.intro ? 1 : 0;
   patchStory(story.key, { status: "playing", title: script.title }, true);
   setVoiceLevelSource(() => scene.level());
+  // Sa voix se fait entendre : le message d'attente sous le globe s'efface.
+  let heard = false;
+  const hear = () => {
+    if (heard) return;
+    heard = true;
+    patchStory(story.key, { started: true });
+  };
 
   // Le décor monte tout de suite (après au plus 4 s d'attente des vrais sons ; sinon, la version fabriquée).
   // La musique monte dès qu'elle est arrivée, sans retenir l'histoire.
@@ -251,6 +258,7 @@ async function play(story: Story, script: SceneScript) {
     if (intro && !scene.isStopped) {
       // La musique et le décor restent sous sa voix dès l'intro.
       scene.duck(true);
+      hear();
       await scene.playLine({ voice: null, side: 0, distance: "tout-pres", height: "milieu", from: null }, intro);
       scene.duck(false);
     }
@@ -280,6 +288,7 @@ async function play(story: Story, script: SceneScript) {
     for (const cue of cues.filter((c) => c.when === "pendant")) scene.playCue(cue, 0.3);
     if (voice) {
       scene.duck(true);
+      hear();
       await scene.playLine(line, voice);
       scene.duck(false);
     }

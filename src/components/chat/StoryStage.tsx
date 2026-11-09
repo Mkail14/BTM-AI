@@ -1,16 +1,16 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { X } from "lucide-react";
-import { getServerStories, getStories, stopStory, subscribeStories, toggleStory } from "@/lib/lecture/stage";
+import { getServerStories, getStories, stopStory, subscribeStories, toggleStory, type StoryView } from "@/lib/lecture/stage";
 import { AwaBlob } from "./AwaBlob";
 
 /**
  * Le grand globe de Tamilya qui raconte une histoire (lecture en 3D), en plein écran comme le vocal.
  * Monté une seule fois pour tout le site (layout) : il ne disparaît pas quand la conversation se
- * redessine. Aucun texte de chargement (demande de l'utilisateur) : le globe bouge pendant qu'elle
- * se prépare, puis gonfle au rythme de ce qu'on entend. Toucher le globe : pause ; la croix : stop.
+ * redessine. Le globe bouge pendant qu'elle se prépare, puis gonfle au rythme de ce qu'on entend.
+ * Toucher le globe : pause ; la croix : stop.
  */
 export function StoryStage() {
   const { active } = useSyncExternalStore(subscribeStories, getStories, getServerStories);
@@ -18,6 +18,7 @@ export function StoryStage() {
   const playing = active.status === "playing";
   const label =
     active.status === "ready" ? "Écouter l'histoire" : active.status === "paused" ? "Reprendre l'histoire" : playing ? "Mettre l'histoire en pause" : "Tamilya se prépare";
+  const waiting = !active.started && (active.status === "preparing" || playing);
 
   return createPortal(
     <div
@@ -27,8 +28,10 @@ export function StoryStage() {
       className="voice-overlay fixed inset-0 z-[60] flex flex-col items-center px-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] text-white"
     >
       <p className="text-sm font-medium tracking-[0.3em] text-white/50 uppercase">Tamilya</p>
-      <div className="flex w-full flex-1 items-center justify-center">
+      <div className="flex w-full flex-1 flex-col items-center justify-center gap-6">
         <AwaBlob label={label} onActivate={toggleStory} immediate busy={!playing && active.status !== "paused"} size="min(60vw, 16rem)" goo={13} />
+        {/* Place gardée : le globe ne saute pas quand le message s'efface. */}
+        <div className="h-6">{waiting ? <WaitingNote key={active.key} kind={active.kind} /> : null}</div>
       </div>
       <span className="sr-only" aria-live="polite">
         {label}
@@ -43,5 +46,27 @@ export function StoryStage() {
       </button>
     </div>,
     document.body,
+  );
+}
+
+/** Après combien de secondes le message change, tant que sa voix ne s'entend pas encore. */
+const STEPS = [4000, 10000];
+
+/**
+ * L'histoire met quelques secondes à se préparer : sans rien sous le globe, on croirait que ça
+ * bloque (demande de l'utilisateur, 2026-11-09). Le message avance, puis s'efface dès sa voix.
+ */
+function WaitingNote({ kind }: { kind: StoryView["kind"] }) {
+  const [step, setStep] = useState(0);
+  useEffect(() => {
+    const timers = STEPS.map((delay, i) => window.setTimeout(() => setStep(i + 1), delay));
+    return () => timers.forEach((timer) => window.clearTimeout(timer));
+  }, []);
+  const first = kind === "lecture" ? "Je prépare la lecture…" : "Je suis en train d'imaginer l'histoire…";
+  const text = [first, "Je suis presque prête…", "Encore un petit instant…"][step];
+  return (
+    <p key={text} aria-live="polite" className="animate-[voice-fade-in_400ms_ease-out] text-center text-sm text-white/70">
+      {text}
+    </p>
   );
 }
