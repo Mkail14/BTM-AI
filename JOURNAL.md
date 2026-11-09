@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `d754eae` (2026-11-10)**
+**Dernier commit noté : `c2942c9` (2026-11-10)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -103,6 +103,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-10
+- **Cyclones du monde : une vraie fiche** (`c2942c9`). Remarque de l'utilisateur : avec « Voir les autres cyclones du monde », les estimations faisaient des choses bizarres. Causes : tout était calculé par rapport à Mayotte (« 12 000 km », « 250 km plus près de Mayotte » pour un typhon au Japon) ; Pena traverse le changement de date (180°), son trajet et sa zone partaient à l'autre bout de la carte (zone même absente, GDACS la coupe en deux) ; le symbole tournait dans le sens du sud partout ; une estimation BTM pouvait sortir pour un cyclone au nord de l'équateur. Maintenant : champs `local` et `region` ; hors de notre océan, la fiche montre vents, océan, direction et « Aucun danger pour Mayotte », la courbe devient un simple trait du temps, la carte ne cadre pas Mayotte ; estimation seulement dans le sud-ouest de l'océan Indien ; longitudes recollées (`unwrap`) ; « Typhon » ou « Ouragan » selon l'océan ; symbole retourné au nord. Vérifié : types, lint, 653 tests, et les vrais cyclones du jour (Système n°2, Cempaka, Pena). Pas encore vu à l'écran.
 - **Les tableaux ne se rechargent plus à la fin de la réponse** (`d754eae`). Remarque de l'utilisateur : à chaque tableau, la conversation semblait se recharger avant le lancement. Cause : à la fin de l'écriture, MessageItem passait de `<div class="typing-cursor">` à `<Correctable>` (autre cadre) et Markdown cessait de découper le texte : React jetait tout le message, et chaque tableau se chargeait deux fois (le panneau des cyclones s'ouvrait deux fois). Maintenant : même cadre (`Correctable` avec `disabled` pendant l'écriture) et même découpage (`splitStableMarkdown` toujours). Vérifié : types, lint, tests du découpage. Pas encore vu à l'écran.
 - **Carte des cyclones : un seul cyclone en rejouant le trajet** (`35ae33d`). Remarque de l'utilisateur : avec le curseur du temps, on croyait voir deux cyclones. Cause : un cyclone « fantôme » suivait le trajet pendant que le vrai restait à sa dernière position. Maintenant c'est le vrai qui se déplace, puis il revient à sa dernière mesure ; les autres systèmes ne bougent pas. Style `.map-cyclone-ghost` retiré. Vérifié : types, lint. Pas encore vu à l'écran.
 - **Histoire et chanson : même écran que le vocal** (`b46060f`). Remarque de l'utilisateur : le bouton pour quitter une histoire ne ressemblait pas à celui du vocal retravaillé, et le passage du vocal à l'histoire était sec. Bouton quitter en verre rose (.voice-glass, même taille et même croix que le vocal) pour l'histoire et la chanson ; fond aux taches roses qui dérivent (.voice-aurora), qui manquait ; arrivée en fondu lent avec le globe qui grossit un peu, sortie en fondu (`stage-fade.ts` garde la dernière image 450 ms). Vérifié : types, lint. Pas encore vu à l'écran.
