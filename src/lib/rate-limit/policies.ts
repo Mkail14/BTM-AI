@@ -55,6 +55,9 @@ export const RATE_LIMIT_POLICIES = {
     { name: "mesh-device-min", limit: 10, windowSeconds: 60 },
     { name: "mesh-device-day", limit: 200, windowSeconds: 86_400 },
   ],
+  // SOS de Tamilya Connect : un même SOS revenu par un autre chemin ne compte pas (même réponse rendue).
+  sosContacts: [{ name: "sos-contacts-hour", limit: 10, windowSeconds: 3_600 }],
+  sosAlert: [{ name: "sos-hour", limit: 3, windowSeconds: 3_600 }],
   meshRelay: [{ name: "mesh-relay-min", limit: 120, windowSeconds: 60 }],
   meshRegister: [{ name: "mesh-register-hour", limit: 10, windowSeconds: 3_600 }],
   // API des développeurs : leur clé Gemini paie, mais le serveur de BTM travaille quand même.

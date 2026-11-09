@@ -315,3 +315,61 @@ export function codeEmail(code: string, ctx: EmailContext) {
     ctx.origin,
   );
 }
+
+/** Position et batterie envoyées par le téléphone avec un SOS (chacune peut manquer). */
+export type SosSituation = { lat?: number; lng?: number; accuracy?: number; battery?: number; at: Date };
+
+/** SOS de Tamilya Connect : écrit aux proches choisis par la personne. */
+export function sosAlertEmail(name: string, accountEmail: string | null, situation: SosSituation, origin: string) {
+  const hasPlace = situation.lat !== undefined && situation.lng !== undefined;
+  const mapUrl = hasPlace ? `https://www.google.com/maps?q=${situation.lat!.toFixed(6)},${situation.lng!.toFixed(6)}` : null;
+  const details: EmailDetail[] = [
+    { label: "Envoyé", value: `${formatWhen(situation.at)} (heure de Mayotte)` },
+    ...(hasPlace
+      ? [{ label: "Position", value: `${situation.lat!.toFixed(5)}, ${situation.lng!.toFixed(5)}${situation.accuracy ? ` (à ${Math.round(situation.accuracy)} m près)` : ""}` }]
+      : [{ label: "Position", value: "Le téléphone n'a pas pu la trouver" }]),
+    ...(situation.battery !== undefined ? [{ label: "Batterie", value: `${Math.round(situation.battery)} %` }] : []),
+    ...(accountEmail ? [{ label: "Compte", value: accountEmail }] : []),
+  ];
+  return render(
+    `SOS : ${name} a besoin d'aide`,
+    {
+      preheader: `${name} a lancé un SOS depuis Tamilya Connect.`,
+      eyebrow: "Alerte SOS",
+      title: `${name} a besoin d'aide`,
+      paragraphs: [
+        "Bonjour,",
+        `**${name}** vient d'envoyer un SOS depuis Tamilya Connect, l'application de BTM qui marche sans internet. Vous recevez ce message parce que cette personne vous a choisi comme proche à prévenir.`,
+        "Essayez de la joindre. Si vous pensez qu'elle est en danger, appelez le **112** (ou le **17**, gendarmerie) et donnez-leur sa position.",
+      ],
+      ...(mapUrl ? { button: { label: "Voir sa position sur la carte", url: mapUrl } } : {}),
+      details,
+      after: [
+        "Le message a pu passer de téléphone en téléphone avant d'arriver : regardez l'heure d'envoi ci-dessus. La position est celle donnée par le téléphone à ce moment-là.",
+        "BTM transmet cette alerte sans pouvoir garantir qu'elle arrive ni intervenir sur place.",
+      ],
+      reason: "Vous recevez cet e-mail parce qu'un compte BTM AI vous a ajouté comme proche à prévenir en cas de SOS.",
+    },
+    origin,
+  );
+}
+
+/** Prévient un proche qu'il a été choisi (une seule fois, à l'ajout). */
+export function sosContactAddedEmail(name: string, origin: string) {
+  return render(
+    `${name} vous a choisi comme proche à prévenir`,
+    {
+      preheader: `Si ${name} lance un SOS, vous recevrez un e-mail.`,
+      eyebrow: "Proche à prévenir",
+      title: `${name} compte sur vous`,
+      paragraphs: [
+        "Bonjour,",
+        `**${name}** vous a ajouté comme proche à prévenir dans BTM AI. Si cette personne écrit « SOS » dans Tamilya Connect, vous recevrez un e-mail avec sa position et la batterie de son téléphone.`,
+        "Vous n'avez rien à faire maintenant.",
+      ],
+      after: ["Vous ne connaissez pas cette personne, ou vous ne voulez pas recevoir ces alertes ? Écrivez-nous à **contact@btm.yt** et nous retirerons votre adresse."],
+      reason: "Vous recevez cet e-mail parce qu'un compte BTM AI vient de vous ajouter comme proche à prévenir.",
+    },
+    origin,
+  );
+}

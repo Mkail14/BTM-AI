@@ -17,6 +17,9 @@ import { publicName, reviewSchema } from "@/lib/reviews/rules";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { EMAIL_FROM_ADDRESS, emailConfigured, sendEmail } from "@/lib/email/send";
 import { euros, refundDecision, refundRequestEmail } from "@/lib/wallet/refund-on-delete";
+import { siteOrigin } from "@/lib/email/device";
+import { sosContactAddedEmail } from "@/lib/email/templates";
+import { listSosContacts, saveSosContacts, sosContactsSchema } from "@/lib/sos/contacts";
 import { DELETE_CONFIRMATION } from "./confirmation";
 
 export type ProfileFormState = { status: "idle" | "saved" | "error"; message?: string };
@@ -265,4 +268,39 @@ export async function deleteReviewAction(): Promise<ProfileFormState> {
   }
   revalidatePath("/parametres");
   return { status: "saved", message: "Ton avis est supprimé." };
+}
+
+/**
+ * Proches à prévenir si la personne écrit « SOS » dans Tamilya Connect (app Android).
+ * Chaque nouveau proche reçoit un mail qui lui dit qu'il a été choisi.
+ */
+export async function saveSosContactsAction(input: unknown): Promise<ProfileFormState> {
+  const { user } = await getAuthContext();
+  const admin = getSupabaseAdminClient();
+  if (!user || !admin) return { status: "error", message: "Ta session a expiré. Reconnecte-toi." };
+  const parsed = sosContactsSchema.safeParse(input);
+  if (!parsed.success) return { status: "error", message: parsed.error.issues[0]?.message ?? "Adresse invalide." };
+  const emails = parsed.data;
+  if (user.email && emails.includes(user.email.toLowerCase())) return { status: "error", message: "Mets l'adresse d'un proche, pas la tienne." };
+  const limit = await consumeRateLimits([{ key: `sos-contacts:${user.id}`, rules: RATE_LIMIT_POLICIES.sosContacts }]).catch(() => ({ allowed: false as const }));
+  if (!limit.allowed) return { status: "error", message: "Trop de changements : réessaie dans une heure." };
+  try {
+    const before = await listSosContacts(admin, user.id);
+    await saveSosContacts(admin, user.id, emails);
+    const added = emails.filter((e) => !before.includes(e));
+    if (added.length && emailConfigured()) {
+      const { displayName } = await getProfile(admin, user.id).catch(() => ({ displayName: null }));
+      const name = displayName || user.email?.split("@")[0] || "Un proche";
+      const origin = siteOrigin("https://btm.yt");
+      for (const to of added) await sendEmail(to, sosContactAddedEmail(name, origin)).catch((error) => console.error("[sos] Avis au proche non envoyé", error));
+    }
+    if (added.length || before.length !== emails.length) {
+      await notifyAccountChange(user.email, { action: "modification", what: "La liste de vos proches à prévenir (SOS)", feminine: true, value: `${emails.length} proche${emails.length > 1 ? "s" : ""}` });
+    }
+  } catch (error) {
+    console.error("[parametres] Proches SOS non enregistrés", error);
+    return { status: "error", message: "L'enregistrement a échoué. Réessaie." };
+  }
+  revalidatePath("/parametres");
+  return { status: "saved", message: emails.length ? "Proches enregistrés." : "Liste vidée : personne ne sera prévenu." };
 }

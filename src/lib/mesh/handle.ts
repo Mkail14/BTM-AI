@@ -11,6 +11,7 @@ import { canBuyBargeTickets } from "@/lib/barge/access";
 import { describeBargeLines, priceBargeOrder } from "@/lib/barge/catalog";
 import { quickTitle } from "@/lib/chat/title";
 import { getSiteFlags } from "@/lib/site/flags";
+import { sendSosAlert } from "@/lib/sos/alert";
 import { meshClosure } from "./closure";
 import type { ChatTurn } from "@/lib/chat/types";
 import { createConversation, getRecentMessages, insertMessage, markConnectConversation } from "@/lib/conversations/repository";
@@ -213,6 +214,17 @@ async function act(admin: SupabaseClient, user: SessionUser, payload: Extract<Me
 export async function handleMeshPayload(admin: SupabaseClient, userId: string, payload: MeshPayload): Promise<MeshReplyBody> {
   const user = await accountOf(admin, userId);
   if (!user) return failure("Ce compte n'existe plus.");
+  // SOS : passe toujours, même site fermé.
+  if (payload.kind === "sos") {
+    const sent = await sendSosAlert(admin, user, {
+      lat: payload.lat,
+      lng: payload.lng,
+      accuracy: payload.accuracy,
+      battery: payload.battery,
+      at: new Date(payload.at ?? Date.now()),
+    });
+    return sent.ok ? reply(sent.text) : failure(sent.text);
+  }
   // Site fermé : seuls les administrateurs ont une vraie réponse (closure.ts).
   const closed = meshClosure(user.isAdmin, (await getSiteFlags()).status);
   if (closed) return failure(closed);

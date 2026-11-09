@@ -6,6 +6,8 @@ import { getProfile } from "@/lib/conversations/repository";
 import { getProfileContact } from "@/lib/profile-contact";
 import { getMyReview } from "@/lib/reviews";
 import { publicName } from "@/lib/reviews/rules";
+import { listSosContacts } from "@/lib/sos/contacts";
+import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { listSavedAddresses } from "@/lib/saved-addresses";
 import { loadWallet } from "@/lib/wallet";
 import { canUseWallet } from "@/lib/wallet/access";
@@ -27,7 +29,8 @@ export default async function SettingsPage() {
         balanceCents: demo ? (await readDemoWallet(user.id)).balanceCents : (await loadWallet(supabase, user.id, 1)).balanceCents,
       }))
     : Promise.resolve({ demo: false, balanceCents: 0 });
-  const [profile, contact, saved, memories, { demo, balanceCents }, review, memoryOn] = await Promise.all([
+  const admin = getSupabaseAdminClient();
+  const [profile, contact, saved, memories, { demo, balanceCents }, review, memoryOn, sosContacts] = await Promise.all([
     getProfile(supabase, user.id),
     getProfileContact(supabase, user.id),
     listSavedAddresses(supabase),
@@ -35,6 +38,7 @@ export default async function SettingsPage() {
     balanceTask,
     getMyReview(user.id),
     isMemoryOn(supabase),
+    admin ? listSosContacts(admin, user.id).catch(() => []) : Promise.resolve([]),
   ]);
 
   return (
@@ -53,6 +57,7 @@ export default async function SettingsPage() {
           memoryOn,
           review,
           publicName: publicName(profile.displayName),
+          sosContacts,
         }}
       />
     </SettingsFrame>

@@ -43,6 +43,16 @@ export const payloadSchema = z.discriminatedUnion("kind", [
     cart: meshCart.optional(),
     replyKey,
   }),
+  // SOS : position et batterie du téléphone au moment de l’envoi (chacune peut manquer).
+  z.strictObject({
+    kind: z.literal("sos"),
+    lat: z.number().min(-90).max(90).optional(),
+    lng: z.number().min(-180).max(180).optional(),
+    accuracy: z.number().min(0).max(100_000).optional(),
+    battery: z.number().int().min(0).max(100).optional(),
+    at: z.number().int().positive().optional(),
+    replyKey,
+  }),
 ]);
 export type MeshPayload = z.infer<typeof payloadSchema>;
 

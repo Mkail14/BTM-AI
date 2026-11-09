@@ -11,6 +11,7 @@ import { MaskedEmail } from "./MaskedEmail";
 import { PaymentPin } from "./PaymentPin";
 import { NameRow, PhoneRow } from "./ProfileForm";
 import { ReviewForm } from "./ReviewForm";
+import { SosContacts } from "./SosContacts";
 import { SettingsView, type SettingsTab } from "./SettingsView";
 import { SignOutButton } from "./SignOutButton";
 import { ThemeChoice } from "./ThemeChoice";
@@ -32,6 +33,8 @@ export type SettingsData = {
   memoryOn: boolean;
   review: MyReview | null;
   publicName: string;
+  /** Proches à prévenir (SOS de Tamilya Connect). */
+  sosContacts: string[];
 };
 
 /** Contenu de chaque rubrique, une fois les données du compte chargées. */
@@ -45,6 +48,7 @@ export function SettingsContent({ data }: { data: SettingsData }) {
       </SettingsGroup>
     ),
     adresse: <AddressBook home={data.home} saved={data.saved} />,
+    sos: <SosContacts contacts={data.sosContacts} />,
     securite: (
       <>
         <SettingsGroup>
@@ -76,6 +80,7 @@ export function SettingsContent({ data }: { data: SettingsData }) {
   const toComplete: SettingsTab[] = [];
   if (!data.displayName || !data.maskedPhone) toComplete.push("profil");
   if (!data.home) toComplete.push("adresse");
+  if (!data.sosContacts.length) toComplete.push("sos");
 
   return (
     <SettingsView

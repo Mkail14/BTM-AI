@@ -2,10 +2,10 @@
 
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, type ComponentType, type MouseEvent, type ReactNode, type SVGProps } from "react";
-import { IconFolder, IconLock, IconMapPin, IconSparkle, IconStar, IconSun, IconUser, IconWallet } from "@/components/ui/icons";
+import { IconFolder, IconLock, IconMapPin, IconShield, IconSparkle, IconStar, IconSun, IconUser, IconWallet } from "@/components/ui/icons";
 import { SignOutButton } from "./SignOutButton";
 
-export type SettingsTab = "profil" | "adresse" | "securite" | "awa" | "apparence" | "avis";
+export type SettingsTab = "profil" | "adresse" | "sos" | "securite" | "awa" | "apparence" | "avis";
 
 type Section = { id: SettingsTab; label: string; hint: string; icon: ComponentType<SVGProps<SVGSVGElement>> };
 
@@ -15,6 +15,7 @@ const GROUPS: { title: string; sections: Section[] }[] = [
     sections: [
       { id: "profil", label: "Profil", hint: "Ton nom, ton téléphone et ton adresse e-mail.", icon: IconUser },
       { id: "adresse", label: "Adresses", hint: "Tu choisis l'une d'elles à chaque commande. Tamilya sait aussi ce qui est près de chez toi.", icon: IconMapPin },
+      { id: "sos", label: "SOS", hint: "Les proches prévenus si tu écris « SOS » à Tamilya Connect.", icon: IconShield },
       { id: "securite", label: "Sécurité", hint: "Ton mot de passe, ta session et la suppression du compte.", icon: IconLock },
     ],
   },

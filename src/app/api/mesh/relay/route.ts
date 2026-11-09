@@ -73,10 +73,12 @@ export async function POST(request: NextRequest) {
     if (claim.state === "foreign") return fail(409, "duplicate_id");
     claimed = true;
 
-    const deviceLimit = await consumeRateLimits([{ key: `mesh-device:${device.id}`, rules: RATE_LIMIT_POLICIES.meshDevice }]).catch(() => null);
+    // SOS : ni la pause de Tamilya ni la limite des messages ne le bloquent (il a sa propre limite).
+    const sos = payload.data.kind === "sos";
+    const deviceLimit = sos ? { allowed: true } : await consumeRateLimits([{ key: `mesh-device:${device.id}`, rules: RATE_LIMIT_POLICIES.meshDevice }]).catch(() => null);
     const body: MeshReplyBody = !deviceLimit?.allowed
       ? { status: "error", text: "Trop de messages d'un coup : réessaie dans un moment.", actions: [] }
-      : flowCutStop(await loadFlowCuts())
+      : !sos && flowCutStop(await loadFlowCuts())
         ? { status: "error", text: "Tamilya est en pause pour l'instant. Réessaie plus tard.", actions: [] }
         : await handleMeshPayload(admin, device.userId, payload.data);
 
