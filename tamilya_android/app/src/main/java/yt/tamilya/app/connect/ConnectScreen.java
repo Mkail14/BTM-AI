@@ -31,6 +31,8 @@ final class ConnectScreen extends LinearLayout {
     interface Actions {
         void send(String text);
         void action(String actionId, String label, boolean pay);
+        /** « Payer » dans le tableau de barge : tickets choisis, jamais de prix (le serveur le recalcule). */
+        void bargePay(String actionId, JSONArray cart, String label);
         void close();
         void history();
         void newConversation();
@@ -66,6 +68,8 @@ final class ConnectScreen extends LinearLayout {
     private float pull;
     /** Ce qui est déjà à l'écran : on ne reconstruit la liste que si ça a changé. */
     private String shown;
+    /** Tickets choisis dans chaque tableau de barge (par choix) : gardés si la liste est redessinée. */
+    private final java.util.Map<String, java.util.LinkedHashMap<String, Integer>> bargeCarts = new java.util.HashMap<>();
 
     ConnectScreen(Context context, Actions actions) {
         super(context);
@@ -382,6 +386,20 @@ final class ConnectScreen extends LinearLayout {
             if (choice == null) continue;
             String label = choice.optString("label");
             boolean pay = choice.optBoolean("pay");
+            if ("barge".equals(choice.optString("table"))) {
+                // Tableau rangé dans l'APK, rempli avec les tickets demandés.
+                String actionId = choice.optString("id");
+                java.util.LinkedHashMap<String, Integer> cart = bargeCarts.get(actionId);
+                if (cart == null) {
+                    cart = BargeTable.cartOf(choice);
+                    bargeCarts.put(actionId, cart);
+                }
+                BargeTable table = new BargeTable(getContext(), cart, (lines, summary) -> actions.bargePay(actionId, lines, summary));
+                LayoutParams params = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                params.topMargin = dp(8);
+                box.addView(table.view(), params);
+                continue;
+            }
             // Choix de commande : pastille pleine, pleine largeur ; le choix qui paie passe en rose.
             TextView button = new TextView(getContext());
             button.setText(label);

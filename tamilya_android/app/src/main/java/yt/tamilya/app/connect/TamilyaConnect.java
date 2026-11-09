@@ -612,14 +612,20 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
     @Override
     public void action(String actionId, String label, boolean pay) {
         if (!pay) {
-            sendAction(actionId, label, null);
+            sendAction(actionId, label, null, null);
             return;
         }
-        showPinDialog(actionId, label);
+        showPinDialog(actionId, label, null);
+    }
+
+    @Override
+    public void bargePay(String actionId, JSONArray cart, String label) {
+        if (cart == null || cart.length() == 0) return;
+        showPinDialog(actionId, label, cart);
     }
 
     /** Fenêtre du code de paiement, aux couleurs de Connect (fini la boîte grise du système). */
-    private void showPinDialog(String actionId, String label) {
+    private void showPinDialog(String actionId, String label, JSONArray cart) {
         int ink = Color.parseColor("#17191B");
         int cream = Color.parseColor("#F5F0E6");
         int muted = Color.parseColor("#8E9398");
@@ -684,7 +690,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         confirm.setOnClickListener(v -> {
             String code = pin.getText().toString();
             if (code.matches("\\d{4}")) {
-                sendAction(actionId, label, code);
+                sendAction(actionId, label, code, cart);
                 dialog.dismiss();
             } else {
                 notice("Le code fait 4 chiffres.");
@@ -717,11 +723,13 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
                 activity.getResources().getDisplayMetrics()));
     }
 
-    private void sendAction(String actionId, String label, String pin) {
+    private void sendAction(String actionId, String label, String pin, JSONArray cart) {
         JSONObject content = new JSONObject();
         try {
             content.put("kind", "action").put("actionId", actionId);
             if (pin != null) content.put("pin", pin);
+            // Tickets choisis dans le tableau de barge : le serveur recalcule le prix.
+            if (cart != null) content.put("cart", cart);
         } catch (JSONException e) {
             return;
         }
