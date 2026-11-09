@@ -22,7 +22,7 @@ import { createStreamEventParser } from "@/lib/chat/stream-protocol";
 import type { ChatStreamEvent, ChatTurn } from "@/lib/chat/types";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
 import { AwaBlob } from "./AwaBlob";
-import { noteGlobeOrigin, takeGlobeOrigin } from "./globe-origin";
+import { fadeOutHome, noteGlobeOrigin, takeGlobeOrigin } from "./globe-origin";
 import { Composer, type ComposerHandle } from "./Composer";
 import { MessageItem, type UiMessage } from "./MessageItem";
 import { wantsSpokenReply } from "@/lib/voice-live/spoken-request";
@@ -324,7 +324,11 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       const userMessage: UiMessage = { id: newId(), role: "user", content: text, status: "complete" };
       const assistantId = newId();
       // Début de conversation : le grand globe de l'accueil glisse jusqu'à la première réponse (MessageItem).
-      if (base.length === 0 && !spoken) noteGlobeOrigin(takeGlobeOrigin() ?? scrollRef.current?.querySelector(".awa-blob-home")?.getBoundingClientRect() ?? null);
+      if (base.length === 0 && !spoken) {
+        noteGlobeOrigin(takeGlobeOrigin() ?? scrollRef.current?.querySelector(".awa-blob-home")?.getBoundingClientRect() ?? null);
+        // Le bonjour et les idées s'effacent en douceur pendant que le globe vole.
+        fadeOutHome(contentRef.current?.firstElementChild);
+      }
       setMessages([...base, userMessage, { id: assistantId, role: "assistant", content: "", status: "streaming" }]);
       setIsStreaming(true);
       setLiveStatus("Tamilya rédige une réponse.");

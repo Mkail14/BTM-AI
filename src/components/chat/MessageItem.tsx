@@ -7,7 +7,7 @@ import { IconCheck, IconCopy, IconRetry, IconSpeaker, IconStop } from "@/compone
 import type { ChatRole } from "@/lib/chat/types";
 import { Correctable } from "./Correctable";
 import { AwaBlob } from "./AwaBlob";
-import { takeGlobeOrigin } from "./globe-origin";
+import { globeFlightFrames, takeGlobeOrigin } from "./globe-origin";
 import { Markdown } from "./Markdown";
 import { AttestationAsk } from "./attestation-ask";
 import { useTypewriter } from "./useTypewriter";
@@ -99,7 +99,7 @@ function SpeakAction({ text }: { text: string }) {
 }
 
 /** Durée du vol du grand globe de l'accueil jusqu'à la première réponse. */
-const FLIGHT_MS = 950;
+const FLIGHT_MS = 900;
 const noop = () => {};
 
 /**
@@ -116,19 +116,7 @@ const AwaAvatar = memo(function AwaAvatar({ writing }: { writing: boolean }) {
     const el = box.current;
     if (!el || !from || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const to = el.getBoundingClientRect();
-    const dx = from.left + from.width / 2 - (to.left + to.width / 2);
-    const dy = from.top + from.height / 2 - (to.top + to.height / 2);
-    const scale = from.width / to.width;
-    const flight = el.animate(
-      [
-        { transform: `translate(${dx}px, ${dy}px) scale(${scale})`, easing: "cubic-bezier(0.5, 0, 0.2, 1)" },
-        { transform: `translate(${dx}px, ${dy}px) scale(${scale * 0.42})`, offset: 0.34, easing: "cubic-bezier(0.55, 0, 0.7, 0.6)" },
-        { transform: "translate(0, 0) scale(1.22, 0.8)", offset: 0.8, easing: "cubic-bezier(0.2, 0.7, 0.3, 1)" },
-        { transform: "translate(0, -4px) scale(0.92, 1.1)", offset: 0.9, easing: "ease-in" },
-        { transform: "translate(0, 0) scale(1)" },
-      ],
-      { duration: FLIGHT_MS },
-    );
+    const flight = el.animate(globeFlightFrames(from, to), { duration: FLIGHT_MS });
     return () => flight.cancel();
     // Le vol ne se fait qu'à l'arrivée de la réponse.
     // eslint-disable-next-line react-hooks/exhaustive-deps
