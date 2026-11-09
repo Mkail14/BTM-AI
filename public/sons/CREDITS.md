@@ -87,3 +87,15 @@ Enregistrements de [Freesound](https://freesound.org) sous licence CC0 (domaine 
 | feux-artifice | [Fireworks Crackle](https://freesound.org/people/16FThumaF/sounds/505264/) | 16FThumaF | CC0 |
 | train | [Commuter train passing.mp3](https://freesound.org/people/PirateScottie/sounds/608267/) | PirateScottie | CC0 |
 | maki | [Lemur sfx.wav](https://freesound.org/people/CHRISFOPFILMS/sounds/277427/) | CHRISFOPFILMS | CC0 |
+
+## Ajoutés le 2026-11-09 (Wikimedia Commons)
+
+| Son | Fichier d'origine | Auteur | Licence |
+|---|---|---|---|
+| cigales | [Cicada orni.ogg](https://commons.wikimedia.org/wiki/File:Cicada_orni.ogg) | DavidDelon | Public domain |
+| cascade | [Cascade de Syratu.ogg](https://commons.wikimedia.org/wiki/File:Cascade_de_Syratu.ogg) | Arie m den toom | CC BY 4.0 |
+| classe | [Ambient classroom mono.ogg](https://commons.wikimedia.org/wiki/File:Ambient_classroom_mono.ogg) | rcrossley | Public domain |
+| stade | [WWS FootballAustriavs.Sweden.ogg](https://commons.wikimedia.org/wiki/File:WWS_FootballAustriavs.Sweden.ogg) | Work With Sounds | CC BY 4.0 |
+| menuisier | [Carpenter Work Sound.ogg](https://commons.wikimedia.org/wiki/File:Carpenter_Work_Sound.ogg) | Ready Street (Wiki Loves Africa 2024) | CC BY-SA 4.0 |
+| clavier | [Keyboard noise.ogg](https://commons.wikimedia.org/wiki/File:Keyboard_noise.ogg) | Yuyudevil | Public domain |
+| djembe | [Djembe accompaniment.ogg](https://commons.wikimedia.org/wiki/File:Djembe_accompaniment.ogg) | Michi Henning | CC0 |

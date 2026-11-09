@@ -39,6 +39,11 @@ export const BEDS = {
   restaurant: { name: "café, restaurant plein de monde", width: 220 },
   espace: { name: "intérieur d'un vaisseau spatial", width: 360 },
   "sous-eau": { name: "sous l'eau", width: 360 },
+  cigales: { name: "cigales en pleine chaleur", width: 240, height: "haut" },
+  cascade: { name: "cascade", width: 70 },
+  classe: { name: "salle de classe, élèves", width: 200 },
+  stade: { name: "stade de foot, supporters", width: 300 },
+  menuisier: { name: "atelier de menuisier au travail", width: 90 },
 } as const satisfies Record<string, Bed>;
 
 export const SHOTS = {
@@ -94,6 +99,8 @@ export const SHOTS = {
   "feux-artifice": { name: "feux d'artifice", height: "haut" },
   train: { name: "train qui passe" },
   maki: { name: "maki (lémurien) qui crie", height: "haut" },
+  clavier: { name: "quelqu'un qui tape au clavier", height: "bas" },
+  djembe: { name: "coups de djembé", height: "bas" },
 } as const satisfies Record<string, Shot>;
 
 /**
@@ -114,6 +121,8 @@ export const RECORDED: ReadonlySet<string> = new Set<string>([
   "pluie", "pluie-tole", "vent", "vagues", "riviere", "nuit", "oiseaux", "foret", "marche", "rue", "chantier", "foule", "enfants", "khoutba", "madrassa", "roussettes", "port", "cuisine", "pluie-fine", "adhan", "takbir", "tonnerre", "coeur", "frappe", "galop", "porte-grince", "toux", "bebe", "eternuement", "soupir", "applaudissements", "sifflet", "coq", "poule", "chevre", "zebu", "chien", "chat", "moto", "voiture", "camion", "klaxon", "bateau", "telephone",
   // Ajoutés le 2026-11-09 (Freesound, CC0) : feu et pas avaient seulement une version fabriquée.
   "feu", "pas", "horloge", "fete", "grenouilles", "restaurant", "espace", "sous-eau", "course", "feuilles", "rire", "rires-enfants", "porte-claque", "verre", "eau", "hibou", "avion", "reveil", "ronflement", "baillement", "bisou", "cri", "branche", "sonnette", "cles", "magie", "chute", "moustique", "sirene", "feux-artifice", "train", "maki",
+  // Ajoutés le 2026-11-09 (Wikimedia Commons), à écouter dans /admin/sons.
+  "cigales", "cascade", "classe", "stade", "menuisier", "clavier", "djembe",
 ]);
 
 export const soundUrl = (sound: string) => `/sons/${sound}.webm`;
