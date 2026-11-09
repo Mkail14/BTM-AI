@@ -1184,6 +1184,15 @@ input::-ms-clear {
   animation: map-courier-ring 2s ease-out infinite;
 }
 
+/* Cyclone rejoué (curseur du temps) : couleurs inversées, pour ne pas le confondre avec la dernière position mesurée. */
+.map-cyclone-ghost .map-cyclone-dot {
+  background: var(--persona, var(--accent));
+  color: #fff;
+  box-shadow:
+    0 0 0 2px #fff,
+    0 4px 10px -2px rgb(0 0 0 / 0.35);
+}
+
 @keyframes map-cyclone-spin {
   to {
     rotate: 360deg;

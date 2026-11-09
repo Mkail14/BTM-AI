@@ -22,6 +22,8 @@ type Props = {
   /** Système choisi en bas : la carte se cadre sur lui. null : vue d'ensemble. */
   focus: string | null;
   onPick: (id: string) => void;
+  /** Position rejouée (curseur du temps) : un cyclone fantôme s'y place. null : rien à rejouer. */
+  ghost?: { lat: number; lng: number } | null;
 };
 
 type Geo = { type: "FeatureCollection"; features: unknown[] };
@@ -49,7 +51,12 @@ function shapes(cyclones: readonly Cyclone[]) {
   const ahead: unknown[] = [];
   const dots: unknown[] = [];
   const cones: unknown[] = [];
+  const spread: unknown[] = [];
   for (const c of cyclones) {
+    // Trajets d'anciens cyclones semblables, reportés à sa position (estimation BTM).
+    for (const line of c.estimate?.spread ?? []) {
+      if (line.length > 1) spread.push({ type: "Feature", properties: { id: c.id }, geometry: { type: "LineString", coordinates: line } });
+    }
     const done = c.track.filter((t) => !t.forecast);
     const last = done[done.length - 1] ?? c.track[0];
     const next = [last, ...c.track.filter((t) => t.forecast)];
@@ -58,7 +65,7 @@ function shapes(cyclones: readonly Cyclone[]) {
     for (const t of c.track.filter((t) => t.forecast)) dots.push({ type: "Feature", properties: { id: c.id }, geometry: { type: "Point", coordinates: [t.lng, t.lat] } });
     if (c.cone) cones.push({ type: "Feature", properties: { id: c.id }, geometry: { type: "Polygon", coordinates: c.cone } });
   }
-  return { past: collection(past), ahead: collection(ahead), dots: collection(dots), cones: collection(cones) };
+  return { past: collection(past), ahead: collection(ahead), dots: collection(dots), cones: collection(cones), spread: collection(spread) };
 }
 
 /** Cadre qui montre Mayotte et les systèmes voulus (tout leur trajet). */
@@ -76,10 +83,11 @@ function boundsOf(cyclones: readonly Cyclone[]): [[number, number], [number, num
 
 const FIT = { padding: { top: 70, bottom: 40, left: 40, right: 40 }, maxZoom: 7 };
 
-export function CycloneMap({ cyclones, focus, onPick }: Props) {
+export function CycloneMap({ cyclones, focus, onPick, ghost = null }: Props) {
   const frame = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const markers = useRef<Marker[]>([]);
+  const ghostMarker = useRef<Marker | null>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const latest = useRef({ cyclones, onPick });
@@ -118,11 +126,13 @@ export function CycloneMap({ cyclones, focus, onPick }: Props) {
         const css = getComputedStyle(frame.current);
         const accent = css.getPropertyValue("--persona").trim() || css.getPropertyValue("--accent").trim() || "#c8295f";
         const s = shapes(latest.current.cyclones);
+        created.addSource("spread", { type: "geojson", data: s.spread as never });
         created.addSource("cones", { type: "geojson", data: s.cones as never });
         created.addSource("past", { type: "geojson", data: s.past as never });
         created.addSource("ahead", { type: "geojson", data: s.ahead as never });
         created.addSource("dots", { type: "geojson", data: s.dots as never });
         const round = { "line-cap": "round", "line-join": "round" } as const;
+        created.addLayer({ id: "spread", type: "line", source: "spread", layout: round, paint: { "line-color": accent, "line-width": 1.2, "line-opacity": 0.22 } });
         created.addLayer({ id: "cones", type: "fill", source: "cones", paint: { "fill-color": accent, "fill-opacity": 0.12 } });
         created.addLayer({ id: "cones-edge", type: "line", source: "cones", paint: { "line-color": accent, "line-width": 1, "line-opacity": 0.45 } });
         created.addLayer({ id: "past", type: "line", source: "past", layout: round, paint: { "line-color": "#9aa1ab", "line-width": 3, "line-opacity": 0.85 } });
@@ -138,6 +148,10 @@ export function CycloneMap({ cyclones, focus, onPick }: Props) {
           el.addEventListener("click", () => latest.current.onPick(c.id));
           markers.current.push(new maplibre.Marker({ element: el }).setLngLat([c.now.lng, c.now.lat]).addTo(created));
         }
+        // Cyclone fantôme du curseur du temps : caché tant qu'on ne rejoue pas.
+        const ghostEl = pin("map-cyclone map-cyclone-ghost", `<span class="map-cyclone-dot">${CYCLONE_SVG}</span>`);
+        ghostMarker.current = new maplibre.Marker({ element: ghostEl }).setLngLat([MAYOTTE.lng, MAYOTTE.lat]).addTo(created);
+        ghostEl.style.visibility = "hidden";
         setReady(true);
       });
     })().catch((error) => {
@@ -147,6 +161,7 @@ export function CycloneMap({ cyclones, focus, onPick }: Props) {
     return () => {
       cancelled = true;
       markers.current = [];
+      ghostMarker.current = null;
       created?.remove();
       map.current = null;
     };
@@ -159,6 +174,19 @@ export function CycloneMap({ cyclones, focus, onPick }: Props) {
     const chosen = focus ? cyclones.filter((c) => c.id === focus) : cyclones;
     m.fitBounds(boundsOf(chosen.length ? chosen : cyclones), { ...FIT, duration: 800 });
   }, [ready, focus, cyclones]);
+
+  // Curseur du temps : le fantôme suit la position rejouée.
+  useEffect(() => {
+    const g = ghostMarker.current;
+    if (!ready || !g) return;
+    const el = g.getElement();
+    if (!ghost) {
+      el.style.visibility = "hidden";
+      return;
+    }
+    g.setLngLat([ghost.lng, ghost.lat]);
+    el.style.visibility = "visible";
+  }, [ready, ghost]);
 
   return (
     <div className="relative size-full overflow-hidden bg-[#eef0f2] dark:bg-[#1b1e22]">

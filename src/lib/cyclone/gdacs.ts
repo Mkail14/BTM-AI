@@ -1,6 +1,8 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
+import { estimate } from "./engine";
 import { MAYOTTE, type Cyclone, type CyclonePoint } from "./intent";
+import { ageHours, motionOf, STALE_AFTER_H } from "./motion";
 
 /**
  * Cyclones en cours dans le sud-ouest de l'océan Indien, lus sur GDACS
@@ -128,20 +130,34 @@ async function readCyclone(event: Feature): Promise<Cyclone | null> {
     return !best || km < best.km ? { km, at: t.at } : best;
   }, null);
 
+  const windKmh = typeof severity.severity === "number" ? Math.round(severity.severity) : null;
+  const distanceKm = kmBetween(MAYOTTE, now);
   return {
     id: String(p.eventid),
     name,
     forming,
     status: statusOf(String(severity.severitytext ?? "")),
-    windKmh: typeof severity.severity === "number" ? Math.round(severity.severity) : null,
+    windKmh,
     now,
     track,
     cone,
-    distanceKm: kmBetween(MAYOTTE, now),
+    distanceKm,
     closest: nearest,
     mayotteInCone: cone ? inside(MAYOTTE, cone) : null,
     link: url.report?.startsWith("https://www.gdacs.org/") ? url.report : "https://www.gdacs.org/",
+    // Estimation BTM : seulement dans notre bassin (l'archive ne couvre que le sud-ouest de l'océan Indien).
+    estimate: distanceKm <= 3000 ? safely(() => estimate({ now, track, windKmh })) : null,
   };
+}
+
+/** Une erreur du moteur ne doit jamais empêcher d'afficher la carte. */
+function safely<T>(run: () => T): T | null {
+  try {
+    return run();
+  } catch (error) {
+    console.error("[cyclones] estimation impossible", error);
+    return null;
+  }
 }
 
 /** Le point est-il dans le polygone (anneaux en [lng, lat]) ? Règle du rayon qui croise les bords. */
@@ -176,7 +192,7 @@ async function readCyclones(zone: CycloneZone): Promise<Cyclone[]> {
 }
 
 /** Gardée 15 minutes et partagée par tout le site (cache de données de Next). */
-const cachedCyclones = unstable_cache(readCyclones, ["cyclones-gdacs-v3"], { revalidate: CACHE_S });
+const cachedCyclones = unstable_cache(readCyclones, ["cyclones-gdacs-v4"], { revalidate: CACHE_S });
 
 /** Cyclones en cours (océan Indien par défaut, ou le monde), du plus proche de Mayotte au plus loin. */
 export async function getCyclones(zone: CycloneZone = "ocean-indien"): Promise<Cyclone[]> {
@@ -213,6 +229,46 @@ function riskFor(c: Cyclone): string {
   return "très loin de Mayotte selon la prévision : très peu probable qu'il touche Mayotte";
 }
 
+/** « Depuis samedi 15 h : 375 km vers l'ouest, 16 km/h, 375 km plus près de Mayotte » (mesuré). */
+function movementLine(c: Cyclone): string | null {
+  const m = motionOf(c);
+  if (!m) return null;
+  const toward = m.closerKm > 20 ? `${m.closerKm} km plus près de Mayotte` : m.closerKm < -20 ? `${-m.closerKm} km plus loin de Mayotte` : "à peu près à la même distance de Mayotte";
+  return `  Déplacement mesuré (sûr), depuis le ${clock.format(new Date(m.since))} (${m.hours} h) : ${m.movedKm} km vers ${m.direction}, environ ${m.speedKmh} km/h, ${toward}.`;
+}
+
+/** Donnée vieille : Tamilya doit le dire, sinon la personne croit qu'il ne bouge pas. */
+function ageLine(c: Cyclone): string | null {
+  const age = ageHours(c);
+  if (age < STALE_AFTER_H) return null;
+  return `  ATTENTION : la dernière mesure publiée date de ${Math.round(age)} h. Il a sûrement bougé depuis ; le dire clairement et renvoyer vers Météo-France La Réunion pour la position du moment.`;
+}
+
+/** L'estimation BTM (moteur des anciens cyclones), présentée comme un deuxième avis. */
+function estimateLine(c: Cyclone): string | null {
+  const e = c.estimate;
+  if (!e) return null;
+  const basis =
+    e.basis === "archives"
+      ? `${e.analogs} anciens cyclones semblables depuis 1980 (pas de prévision officielle)`
+      : e.basis === "officielle"
+        ? "la prévision officielle et ses erreurs habituelles"
+        : `la prévision officielle et ses erreurs habituelles, croisée avec ${e.analogs} anciens cyclones semblables depuis 1980`;
+  const like = e.examples.length ? ` Anciens cyclones les plus ressemblants : ${e.examples.map((x) => `${x.name} (${x.year}), dont le trajet reporté à sa position passerait à ${x.closestKm} km`).join(" ; ")}.` : "";
+  return [
+    `  Estimation BTM (calcul maison, un deuxième avis, PAS une alerte officielle ; d'après ${basis}) sur les 5 jours :`,
+    `  ${e.within100} % de chances de passer à moins de 100 km de Mayotte, ${e.within200} % à moins de 200 km, ${e.within300} % à moins de 300 km.`,
+    e.when
+      ? Date.parse(e.when) > Date.now()
+        ? `  S'il s'approche, le plus probable : ${day.format(new Date(e.when))}.`
+        : `  Le moment le plus probable du passage au plus près (${day.format(new Date(e.when))}) est déjà passé : la dernière mesure est trop vieille, ces chiffres ne valent plus pour maintenant.`
+      : "",
+    `  Distance au plus près la plus probable : ${e.typicalKm} km.${like}`,
+  ]
+    .filter(Boolean)
+    .join("\n");
+}
+
 /**
  * Les cyclones en quelques lignes, pour que Tamilya en parle sans rien
  * inventer : ce qui est mesuré (sûr), ce qui est prévu (moins sûr), et le
@@ -235,7 +291,12 @@ export async function cyclonesText(): Promise<string> {
           ? `  Prévu (moins sûr, d'autant plus loin dans le temps) : au plus près de Mayotte ${c.closest.km} km, le ${day.format(new Date(c.closest.at))}.`
           : "  Pas de trajet prévu donné.",
         `  Risque pour Mayotte selon ces données : ${riskFor(c)}.`,
-      ].join("\n"),
+        movementLine(c),
+        ageLine(c),
+        estimateLine(c),
+      ]
+        .filter(Boolean)
+        .join("\n"),
     ),
     "Ces données ne disent rien de la pluie, du vent ou de la mer à Mayotte, ni des alertes : seuls les articles des journaux ci-dessous (s'il y en a) ou la préfecture et Météo-France peuvent le dire.",
   ].join("\n");

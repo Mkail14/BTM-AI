@@ -52,6 +52,32 @@ export type Cyclone = {
   mayotteInCone: boolean | null;
   /** Fiche détaillée sur GDACS. */
   link: string;
+  /** Estimation BTM du passage près de Mayotte (moteur des anciens cyclones). null : pas assez de données. */
+  estimate: CycloneEstimate | null;
+};
+
+/**
+ * Estimation BTM (src/lib/cyclone/engine.ts) : la prévision officielle avec
+ * ses erreurs habituelles, croisée avec ce qu'ont fait les anciens cyclones
+ * qui lui ressemblaient. Un deuxième avis chiffré, pas une alerte.
+ */
+export type CycloneEstimate = {
+  /** Chances (en %) qu'il passe à moins de 100, 200 et 300 km de Mayotte dans les 5 jours. */
+  within100: number;
+  within200: number;
+  within300: number;
+  /** Heure ISO la plus probable du passage au plus près, s'il vient à moins de 300 km. */
+  when: string | null;
+  /** Distance au plus près la plus probable (médiane), en km. */
+  typicalKm: number;
+  /** Sur quoi repose le chiffre : prévision officielle et anciens cyclones, ou anciens cyclones seuls. */
+  basis: "officielle+archives" | "officielle" | "archives";
+  /** Nombre d'anciens cyclones semblables retenus. */
+  analogs: number;
+  /** Les plus ressemblants, pour expliquer (« comme Kenneth en 2019 »). */
+  examples: { name: string; year: number; closestKm: number }[];
+  /** Trajets des anciens cyclones semblables, ramenés à sa position (pour la carte), en [lng, lat]. */
+  spread: [number, number][][];
 };
 
 export type CyclonesResponse = { cyclones: Cyclone[]; updatedAt: string } | { error: string };

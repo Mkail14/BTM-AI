@@ -1,11 +1,12 @@
 "use client";
 
-import { Info, Navigation, Wind, X } from "lucide-react";
+import { Gauge, Info, Navigation, Wind, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import type { Cyclone, CyclonesResponse } from "@/lib/cyclone/intent";
+import type { Cyclone, CyclonePoint, CyclonesResponse } from "@/lib/cyclone/intent";
 import { loadMapLibre } from "@/lib/geo/maplibre";
+import { CycloneTimeline } from "./CycloneTimeline";
 
 // Carte (MapLibre et sa feuille de style) : chargée seulement quand le panneau s'ouvre.
 const CycloneMap = dynamic(() => import("./CycloneMap").then((m) => m.CycloneMap), { ssr: false });
@@ -29,6 +30,15 @@ function CycloneIcon({ size = 24 }: { size?: number }) {
       <path d="M12 15.2c0 4.3-3 6.3-7 6.3" />
     </svg>
   );
+}
+
+/** Sous le pourcentage : le moment le plus probable, ou pourquoi il n'y en a pas. */
+function estimateHint(c: Cyclone) {
+  const e = c.estimate;
+  if (!e) return "pas d'estimation";
+  if (!e.when) return "estimation BTM";
+  // Donnée trop vieille : le moment calculé est déjà derrière nous.
+  return Date.parse(e.when) > Date.now() ? `plutôt ${day.format(new Date(e.when))}` : "donnée trop vieille";
 }
 
 const summary = (cyclones: Cyclone[]) => {
@@ -103,6 +113,8 @@ function CyclonePanel({ cyclones: nearby, updatedAt, onClose }: { cyclones: Cycl
   const [world, setWorld] = useState<{ status: "idle" | "loading" | "error" } | { status: "ok"; cyclones: Cyclone[] }>({ status: "idle" });
   const cyclones = world.status === "ok" ? world.cyclones : nearby;
   const [focus, setFocus] = useState<string | null>(nearby[0]?.id ?? null);
+  // Position rejouée par le curseur du temps (null : dernière mesure).
+  const [ghost, setGhost] = useState<CyclonePoint | null>(null);
   const showWorld = () => {
     setWorld({ status: "loading" });
     fetch("/api/cyclones?zone=monde")
@@ -150,7 +162,7 @@ function CyclonePanel({ cyclones: nearby, updatedAt, onClose }: { cyclones: Cycl
         {/* Carte de l'océan Indien : toute la place libre. */}
         <div className="relative min-h-[8rem] flex-1">
           <div className="absolute inset-0">
-            <CycloneMap key={world.status === "ok" ? "monde" : "ocean-indien"} cyclones={cyclones} focus={focus} onPick={setFocus} />
+            <CycloneMap key={world.status === "ok" ? "monde" : "ocean-indien"} cyclones={cyclones} focus={focus} onPick={setFocus} ghost={ghost} />
           </div>
           <div className="absolute inset-x-0 top-0 z-10 flex items-center gap-2 p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
             <button
@@ -195,13 +207,22 @@ function CyclonePanel({ cyclones: nearby, updatedAt, onClose }: { cyclones: Cycl
                   <p className="mt-1 text-[11px] text-fg-muted">de Mayotte</p>
                 </div>
               </div>
-              <div className="order-rise grid grid-cols-2 gap-2 [animation-delay:40ms]">
-                <Fact icon={<Wind size={18} />} label="Vents jusqu'à" value={chosen.windKmh ? `${chosen.windKmh} km/h` : "—"} />
+              <div className="order-rise [animation-delay:20ms]">
+                <CycloneTimeline key={chosen.id} cyclone={chosen} onMove={setGhost} />
+              </div>
+              <div className="order-rise grid grid-cols-3 gap-2 [animation-delay:40ms]">
+                <Fact icon={<Wind size={18} />} label="Vents" value={chosen.windKmh ? `${chosen.windKmh} km/h` : "—"} />
                 <Fact
                   icon={<Navigation size={18} />}
-                  label="Au plus près (prévu)"
+                  label="Au plus près"
                   value={chosen.closest ? km(chosen.closest.km) : "—"}
-                  hint={chosen.closest ? day.format(new Date(chosen.closest.at)) : undefined}
+                  hint={chosen.closest ? day.format(new Date(chosen.closest.at)) : "prévu"}
+                />
+                <Fact
+                  icon={<Gauge size={18} />}
+                  label="À moins de 200 km"
+                  value={chosen.estimate ? `${chosen.estimate.within200} %` : "—"}
+                  hint={estimateHint(chosen)}
                 />
               </div>
             </>
@@ -214,8 +235,8 @@ function CyclonePanel({ cyclones: nearby, updatedAt, onClose }: { cyclones: Cycl
           <p className="order-rise flex items-start gap-2 text-[11px] leading-snug text-fg-muted [animation-delay:80ms]">
             <Info size={14} aria-hidden="true" className="mt-px shrink-0" />
             <span>
-              Prévisions de Météo-France La Réunion, via GDACS, à {clock.format(new Date(updatedAt))}. Trait plein : trajet fait ; pointillés : trajet prévu ; voile : où il peut passer. Les alertes
-              officielles viennent de la préfecture de Mayotte.
+              Prévisions de Météo-France La Réunion, via GDACS, à {clock.format(new Date(updatedAt))}. Trait plein : trajet fait ; pointillés : prévu ; voile : où il peut passer ; traits fins : anciens cyclones semblables depuis 1980.
+              Le pourcentage est une estimation BTM (prévision officielle et anciens cyclones), pas une alerte : les alertes viennent de la préfecture de Mayotte.
               {chosen ? (
                 <>
                   {" "}
@@ -245,8 +266,8 @@ function CyclonePanel({ cyclones: nearby, updatedAt, onClose }: { cyclones: Cycl
 
 function Fact({ icon, label, value, hint }: { icon: ReactNode; label: string; value: string; hint?: string }) {
   return (
-    <div className="flex items-center gap-2.5 rounded-2xl bg-bg-subtle px-3 py-2.5">
-      <span aria-hidden="true" className="shrink-0 text-fg-muted">
+    <div className="flex min-w-0 items-center gap-2.5 rounded-2xl bg-bg-subtle px-3 py-2.5">
+      <span aria-hidden="true" className="hidden shrink-0 text-fg-muted min-[420px]:inline">
         {icon}
       </span>
       <span className="min-w-0 leading-tight">
