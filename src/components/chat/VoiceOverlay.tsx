@@ -158,6 +158,7 @@ export function VoiceOverlay({
       className="voice-overlay fixed inset-0 z-[60] flex flex-col items-center px-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] text-white"
     >
       {surface ? createPortal(edge, surface) : edge}
+      <span aria-hidden="true" className="voice-aurora" />
       <p className="voice-title voice-morph-in text-sm font-medium tracking-[0.3em] text-white/50 uppercase">Tamilya</p>
 
       <div className={`voice-middle flex w-full flex-1 flex-col items-center justify-center ${choosing ? "gap-6" : "gap-10"}`}>
@@ -246,7 +247,7 @@ export function VoiceOverlay({
             // iPhone : pas de loupe ni de menu à l'appui long.
             style={{ WebkitTouchCallout: "none", WebkitUserSelect: "none" }}
             className={`voice-mic grid size-20 touch-none select-none place-items-center rounded-full transition disabled:opacity-40 ${
-              holding ? "scale-110 bg-white text-black" : "bg-white/10 text-white hover:bg-white/20"
+              holding ? "scale-110 bg-white text-black" : "voice-glass"
             }`}
           >
             <IconMic width={30} height={30} />
@@ -256,20 +257,20 @@ export function VoiceOverlay({
             type="button"
             onClick={talk}
             aria-label="Parler maintenant"
-            className={`grid size-14 place-items-center rounded-full transition ${
-              state === "listening" ? "bg-white text-black" : "bg-white/10 text-white hover:bg-white/20"
+            className={`grid h-[3.125rem] w-[5.75rem] place-items-center rounded-full transition ${
+              state === "listening" ? "bg-white text-black" : "voice-glass"
             }`}
           >
-            <IconMic width={24} height={24} />
+            <IconMic width={20} height={20} />
           </button>
         )}
         <button
           type="button"
           onClick={close}
           aria-label="Terminer la conversation vocale"
-          className="grid size-14 place-items-center rounded-full bg-danger text-danger-fg transition hover:brightness-110"
+          className="voice-glass grid h-[3.125rem] w-[5.75rem] place-items-center rounded-full transition"
         >
-          <IconClose width={24} height={24} />
+          <IconClose width={20} height={20} />
         </button>
       </div>
     </div>
