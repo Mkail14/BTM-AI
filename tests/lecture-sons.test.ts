@@ -73,7 +73,8 @@ describe("sons réglables (/admin/sons)", () => {
     const playable = playableSounds(BUILTIN_CATALOG);
     assert.equal(Object.keys(playable).length, BUILTIN_CATALOG.length);
     assert.equal(playable.coq.url, "/sons/coq.webm");
-    assert.equal(playable.pas.url, null);
+    assert.equal(playable.pas.url, "/sons/pas.webm");
+    assert.equal(playable.cri.scary, true);
     assert.equal(playable.tonnerre.scary, true);
     assert.equal(playable.comedie.light, true);
   });

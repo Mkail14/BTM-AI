@@ -142,7 +142,7 @@ export function liveToolDeclarations(access: LiveAccess) {
       parameters: {
         type: "OBJECT",
         properties: {
-          sujet: text("Pour une nouvelle histoire : sa demande dans ses mots (sujet, style, pour qui ; ex. « une histoire de pêcheur à Mamoudzou qui fait peur »), ou « une histoire » si elle ne précise rien. Vide seulement si elle veut que tu lises un texte déjà écrit dans la conversation."),
+          sujet: text("Pour une nouvelle histoire : sa demande dans ses mots (sujet, style, pour qui ; ex. « une histoire drôle de chat qui veut devenir chef cuisinier »), ou « une histoire » si elle ne précise rien. N'ajoute ni lieu ni genre qu'elle n'a pas dit. Vide seulement si elle veut que tu lises un texte déjà écrit dans la conversation."),
         },
       },
     },

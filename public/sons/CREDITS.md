@@ -48,3 +48,42 @@ Enregistrements libres venus de Wikimedia Commons, raccourcis, mis en mono et co
 | klaxon | [Speeding-car-horn doppler effect sample.ogg](https://commons.wikimedia.org/wiki/File:Speeding-car-horn_doppler_effect_sample.ogg) | Magickallwiz | CC BY-SA 3.0 |
 | bateau | [WWS MSThti.ogg](https://commons.wikimedia.org/wiki/File:WWS_MSThti.ogg) | Work With Sounds / Werstas | CC BY 4.0 |
 | telephone | [Tone dialling phone germany.ogg](https://commons.wikimedia.org/wiki/File:Tone_dialling_phone_germany.ogg) | stephan | Public domain |
+
+## Ajoutés le 2026-11-09 (Freesound, CC0)
+
+Enregistrements de [Freesound](https://freesound.org) sous licence CC0 (domaine public), raccourcis, mis en mono, volume réglé et compressés en Opus.
+
+| Son | Fichier d'origine | Auteur | Licence |
+|---|---|---|---|
+| feu | [fire ambience, flames, crackles, pops, burning](https://freesound.org/people/ahriik/sounds/508110/) | ahriik | CC0 |
+| horloge | [Clock ticking](https://freesound.org/people/Mortifreshman/sounds/237210/) | Mortifreshman | CC0 |
+| fete | [street_drummers.aif](https://freesound.org/people/Heigh-hoo/sounds/18445/) | Heigh-hoo | CC0 |
+| grenouilles | [FrogsAndCrickets_ExcerptB_JMA_24Bit_48k.wav](https://freesound.org/people/greysound/sounds/32655/) | greysound | CC0 |
+| restaurant | [Bustling Cafe Ambience](https://freesound.org/people/Talitha5/sounds/509950/) | Talitha5 | CC0 |
+| espace | [ambient spacecraft hum](https://freesound.org/people/AlaskaRobotics/sounds/221570/) | AlaskaRobotics | CC0 |
+| sous-eau | [Underwater [Loop] AMB.wav](https://freesound.org/people/DCSFX/sounds/366159/) | DCSFX | CC0 |
+| pas | [Indoor Footsteps.wav](https://freesound.org/people/WakuWakuWakuWaku/sounds/366111/) | WakuWakuWakuWaku | CC0 |
+| course | [running](https://freesound.org/people/Topschool/sounds/443218/) | Topschool | CC0 |
+| rire | [Woman laugh](https://freesound.org/people/Kalibrk/sounds/433921/) | Kalibrk | CC0 |
+| rires-enfants | [D2_kidslaughing.mp3](https://freesound.org/people/Iamgiorgio/sounds/371342/) | Iamgiorgio | CC0 |
+| porte-claque | [door_close](https://freesound.org/people/wjtaylor/sounds/266682/) | wjtaylor | CC0 |
+| verre | [Glass Smash.wav](https://freesound.org/people/chewiesmissus/sounds/244238/) | chewiesmissus | CC0 |
+| eau | [Water Pour](https://freesound.org/people/JohnsonBrandEditing/sounds/173930/) | JohnsonBrandEditing | CC0 |
+| hibou | [Owl Hoot](https://freesound.org/people/Breviceps/sounds/465697/) | Breviceps | CC0 |
+| avion | [Airplane Flyby](https://freesound.org/people/oscaraudiogeek/sounds/431206/) | oscaraudiogeek | CC0 |
+| reveil | [alarm clock short.wav](https://freesound.org/people/ZyryTSounds/sounds/219244/) | ZyryTSounds | CC0 |
+| ronflement | [snoring](https://freesound.org/people/Daxter31/sounds/114609/) | Daxter31 | CC0 |
+| baillement | [yawning](https://freesound.org/people/Danieka/sounds/221519/) | Danieka | CC0 |
+| bisou | [Cartoon Smooch](https://freesound.org/people/Breviceps/sounds/444493/) | Breviceps | CC0 |
+| cri | [Girl_Scream.wav](https://freesound.org/people/tcrocker68/sounds/235592/) | tcrocker68 | CC0 |
+| branche | [Crack of branch 3.wav](https://freesound.org/people/deleted_user_2104797/sounds/164472/) | deleted_user_2104797 | CC0 |
+| feuilles | [Forest dry leaves walk. .wav](https://freesound.org/people/rempen/sounds/274833/) | rempen | CC0 |
+| sonnette | [Bike Bell.wav](https://freesound.org/people/bsumusictech/sounds/81875/) | bsumusictech | CC0 |
+| cles | [Keys jingling](https://freesound.org/people/Lightnessko/sounds/390324/) | Lightnessko | CC0 |
+| magie | [cartoon_wink_magic_sparkle.wav](https://freesound.org/people/MLaudio/sounds/511485/) | MLaudio | CC0 |
+| chute | [Body fall_01.wav](https://freesound.org/people/deleted_user_2104797/sounds/346695/) | deleted_user_2104797 | CC0 |
+| moustique | [Mosquito 1 Edit.wav](https://freesound.org/people/IanFSA/sounds/662970/) | IanFSA | CC0 |
+| sirene | [Police siren](https://freesound.org/people/sofialomba/sounds/469411/) | sofialomba | CC0 |
+| feux-artifice | [Fireworks Crackle](https://freesound.org/people/16FThumaF/sounds/505264/) | 16FThumaF | CC0 |
+| train | [Commuter train passing.mp3](https://freesound.org/people/PirateScottie/sounds/608267/) | PirateScottie | CC0 |
+| maki | [Lemur sfx.wav](https://freesound.org/people/CHRISFOPFILMS/sounds/277427/) | CHRISFOPFILMS | CC0 |

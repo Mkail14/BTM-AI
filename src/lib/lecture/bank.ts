@@ -33,6 +33,12 @@ export const BEDS = {
   roussettes: { name: "roussettes le soir dans les arbres", width: 200, height: "haut" },
   port: { name: "port, barge", width: 180 },
   cuisine: { name: "friture en cuisine", width: 40 },
+  horloge: { name: "horloge qui fait tic-tac", width: 30 },
+  fete: { name: "fête, tambours qui jouent", width: 200 },
+  grenouilles: { name: "nuit au bord de l'eau, grenouilles et grillons", width: 270 },
+  restaurant: { name: "café, restaurant plein de monde", width: 220 },
+  espace: { name: "intérieur d'un vaisseau spatial", width: 360 },
+  "sous-eau": { name: "sous l'eau", width: 360 },
 } as const satisfies Record<string, Bed>;
 
 export const SHOTS = {
@@ -64,6 +70,30 @@ export const SHOTS = {
   klaxon: { name: "klaxon" },
   bateau: { name: "moteur de bateau" },
   telephone: { name: "téléphone qui sonne" },
+  course: { name: "quelqu'un qui court", height: "bas" },
+  feuilles: { name: "pas dans les feuilles et la terre", height: "bas" },
+  rire: { name: "femme qui rit" },
+  "rires-enfants": { name: "enfants qui rient" },
+  "porte-claque": { name: "porte qui claque" },
+  verre: { name: "verre qui se casse" },
+  eau: { name: "eau qu'on verse" },
+  hibou: { name: "hibou", height: "haut" },
+  avion: { name: "avion qui passe", height: "haut" },
+  reveil: { name: "réveil qui sonne" },
+  ronflement: { name: "ronflement" },
+  baillement: { name: "bâillement" },
+  bisou: { name: "bisou" },
+  cri: { name: "cri de peur" },
+  branche: { name: "branche qui casse" },
+  sonnette: { name: "sonnette de vélo" },
+  cles: { name: "trousseau de clés" },
+  magie: { name: "étincelle magique" },
+  chute: { name: "quelqu'un qui tombe par terre", height: "bas" },
+  moustique: { name: "moustique près de l'oreille" },
+  sirene: { name: "sirène de police" },
+  "feux-artifice": { name: "feux d'artifice", height: "haut" },
+  train: { name: "train qui passe" },
+  maki: { name: "maki (lémurien) qui crie", height: "haut" },
 } as const satisfies Record<string, Shot>;
 
 /**
@@ -82,6 +112,8 @@ export const EFFECTS = Object.keys(SHOTS) as [Effect, ...Effect[]];
  */
 export const RECORDED: ReadonlySet<string> = new Set<string>([
   "pluie", "pluie-tole", "vent", "vagues", "riviere", "nuit", "oiseaux", "foret", "marche", "rue", "chantier", "foule", "enfants", "khoutba", "madrassa", "roussettes", "port", "cuisine", "pluie-fine", "adhan", "takbir", "tonnerre", "coeur", "frappe", "galop", "porte-grince", "toux", "bebe", "eternuement", "soupir", "applaudissements", "sifflet", "coq", "poule", "chevre", "zebu", "chien", "chat", "moto", "voiture", "camion", "klaxon", "bateau", "telephone",
+  // Ajoutés le 2026-11-09 (Freesound, CC0) : feu et pas avaient seulement une version fabriquée.
+  "feu", "pas", "horloge", "fete", "grenouilles", "restaurant", "espace", "sous-eau", "course", "feuilles", "rire", "rires-enfants", "porte-claque", "verre", "eau", "hibou", "avion", "reveil", "ronflement", "baillement", "bisou", "cri", "branche", "sonnette", "cles", "magie", "chute", "moustique", "sirene", "feux-artifice", "train", "maki",
 ]);
 
 export const soundUrl = (sound: string) => `/sons/${sound}.webm`;
@@ -116,4 +148,4 @@ export const musicUrl = (mood: string) => `/musique/${mood}.webm`;
  */
 export const LIGHT_MOODS: ReadonlySet<string> = new Set<string>(["vlog", "comedie", "calme", "romantique", "magique"]);
 /** Sons d'origine qui font peur (réglable ensuite pour chaque son dans /admin/sons). */
-export const SCARY_SOUNDS: ReadonlySet<string> = new Set<string>(["coeur", "porte-grince", "tonnerre"]);
+export const SCARY_SOUNDS: ReadonlySet<string> = new Set<string>(["coeur", "porte-grince", "tonnerre", "cri"]);
