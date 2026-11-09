@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `3126770` (2026-11-09)**
+**Dernier commit noté : `0c383a2` (2026-11-10)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -101,6 +101,9 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+### 2026-11-10
+- **Lecture en 3D : sons placés comme en binaural** (`0c383a2`). Remarque de l'utilisateur : Tamilya met les sons n'importe où, ça sonne bizarre ; il veut l'usage habituel (« toc » à gauche, « toc » à droite, comme en musique). Cause : la consigne disait à Gemini de « jouer BEAUCOUP avec l'espace », « utiliser toute la sphère », faire « bouger souvent » les personnages ; et le vent sautait au hasard jusqu'à 140° toutes les 6 s. Maintenant (`src/lib/lecture/prompt.ts`) : peu de places nettes (gauche, droite, devant), narratrice au centre, chaque personnage garde sa place comme un instrument, les sons qui se répondent alternent les côtés, mouvement seulement quand le texte le dit, derrière/en haut/tout près réservés aux effets précis. Sécurité dans le code (`alternateRepeats`, script.ts) : un même bruit immobile répété dans une réplique passe de l'autre côté. Le vent tourne de 30° en 30°, toujours dans le même sens. Vérifié : 22 tests de la lecture, types, lint. Pas encore écouté au casque.
 
 ### 2026-11-09
 - **Mémoire de Tamilya comme ChatGPT** (`3126770`). L'utilisateur n'aimait pas le bloc « Ce qu'elle retient de toi » (toute la liste étalée dans les Paramètres). Maintenant : une ligne « Souvenirs » avec interrupteur et bouton « Gérer » ; la liste s'ouvre dans une fenêtre (poubelle par souvenir, « Tout effacer »). Mémoire coupée : réglage gardé dans le compte (`user_metadata.memoire_coupee`, sans migration ; le jeton est rafraîchi tout de suite) ; Tamilya ne lit ni n'ajoute de souvenirs à l'écrit, au vocal et dans Connect ; les souvenirs restent effaçables. Sous la réponse, mention discrète « Mémoire mise à jour » à ouvrir (ce qui a été retenu + lien « Gérer la mémoire ») : l'apprentissage part maintenant pendant la réponse, attendu 6 s au plus (sinon enregistré sans la mention). Vérifié : types, lint, 647 tests. Pas encore vu à l'écran.
