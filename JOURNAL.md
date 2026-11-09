@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `d80b7a0` (2026-11-09)**
+**Dernier commit noté : `becb9bd` (2026-11-09)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -93,6 +93,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-09
+- **Trajets : tous les villages de Mayotte connus du site** (`becb9bd`). Remarque de l'utilisateur : « itinéraire de Kangani à Dembéni » répondait « lieu introuvable ». Cause : le site ne connaissait que les 17 communes ; un village (Kangani, commune de Koungou) partait chez Nominatim, qui refuse souvent les serveurs du site, et la Base Adresse Nationale ne connaît pas Kangani. Ajout de 83 villages, bourgs et quartiers avec leur position (relevés sur OpenStreetMap, licence ODbL) dans `src/lib/geo/villages.ts`, cherchés avant la carte en ligne ; noms comparés sans accents, apostrophes ni tirets, « Mayotte » ignoré. « Je veux aller de X à Y » n'était pas compris comme un trajet : corrigé. Pas encore essayé en vrai.
 - **Chansons : voix plus humaine, fin en douceur, tour en 3D, basse ronde** (`d80b7a0`). Remarques de l'utilisateur : le chant de Lyria sonne robot, la fin est coupée net, pas assez de basse (« comme le son Apple dans les oreilles », sans exagérer), et il voulait la 3D des histoires dans les chansons. Demande à Lyria : vraie chanteuse enregistrée en studio, fin jouée avant la fin de l'extrait, mix équilibré avec basse chaude et propre (effet à vérifier à l'oreille). Lecteur : volume qui baisse sur les 3 dernières secondes ; un tour autour de la tête de 9 s (à 7 s, puis toutes les 20 s, jamais pendant la fin), avec le modèle des deux oreilles des histoires sorti dans lecture/ears.ts pour ne pas charger tout le moteur ; graves +3 dB, bas-médium -1,5 dB, aigus +1,5 dB, limiteur doux. Aussi commité : les paroles sous le globe (pâles pendant la composition, phrase en cours pendant le chant), travail déjà en cours. Pas encore écouté en vrai.
 - **Attestation : signature contenue dans son cadre** (`8573948`). Remarque de l'utilisateur : dans l'aperçu de l'attestation d'hébergement, la signature était énorme et sortait du cadre. Cause : l'image était centrée par une grille dont la ligne prend la taille du contenu, donc « max-h-full » ne limitait rien. Cadre passé en flex (overflow caché), image en « size-full object-contain » : réduite sans être déformée. Même correction pour la case de l'étape « Les deux signatures ». Le PDF n'était pas touché (taille déjà bornée à 235 × 110). Pas encore vu en vrai.
 - **Vocal : fond rose sombre et boutons en verre** (`17c1be8`). Travail d'une autre session, commité à la demande de l'utilisateur (« commit tout ») : fond du vocal rose sombre avec des taches qui dérivent lentement (dégradés, sans flou, coupé si mouvements réduits), boutons micro et fermer en verre rose (.voice-glass), comme sur l'aperçu validé.
