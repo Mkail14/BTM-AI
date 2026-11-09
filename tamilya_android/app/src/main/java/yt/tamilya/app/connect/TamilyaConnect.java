@@ -483,6 +483,12 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         JSONObject message = find(messages, id);
         if (message == null || !ConnectScreen.canRelaunch(message)) return;
         String text = message.optString("text");
+        // SOS coupé : nouvelle alerte, avec la position et la batterie de maintenant.
+        if (SosAlert.isSos(text) && message.optJSONObject("content") == null) {
+            removeMessage(id);
+            sos();
+            return;
+        }
         JSONObject content = message.optJSONObject("content");
         try {
             if (content == null) content = new JSONObject().put("kind", "chat").put("text", text);
@@ -599,6 +605,10 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
 
     @Override
     public void send(String text) {
+        if (SosAlert.isSos(text)) {
+            sos();
+            return;
+        }
         JSONObject content = new JSONObject();
         try {
             content.put("kind", "chat").put("text", text);
@@ -607,6 +617,15 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
             return;
         }
         request(content, text);
+    }
+
+    /** « SOS » : 10 s pour annuler, puis l'alerte part aux proches par les relais (SosAlert). */
+    private void sos() {
+        if (!store.ready()) {
+            notice("Pour activer Tamilya Connect, ouvre l'app une fois avec internet, en étant connecté à ton compte.");
+            return;
+        }
+        new SosAlert(activity).show(peerCount, content -> request(content, "SOS"));
     }
 
     @Override
