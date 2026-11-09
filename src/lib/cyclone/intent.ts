@@ -38,12 +38,16 @@ export type Cyclone = {
   status: string;
   /** Vent le plus fort, en km/h. */
   windKmh: number | null;
-  /** Position à la dernière mesure. */
+  /** Dans notre océan (sud-ouest de l'océan Indien) : seul cas où la distance à Mayotte et l'estimation ont un sens. */
+  local: boolean;
+  /** « Pacifique nord-ouest », « Atlantique nord »… */
+  region: string;
+  /** Position à la dernière mesure (longitudes du trajet et du cône suivies sans saut au changement de date : elles peuvent dépasser ±180). */
   now: { lat: number; lng: number; at: string };
   /** Trajet : déjà fait puis prévu, dans l'ordre. */
   track: CyclonePoint[];
   /** Zone où il peut passer (cône d'incertitude), en [lng, lat]. */
-  cone: [number, number][][] | null;
+  cone: [number, number][][] | null; // un contour par morceau (deux si GDACS la coupe au changement de date)
   /** Distance de Mayotte maintenant, en km. */
   distanceKm: number;
   /** Plus proche de Mayotte selon la prévision. */

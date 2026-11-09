@@ -63,14 +63,15 @@ function shapes(cyclones: readonly Cyclone[]) {
     if (done.length > 1) past.push({ type: "Feature", properties: { id: c.id }, geometry: { type: "LineString", coordinates: done.map((t) => [t.lng, t.lat]) } });
     if (next.length > 1) ahead.push({ type: "Feature", properties: { id: c.id }, geometry: { type: "LineString", coordinates: next.map((t) => [t.lng, t.lat]) } });
     for (const t of c.track.filter((t) => t.forecast)) dots.push({ type: "Feature", properties: { id: c.id }, geometry: { type: "Point", coordinates: [t.lng, t.lat] } });
-    if (c.cone) cones.push({ type: "Feature", properties: { id: c.id }, geometry: { type: "Polygon", coordinates: c.cone } });
+    if (c.cone) cones.push({ type: "Feature", properties: { id: c.id }, geometry: { type: "MultiPolygon", coordinates: c.cone.map((ring) => [ring]) } });
   }
   return { past: collection(past), ahead: collection(ahead), dots: collection(dots), cones: collection(cones), spread: collection(spread) };
 }
 
 /** Cadre qui montre Mayotte et les systèmes voulus (tout leur trajet). */
 function boundsOf(cyclones: readonly Cyclone[]): [[number, number], [number, number]] {
-  const pts = [MAYOTTE, ...cyclones.flatMap((c) => c.track)];
+  // Mayotte n'est dans le cadre que si un système de notre océan y est (sinon, pour un typhon au Japon, on verrait la moitié du monde).
+  const pts = [...(cyclones.length && !cyclones.some((c) => c.local) ? [] : [MAYOTTE]), ...cyclones.flatMap((c) => c.track)];
   const lngs = pts.map((p) => p.lng);
   const lats = pts.map((p) => p.lat);
   // Sans cyclone : le canal du Mozambique et Madagascar autour de Mayotte.
@@ -140,9 +141,9 @@ export function CycloneMap({ cyclones, focus, onPick, ghost = null }: Props) {
         created.addLayer({ id: "dots", type: "circle", source: "dots", paint: { "circle-radius": 4, "circle-color": "#ffffff", "circle-stroke-color": accent, "circle-stroke-width": 2 } });
         frame.current.querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show");
 
-        // Position actuelle de chaque système : le symbole tourne (dans le sens des aiguilles, comme dans l'hémisphère sud).
+        // Position actuelle de chaque système : le symbole tourne dans le sens des aiguilles au sud de l'équateur, dans l'autre sens au nord (symbole retourné).
         for (const c of latest.current.cyclones) {
-          const el = pin("map-cyclone", `<span class="map-cyclone-ring"></span><span class="map-cyclone-dot">${CYCLONE_SVG}</span>`, c.name);
+          const el = pin(c.now.lat > 0 ? "map-cyclone map-cyclone-north" : "map-cyclone",`<span class="map-cyclone-ring"></span><span class="map-cyclone-dot">${CYCLONE_SVG}</span>`, c.name);
           el.style.cursor = "pointer";
           el.addEventListener("click", () => latest.current.onPick(c.id));
           markers.current.set(c.id, new maplibre.Marker({ element: el }).setLngLat([c.now.lng, c.now.lat]).addTo(created));

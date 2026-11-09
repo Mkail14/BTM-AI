@@ -1,10 +1,11 @@
 "use client";
 
-import { Gauge, Info, Navigation, Wind, X } from "lucide-react";
+import { Gauge, Globe, Info, Navigation, ShieldCheck, Wind, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import type { Cyclone, CyclonePoint, CyclonesResponse } from "@/lib/cyclone/intent";
+import { motionOf } from "@/lib/cyclone/motion";
 import { loadMapLibre } from "@/lib/geo/maplibre";
 import { CycloneTimeline } from "./CycloneTimeline";
 
@@ -146,6 +147,7 @@ function CyclonePanel({ cyclones: nearby, updatedAt, onClose }: { cyclones: Cycl
   }, []);
 
   const chosen = cyclones.find((c) => c.id === focus) ?? cyclones[0] ?? null;
+  const heading = chosen && !chosen.local ? motionOf(chosen) : null;
 
   return createPortal(
     <div className="fixed inset-0 z-[70]" data-closing={closing || undefined}>
@@ -202,29 +204,45 @@ function CyclonePanel({ cyclones: nearby, updatedAt, onClose }: { cyclones: Cycl
                   <p className="truncate text-lg leading-tight font-semibold">{chosen.name}</p>
                   <p className="mt-0.5 truncate text-xs text-fg-muted">{chosen.forming ? `${chosen.status} en formation, pas encore nommée` : chosen.status}</p>
                 </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-2xl leading-none font-semibold tracking-tight tabular-nums">{km(chosen.distanceKm)}</p>
-                  <p className="mt-1 text-[11px] text-fg-muted">de Mayotte</p>
-                </div>
+                {chosen.local ? (
+                  <div className="shrink-0 text-right">
+                    <p className="text-2xl leading-none font-semibold tracking-tight tabular-nums">{km(chosen.distanceKm)}</p>
+                    <p className="mt-1 text-[11px] text-fg-muted">de Mayotte</p>
+                  </div>
+                ) : (
+                  <p className="flex shrink-0 items-center gap-1.5 rounded-full bg-bg-subtle px-3 py-1.5 text-xs font-semibold">
+                    <ShieldCheck size={14} aria-hidden="true" />
+                    Aucun danger pour Mayotte
+                  </p>
+                )}
               </div>
               <div className="order-rise [animation-delay:20ms]">
                 <CycloneTimeline key={chosen.id} cyclone={chosen} onMove={setGhost} />
               </div>
-              <div className="order-rise grid grid-cols-3 gap-2 [animation-delay:40ms]">
-                <Fact icon={<Wind size={18} />} label="Vents" value={chosen.windKmh ? `${chosen.windKmh} km/h` : "—"} />
-                <Fact
-                  icon={<Navigation size={18} />}
-                  label="Au plus près"
-                  value={chosen.closest ? km(chosen.closest.km) : "—"}
-                  hint={chosen.closest ? day.format(new Date(chosen.closest.at)) : "prévu"}
-                />
-                <Fact
-                  icon={<Gauge size={18} />}
-                  label="À moins de 200 km"
-                  value={chosen.estimate ? `${chosen.estimate.within200} %` : "—"}
-                  hint={estimateHint(chosen)}
-                />
-              </div>
+              {chosen.local ? (
+                <div className="order-rise grid grid-cols-3 gap-2 [animation-delay:40ms]">
+                  <Fact icon={<Wind size={18} />} label="Vents" value={chosen.windKmh ? `${chosen.windKmh} km/h` : "—"} />
+                  <Fact
+                    icon={<Navigation size={18} />}
+                    label="Au plus près"
+                    value={chosen.closest ? km(chosen.closest.km) : "—"}
+                    hint={chosen.closest ? day.format(new Date(chosen.closest.at)) : "prévu"}
+                  />
+                  <Fact
+                    icon={<Gauge size={18} />}
+                    label="À moins de 200 km"
+                    value={chosen.estimate ? `${chosen.estimate.within200} %` : "—"}
+                    hint={estimateHint(chosen)}
+                  />
+                </div>
+              ) : (
+                // Loin de notre océan : ce qui compte, c'est où il est et où il va, pas Mayotte.
+                <div className="order-rise grid grid-cols-3 gap-2 [animation-delay:40ms]">
+                  <Fact icon={<Wind size={18} />} label="Vents" value={chosen.windKmh ? `${chosen.windKmh} km/h` : "—"} />
+                  <Fact icon={<Globe size={18} />} label="Océan" value={chosen.region.split(" ")[0]} hint={chosen.region.split(" ").slice(1).join(" ") || undefined} />
+                  <Fact icon={<Navigation size={18} />} label="Va vers" value={heading ? heading.direction.replace(/^(le |l')/, "") : "—"} hint={heading ? `${heading.speedKmh} km/h` : undefined} />
+                </div>
+              )}
             </>
           ) : (
             <div className="order-rise">
@@ -235,8 +253,12 @@ function CyclonePanel({ cyclones: nearby, updatedAt, onClose }: { cyclones: Cycl
           <p className="order-rise flex items-start gap-2 text-[11px] leading-snug text-fg-muted [animation-delay:80ms]">
             <Info size={14} aria-hidden="true" className="mt-px shrink-0" />
             <span>
-              Prévisions de Météo-France La Réunion, via GDACS, à {clock.format(new Date(updatedAt))}. Trait plein : trajet fait ; pointillés : prévu ; voile : où il peut passer ; traits fins : anciens cyclones semblables depuis 1980.
-              Le pourcentage est une estimation BTM (prévision officielle et anciens cyclones), pas une alerte : les alertes viennent de la préfecture de Mayotte.
+              {chosen?.local === false
+                ? `Prévisions du centre météo de cet océan, via GDACS, à ${clock.format(new Date(updatedAt))}. Trait plein : trajet fait ; pointillés : prévu ; voile : où il peut passer. Loin de notre océan : il ne peut pas atteindre Mayotte.`
+                : `Prévisions de Météo-France La Réunion, via GDACS, à ${clock.format(new Date(updatedAt))}. Trait plein : trajet fait ; pointillés : prévu ; voile : où il peut passer ; traits fins : anciens cyclones semblables depuis 1980.`}
+              {chosen?.local === false
+                ? ""
+                : " Le pourcentage est une estimation BTM (prévision officielle et anciens cyclones), pas une alerte : les alertes viennent de la préfecture de Mayotte."}
               {chosen ? (
                 <>
                   {" "}

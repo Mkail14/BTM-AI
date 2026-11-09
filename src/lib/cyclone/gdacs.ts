@@ -61,10 +61,26 @@ function nameOf(raw: string): { name: string; forming: boolean } {
   return { name: base.charAt(0).toUpperCase() + base.slice(1), forming: false };
 }
 
-/** Stade du système, en français, d'après le texte de GDACS. */
-function statusOf(text: string): string {
+/** Océan où se trouve le système (grandes zones des centres météo). */
+function regionOf({ lat, lng }: { lat: number; lng: number }): string {
+  if (inBasin([lng, lat])) return "Indien sud-ouest";
+  if (lat >= 0 && lng >= 30 && lng < 100) return "Indien nord";
+  if (lat < 0 && lng >= 100 && lng < 160) return "Australie";
+  if (lat < 0 && (lng >= 160 || lng < -70)) return "Pacifique sud";
+  if (lat >= 0 && lng >= 100) return "Pacifique nord-ouest";
+  if (lat >= 0 && lng < -140) return "Pacifique central";
+  if (lat >= 0 && (lng < -100 || (lng < -85 && lat < 14))) return "Pacifique nord-est";
+  return lat >= 0 ? "Atlantique nord" : "Atlantique sud";
+}
+
+/** Stade du système, en français, d'après le texte de GDACS (« typhon » ou « ouragan » selon l'océan). */
+function statusOf(text: string, region: string): string {
   const t = text.toLowerCase();
-  if (t.includes("hurricane") || t.includes("typhoon") || t.includes("cyclone")) return "Cyclone tropical";
+  if (t.includes("hurricane") || t.includes("typhoon") || t.includes("cyclone")) {
+    if (region === "Pacifique nord-ouest") return "Typhon";
+    if (region.startsWith("Atlantique") || region === "Pacifique nord-est" || region === "Pacifique central") return "Ouragan";
+    return "Cyclone tropical";
+  }
   if (t.includes("storm")) return "Tempête tropicale";
   if (t.includes("depression")) return "Dépression tropicale";
   return "Perturbation tropicale";
@@ -117,12 +133,24 @@ async function readCyclone(event: Feature): Promise<Cyclone | null> {
         if (!at || !ring?.length) continue;
         track.push({ ...centerOf(ring), at: at.toISOString(), forecast: at.getTime() > analysis.getTime() });
       } else if (cls === "Poly_Cones" && f.geometry.type === "Polygon") {
-        cone = (f.geometry.coordinates as number[][][]).map(lighten);
+        cone = [lighten((f.geometry.coordinates as number[][][])[0])];
+      } else if (cls === "Poly_Cones" && f.geometry.type === "MultiPolygon") {
+        // Coupée en deux au changement de date (180°) : on garde les deux morceaux, recollés plus bas par unwrap.
+        cone = (f.geometry.coordinates as number[][][][]).map((poly) => lighten(poly[0]));
       }
     }
     track = track.sort((a, b) => a.at.localeCompare(b.at));
   }
   if (!track.length) track = [{ ...now, forecast: false }];
+  // Changement de date : le trajet et le cône restent d'un seul tenant autour de la position actuelle.
+  const lngs = unwrap(
+    track.map((t) => t.lng),
+    track[0].lng + 360 * Math.round((now.lng - track[0].lng) / 360),
+  );
+  track = track.map((t, i) => ({ ...t, lng: lngs[i] }));
+  if (cone) cone = cone.map((ring) => (ring.length ? unwrap(ring.map(([lng]) => lng), now.lng).map((lng, i): [number, number] => [lng, ring[i][1]]) : ring));
+  const region = regionOf(now);
+  const local = inBasin([now.lng, now.lat]);
 
   const ahead = track.filter((t) => t.forecast);
   const nearest = ahead.reduce<{ km: number; at: string } | null>((best, t) => {
@@ -136,17 +164,19 @@ async function readCyclone(event: Feature): Promise<Cyclone | null> {
     id: String(p.eventid),
     name,
     forming,
-    status: statusOf(String(severity.severitytext ?? "")),
+    status: statusOf(String(severity.severitytext ?? ""), region),
     windKmh,
+    local,
+    region,
     now,
     track,
     cone,
     distanceKm,
     closest: nearest,
-    mayotteInCone: cone ? inside(MAYOTTE, cone) : null,
+    mayotteInCone: local && cone ? inside(MAYOTTE, cone) : local ? null : false,
     link: url.report?.startsWith("https://www.gdacs.org/") ? url.report : "https://www.gdacs.org/",
-    // Estimation BTM : seulement dans notre bassin (l'archive ne couvre que le sud-ouest de l'océan Indien).
-    estimate: distanceKm <= 3000 ? safely(() => estimate({ now, track, windKmh })) : null,
+    // Estimation BTM : seulement dans notre océan (l'archive ne couvre que le sud-ouest de l'océan Indien ; au nord de l'équateur, elle serait fausse).
+    estimate: local && distanceKm <= 3000 ? safely(() => estimate({ now, track, windKmh })) : null,
   };
 }
 
@@ -158,6 +188,20 @@ function safely<T>(run: () => T): T | null {
     console.error("[cyclones] estimation impossible", error);
     return null;
   }
+}
+
+/**
+ * Longitudes sans saut au changement de date (180°) : chaque point est ramené
+ * au plus près du précédent (177,5 après -176,5 devient -182,5). Sinon le
+ * trait du trajet traverse toute la carte.
+ */
+function unwrap(lngs: number[], start: number): number[] {
+  let prev = start;
+  return lngs.map((lng) => {
+    const next = lng + 360 * Math.round((prev - lng) / 360);
+    prev = next;
+    return next;
+  });
 }
 
 /** Le point est-il dans le polygone (anneaux en [lng, lat]) ? Règle du rayon qui croise les bords. */
@@ -192,7 +236,7 @@ async function readCyclones(zone: CycloneZone): Promise<Cyclone[]> {
 }
 
 /** Gardée 15 minutes et partagée par tout le site (cache de données de Next). */
-const cachedCyclones = unstable_cache(readCyclones, ["cyclones-gdacs-v4"], { revalidate: CACHE_S });
+const cachedCyclones = unstable_cache(readCyclones, ["cyclones-gdacs-v5"], { revalidate: CACHE_S });
 
 /** Cyclones en cours (océan Indien par défaut, ou le monde), du plus proche de Mayotte au plus loin. */
 export async function getCyclones(zone: CycloneZone = "ocean-indien"): Promise<Cyclone[]> {

@@ -1227,6 +1227,11 @@ input::-ms-clear {
   animation: map-courier-ring 2s ease-out infinite;
 }
 
+/* Hémisphère nord : symbole retourné, il tourne donc dans l'autre sens (comme les vrais cyclones là-bas). */
+.map-cyclone-north .map-cyclone-dot {
+  scale: -1 1;
+}
+
 @keyframes map-cyclone-spin {
   to {
     rotate: 360deg;
