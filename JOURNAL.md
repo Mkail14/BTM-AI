@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `eaaf8a2` (2026-11-09)**
+**Dernier commit noté : `9274424` (2026-11-09)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -93,6 +93,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-09
+- **L'attente avant une histoire est occupée** (`f21f604`, `9274424`). Plainte de l'utilisateur : l'histoire met 4 à 6 s à se préparer, le globe tourne sans rien dire et on croit que ça bug. Sous le globe, un message qui avance : « Je suis en train d'imaginer l'histoire… » (ou « Je prépare la lecture… »), puis « Je suis presque prête… » à 4 s, « Encore un petit instant… » à 10 s ; il s'efface dès que sa voix s'entend. Au vocal, Tamilya ne se tait plus : elle dit une petite phrase à elle pour faire patienter, et l'appel se met en pause quand elle a fini (au plus 8 s, ou tout de suite si l'histoire commence). Remplace l'ancienne règle « aucun texte de chargement ». Pas encore essayé en vrai.
 - **Tamilya plus libre et qui se souvient** (`eaaf8a2`). Plainte de l'utilisateur : elle répète les mêmes choses (« Jéjé » à chaque bonjour, « mets tes écouteurs et ferme les yeux » avant chaque histoire, avec la même intonation). Causes : « Jéjé » était le seul salut de son lexique oral, et les consignes de la lecture lui imposaient la phrase des écouteurs. Corrigé : « Jéjé » devient un mot parmi d'autres ; l'intro des histoires s'invente pour chaque histoire, sans commencer par les écouteurs ; nouvelle consigne « Liberté » (saluer autrement à chaque fois, imaginer, proposer, sans quitter le sujet). Mémoire des anciennes discussions : à l'écrit et en vocal, elle reçoit ses 6 dernières conversations (titre, date, ce que la personne disait) et ses derniers débuts de réponse, à ne pas redire. Pas encore essayé en vrai.
 - **« Raconte cette histoire » lit le texte donné** (`ff44f84`, rattrapé : commit fait sans mise à jour du journal). Tamilya fait ce qu'on demande et ne présente pas un texte apporté comme un classique.
 
