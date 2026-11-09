@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       reading: "```" + READING_BLOCK + "\n" + readingSpec(mode) + "\n```",
       // L'histoire met quelques secondes à se préparer : Tamilya occupe ce moment, avec ses mots.
-      info: "La lecture en 3D se prépare : elle commence dans quelques secondes, à l'écran et dans ses écouteurs. En attendant, dis-lui une seule phrase courte, à ta façon et jamais la même, pour qu'elle se prépare à écouter (s'installer, les écouteurs, l'envie de découvrir…). Pas de question, ne commence pas l'histoire. Ensuite l'appel se met en pause et reprendra après.",
+      info: "La lecture en 3D se prépare : elle commence dans quelques secondes, à l'écran et dans ses écouteurs. En attendant, dis-lui une seule phrase courte, à ta façon et différente à chaque fois, pour la faire patienter (un détail qui intrigue, une taquinerie, un mot pour qu'elle s'installe…) ; les écouteurs, seulement de temps en temps. Pas de question, ne commence pas l'histoire. Ensuite l'appel se met en pause et reprendra après.",
     });
   }
   // Carte des cyclones : elle s'ajoute à la conversation, et Tamilya dit l'essentiel à voix haute.
