@@ -6,6 +6,8 @@ import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type R
 import { useAuth } from "@/components/auth/AuthProvider";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { AwaBlob } from "@/components/chat/AwaBlob";
+import { personaStyle } from "@/components/personality/PersonalityContext";
+import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
 import { IconSend } from "@/components/ui/icons";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
 import type { PublicReview } from "@/lib/reviews/rules";
@@ -222,9 +224,9 @@ export function GuestLanding({
 
           {/* Accueil : Tamilya et le champ pour lui parler, marges égales en haut et en bas. */}
           <section className="relative mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-5 py-10 text-center">
-            <div aria-hidden="true" className="landing-aurora" />
-            <div className="landing-rise">
-              <AwaBlob label="Parler à Tamilya" onActivate={() => input.current?.focus()} size="min(32vw, 8rem)" goo={8} />
+            {/* Même globe qu'une fois connecté : taille, bords et couleur de Tamilya (aussi en mode sombre), sans halo. */}
+            <div className="landing-rise" style={personaStyle(DEFAULT_PERSONALITY)}>
+              <AwaBlob label="Parler à Tamilya" onActivate={() => input.current?.focus()} />
             </div>
 
             <h1 className="landing-rise landing-title mt-9 [animation-delay:120ms]">
