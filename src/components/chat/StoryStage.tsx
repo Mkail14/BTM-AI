@@ -18,15 +18,16 @@ export function StoryStage() {
   const { shown: active, leaving } = useLeavingStage(current);
   if (!active || typeof document === "undefined") return null;
   const playing = active.status === "playing";
+  const subject = active.kind === "lecture" ? "la lecture" : "l'histoire";
   const label =
-    active.status === "ready" ? "Écouter l'histoire" : active.status === "paused" ? "Reprendre l'histoire" : playing ? "Mettre l'histoire en pause" : "Tamilya se prépare";
+    active.status === "ready" ? `Écouter ${subject}` : active.status === "paused" ? `Reprendre ${subject}` : playing ? `Mettre ${subject} en pause` : "Tamilya se prépare";
   const waiting = !active.started && (active.status === "preparing" || playing);
 
   return createPortal(
     <div
       role="dialog"
       aria-modal="true"
-      aria-label="Tamilya raconte une histoire"
+      aria-label={active.kind === "lecture" ? "Tamilya lit à voix haute" : "Tamilya raconte une histoire"}
       data-leaving={leaving ? "" : undefined}
       className="voice-overlay stage-swap fixed inset-0 z-[60] flex flex-col items-center px-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(2rem,env(safe-area-inset-bottom))] text-white"
     >
@@ -34,7 +35,7 @@ export function StoryStage() {
       <span aria-hidden="true" className="voice-aurora" />
       <p className="text-sm font-medium tracking-[0.3em] text-white/50 uppercase">Tamilya</p>
       <div className="flex w-full flex-1 flex-col items-center justify-center gap-6">
-        <AwaBlob label={label} onActivate={toggleStory} immediate busy={!playing && active.status !== "paused"} size="min(60vw, 16rem)" goo={13} />
+        <AwaBlob label={label} onActivate={toggleStory} immediate busy={!playing && active.status !== "paused"} calm={active.status === "paused"} size="min(60vw, 16rem)" goo={13} />
         {/* Place gardée : le globe ne saute pas quand le message s'efface. */}
         <div className="h-6">
           {waiting ? (

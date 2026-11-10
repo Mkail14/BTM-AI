@@ -58,6 +58,7 @@ export function AwaBlob({
   size,
   goo = 7,
   busy = false,
+  calm = false,
   immediate = false,
   still = false,
 }: {
@@ -69,6 +70,8 @@ export function AwaBlob({
   /** Flou du filtre « goo », en px : à augmenter avec la taille. */
   goo?: number;
   busy?: boolean;
+  /** Reste vivant, mais respire doucement pendant une pause. */
+  calm?: boolean;
   /** Ouvre l'action sans attendre la fin de l'animation du clic (mode vocal). */
   immediate?: boolean;
   /** Figée : la goutte garde sa forme et ne bouge plus (réponses finies de la conversation). */
@@ -99,7 +102,7 @@ export function AwaBlob({
     let rotation = rand(0, 360);
     let voice = 0;
     // Cœur : premier battement peu après l'arrivée.
-    let nextBeat = last + rand(600, 1000);
+    let nextBeat = last + (calm ? rand(2500, 3400) : rand(600, 1000));
     let beats: { at: number; strength: number }[] = [];
     // Couleurs du battement : tournent doucement et sautent à chaque coup, jamais à la même place.
     let colorTurn = rand(0, 360);
@@ -121,20 +124,22 @@ export function AwaBlob({
       last = now;
       const mood = getVoiceMood();
       const thinking = busyRef.current;
-      const speed = mood === "speaking" ? 1.9 : thinking ? 2.4 : mood === "listening" ? 1.4 : 1;
+      const speed = calm ? 0.35 : mood === "speaking" ? 1.9 : thinking ? 2.4 : mood === "listening" ? 1.4 : 1;
       t += dt * speed;
 
       // Voix : montée immédiate, retombée douce.
-      const target = voiceLevel();
+      const target = calm ? 0 : voiceLevel();
       voice += (target - voice) * (target > voice ? 0.55 : 0.18);
 
       // Cœur : « boum-boum » (un coup fort, un plus léger), à un rythme régulier.
       if (now >= nextBeat) {
-        const strength = rand(0.85, 1);
+        const strength = calm ? rand(0.35, 0.5) : rand(0.85, 1);
         beats.push({ at: now, strength });
-        colorTurn += rand(70, 150);
-        beats.push({ at: now + rand(230, 270), strength: strength * rand(0.6, 0.75) });
-        nextBeat = now + (thinking ? rand(650, 750) : rand(1050, 1250));
+        if (!calm) {
+          colorTurn += rand(70, 150);
+          beats.push({ at: now + rand(230, 270), strength: strength * rand(0.6, 0.75) });
+        }
+        nextBeat = now + (calm ? rand(2800, 3400) : thinking ? rand(650, 750) : rand(1050, 1250));
       }
       beats = beats.filter((b) => now - b.at < 700);
       const heart = beats.reduce((max, b) => {
@@ -143,29 +148,30 @@ export function AwaBlob({
         return Math.max(max, b.strength * (d < 90 ? d / 90 : Math.exp(-(d - 90) / 180)));
       }, 0);
 
-      if (now >= nextJolt) {
+      if (!calm && now >= nextJolt) {
         const a = rand(0, Math.PI * 2);
         jolt = { at: now, x: Math.cos(a), y: Math.sin(a) };
         nextJolt = now + rand(2500, 7000);
       }
       const jd = (now - jolt.at) / 1000;
-      const joltAmount = jd < 1.2 ? Math.sin(Math.min(1, jd / 0.18) * Math.PI * 0.5) * Math.exp(-jd * 3.2) : 0;
+      const joltAmount = !calm && jd < 1.2 ? Math.sin(Math.min(1, jd / 0.18) * Math.PI * 0.5) * Math.exp(-jd * 3.2) : 0;
 
       // Dérive et rotation : vitesses qui changent sans cesse.
-      const tx = noise(t * 0.22 + 11) * 5 + jolt.x * joltAmount * 6;
-      const ty = noise(t * 0.19 + 47) * 5 + jolt.y * joltAmount * 6;
-      rotation += noise(t * 0.12 + 300) * 55 * dt * speed;
-      const tilt = noise(t * 0.3 + 700) * 8;
+      const tx = noise(t * 0.22 + 11) * (calm ? 1.2 : 5) + jolt.x * joltAmount * 6;
+      const ty = noise(t * 0.19 + 47) * (calm ? 1.2 : 5) + jolt.y * joltAmount * 6;
+      rotation += noise(t * 0.12 + 300) * (calm ? 12 : 55) * dt * speed;
+      const tilt = noise(t * 0.3 + 700) * (calm ? 2.5 : 8);
 
       // Taille : cœur, voix (comme une bouche qui s'ouvre), sursaut qui étire.
-      const grow = 1 + heart * 0.07 + voice * 0.2 + (thinking ? noise(t * 3) * 0.03 : 0);
+      const breath = calm ? (1 - Math.cos((now / 1000) * (Math.PI * 2 / 4.8))) / 2 : 0;
+      const grow = calm ? 1 + breath * 0.035 + heart * 0.025 : 1 + heart * 0.07 + voice * 0.2 + (thinking ? noise(t * 3) * 0.03 : 0);
       const sx = grow * (1 - voice * 0.06 + joltAmount * 0.08 * Math.abs(jolt.x));
       const sy = grow * (1 + voice * 0.12 + joltAmount * 0.08 * Math.abs(jolt.y));
       if (beat.current) beat.current.style.transform = `translate(${tx.toFixed(2)}%, ${ty.toFixed(2)}%) rotate(${tilt.toFixed(2)}deg) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
 
       // Les couleurs s'allument avec chaque coup du cœur, puis s'effacent.
       colorTurn += 120 * dt * speed;
-      const rainbow = clamp(heart * 1.2, 0, 1).toFixed(3);
+      const rainbow = (calm ? heart * 0.15 : clamp(heart * 1.2, 0, 1)).toFixed(3);
       if (rainbow !== lastRainbow) {
         root.current?.style.setProperty("--rainbow", rainbow);
         lastRainbow = rainbow;
@@ -175,7 +181,7 @@ export function AwaBlob({
 
       // Forme : huit rayons qui bougent chacun à leur rythme, plus fort quand elle parle.
       if (body.current) {
-        const wobble = 14 + voice * 10 + (thinking ? 4 : 0);
+        const wobble = calm ? 3 + breath * 1.5 : 14 + voice * 10 + (thinking ? 4 : 0);
         const r = Array.from({ length: 8 }, (_, i) => clamp(50 + noise(t * (0.35 + i * 0.04) + i * 37.3) * wobble, 28, 72).toFixed(1));
         body.current.style.borderRadius = `${r[0]}% ${r[1]}% ${r[2]}% ${r[3]}% / ${r[4]}% ${r[5]}% ${r[6]}% ${r[7]}%`;
         body.current.style.transform = `rotate(${rotation.toFixed(2)}deg)`;
@@ -185,20 +191,20 @@ export function AwaBlob({
       dropState.forEach((d, i) => {
         const el = drops.current[i];
         if (!el) return;
-        d.angle += (d.speed + noise(t * 0.4 + d.seed) * 60) * dt * speed;
-        const distance = clamp(55 + noise(t * 0.33 + d.seed + 50) * 75 + voice * 45 + (thinking ? -25 : 0), 0, 150);
-        const s = clamp(0.75 + noise(t * 0.5 + d.seed + 90) * 0.3 + voice * 0.15, 0.4, 1.2);
+        d.angle += (calm ? d.speed * 0.18 : d.speed + noise(t * 0.4 + d.seed) * 60) * dt * speed;
+        const distance = calm ? 50 + noise(t * 0.33 + d.seed + 50) * 6 : clamp(55 + noise(t * 0.33 + d.seed + 50) * 75 + voice * 45 + (thinking ? -25 : 0), 0, 150);
+        const s = calm ? 0.9 + noise(t * 0.5 + d.seed + 90) * 0.05 : clamp(0.75 + noise(t * 0.5 + d.seed + 90) * 0.3 + voice * 0.15, 0.4, 1.2);
         el.style.transform = `rotate(${d.angle.toFixed(1)}deg) translateX(${distance.toFixed(1)}%) scale(${s.toFixed(3)})`;
       });
 
       if (glow.current) {
-        glow.current.style.opacity = clamp(0.5 + heart * 0.35 + voice * 0.5, 0, 1).toFixed(3);
-        glow.current.style.transform = `scale(${(0.95 + heart * 0.12 + voice * 0.3).toFixed(3)})`;
+        glow.current.style.opacity = (calm ? 0.35 + breath * 0.12 + heart * 0.08 : clamp(0.5 + heart * 0.35 + voice * 0.5, 0, 1)).toFixed(3);
+        glow.current.style.transform = `scale(${(calm ? 0.96 + breath * 0.035 + heart * 0.04 : 0.95 + heart * 0.12 + voice * 0.3).toFixed(3)})`;
       }
       if (shine.current) shine.current.style.transform = `translate(${(noise(t * 0.25 + 900) * 8).toFixed(2)}%, ${(noise(t * 0.25 + 950) * 6).toFixed(2)}%)`;
 
       // Prochain battement tout proche : on repasse à 30 images juste avant, pour ne pas le rater.
-      lively = thinking || mood !== "idle" || voice > 0.01 || heart > 0.01 || joltAmount > 0.01 || nextBeat - now < 120 || beats.length > 0;
+      lively = calm ? heart > 0.01 || nextBeat - now < 120 : thinking || mood !== "idle" || voice > 0.01 || heart > 0.01 || joltAmount > 0.01 || nextBeat - now < 120 || beats.length > 0;
     };
     // L'animation tourne seulement si le globe est à l'écran (page pas défilée plus bas) et l'onglet visible.
     let onScreen = !root.current;
@@ -221,7 +227,7 @@ export function AwaBlob({
       document.removeEventListener("visibilitychange", sync);
       cancelAnimationFrame(frame);
     };
-  }, [still]);
+  }, [still, calm]);
 
   return (
     <button
