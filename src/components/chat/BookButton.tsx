@@ -114,9 +114,16 @@ export function BookButton({ disabled = false }: { disabled?: boolean }) {
         aria-expanded={open}
         aria-haspopup="menu"
         title="Mes livres"
-        className="grid size-9 shrink-0 place-items-center rounded-full text-fg-muted transition pointer-coarse:size-10 hover:bg-bg-muted hover:text-fg disabled:opacity-45"
+        // Bulle ronde à part, de la hauteur de la barre (une ligne) et avec son bord et son ombre : le + flotte à côté.
+        className={`group grid size-[50px] shrink-0 place-items-center rounded-full border bg-bg text-fg-muted shadow-[0_8px_30px_-12px_rgb(0_0_0/0.25)] transition-[transform,color,border-color] pointer-coarse:size-[54px] hover:scale-105 hover:border-[var(--persona,var(--accent))] hover:text-[var(--persona,var(--accent))] active:scale-95 disabled:opacity-45 disabled:hover:scale-100 ${
+          open ? "border-[var(--persona,var(--accent))] text-[var(--persona,var(--accent))]" : "border-[var(--persona-border,var(--border))]"
+        }`}
       >
-        {reading ? <LoaderCircle size={18} className="animate-spin" aria-hidden="true" /> : <IconPlus />}
+        {reading ? (
+          <LoaderCircle size={20} className="animate-spin" aria-hidden="true" />
+        ) : (
+          <IconPlus className={`transition-transform duration-200 ${open ? "rotate-45" : ""}`} />
+        )}
       </button>
       <input ref={picker} type="file" accept="application/pdf,.pdf" hidden onChange={(event) => void add(event.target.files?.[0])} />
 
