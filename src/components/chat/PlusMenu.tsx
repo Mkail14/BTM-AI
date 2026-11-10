@@ -1,20 +1,25 @@
 "use client";
 
-import { BookOpen, Camera, ChevronDown, FileUp, Image as ImageIcon, LoaderCircle, Play, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { BookOpen, Camera, ChevronDown, CloudUpload, FileUp, House, Image as ImageIcon, LoaderCircle, Play, Tornado, Trash2, type LucideIcon } from "lucide-react";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { IconPlus } from "@/components/ui/icons";
+import { guessDriveFolder } from "@/lib/drive/folders";
+import { DRIVE_UPLOAD_MESSAGES, uploadToDrive } from "@/lib/drive/upload";
 import { bookShare } from "@/lib/lecture/book";
 import type { BookSummary } from "@/lib/lecture/book-store";
 import { getServerStories, getStories, playStory, subscribeStories, unlockAudio } from "@/lib/lecture/stage";
+import type { FeatureId } from "@/lib/site/features-rules";
 
 /**
- * Le « + » à gauche de la barre de conversation : les livres lus en entier par Tamilya.
+ * Le « + » à gauche de la barre de conversation. Ce qu'il propose dépend des fonctionnalités
+ * allumées pour la personne (/admin/fonctionnalites) : envoyer un document dans son Drive, la
+ * carte des cyclones, l'attestation d'hébergement, et les livres lus en entier par Tamilya.
  * Toucher un livre le reprend au marque-page ; « Ajouter un livre » ouvre un PDF, qui reste dans
- * le téléphone (book-store.ts), puis la lecture démarre. Demande de l'utilisateur (2026-11-10) :
- * ici plutôt qu'une rubrique dans le menu.
+ * le téléphone (book-store.ts), puis la lecture démarre (demande de l'utilisateur, 2026-11-10).
  * Une image avec du texte (photo prise sur le moment, capture d'écran, image de la galerie) se lit
- * aussi d'ici, comme une page photographiée (demande du 2026-11-10).
+ * aussi d'ici, comme une page photographiée : administrateurs seulement, comme la lecture en 3D.
  */
 
 const store = () => import("@/lib/lecture/book-store");
@@ -22,11 +27,46 @@ const store = () => import("@/lib/lecture/book-store");
 /** Toujours la même histoire dans le globe pour un livre : relancer remplace la lecture en cours. */
 const viewKey = (id: string) => `livre:${id}`;
 
-export function BookButton({ disabled = false }: { disabled?: boolean }) {
+/** Ce que le + envoie à Tamilya : elle ouvre la carte ou le formulaire (détectés par le serveur). */
+const ASK = {
+  cyclone: "Y a-t-il un cyclone en ce moment ?",
+  attestation: "Je veux faire une attestation d'hébergement.",
+} as const;
+
+const ITEM = "flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm font-medium hover:bg-bg-muted disabled:cursor-progress";
+
+function Item({ icon: Icon, onClick, disabled, children }: { icon: LucideIcon; onClick: () => void; disabled?: boolean; children: ReactNode }) {
+  return (
+    <button type="button" role="menuitem" onClick={onClick} disabled={disabled} className={ITEM}>
+      <Icon size={16} aria-hidden="true" className="shrink-0 text-[var(--persona,var(--accent))]" />
+      <span className="min-w-0 flex-1" aria-live="polite">
+        {children}
+      </span>
+    </button>
+  );
+}
+
+export function PlusMenu({
+  features,
+  isAdmin = false,
+  disabled = false,
+  onAsk,
+}: {
+  features: readonly FeatureId[];
+  isAdmin?: boolean;
+  disabled?: boolean;
+  /** Envoie une demande à Tamilya, comme si la personne l'avait écrite. */
+  onAsk: (text: string) => void;
+}) {
   const [open, setOpen] = useState(false);
   const [books, setBooks] = useState<BookSummary[] | null>(null);
   const [reading, setReading] = useState<string | null>(null);
-  const [problem, setProblem] = useState<string | null>(null);
+  const [problem, setProblem] = useState<ReactNode>(null);
+  const [sending, setSending] = useState<string | null>(null);
+  const [sent, setSent] = useState<string | null>(null);
+  const docPicker = useRef<HTMLInputElement>(null);
+  const has = (feature: FeatureId) => features.includes(feature);
+  const booksOn = has("livres");
   /** Le livre dont on voit les parties (une seule liste ouverte à la fois). */
   const [parts, setParts] = useState<string | null>(null);
   const picker = useRef<HTMLInputElement>(null);
@@ -46,10 +86,10 @@ export function BookButton({ disabled = false }: { disabled?: boolean }) {
 
   // Le marque-page avance pendant l'écoute : la liste suit à chaque ouverture et quand la partie change.
   useEffect(() => {
-    if (!open) return;
+    if (!open || !booksOn) return;
     const refresh = () => void load();
     refresh();
-  }, [open, load, active?.progress]);
+  }, [open, booksOn, load, active?.progress]);
 
   // Toucher ailleurs ou Échap : le menu se ferme.
   useEffect(() => {
@@ -110,6 +150,34 @@ export function BookButton({ disabled = false }: { disabled?: boolean }) {
     playStory(`image:${file.name}:${file.lastModified}`, { photo: file });
   };
 
+  /** Un document (photo, scan, PDF) rangé dans le Google Drive de la personne, dans le dossier deviné d'après son nom. */
+  const sendDocument = async (input: HTMLInputElement) => {
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file) return;
+    setProblem(null);
+    setSent(null);
+    setSending(`Envoi de ${file.name}…`);
+    const failure = await uploadToDrive(file, guessDriveFolder(file.name));
+    setSending(null);
+    if (failure === "not-connected") {
+      setProblem(
+        <>
+          Relie d&apos;abord ton Google Drive :{" "}
+          <Link href="/documents" className="font-medium underline">
+            Mes documents
+          </Link>
+        </>,
+      );
+    } else if (failure) setProblem(DRIVE_UPLOAD_MESSAGES[failure]);
+    else setSent(`${file.name} est rangé dans ton Drive.`);
+  };
+
+  const ask = (text: string) => {
+    setOpen(false);
+    onAsk(text);
+  };
+
   const remove = async (book: BookSummary) => {
     const ok = await confirmDialog({
       title: "Retirer ce livre ?",
@@ -122,22 +190,27 @@ export function BookButton({ disabled = false }: { disabled?: boolean }) {
     await load();
   };
 
+  const photosOn = isAdmin;
+  // Rien à proposer à cette personne : pas de +.
+  if (!booksOn && !photosOn && !has("documents") && !has("cyclone") && !has("attestation")) return null;
+  const busy = reading ?? sending;
+
   return (
     <div ref={box} className="relative">
       <button
         type="button"
         onClick={() => setOpen(!open)}
         disabled={disabled}
-        aria-label="Mes livres"
+        aria-label="Plus d'options"
         aria-expanded={open}
         aria-haspopup="menu"
-        title="Mes livres"
+        title="Plus d'options"
         // Bulle ronde à part, de la hauteur de la barre (une ligne) et avec son bord et son ombre : le + flotte à côté.
         className={`group grid size-[50px] shrink-0 place-items-center rounded-full border bg-bg text-fg-muted shadow-[0_8px_30px_-12px_rgb(0_0_0/0.25)] transition-[transform,color,border-color] pointer-coarse:size-[54px] hover:scale-105 hover:border-[var(--persona,var(--accent))] hover:text-[var(--persona,var(--accent))] active:scale-95 disabled:opacity-45 disabled:hover:scale-100 ${
           open ? "border-[var(--persona,var(--accent))] text-[var(--persona,var(--accent))]" : "border-[var(--persona-border,var(--border))]"
         }`}
       >
-        {reading ? (
+        {busy ? (
           <LoaderCircle size={20} className="animate-spin" aria-hidden="true" />
         ) : (
           <IconPlus className={`transition-transform duration-200 ${open ? "rotate-45" : ""}`} />
@@ -147,11 +220,15 @@ export function BookButton({ disabled = false }: { disabled?: boolean }) {
       <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(event) => readImage(event.target)} />
       {/* Sans « capture » : la galerie, pour une capture d'écran ou une image déjà dans le téléphone. */}
       <input ref={gallery} type="file" accept="image/*" hidden onChange={(event) => readImage(event.target)} />
+      <input ref={docPicker} type="file" hidden onChange={(event) => void sendDocument(event.target)} />
 
       {open ? (
-        <div role="menu" className="absolute bottom-full left-0 z-30 mb-2 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border bg-bg shadow-xl">
-          {books?.length ? (
-            <ul className="max-h-[min(24rem,60vh)] overflow-y-auto py-1">
+        <div
+          role="menu"
+          className="absolute bottom-full left-0 z-30 mb-2 w-[min(20rem,calc(100vw-2rem))] divide-y divide-border overflow-hidden rounded-2xl border border-border bg-bg shadow-xl"
+        >
+          {booksOn && books?.length ? (
+            <ul className="max-h-[min(24rem,50vh)] overflow-y-auto py-1">
               {books.map((book) => {
                 const mark = book.progress;
                 const shape = { chapters: book.chapters.map((c) => ({ title: c.title, chunks: Array.from({ length: c.chunks }, () => "") })) };
@@ -203,37 +280,45 @@ export function BookButton({ disabled = false }: { disabled?: boolean }) {
               })}
             </ul>
           ) : null}
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => picker.current?.click()}
-            disabled={reading !== null}
-            className={`flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm font-medium text-accent hover:bg-bg-muted disabled:cursor-progress ${books?.length ? "border-t border-border" : ""}`}
-          >
-            <FileUp size={16} aria-hidden="true" className="shrink-0" />
-            <span aria-live="polite">{reading ?? "Ajouter un livre (PDF)"}</span>
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => pickImage(camera.current)}
-            className="flex w-full items-center gap-3 border-t border-border px-3 py-2.5 text-left text-sm font-medium text-accent hover:bg-bg-muted"
-          >
-            <Camera size={16} aria-hidden="true" className="shrink-0" />
-            Lire une page en photo
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => pickImage(gallery.current)}
-            className="flex w-full items-center gap-3 border-t border-border px-3 py-2.5 text-left text-sm font-medium text-accent hover:bg-bg-muted"
-          >
-            <ImageIcon size={16} aria-hidden="true" className="shrink-0" />
-            Lire une image ou une capture
-          </button>
+          <div className="py-1">
+            {has("documents") ? (
+              <Item icon={CloudUpload} onClick={() => docPicker.current?.click()} disabled={sending !== null}>
+                {sending ?? "Envoyer un document"}
+              </Item>
+            ) : null}
+            {has("cyclone") ? (
+              <Item icon={Tornado} onClick={() => ask(ASK.cyclone)}>
+                Cyclones
+              </Item>
+            ) : null}
+            {has("attestation") ? (
+              <Item icon={House} onClick={() => ask(ASK.attestation)}>
+                Attestation d&apos;hébergement
+              </Item>
+            ) : null}
+            {booksOn ? (
+              <Item icon={FileUp} onClick={() => picker.current?.click()} disabled={reading !== null}>
+                {reading ?? "Ajouter un livre (PDF)"}
+              </Item>
+            ) : null}
+            {photosOn ? (
+              <>
+                <Item icon={Camera} onClick={() => pickImage(camera.current)}>
+                  Lire une page en photo
+                </Item>
+                <Item icon={ImageIcon} onClick={() => pickImage(gallery.current)}>
+                  Lire une image ou une capture
+                </Item>
+              </>
+            ) : null}
+          </div>
           {problem ? (
-            <p role="alert" className="border-t border-border px-3 py-2 text-xs text-danger">
+            <p role="alert" className="px-3 py-2 text-xs text-danger">
               {problem}
+            </p>
+          ) : sent ? (
+            <p role="status" className="px-3 py-2 text-xs text-success">
+              {sent}
             </p>
           ) : null}
         </div>

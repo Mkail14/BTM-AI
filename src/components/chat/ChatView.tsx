@@ -23,7 +23,7 @@ import type { ChatStreamEvent, ChatTurn } from "@/lib/chat/types";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
 import { AwaBlob } from "./AwaBlob";
 import { fadeOutHome, noteGlobeOrigin, takeGlobeOrigin } from "./globe-origin";
-import { BookButton } from "./BookButton";
+import { PlusMenu } from "./PlusMenu";
 import { Composer, type ComposerHandle } from "./Composer";
 import { MessageItem, type UiMessage } from "./MessageItem";
 import { wantsSpokenReply } from "@/lib/voice-live/spoken-request";
@@ -832,9 +832,9 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
               {voice.error}
             </p>
           ) : null}
-          {/* Le + des livres (admins) flotte à gauche de la barre, dans sa propre bulle. */}
+          {/* Le + (documents, cyclones, attestation, livres : /admin/fonctionnalites) flotte à gauche de la barre, dans sa propre bulle. */}
           <div className="flex items-end gap-2">
-            {user?.isAdmin ? <BookButton disabled={!online} /> : null}
+            {user ? <PlusMenu features={user.features ?? []} isAdmin={Boolean(user.isAdmin)} disabled={blocked || !online || isStreaming} onAsk={(text) => void send(text)} /> : null}
             <div className="min-w-0 flex-1">
               <Composer
                 ref={composerRef}

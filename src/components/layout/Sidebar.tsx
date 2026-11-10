@@ -235,17 +235,19 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         >
           {user ? (
             <>
-              {/* Le coffre (Google Drive) en vue, juste au-dessus du profil. */}
-              <Link
-                href="/documents"
-                onClick={onClose}
-                aria-current={pathname === "/documents" ? "page" : undefined}
-                title={collapsed ? "Mes documents" : undefined}
-                className={`mb-1 flex w-full items-center gap-3 rounded-lg px-2 py-2 font-medium whitespace-nowrap hover:bg-bg-muted ${pathname === "/documents" ? "bg-bg-muted" : ""} ${iconOnly}`}
-              >
-                <IconFolder className="shrink-0" />
-                <span className={label}>Mes documents</span>
-              </Link>
+              {/* Le coffre (Google Drive) en vue, juste au-dessus du profil : si « Envoyer un document » est ouvert (/admin/fonctionnalites). */}
+              {user.features?.includes("documents") ? (
+                <Link
+                  href="/documents"
+                  onClick={onClose}
+                  aria-current={pathname === "/documents" ? "page" : undefined}
+                  title={collapsed ? "Mes documents" : undefined}
+                  className={`mb-1 flex w-full items-center gap-3 rounded-lg px-2 py-2 font-medium whitespace-nowrap hover:bg-bg-muted ${pathname === "/documents" ? "bg-bg-muted" : ""} ${iconOnly}`}
+                >
+                  <IconFolder className="shrink-0" />
+                  <span className={label}>Mes documents</span>
+                </Link>
+              ) : null}
               <AccountMenu user={user} onNavigate={onClose} onSignOut={signOut} compact={collapsed} />
             </>
           ) : collapsed ? (

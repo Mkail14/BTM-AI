@@ -1,3 +1,4 @@
+import { canUse } from "@/lib/site/features";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getAuthContext } from "@/lib/auth/session";
@@ -23,6 +24,8 @@ export async function GET() {
   const { user } = await getAuthContext();
   const admin = getSupabaseAdminClient();
   if (!user || !admin) return fail(401, "Connexion requise.");
+  // Éteint dans /admin/fonctionnalites : seulement pour les administrateurs.
+  if (!(await canUse(user, "documents"))) return fail(403, "Mes documents n'est pas ouvert pour l'instant.");
   try {
     const accessToken = await driveAccessFor(admin, user.id);
     if (!accessToken) return fail(409, "Google Drive n'est pas relié.", "not-connected");
@@ -40,6 +43,8 @@ export async function POST(request: NextRequest) {
   const { user } = await getAuthContext();
   const admin = getSupabaseAdminClient();
   if (!user || !admin) return fail(401, "Connexion requise.");
+  // Éteint dans /admin/fonctionnalites : seulement pour les administrateurs.
+  if (!(await canUse(user, "documents"))) return fail(403, "L'envoi de documents n'est pas ouvert pour l'instant.");
   const parsed = uploadSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail(400, "Fichier refusé.");
 

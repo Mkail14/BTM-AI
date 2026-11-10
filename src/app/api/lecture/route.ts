@@ -1,3 +1,4 @@
+import { canUse } from "@/lib/site/features";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { geminiHeaders, geminiRoot, listKeyModels, thinkingSettings } from "@/lib/ai/providers/gemini";
@@ -59,7 +60,6 @@ export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Requête refusée." }, { status: 403 });
   const { user } = await getAuthContext();
   if (!user) return NextResponse.json({ error: "Connecte-toi pour que je te lise une page." }, { status: 401 });
-  if (!user.isAdmin) return NextResponse.json({ error: "La lecture en 3D arrive bientôt." }, { status: 403 });
   // Les sons branchés dans /admin/sons, relus à chaque histoire (en même temps que le reste) : Gemini choisit parmi eux.
   const catalogLoad = loadSoundCatalog();
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
@@ -67,6 +67,8 @@ export async function POST(request: NextRequest) {
   const input = parsed.data;
   // Un livre a son propre compteur : écouter un livre ne prive pas des photos de pages.
   const book = "livre" in input ? input.livre : null;
+  // Livres : ouverts à tous depuis /admin/fonctionnalites ; photos et histoires : administrateurs seulement pour l'essai.
+  if (!(book ? await canUse(user, "livres") : user.isAdmin)) return NextResponse.json({ error: "La lecture en 3D arrive bientôt." }, { status: 403 });
   const limit = await consumeRateLimits([
     book ? { key: `lecture-livre:${user.id}`, rules: RATE_LIMIT_POLICIES.readingBook } : { key: `lecture:${user.id}`, rules: RATE_LIMIT_POLICIES.reading },
   ]).catch(() => null);
