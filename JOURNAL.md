@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `c598b15` (2026-11-10)**
+**Dernier commit noté : `d27a206` (2026-11-10)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -103,6 +103,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-10
+- **Conversation : envoyer dans sa propre bulle** (`d27a206`). Demande de l'utilisateur : le même rendu que le + des livres pour le bouton envoyer. Il sort de la barre, à droite, en bulle ronde de la hauteur de la barre, remplie de la couleur de Tamilya avec une ombre de la même couleur ; il grossit un peu au toucher. Le bouton arrêter (pendant une réponse) a la même forme. La barre garde le micro. Vérifié : types, lint. Pas encore vu à l'écran.
 - **Livres : le + dans sa propre bulle** (`c598b15`). Demande de l'utilisateur : le + arrondi en dehors de la barre de conversation, pour un rendu plus stylé. Bulle ronde à gauche de la barre, de sa hauteur (une ligne), avec le même bord et la même ombre ; elle grossit un peu au toucher, prend la couleur de Tamilya et le + tourne en × quand le menu est ouvert. Vérifié : types, lint. Pas encore vu à l'écran.
 - **Livres : choisir une partie dans le +** (`9c283d7`). Demande de l'utilisateur, après le retrait de la page « Mes livres » : retrouver le choix d'un chapitre. Une flèche par livre dans le menu du + montre ses parties ; en toucher une la lit depuis son début, puis la suite du livre. Vérifié : types, lint. Pas encore vu sur la tablette.
 - **Livres : un + dans la barre de conversation** (`202db83`). Remarque de l'utilisateur : il n'aime pas la rubrique « Mes livres » dans le menu, il préfère un + à côté de la barre de conversation. Le + (admins) ouvre un petit menu : ses livres (toucher = reprendre au marque-page, corbeille pour retirer) et « Ajouter un livre (PDF) », qui lance la lecture dès que le PDF est lu. Page `/livres` et lien du menu retirés ; le choix d'un chapitre précis n'existe plus pour l'instant. Vérifié : types, lint. Pas encore vu sur la tablette.
