@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `9c283d7` (2026-11-10)**
+**Dernier commit noté : `c598b15` (2026-11-10)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -103,6 +103,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-10
+- **Livres : le + dans sa propre bulle** (`c598b15`). Demande de l'utilisateur : le + arrondi en dehors de la barre de conversation, pour un rendu plus stylé. Bulle ronde à gauche de la barre, de sa hauteur (une ligne), avec le même bord et la même ombre ; elle grossit un peu au toucher, prend la couleur de Tamilya et le + tourne en × quand le menu est ouvert. Vérifié : types, lint. Pas encore vu à l'écran.
 - **Livres : choisir une partie dans le +** (`9c283d7`). Demande de l'utilisateur, après le retrait de la page « Mes livres » : retrouver le choix d'un chapitre. Une flèche par livre dans le menu du + montre ses parties ; en toucher une la lit depuis son début, puis la suite du livre. Vérifié : types, lint. Pas encore vu sur la tablette.
 - **Livres : un + dans la barre de conversation** (`202db83`). Remarque de l'utilisateur : il n'aime pas la rubrique « Mes livres » dans le menu, il préfère un + à côté de la barre de conversation. Le + (admins) ouvre un petit menu : ses livres (toucher = reprendre au marque-page, corbeille pour retirer) et « Ajouter un livre (PDF) », qui lance la lecture dès que le PDF est lu. Page `/livres` et lien du menu retirés ; le choix d'un chapitre précis n'existe plus pour l'instant. Vérifié : types, lint. Pas encore vu sur la tablette.
 - **Livres lus en entier par Tamilya** (`cc45214`). Demande de l'utilisateur : que Tamilya lise tout un PDF de 900 pages (*Les lois de la nature humaine*) avec ses effets 3D, en s'adaptant au contenu. Un seul appel ne peut pas : 1,7 million de caractères pour une page de 6 000 au plus et 60 répliques. Donc des morceaux qui s'enchaînent. Le PDF est lu dans le téléphone (pdf.js, `book-pdf.ts`) et gardé dans IndexedDB (`book-store.ts`) : le livre est protégé par le droit d'auteur, il ne quitte pas l'appareil, seul le morceau en cours part à Gemini. Parties d'après la table des matières du PDF, texte remis en paragraphes (titres courants et numéros de page enlevés, mots coupés et citations recollés), morceaux de 4 000 caractères (~4 min) : 954 pages en 4 s, 488 morceaux, ~32 h. Chaque morceau reçoit la mémoire du précédent (voix des personnages, lieu, décor, musique, résumé écrit par Gemini) ; le suivant se prépare pendant la lecture, la scène 3D reste ouverte et change de décor, d'écho et de musique en fondu (`changeAmbiences`, `setPlace`, places 3D réutilisées pour ne pas faire ramer le téléphone). Un récit est joué, une analyse est lue sobrement. Rien n'est sauté : texte oublié par Gemini ou mise en scène ratée, la narratrice le lit tel quel. Marque-page au début du morceau, page « Mes livres » (admins), compteur à part (30/h, 250/jour). PDF scanné refusé pour l'instant. Vérifié : types, lint, 662 tests (9 nouveaux), build. Pas encore écouté sur la tablette.
