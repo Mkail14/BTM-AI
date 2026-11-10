@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type TouchEvent } fr
 import { useAuth } from "@/components/auth/AuthProvider";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { alertDialog, confirmDialog } from "@/components/ui/ConfirmDialog";
-import { IconClose, IconDashboard, IconFolder, IconLock, IconPlus, IconSettings, IconSidebar } from "@/components/ui/icons";
+import { IconBook, IconClose, IconDashboard, IconFolder, IconLock, IconPlus, IconSettings, IconSidebar } from "@/components/ui/icons";
 import { AccountMenu } from "./AccountMenu";
 import { ConversationItem } from "./ConversationItem";
 import { useChatShell } from "./ChatShell";
@@ -246,6 +246,19 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                 <IconFolder className="shrink-0" />
                 <span className={label}>Mes documents</span>
               </Link>
+              {/* Livres lus par Tamilya : la lecture en 3D est encore réservée aux administrateurs. */}
+              {user.isAdmin ? (
+                <Link
+                  href="/livres"
+                  onClick={onClose}
+                  aria-current={pathname === "/livres" ? "page" : undefined}
+                  title={collapsed ? "Mes livres" : undefined}
+                  className={`mb-1 flex w-full items-center gap-3 rounded-lg px-2 py-2 font-medium whitespace-nowrap hover:bg-bg-muted ${pathname === "/livres" ? "bg-bg-muted" : ""} ${iconOnly}`}
+                >
+                  <IconBook className="shrink-0" />
+                  <span className={label}>Mes livres</span>
+                </Link>
+              ) : null}
               <AccountMenu user={user} onNavigate={onClose} onSignOut={signOut} compact={collapsed} />
             </>
           ) : collapsed ? (

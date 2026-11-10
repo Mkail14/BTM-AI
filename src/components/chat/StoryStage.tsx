@@ -36,7 +36,17 @@ export function StoryStage() {
       <div className="flex w-full flex-1 flex-col items-center justify-center gap-6">
         <AwaBlob label={label} onActivate={toggleStory} immediate busy={!playing && active.status !== "paused"} size="min(60vw, 16rem)" goo={13} />
         {/* Place gardée : le globe ne saute pas quand le message s'efface. */}
-        <div className="h-6">{waiting ? <WaitingNote key={active.key} kind={active.kind} /> : null}</div>
+        <div className="h-6">
+          {waiting ? (
+            <WaitingNote key={`${active.key}:${active.progress ?? ""}`} kind={active.kind} />
+          ) : active.progress ? (
+            // Livre : le titre et où on en est, discrets sous le globe.
+            <p className="max-w-[80vw] truncate text-center text-sm text-white/60">
+              <span className="sr-only">{active.title} : </span>
+              {active.progress}
+            </p>
+          ) : null}
+        </div>
       </div>
       <span className="sr-only" aria-live="polite">
         {label}

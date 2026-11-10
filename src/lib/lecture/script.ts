@@ -29,6 +29,8 @@ export type ScenePlace = (typeof PLACES)[number];
 export const NARRATOR = "narratrice";
 
 export const READING_LIMITS = { lines: 60, lineChars: 600, characters: 8, ambiences: 4, effectsPerLine: 3, waypoints: 4 } as const;
+/** Livre : personnages gardés en mémoire d'un morceau à l'autre (avec leur voix). */
+export const BOOK_CAST = 16;
 
 /** Un son est un identifiant ; il n'est gardé que s'il est dans le catalogue du moment (catalog.ts). */
 const soundId = z.string().trim().min(1).max(40);
@@ -94,6 +96,8 @@ export const rawScriptSchema = z.object({
   intro: z.string().trim().max(400).catch(""),
   /** Après l'histoire : Tamilya prend des nouvelles de la personne (puis l'écoute 4 s). */
   fin: z.string().trim().max(300).catch("").optional().default(""),
+  /** Livre lu en continu : où on en est, transmis au morceau suivant (prompt.ts). */
+  resume: z.string().trim().max(1200).catch("").optional().default(""),
   /** Musique de fond du début ; null : pas de musique. */
   musique: soundId.nullish().catch(null),
   decor: z.array(ambienceSchema.nullable().catch(null)).max(10).catch([]).optional().default([]),
@@ -133,7 +137,13 @@ export type SceneScript = {
   lines: SceneLine[];
   /** Sons branchés dans /admin/sons, avec leur adresse : le téléphone les joue d'après cette liste. */
   sons?: PlayableSounds;
+  /** Livre : les personnages et leur voix, et où on en est, pour le morceau suivant. */
+  cast?: KnownCharacter[];
+  summary?: string;
 };
+
+/** Personnage déjà entendu dans un livre : il garde sa voix jusqu'à la fin. */
+export type KnownCharacter = { id: string; nom: string; genre: "homme" | "femme"; age: "enfant" | "jeune" | "adulte" | "vieux"; voix: GeminiVoiceId };
 
 /** Sons utilisables de l'histoire, rangés par sorte. */
 type SoundSet = { decors: Map<string, CatalogSound>; bruits: Map<string, CatalogSound>; musiques: Map<string, CatalogSound>; playable: PlayableSounds };
@@ -165,10 +175,20 @@ const VOICE_POOLS: Record<"homme" | "femme", Record<"enfant" | "jeune" | "adulte
   },
 };
 
-export function assignVoices(characters: { id: string; genre: "homme" | "femme"; age: "enfant" | "jeune" | "adulte" | "vieux" }[], narrator: GeminiVoiceId) {
-  const taken = new Set<GeminiVoiceId>([narrator]);
+export function assignVoices(
+  characters: { id: string; genre: "homme" | "femme"; age: "enfant" | "jeune" | "adulte" | "vieux" }[],
+  narrator: GeminiVoiceId,
+  known: ReadonlyMap<string, GeminiVoiceId> = new Map(),
+) {
+  // Déjà entendus plus tôt dans le livre : même voix ; les nouveaux en prennent une autre.
+  const taken = new Set<GeminiVoiceId>([narrator, ...known.values()]);
   const voices = new Map<string, GeminiVoiceId>();
   for (const character of characters) {
+    const kept = known.get(character.id);
+    if (kept) {
+      voices.set(character.id, kept);
+      continue;
+    }
     const pool = VOICE_POOLS[character.genre][character.age];
     const all = [...pool, ...Object.values(VOICE_POOLS[character.genre]).flat()];
     const voice = all.find((v) => !taken.has(v)) ?? pool[0];
@@ -187,7 +207,7 @@ export type MetaResult = { ok: true; meta: SceneMeta; cast: Cast } | { ok: false
 const UNREADABLE = "Je n'arrive pas à lire cette page. Reprends la photo bien à plat, avec de la lumière.";
 
 /** Titre, lieu, intro, décor et distribution (tout ce qui vient avant les répliques). */
-export function buildMeta(raw: unknown, narrator: GeminiVoiceId, catalog: CatalogSound[] = BUILTIN_CATALOG): MetaResult {
+export function buildMeta(raw: unknown, narrator: GeminiVoiceId, catalog: CatalogSound[] = BUILTIN_CATALOG, known: KnownCharacter[] = []): MetaResult {
   const sounds = soundSet(catalog);
   const parsed = rawScriptSchema.safeParse(raw);
   if (!parsed.success) return { ok: false, reason: "Je n'ai pas réussi à préparer cette page. Réessaie." };
@@ -196,8 +216,13 @@ export function buildMeta(raw: unknown, narrator: GeminiVoiceId, catalog: Catalo
   const characters = data.personnages
     .filter((c): c is NonNullable<typeof c> => c !== null && c.id !== NARRATOR)
     .slice(0, READING_LIMITS.characters);
-  const voices = assignVoices(characters, narrator);
+  const voices = assignVoices(characters, narrator, new Map(known.map((c) => [c.id, c.voix])));
   const names = new Map(characters.map((c) => [c.id, c.nom || c.id]));
+  // Livre : les anciens personnages restent connus même s'ils ne parlent pas ici (les plus récents d'abord).
+  const cast: KnownCharacter[] = [
+    ...characters.map((c) => ({ id: c.id, nom: c.nom, genre: c.genre, age: c.age, voix: voices.get(c.id)! })),
+    ...known.filter((k) => !voices.has(k.id)),
+  ].slice(0, BOOK_CAST);
   const ambiences: SceneAmbience[] = data.decor
     .filter((a): a is NonNullable<typeof a> => a !== null && sounds.decors.has(a.son))
     .filter((a, i, all) => all.findIndex((b) => b.son === a.son) === i)
@@ -206,8 +231,22 @@ export function buildMeta(raw: unknown, narrator: GeminiVoiceId, catalog: Catalo
   const music = data.musique && sounds.musiques.has(data.musique) ? data.musique : null;
   return {
     ok: true,
-    meta: { title: data.titre, place: data.lieu, intro: data.intro, outro: data.fin, music, ambiences, sons: sounds.playable },
-    cast: { voices, names, sounds },
+    meta: {
+      title: data.titre,
+      place: data.lieu,
+      intro: data.intro,
+      outro: data.fin,
+      music,
+      ambiences,
+      sons: sounds.playable,
+      ...(known.length || data.resume ? { cast, summary: data.resume } : {}),
+    },
+    // Un ancien personnage qui reparle sans avoir été redéclaré garde quand même sa voix.
+    cast: {
+      voices: new Map([...known.map((k) => [k.id, k.voix] as const), ...voices]),
+      names: new Map([...known.map((k) => [k.id, k.nom || k.id] as const), ...names]),
+      sounds,
+    },
   };
 }
 
@@ -281,8 +320,8 @@ export function buildLine(raw: unknown, cast: Cast): SceneLine | null {
 }
 
 /** Vérifie et range la réponse complète de Gemini. Ce qui est mal formé est écarté, pas deviné. */
-export function buildScript(raw: unknown, narrator: GeminiVoiceId, catalog: CatalogSound[] = BUILTIN_CATALOG): ScriptResult {
-  const meta = buildMeta(raw, narrator, catalog);
+export function buildScript(raw: unknown, narrator: GeminiVoiceId, catalog: CatalogSound[] = BUILTIN_CATALOG, known: KnownCharacter[] = []): ScriptResult {
+  const meta = buildMeta(raw, narrator, catalog, known);
   if (!meta.ok) return meta;
   const rawLines = raw && typeof raw === "object" && Array.isArray((raw as { repliques?: unknown }).repliques) ? (raw as { repliques: unknown[] }).repliques : [];
   const lines = rawLines

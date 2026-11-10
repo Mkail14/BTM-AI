@@ -17,3 +17,9 @@ for (const old of readdirSync("public/vad")) if (old.startsWith("ort-wasm-")) rm
 const maplibre = "node_modules/maplibre-gl/dist/";
 mkdirSync("public/maplibre", { recursive: true });
 for (const file of ["maplibre-gl.mjs", "maplibre-gl-worker.mjs"]) copyFileSync(maplibre + file, "public/maplibre/" + file);
+
+// Lecteur de PDF (pdf.js) : son « worker » à une adresse qui porte la version (voir src/lib/lecture/book-pdf.ts).
+const pdfjs = JSON.parse(readFileSync("node_modules/pdfjs-dist/package.json", "utf8")).version;
+mkdirSync(`public/pdfjs/${pdfjs}`, { recursive: true });
+copyFileSync("node_modules/pdfjs-dist/legacy/build/pdf.worker.min.mjs", `public/pdfjs/${pdfjs}/pdf.worker.min.mjs`);
+for (const old of readdirSync("public/pdfjs")) if (old !== pdfjs) rmSync(`public/pdfjs/${old}`, { recursive: true, force: true });

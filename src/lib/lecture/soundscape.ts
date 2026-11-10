@@ -137,7 +137,9 @@ export function between(from: Place, to: Place, x: number): Position {
 }
 
 /** Un son dans la scène : la source se branche sur input, la place change avec moveTo. */
-type Spot = { input: GainNode; moveTo(place: Located): void };
+type Spot = { input: GainNode; moveTo(place: Located): void; setWidth(width: number): void };
+/** Un bruit de fond qui joue, avec sa place 3D (rendue quand il s'est effacé, pour le décor suivant). */
+type Bed = { sound: Ambience; gain: GainNode; source: AudioBufferSourceNode; spot: Spot; timer: number | null };
 /** rate : la vitesse de lecture du son, pour l'effet Doppler (bruits seulement : sur une voix, ce serait faux). */
 type Path = { spot: Spot; points: Place[]; start: number; duration: number; rate?: AudioParam; last?: { meters: number; time: number } };
 
@@ -156,6 +158,9 @@ export class ScenePlayer {
   private stereo: GainNode;
   private scene: ResonanceScene | null;
   private beds = new Map<GainNode, number>();
+  private decor: Bed[] = [];
+  /** Places libres pour les bruits de fond : un livre change de décor des centaines de fois, une source 3D de plus à chaque fois ferait ramer le téléphone. */
+  private freeDecorSpots: Spot[] = [];
   private music: { gain: GainNode; source: AudioBufferSourceNode } | null = null;
   private wantedMusic: Mood | null = null;
   private ducked = false;
@@ -213,12 +218,17 @@ export class ScenePlayer {
     // Le son direct passe par les « oreilles » ; un son large (la pluie tout autour) presque pas.
     const ear = ears(this.ctx, this.stereo);
     input.connect(ear.input);
-    const focus = 1 - 0.85 * Math.min(1, width / 180);
+    let focus = 1 - 0.85 * Math.min(1, width / 180);
     // Le lieu (échos, réverbération) vient de Resonance : plus fort pour un son large, qui n'a que lui.
     const source = this.scene?.createSource({ minDistance: 0.8, maxDistance: 40, rolloff: "logarithmic", sourceWidth: width, gain: width ? 1.2 : ROOM_SEND });
     if (source) input.connect(source.input);
     const spot: Spot = {
       input,
+      setWidth: (next) => {
+        focus = 1 - 0.85 * Math.min(1, next / 180);
+        source?.setSourceWidth(next);
+        source?.setGain(next ? 1.2 : ROOM_SEND);
+      },
       moveTo: (place) => {
         const meters = place.meters ?? METERS[place.distance];
         if (source) {
@@ -298,7 +308,12 @@ export class ScenePlayer {
       const source = new AudioBufferSourceNode(this.ctx, { buffer, loop: true });
       const bed = new GainNode(this.ctx, { gain: 0 });
       const place: Place = { side: ambience.side, distance: ambience.distance, height: ambience.height };
-      const spot = this.spot(place, WIDTH(ambience.sound));
+      const free = this.freeDecorSpots.pop();
+      free?.setWidth(WIDTH(ambience.sound));
+      free?.moveTo(place);
+      const spot = free ?? this.spot(place, WIDTH(ambience.sound));
+      const playing: Bed = { sound: ambience.sound, gain: bed, source, spot, timer: null };
+      this.decor.push(playing);
       source.connect(bed).connect(spot.input);
       source.start(now, Math.random() * buffer.duration);
       this.track(source);
@@ -321,8 +336,37 @@ export class ScenePlayer {
         current = next;
       };
       move();
-      if (typeof window !== "undefined") this.timers.push(window.setInterval(move, every * 1000));
+      if (typeof window !== "undefined") this.timers.push((playing.timer = window.setInterval(move, every * 1000)));
     }
+  }
+
+  /**
+   * Un autre décor (morceau suivant d'un livre) : l'ancien s'efface pendant que le nouveau monte.
+   * Rien ne bouge si c'est le même décor.
+   */
+  changeAmbiences(ambiences: SceneAmbience[], fade = 4) {
+    const same = (a: string[], b: string[]) => a.length === b.length && a.every((sound) => b.includes(sound));
+    if (same(this.decor.map((bed) => bed.sound), ambiences.map((a) => a.sound))) return;
+    const now = this.ctx.currentTime;
+    for (const bed of this.decor.splice(0)) {
+      this.beds.delete(bed.gain);
+      bed.gain.gain.cancelScheduledValues(now);
+      bed.gain.gain.setTargetAtTime(0, now, fade / 4);
+      bed.source.stop(now + fade * 1.5);
+      if (bed.timer !== null) window.clearInterval(bed.timer);
+      // Sa place 3D resservira quand il se sera tu.
+      bed.source.addEventListener("ended", () => {
+        bed.source.disconnect();
+        this.freeDecorSpots.push(bed.spot);
+      });
+    }
+    this.startAmbiences(ambiences, fade);
+  }
+
+  /** Le lieu change (autre scène du livre) : l'écho suit, sans couper le son. */
+  setPlace(place: ScenePlace) {
+    const room = ROOMS[place] ?? ROOMS["plein-air"];
+    this.scene?.setRoomProperties(room.dimensions, room.materials);
   }
 
   /**

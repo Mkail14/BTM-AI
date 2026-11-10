@@ -7,7 +7,9 @@
  * chargé qu'à la première histoire. Module côté navigateur uniquement.
  */
 
-export type StorySource = { text: string } | { story: string } | { photo: File };
+/** Livre gardé dans le téléphone (book-store.ts) : lu à partir de ce morceau, puis jusqu'au bout. */
+export type BookStart = { id: string; chapter: number; chunk: number };
+export type StorySource = { text: string } | { story: string } | { photo: File } | { book: BookStart };
 
 export type StoryView = {
   key: string;
@@ -19,6 +21,8 @@ export type StoryView = {
   kind?: "histoire" | "lecture";
   /** Sa première voix se fait entendre : le message d'attente sous le globe s'efface. */
   started?: boolean;
+  /** Livre : la partie en cours et où on en est (« 3 - La loi… · 12 % »). */
+  progress?: string;
 };
 
 type Snapshot = { active: StoryView | null; stories: ReadonlyMap<string, StoryView> };
@@ -50,7 +54,7 @@ const engine = () => import("./story-engine");
 
 /** Ouvre le globe et raconte (ou rejoue l'histoire déjà préparée sous cette clé). */
 export function playStory(key: string, source: StorySource) {
-  patchStory(key, { status: "preparing", message: undefined, started: false, kind: "story" in source ? "histoire" : "lecture" }, true);
+  patchStory(key, { status: "preparing", message: undefined, started: false, progress: undefined, kind: "story" in source ? "histoire" : "lecture" }, true);
   // Le son doit s'ouvrir pendant le geste de la personne : avant le chargement du moteur.
   unlockAudio();
   void engine().then((m) => m.runStory(key, source));

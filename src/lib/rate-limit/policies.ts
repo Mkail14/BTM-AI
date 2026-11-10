@@ -102,6 +102,12 @@ export const RATE_LIMIT_POLICIES = {
     { name: "reading-hour", limit: 20, windowSeconds: 3_600 },
     { name: "reading-day", limit: 80, windowSeconds: 86_400 },
   ],
+  // Livre lu en entier : un morceau dure ~4 min d'écoute, un seul est préparé d'avance.
+  // 30 par heure laisse la place à quelques sauts de chapitre ; 250 par jour, ~16 h d'écoute.
+  readingBook: [
+    { name: "reading-book-hour", limit: 30, windowSeconds: 3_600 },
+    { name: "reading-book-day", limit: 250, windowSeconds: 86_400 },
+  ],
   musicAdmin: [
     { name: "music-admin-hour", limit: 20, windowSeconds: 3_600 },
     { name: "music-admin-day", limit: 60, windowSeconds: 86_400 },

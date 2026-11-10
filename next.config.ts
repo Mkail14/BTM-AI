@@ -39,6 +39,8 @@ const nextConfig: NextConfig = {
       { source: "/:path*", headers: securityHeaders },
       // Moteur des cartes : l'adresse porte la version (?v=), le fichier ne change donc jamais à la même adresse.
       { source: "/maplibre/:file*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
+      // Lecteur de PDF (livres) : la version est dans l'adresse (scripts/copy-vad.mjs).
+      { source: "/pdfjs/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
       // Modèles de voix (Silero 2,3 Mo, empreinte 6,7 Mo) : adresse sans version, donc pas d'« immutable ».
       // Gardés 7 jours sans même redemander au serveur (connexion lente à Mayotte), puis encore 30 jours
       // servis tout de suite pendant la vérification en arrière-plan. Changer de modèle = changer de nom de fichier.

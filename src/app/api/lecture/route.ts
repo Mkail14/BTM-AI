@@ -8,7 +8,8 @@ import { getAuthContext } from "@/lib/auth/session";
 import { READING_TEXT } from "@/lib/lecture/intent";
 import { loadSoundCatalog } from "@/lib/lecture/catalog-store";
 import { scriptPrompt, scriptSchema } from "@/lib/lecture/prompt";
-import { buildLine, buildMeta, buildScript, READING_LIMITS, type Cast } from "@/lib/lecture/script";
+import { BOOK_CHUNK_CHARS, bookContextSchema } from "@/lib/lecture/book";
+import { buildLine, buildMeta, buildScript, READING_LIMITS, type Cast, type KnownCharacter } from "@/lib/lecture/script";
 import { createScriptStream } from "@/lib/lecture/stream";
 import { writeStory } from "@/lib/lecture/writer";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
@@ -34,6 +35,8 @@ const TIMEOUT_MS = 55_000;
 const MODEL = /^gemini-[\d.]+-flash$/;
 
 const bodySchema = z.union([
+  // Morceau d'un livre lu en entier (book.ts), avec la mémoire du morceau d'avant. Avant { text } : sinon la mémoire serait jetée.
+  z.object({ text: z.string().trim().min(1).max(BOOK_CHUNK_CHARS * 2), livre: bookContextSchema }),
   z.object({
     image: z.string().max(MAX_BASE64).regex(/^[A-Za-z0-9+/=]+$/),
     mimeType: z.enum(["image/jpeg", "image/png", "image/webp"]).default("image/jpeg"),
@@ -59,11 +62,16 @@ export async function POST(request: NextRequest) {
   if (!user.isAdmin) return NextResponse.json({ error: "La lecture en 3D arrive bientôt." }, { status: 403 });
   // Les sons branchés dans /admin/sons, relus à chaque histoire (en même temps que le reste) : Gemini choisit parmi eux.
   const catalogLoad = loadSoundCatalog();
-  const limit = await consumeRateLimits([{ key: `lecture:${user.id}`, rules: RATE_LIMIT_POLICIES.reading }]).catch(() => null);
-  if (!limit?.allowed) return NextResponse.json({ error: "J'ai beaucoup lu : laisse-moi souffler un peu, puis réessaie." }, { status: 429 });
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Je n'ai rien à lire : reprends la photo ou renvoie le texte." }, { status: 400 });
   const input = parsed.data;
+  // Un livre a son propre compteur : écouter un livre ne prive pas des photos de pages.
+  const book = "livre" in input ? input.livre : null;
+  const limit = await consumeRateLimits([
+    book ? { key: `lecture-livre:${user.id}`, rules: RATE_LIMIT_POLICIES.readingBook } : { key: `lecture:${user.id}`, rules: RATE_LIMIT_POLICIES.reading },
+  ]).catch(() => null);
+  if (!limit?.allowed) return NextResponse.json({ error: "J'ai beaucoup lu : laisse-moi souffler un peu, puis réessaie." }, { status: 429 });
+  const known = (book?.personnages ?? []) as KnownCharacter[];
   const catalog = await catalogLoad;
 
   let upstream: Response | null = null;
@@ -78,7 +86,9 @@ export async function POST(request: NextRequest) {
     const parts =
       "image" in input
         ? [{ inlineData: { mimeType: input.mimeType, data: input.image } }, { text: scriptPrompt("photo", catalog) }]
-        : "text" in input
+        : book && "text" in input
+          ? [{ text: `Morceau du livre :\n\n${input.text}` }, { text: scriptPrompt("livre", catalog, book) }]
+          : "text" in input
           ? [{ text: `Texte :\n\n${input.text}` }, { text: scriptPrompt("texte", catalog) }]
           : written
             ? [{ text: `Demande de la personne : « ${input.story} »\n\nL'histoire :\n\n${written}` }, { text: scriptPrompt("ecrite", catalog) }]
@@ -97,7 +107,7 @@ export async function POST(request: NextRequest) {
             temperature: 0.6,
             maxOutputTokens: 16_384,
             responseMimeType: "application/json",
-            responseSchema: scriptSchema(catalog),
+            responseSchema: scriptSchema(catalog, Boolean(book)),
             ...(thinking && { thinkingConfig: thinking }),
           },
         }),
@@ -132,7 +142,7 @@ export async function POST(request: NextRequest) {
       const emit = (pieces: { meta?: unknown; lines: unknown[] }) => {
         if (failed) return;
         if (pieces.meta !== undefined) {
-          const meta = buildMeta(pieces.meta, narrator, catalog);
+          const meta = buildMeta(pieces.meta, narrator, catalog, known);
           if (!meta.ok) {
             failed = true;
             send({ type: "error", message: meta.reason });
@@ -177,7 +187,7 @@ export async function POST(request: NextRequest) {
           } catch {
             raw = null;
           }
-          const whole = raw ? buildScript(raw, narrator, catalog) : null;
+          const whole = raw ? buildScript(raw, narrator, catalog, known) : null;
           if (!whole?.ok) {
             failed = true;
             send({ type: "error", message: whole && !whole.ok ? whole.reason : BUSY });

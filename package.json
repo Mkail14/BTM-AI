@@ -25,6 +25,7 @@
     "nodemailer": "^10.3.1",
     "onnxruntime-web": "^1.31.1",
     "pdf-lib": "1.17.1",
+    "pdfjs-dist": "^5.7.284",
     "qrcode": "1.5.4",
     "react": "19.3.0",
     "react-dom": "19.3.0",
