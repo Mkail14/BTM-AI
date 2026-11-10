@@ -58,8 +58,13 @@ type BookPiece = {
   next: Story | null;
 };
 
-/** Photo envoyée : assez grande pour lire le texte, assez légère pour le débit de Mayotte. */
-const MAX_SIDE = 1400;
+/**
+ * Photo envoyée : assez grande pour lire le texte, assez légère pour le débit de Mayotte. Comptée
+ * en pixels (une photo 4:3 reste à 1400 × 1050) : une capture d'écran de téléphone, haute et
+ * étroite, garde ainsi des lettres lisibles au lieu de tomber à 630 px de large.
+ */
+const MAX_PIXELS = 1400 * 1050;
+const MAX_SIDE = 2400;
 /** Répliques préparées d'avance pendant que Tamilya lit. */
 const AHEAD = 3;
 const FAILED = "Je n'arrive pas à préparer la page : réessaie.";
@@ -72,11 +77,15 @@ let wakeLock: WakeLockSentinel | null = null;
 
 async function shrinkPhoto(file: File): Promise<string> {
   const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height), Math.sqrt(MAX_PIXELS / (bitmap.width * bitmap.height)));
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const context = canvas.getContext("2d")!;
+  // Fond blanc : une image PNG transparente deviendrait noire en JPEG, texte noir compris.
+  context.fillStyle = "#fff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.75));
   if (!blob) throw new Error("photo");

@@ -1,18 +1,20 @@
 "use client";
 
-import { BookOpen, ChevronDown, FileUp, LoaderCircle, Play, Trash2 } from "lucide-react";
+import { BookOpen, Camera, ChevronDown, FileUp, Image as ImageIcon, LoaderCircle, Play, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { IconPlus } from "@/components/ui/icons";
 import { bookShare } from "@/lib/lecture/book";
 import type { BookSummary } from "@/lib/lecture/book-store";
-import { getServerStories, getStories, playStory, subscribeStories } from "@/lib/lecture/stage";
+import { getServerStories, getStories, playStory, subscribeStories, unlockAudio } from "@/lib/lecture/stage";
 
 /**
  * Le « + » à gauche de la barre de conversation : les livres lus en entier par Tamilya.
  * Toucher un livre le reprend au marque-page ; « Ajouter un livre » ouvre un PDF, qui reste dans
  * le téléphone (book-store.ts), puis la lecture démarre. Demande de l'utilisateur (2026-11-10) :
  * ici plutôt qu'une rubrique dans le menu.
+ * Une image avec du texte (photo prise sur le moment, capture d'écran, image de la galerie) se lit
+ * aussi d'ici, comme une page photographiée (demande du 2026-11-10).
  */
 
 const store = () => import("@/lib/lecture/book-store");
@@ -28,6 +30,8 @@ export function BookButton({ disabled = false }: { disabled?: boolean }) {
   /** Le livre dont on voit les parties (une seule liste ouverte à la fois). */
   const [parts, setParts] = useState<string | null>(null);
   const picker = useRef<HTMLInputElement>(null);
+  const camera = useRef<HTMLInputElement>(null);
+  const gallery = useRef<HTMLInputElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const { active } = useSyncExternalStore(subscribeStories, getStories, getServerStories);
 
@@ -92,6 +96,20 @@ export function BookButton({ disabled = false }: { disabled?: boolean }) {
     }
   };
 
+  /** Le son se débloque au toucher : la lecture démarrera seule une fois l'image choisie. */
+  const pickImage = (target: HTMLInputElement | null) => {
+    unlockAudio();
+    target?.click();
+  };
+
+  const readImage = (input: HTMLInputElement) => {
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file) return;
+    setOpen(false);
+    playStory(`image:${file.name}:${file.lastModified}`, { photo: file });
+  };
+
   const remove = async (book: BookSummary) => {
     const ok = await confirmDialog({
       title: "Retirer ce livre ?",
@@ -126,6 +144,9 @@ export function BookButton({ disabled = false }: { disabled?: boolean }) {
         )}
       </button>
       <input ref={picker} type="file" accept="application/pdf,.pdf" hidden onChange={(event) => void add(event.target.files?.[0])} />
+      <input ref={camera} type="file" accept="image/*" capture="environment" hidden onChange={(event) => readImage(event.target)} />
+      {/* Sans « capture » : la galerie, pour une capture d'écran ou une image déjà dans le téléphone. */}
+      <input ref={gallery} type="file" accept="image/*" hidden onChange={(event) => readImage(event.target)} />
 
       {open ? (
         <div role="menu" className="absolute bottom-full left-0 z-30 mb-2 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border bg-bg shadow-xl">
@@ -191,6 +212,24 @@ export function BookButton({ disabled = false }: { disabled?: boolean }) {
           >
             <FileUp size={16} aria-hidden="true" className="shrink-0" />
             <span aria-live="polite">{reading ?? "Ajouter un livre (PDF)"}</span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => pickImage(camera.current)}
+            className="flex w-full items-center gap-3 border-t border-border px-3 py-2.5 text-left text-sm font-medium text-accent hover:bg-bg-muted"
+          >
+            <Camera size={16} aria-hidden="true" className="shrink-0" />
+            Lire une page en photo
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => pickImage(gallery.current)}
+            className="flex w-full items-center gap-3 border-t border-border px-3 py-2.5 text-left text-sm font-medium text-accent hover:bg-bg-muted"
+          >
+            <ImageIcon size={16} aria-hidden="true" className="shrink-0" />
+            Lire une image ou une capture
           </button>
           {problem ? (
             <p role="alert" className="border-t border-border px-3 py-2 text-xs text-danger">

@@ -24,8 +24,12 @@ const READ = `(?:lis|lit|lise|lises|lisent|lisez|lire|relis|relire|relise|${TYPO
 const VERB = `(?:${READ}|raconte|raconter|joue|jouer)`;
 const WHO = "(?: moi| nous| lui)?";
 const WHAT = "(?:une|cette|la|ma|un|ce|mon|des|les|mes|ces|une autre|la suite de|une page de|un passage de|cette page de)";
-const THING = "(?:page|pages|livre|livres|passage|chapitre|extrait|conte|roman|bouquin)";
+// Une image avec du texte aussi : capture d'écran, photo d'un message ou d'une affiche (demande du 2026-11-10).
+const IMAGE = "image|images|photo|photos|capture|captures|screen|screenshot";
+const THING = `(?:page|pages|livre|livres|passage|chapitre|extrait|conte|roman|bouquin|${IMAGE})`;
 const ASK = new RegExp(`\\b${VERB}${WHO} ${WHAT}(?: \\w+)? ${THING}\\b`);
+/** « Lis-moi ce qui est écrit sur cette capture », « ce qu'il y a sur la photo ». */
+const ON_IMAGE = new RegExp(`\\b${READ}${WHO} (?:ce qui est ecrit|ce qu il y a(?: d ecrit)?|le texte) (?:sur|dans|de) (?:l|la|le|cette|ce|ma|mon|une|un) (?:${IMAGE})\\b`);
 const NAMED = /\blecture (?:3d|immersive|en 3d)\b/;
 /** « Je veux vivre la page », « fais-moi vivre cette histoire ». */
 const LIVE = /\bvivre (?:la|cette|ma|une|l) (?:page|histoire|scene|lecture)\b/;
@@ -42,7 +46,7 @@ const FOLLOW =
 const READ_GIVEN = new RegExp(
   // « teste », « txt » : fautes de frappe de « texte » (« Lis moi ce teste en 3d », 2026-11-08).
   // « Raconte cette histoire "…" » (2026-11-08) : raconter un texte donné, c'est le lire, pas en inventer un.
-  `\\b(?:${READ}|raconte|racontes|raconter|racontez)(?: moi| nous| lui)? (?:(?:ce|cette|mon|ma|le|la|mes|ces|tout ce|tout le) (?:message|messages|texte|textes|teste|tests?|txt|histoire|recit|poeme|conte|passage|page)|ca|cela)\\b`,
+  `\\b(?:${READ}|raconte|racontes|raconter|racontez)(?: moi| nous| lui)? (?:(?:ce|cette|mon|ma|le|la|mes|ces|tout ce|tout le) (?:message|messages|texte|textes|teste|tests?|txt|histoire|recit|poeme|conte|passage|page|${IMAGE})|ca|cela)\\b`,
 );
 /**
  * Une histoire nouvelle, inventée par Tamilya (« lis-moi une histoire », « raconte-moi un conte »,
@@ -51,15 +55,15 @@ const READ_GIVEN = new RegExp(
 const STORY = new RegExp(
   `\\b(?:${READ}|raconte|racontes|raconter|racontez|invente|inventer|fais|fait|faire|cree|creer|ecris|ecrire|joue|jouer|dis|dire)(?: moi| nous| lui)?(?: (?:une|un|des|une petite|un petit|une autre|un autre|une belle|une nouvelle|une jolie|ton|ta|tes))? (?:histoire|histoires|conte|contes|legende|legendes|recit)\\b`,
 );
-/** La personne parle d'une vraie page (photo) : sinon, sans texte donné, Tamilya invente l'histoire. */
-const PAGE = /\b(?:page|pages|livre|livres|bouquin|chapitre|photo|roman)\b/;
+/** La personne parle d'une vraie page ou d'une image (photo, capture) : sinon, sans texte donné, Tamilya invente l'histoire. */
+const PAGE = new RegExp(`\\b(?:page|pages|livre|livres|bouquin|chapitre|roman|${IMAGE})\\b`);
 
 export const detectStory = (message: string) => STORY.test(normalize(message));
 
 /** « Lis-moi cette page », « lis-moi un livre », « lis-moi ce message », « lecture 3D ». */
 export const detectReading = (message: string) => {
   const text = normalize(message);
-  return ASK.test(text) || NAMED.test(text) || LIVE.test(text) || READ_GIVEN.test(text);
+  return ASK.test(text) || ON_IMAGE.test(text) || NAMED.test(text) || LIVE.test(text) || READ_GIVEN.test(text);
 };
 
 /** Messages de la personne juste avant, le plus récent d'abord ; seuls les deux derniers comptent. */
@@ -138,7 +142,7 @@ export function withReadingBlock(reply: string, text: string | null): string {
  * Ce que la carte doit lire :
  * - texte : une histoire écrite ou collée par la personne, lue telle quelle ;
  * - histoire : une histoire inventée par Tamilya, d'après la demande (sujet, style) ;
- * - page : une vraie page de livre, prise en photo.
+ * - page : une vraie page de livre ou une image avec du texte, en photo ou en capture d'écran.
  * Demande de l'utilisateur (2026-11-08) : « je m'en fous de la page ; quand je dis lis-moi une
  * histoire, Tamilya la joue en 3D » : sans texte et sans parler de page, c'est une histoire inventée.
  */

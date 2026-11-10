@@ -30,11 +30,13 @@ const GIVEN = (source: "photo" | "texte" | "ecrite") => `Le texte :
 - Recopie le texte de la page mot pour mot, dans sa langue, sans rien résumer, ajouter ni corriger. Ignore les numéros de page, les en-têtes et les notes de bas de page.${
   source === "texte"
     ? "\n- Texte collé : lis seulement l'histoire. Ignore la mise en forme (#, **, ---), les titres de page et tout ce qui n'en fait pas partie (consignes, listes de vérification, commentaires autour)."
-    : ""
+    : source === "photo"
+      ? "\n- Capture d'écran ou photo d'un écran, d'un message, d'une affiche : lis le texte qu'on y lit, dans l'ordre. Ignore l'heure, la batterie, les boutons, les menus et les icônes de l'application. Dans une conversation (SMS, WhatsApp…), chaque personne qui écrit est un personnage."
+      : ""
 }
 - Découpe-le en répliques, dans l'ordre. Le récit va à la « ${NARRATOR} » (c'est toi). Les paroles d'un personnage vont à ce personnage ; les incises (« dit-il », « cria la vieille femme ») restent à la ${NARRATOR}.
 - Au plus ${READING_LIMITS.lines} répliques ; coupe une longue narration en morceaux de quelques phrases.
-- Si ${source === "photo" ? "la photo n'est pas une page de texte lisible" : "il n'y a pas d'histoire ou de texte à lire"}, mets lisible à false et explique simplement pourquoi dans raison (une phrase, en français, comme tu le dirais à une amie).`;
+- Si ${source === "photo" ? "l'image n'a pas de texte lisible" : "il n'y a pas d'histoire ou de texte à lire"}, mets lisible à false et explique simplement pourquoi dans raison (une phrase, en français, comme tu le dirais à une amie).`;
 
 const INVENTED = `L'histoire :
 - Invente une histoire originale, faite pour être écoutée les yeux fermés au casque : 250 à 450 mots, un début qui accroche, un moment fort, une fin. Jamais une histoire existante ni ses personnages.
@@ -91,7 +93,7 @@ export const scriptPrompt = (source: ScriptSource, catalog: CatalogSound[] = BUI
   const sounds = byKind(catalog);
   return `Tu es Tamilya, une jeune femme de Mayotte qui raconte et lit des histoires à voix haute. ${
   source === "photo"
-    ? "La personne t'envoie la photo d'une page de livre."
+    ? "La personne t'envoie une image avec du texte : la photo d'une page de livre, une capture d'écran, la photo d'un message ou d'une affiche."
     : source === "texte"
       ? "La personne t'a donné le texte ci-dessus, écrit ou collé dans la conversation."
       : source === "livre"
