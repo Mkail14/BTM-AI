@@ -100,11 +100,60 @@ export function runningLines(pages: PdfLine[][]): Set<string> {
 const PAGE_NUMBER = /^(page\s*)?\d{1,4}(\s*\/\s*\d{1,4})?$/i;
 const SENTENCE_END = /[.!?…:»"”)]$/;
 
+/**
+ * Mots composés coupés sur leur trait d'union (« dit- / il », « peut- / être », « grand- / mère ») :
+ * le trait reste, sinon la voix lit « ditil » ou « peutêtre ».
+ */
+const COMPOUND_AFTER =
+  /^(?:ci|là|même|mêmes|être|il|ils|elle|elles|on|je|tu|nous|vous|moi|toi|lui|leur|leurs|le|la|les|en|y|t|dire|unes|uns|deux|trois|quatre|cinq|six|sept|huit|neuf|dix|onze|douze|treize|quatorze|quinze|seize|vingt|cent|cents|mille|et)(?![\p{L}'’])/u;
+const COMPOUND_BEFORE =
+  /(?:^|[\s'’(«"-])(?:grand|grands|grande|grandes|demi|mi|semi|vice|ex|non|arc|avant|après|arrière|au|beau|belle|porte|sans|soi|vis|celui|celle|ceux|celles|peut|est|dit|fait|vingt|trente|quarante|cinquante|soixante|quatre|sous|sur|contre|entre|chef|haut|bas|rond|pot|garde|tire|chou|petit|petite|petits|petites|nord|sud|libre|franc|anglo|gallo|judéo|saint|sainte|états|ouest|là|ci)-$/iu;
+
 /** Recolle deux lignes : un mot coupé en fin de ligne (« inquié- / tantes ») redevient entier. */
 function joinLines(left: string, right: string) {
   if (!left) return right;
-  if (/\p{L}-$/u.test(left)) return /^\p{Ll}/u.test(right) ? left.slice(0, -1) + right : left + right;
+  if (/\p{L}-$/u.test(left)) return /^\p{Ll}/u.test(right) && !COMPOUND_AFTER.test(right) && !COMPOUND_BEFORE.test(left) ? left.slice(0, -1) + right : left + right;
+  // « l' / homme » : l'apostrophe colle au mot suivant.
+  if (/\p{L}['’]$/u.test(left)) return left + right;
+  // Lettrine : la grande première lettre (« L ») et la suite du mot (« orsque »).
+  if (/^\p{Lu}$/u.test(left) && /^\p{Ll}/u.test(right)) return left + right;
   return `${left} ${right}`;
+}
+
+/** Abréviations suivies d'un point qui ne finissent pas une phrase (« M. Dupont », « J. K. Rowling », « cf. »). */
+const ABBREVIATION = /^(?:\p{Lu}|M|MM|Mme|Mmes|Mlle|Mlles|Mr|Mrs|Dr|Pr|Me|Mgr|St|Ste|Sr|Jr|cf|p|pp|vol|chap|art|av|apr|J\.-C|ibid|op|fig|éd|env|réf)$/u;
+
+/**
+ * Débuts de phrase dans un texte (positions) : après . ! ? … (et un guillemet ou une parenthèse
+ * qui ferme), suivi d'une majuscule, d'un chiffre, d'un guillemet ou d'un tiret. Jamais au milieu
+ * de « « Bonjour ! » dit-il » ni après « M. » : avant, la coupure tombait parfois là, et le
+ * morceau suivant commençait par « dit-il. ».
+ */
+export function sentenceStarts(text: string): number[] {
+  const starts: number[] = [];
+  for (const match of text.matchAll(/[.!?…]+[»"”’)\]]*\s+/gu)) {
+    const end = (match.index ?? 0) + match[0].length;
+    if (end >= text.length || !/[\p{Lu}\d«"“—–\-(]/u.test(text[end])) continue;
+    if (/^\.(?!\.)/.test(match[0])) {
+      const word = text.slice(0, match.index).match(/(\S+)$/)?.[1].replace(/^[^\p{L}]+/u, "") ?? "";
+      if (ABBREVIATION.test(word)) continue;
+    }
+    starts.push(end);
+  }
+  return starts;
+}
+
+/** Les phrases d'un texte, dans l'ordre (voir sentenceStarts). */
+export function splitSentences(text: string): string[] {
+  const out: string[] = [];
+  let from = 0;
+  for (const at of sentenceStarts(text)) {
+    out.push(text.slice(from, at).trim());
+    from = at;
+  }
+  const rest = text.slice(from).trim();
+  if (rest) out.push(rest);
+  return out.filter(Boolean);
 }
 
 /**
@@ -113,10 +162,17 @@ function joinLines(left: string, right: string) {
  * nouveau paragraphe. Les numéros de page et les titres courants sont enlevés.
  */
 export function pagesToParagraphs(pages: PdfLine[][], skip: Set<string> = new Set()): string[] {
-  const lines = pages.map((page) => page.filter((line) => line.text.trim() && !PAGE_NUMBER.test(line.text.trim()) && !skip.has(shape(line.text))));
+  const kept = pages.map((page) => page.filter((line) => line.text.trim() && !PAGE_NUMBER.test(line.text.trim()) && !skip.has(shape(line.text))));
+  if (!kept.flat().length) return [];
+  const body = mostCommon(kept.flat().map((l) => Math.round(l.size)));
+  // Notes de bas de page (lettres plus petites, sous le texte) : enlevées. Sinon elles tombaient au
+  // milieu d'une phrase qui continue sur la page suivante (« il partit vers 1. Voir… la mer »).
+  const lines = kept.map((page) => {
+    let last = page.length - 1;
+    while (last >= 0 && page[last].size < body * 0.88) last--;
+    return last >= 0 ? page.slice(0, last + 1) : page;
+  });
   const all = lines.flat();
-  if (!all.length) return [];
-  const body = mostCommon(all.map((l) => Math.round(l.size)));
   const bodyLines = all.filter((l) => Math.round(l.size) === body);
   const margin = mostCommon(bodyLines.map((l) => Math.round(l.x)));
   const right = mostCommon(bodyLines.map((l) => Math.round(l.end / 4) * 4));
@@ -134,11 +190,19 @@ export function pagesToParagraphs(pages: PdfLine[][], skip: Set<string> = new Se
   for (const page of lines) {
     let previous: PdfLine | null = null;
     for (const line of page) {
-      const heading = line.size > body * 1.15;
+      // Après une lettrine, la suite du mot vient à côté (souvent en retrait) : même paragraphe.
+      if (/^\p{Lu}$/u.test(current.trim())) {
+        current = joinLines(current.trim(), line.text.trim());
+        previous = line;
+        continue;
+      }
+      const big = line.size > body * 1.15;
+      const dropCap = big && /^\p{Lu}$/u.test(line.text.trim());
+      const heading = big && !dropCap;
       const indented = line.x > margin + body * 0.8;
       const spaced = previous !== null && previous.y - line.y > gap * 1.6;
       const lastEnded = previous !== null && SENTENCE_END.test(previous.text.trim()) && previous.end < right - body * 3;
-      if (heading || indented || spaced || lastEnded) close();
+      if (big || indented || spaced || lastEnded) close();
       current = joinLines(current, line.text.trim());
       if (heading) close();
       previous = line;
@@ -164,8 +228,6 @@ export function mendBreaks(paragraphs: string[]): string[] {
   return out;
 }
 
-/** Phrases d'un paragraphe trop long pour un seul morceau. */
-const sentences = (text: string) => text.split(/(?<=[.!?…»])\s+/);
 
 /** Coupe un texte trop long sans couper un mot. */
 function hardSplit(text: string, max: number): string[] {
@@ -190,7 +252,7 @@ export function chunkParagraphs(paragraphs: string[], max = BOOK_CHUNK_CHARS): s
     if (p.length <= max) return [p];
     const out: string[] = [];
     let current = "";
-    for (const sentence of sentences(p).flatMap((s) => (s.length > max ? hardSplit(s, max) : [s]))) {
+    for (const sentence of splitSentences(p).flatMap((s) => (s.length > max ? hardSplit(s, max) : [s]))) {
       if (current && current.length + 1 + sentence.length > max) {
         out.push(current);
         current = sentence;
@@ -260,9 +322,9 @@ export function bookPlace(book: Pick<StoredBook, "chapters">, at: number): { cha
     for (let k = 0; k < chunks.length; k++) {
       last = { chapter: c, chunk: k, from: 0 };
       if (rest < chunks[k].length) {
-        const head = chunks[k].slice(0, rest);
-        const starts = [...head.matchAll(/(?:^|\n\n|[.!?…»]\s+)(?=\S)/g)].map((m) => (m.index ?? 0) + m[0].length);
-        return { chapter: c, chunk: k, from: starts.at(-1) ?? 0 };
+        const paragraphs = [...chunks[k].matchAll(/\n\n(?=\S)/g)].map((m) => (m.index ?? 0) + m[0].length);
+        const starts = [0, ...paragraphs, ...sentenceStarts(chunks[k])].filter((n) => n <= rest);
+        return { chapter: c, chunk: k, from: Math.max(...starts) };
       }
       rest -= chunks[k].length;
     }

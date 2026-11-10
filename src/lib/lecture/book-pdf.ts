@@ -29,7 +29,11 @@ function toLines(items: TextItem[]): PdfLine[] {
   for (const item of items) {
     const [, , , scale, x, y] = item.transform;
     const size = Math.abs(scale) || item.height;
-    if (item.str && (!current || Math.abs(current.y - y) > size * 0.5)) {
+    // Appel de note en exposant (« mer¹ », « mer* ») : petit et un peu plus haut. Ni lu, ni pris pour
+    // une nouvelle ligne : avant, la suite de la ligne devenait un paragraphe à part (« , puis il… »).
+    if (current?.text && size < current.size * 0.8 && /^\s*(?:\d{1,3}|[*†‡]{1,3})\s*$/.test(item.str)) continue;
+    // Écart de hauteur mesuré à la taille de la ligne : un exposant ou un indice reste sur la ligne.
+    if (item.str && (!current || Math.abs(current.y - y) > Math.max(size, current.size) * 0.5)) {
       if (current) lines.push(current);
       current = { text: "", x, y, size, end: x };
     }

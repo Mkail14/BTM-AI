@@ -13,6 +13,8 @@ import {
   nextChunk,
   pagesToParagraphs,
   runningLines,
+  sentenceStarts,
+  splitSentences,
   type PdfLine,
 } from "../src/lib/lecture/book";
 import { scriptPrompt, scriptSchema } from "../src/lib/lecture/prompt";
@@ -127,5 +129,40 @@ describe("Livre : continuité entre les morceaux", () => {
     // La partie vide est sautée.
     assert.deepEqual(bookPlace(book, 40), { chapter: 2, chunk: 0, from: 0 });
     assert.deepEqual(bookPlace(book, 999), { chapter: 2, chunk: 0, from: 0 });
+  });
+});
+
+describe("Livre : coutures entre les morceaux (2026-11-10)", () => {
+  it("garde le trait d'union des mots composés coupés en fin de ligne", () => {
+    assert.deepEqual(mendBreaks(["Il ne le dit pas, peut-", "être parce que."]), ["Il ne le dit pas, peut-être parce que."]);
+    const page = [line("Il a dit- ", 672), line("il partit au loin, car le", 651)];
+    assert.match(pagesToParagraphs([page]).join(" "), /dit-\s?il|dit- il|dit-il/);
+    assert.match(pagesToParagraphs([[line("son grand-", 672), line("père vint.", 651)]]).join(" "), /grand-père/);
+  });
+
+  it("recolle une lettrine à la suite de son mot", () => {
+    const body = [0, 1, 2, 3, 4].map((n) => line(`Texte courant ${n} qui remplit la ligne.`, 600 - n * 20, 77, 15, 535));
+    const page = [line("L", 672, 77, 30, 95), line("orsque la nuit tomba, les gens rentrèrent.", 651, 110, 15, 500), ...body];
+    // Le paragraphe s'arrête au grand blanc qui suit : la lettrine et son mot restent ensemble.
+    assert.equal(pagesToParagraphs([page])[0], "Lorsque la nuit tomba, les gens rentrèrent.");
+  });
+
+  it("enlève les notes de bas de page et garde l'appel de note dans la phrase", () => {
+    const page = [line("Il partit vers la mer", 672), line("et ne revint jamais.", 651), line("1 Voir le chapitre trois.", 60, 77, 9, 300)];
+    assert.deepEqual(pagesToParagraphs([page]), ["Il partit vers la mer et ne revint jamais."]);
+  });
+
+  it("ne coupe pas une phrase après une abréviation ou dans une citation", () => {
+    assert.deepEqual(splitSentences("M. Dupont arrive. Il dit « Bonjour ! » à tous."), ["M. Dupont arrive.", "Il dit « Bonjour ! » à tous."]);
+    assert.deepEqual(splitSentences("Il part. Elle reste."), ["Il part.", "Elle reste."]);
+  });
+
+  it("ne commence jamais un morceau sur un « dit-il » orphelin", () => {
+    const text = "« Je pars », dit-il. Elle reste.";
+    // Au milieu de « Elle reste » : la lecture reprend au début de cette phrase, pas au milieu de « dit-il ».
+    assert.equal(bookPlace({ chapters: [{ title: "A", chunks: [text] }] }, 25).from, sentenceStarts(text)[0]);
+    assert.equal(bookPlace({ chapters: [{ title: "A", chunks: [text] }] }, 25).from, 21);
+    // Avec des morceaux de taille réelle, la phrase entière reste dans son morceau.
+    assert.deepEqual(chunkParagraphs([text], 25), ["« Je pars », dit-il.", "Elle reste."]);
   });
 });
