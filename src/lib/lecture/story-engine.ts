@@ -9,8 +9,8 @@ import { preloadMusic, preloadSounds, setSoundCatalog, soundInfo } from "./sound
 /** Réglages de /admin/sons d'abord (reçus avec l'histoire), sinon les sons d'origine. */
 const isLight = (mood: Mood | null) => mood !== null && (soundInfo(mood) ? soundInfo(mood)?.light === true : LIGHT_MOODS.has(mood));
 const isScary = (sound: string) => (soundInfo(sound) ? soundInfo(sound)?.scary === true : SCARY_SOUNDS.has(sound));
-import { patchStory, unlockAudio, type BookStart, type StorySource } from "./stage";
-import { bookShare, EMPTY_MEMORY, nextChunk, nextMemory, type BookContext, type BookMemory, type StoredBook } from "./book";
+import { patchStory, playStory, unlockAudio, type BookStart, type BookTimeline, type StorySource, type StoryView } from "./stage";
+import { bookPlace, bookShare, charsBefore, EMPTY_MEMORY, nextChunk, nextMemory, type BookContext, type BookMemory, type StoredBook } from "./book";
 
 /**
  * Moteur de la lecture en 3D : la page (photo ou texte) ou l'histoire demandée part à Gemini
@@ -44,11 +44,13 @@ type Story = {
  * suivante pendant que la précédente se lit. La scène 3D reste ouverte entre les deux : décor,
  * lieu et musique changent en fondu, sans coupure.
  */
-type BookRun = { book: StoredBook; view: string; cancelled: boolean };
+type BookRun = { book: StoredBook; view: string; cancelled: boolean; timeline: Omit<BookTimeline, "at" | "rate"> };
 type BookPiece = {
   run: BookRun;
   chapter: number;
   chunk: number;
+  /** Lettres sautées au début du morceau (la barre a été déplacée au milieu). */
+  from: number;
   /** Mémoire reçue (gardée avec le marque-page : reprendre ici redonne les mêmes voix). */
   memory: BookMemory;
   /** Mémoire laissée au morceau suivant, une fois le début du script arrivé. */
@@ -74,6 +76,13 @@ let current: Story | null = null;
 let player: ScenePlayer | null = null;
 let paused = false;
 let wakeLock: WakeLockSentinel | null = null;
+
+/** Lettres par seconde de la voix de Tamilya, pauses comprises, tant qu'on ne l'a pas mesuré. */
+const DEFAULT_RATE = 14;
+/** Ce qui a été entendu des livres : la vitesse mesurée sert au temps qui reste. */
+let heardChars = 0;
+let heardSeconds = 0;
+const listenRate = () => (heardSeconds > 60 ? heardChars / heardSeconds : DEFAULT_RATE);
 
 async function shrinkPhoto(file: File): Promise<string> {
   const bitmap = await createImageBitmap(file);
@@ -188,27 +197,36 @@ async function runBook(view: string, start: BookStart) {
     patchStory(view, { status: "error", message: "Je ne retrouve pas ce livre sur ce téléphone." }, false);
     return announceReadingDone();
   }
-  const run: BookRun = { book, view, cancelled: false };
-  const kept = saved && saved.chapter === start.chapter && saved.chunk === start.chunk ? saved.memory : null;
+  const from = start.from ?? 0;
+  const parts: BookTimeline["parts"] = [];
+  let total = 0;
+  for (const chapter of book.chapters) {
+    if (chapter.chunks.length) parts.push({ title: chapter.title, at: total });
+    for (const text of chapter.chunks) total += text.length;
+  }
+  const run: BookRun = { book, view, cancelled: false, timeline: { total, parts } };
+  // La barre se place tout de suite là où la lecture va reprendre.
+  patchStory(view, { timeline: { ...run.timeline, at: charsBefore(book, start.chapter, start.chunk) + from, rate: listenRate() } });
+  const kept = saved && saved.chapter === start.chapter && saved.chunk === start.chunk && (saved.from ?? 0) === from ? saved.memory : null;
   // Ailleurs dans le livre : les voix des personnages restent, le résumé ne va plus.
   const memory = kept ?? { ...EMPTY_MEMORY, personnages: saved?.memory?.personnages ?? [] };
-  const story = bookStory(run, start.chapter, start.chunk, memory, start.chunk > 0, true);
+  const story = bookStory(run, start.chapter, start.chunk, memory, start.chunk > 0 || from > 0, true, from);
   current = story;
 }
 
 /** Prépare un morceau du livre (et le lance si c'est le premier). */
-function bookStory(run: BookRun, chapter: number, chunk: number, memory: BookMemory, reprise: boolean, autostart: boolean): Story {
-  const story = newStory(`${run.view}#${chapter}.${chunk}`, run.view, { run, chapter, chunk, memory, after: null, plain: false, next: null });
+function bookStory(run: BookRun, chapter: number, chunk: number, memory: BookMemory, reprise: boolean, autostart: boolean, from = 0): Story {
+  const story = newStory(`${run.view}#${chapter}.${chunk}`, run.view, { run, chapter, chunk, from, memory, after: null, plain: false, next: null });
   const part = run.book.chapters[chapter];
   const livre: BookContext = {
     livre: run.book.title,
     chapitre: part.title,
-    nouveauChapitre: chunk === 0,
+    nouveauChapitre: chunk === 0 && from === 0,
     reprise,
     fin: nextChunk(run.book, chapter, chunk) === null,
     ...memory,
   };
-  void prepare(story, Promise.resolve({ text: part.chunks[chunk], livre }), autostart);
+  void prepare(story, Promise.resolve({ text: part.chunks[chunk].slice(from), livre }), autostart);
   return story;
 }
 
@@ -264,7 +282,7 @@ async function prepare(story: Story, request: Promise<object>, autostart = true)
   // Le moteur 3D se télécharge pendant que Gemini écrit.
   void preloadResonance();
   const piece = story.book;
-  const chunkText = piece ? piece.run.book.chapters[piece.chapter].chunks[piece.chunk] : "";
+  const chunkText = piece ? piece.run.book.chapters[piece.chapter].chunks[piece.chunk].slice(piece.from) : "";
   /** Livre : le texte manquant est lu simplement, et le morceau suivant se prépare. */
   const complete = () => {
     if (!piece || !story.feed) return;
@@ -389,7 +407,7 @@ function bookProgress(piece: BookPiece) {
 /** Marque-page : ce morceau, avec la mémoire qui permet de le préparer pareil (mêmes voix, même résumé). */
 function saveBookmark(piece: BookPiece, done = false) {
   void import("./book-store").then(({ saveProgress }) =>
-    saveProgress(piece.run.book.id, { chapter: piece.chapter, chunk: piece.chunk, memory: piece.memory, updatedAt: Date.now(), ...(done && { done }) }),
+    saveProgress(piece.run.book.id, { chapter: piece.chapter, chunk: piece.chunk, from: piece.from, memory: piece.memory, updatedAt: Date.now(), ...(done && { done }) }),
   ).catch(() => {});
 }
 
@@ -415,7 +433,12 @@ async function play(story: Story, script: SceneScript, carried: ScenePlayer | nu
   const piece = story.book;
   if (piece) saveBookmark(piece);
   const offset = script.intro ? 1 : 0;
-  patchStory(story.view, { status: "playing", title: piece ? piece.run.book.title : script.title, ...(piece && { progress: bookProgress(piece) }) }, true);
+  // Livre : la barre avance à chaque réplique lue (le texte recopié par Gemini, à peu près celui du livre).
+  const start = piece ? charsBefore(piece.run.book, piece.chapter, piece.chunk) + piece.from : 0;
+  const size = piece ? piece.run.book.chapters[piece.chapter].chunks[piece.chunk].length - piece.from : 0;
+  let read = 0;
+  const timeline = (): Partial<StoryView> => (piece ? { timeline: { ...piece.run.timeline, at: start + Math.min(read, size), rate: listenRate() } } : {});
+  patchStory(story.view, { status: "playing", title: piece ? piece.run.book.title : script.title, ...(piece && { progress: bookProgress(piece) }), ...timeline() }, true);
   setVoiceLevelSource(() => scene.level());
   // Sa voix se fait entendre : le message d'attente sous le globe s'efface.
   let heard = false;
@@ -476,9 +499,17 @@ async function play(story: Story, script: SceneScript, carried: ScenePlayer | nu
       hear();
       await scene.playLine(line, voice);
       scene.duck(false);
+      if (piece && !scene.isStopped) {
+        heardChars += line.text.length;
+        heardSeconds += voice.duration + 0.65;
+      }
     }
     // Un livre fait des heures de voix : chaque réplique lue libère sa mémoire.
-    if (piece) story.voices.delete(offset + i);
+    if (piece) {
+      story.voices.delete(offset + i);
+      read += line.text.length;
+      if (!scene.isStopped) patchStory(story.view, timeline());
+    }
     const after = cues.filter((c) => c.when === "apres");
     if (after.length) await scene.wait(Math.min(2, Math.max(...after.map((c) => scene.playCue(c))) * 0.7));
     await scene.wait(0.3);
@@ -525,6 +556,16 @@ export async function toggleStory() {
   else await player.pause();
   paused = !paused;
   patchStory(story.view, { status: paused ? "paused" : "playing" });
+}
+
+/** La barre du livre lâchée ailleurs : la lecture repart du début de la phrase la plus proche. */
+export function seekBook(at: number) {
+  const piece = current?.book;
+  if (!piece) return;
+  const { run } = piece;
+  const place = bookPlace(run.book, at);
+  patchStory(run.view, { timeline: { ...run.timeline, at: charsBefore(run.book, place.chapter, place.chunk) + place.from, rate: listenRate() } });
+  playStory(run.view, { book: { id: run.book.id, ...place } });
 }
 
 /** La croix : arrête l'histoire (ou l'empêche de démarrer si elle se prépare encore). */

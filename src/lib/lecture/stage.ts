@@ -8,7 +8,14 @@
  */
 
 /** Livre gardé dans le téléphone (book-store.ts) : lu à partir de ce morceau, puis jusqu'au bout. */
-export type BookStart = { id: string; chapter: number; chunk: number };
+export type BookStart = { id: string; chapter: number; chunk: number; from?: number };
+
+/**
+ * Livre : la barre sous le globe. Tout est compté en lettres (at : où on en est, total : tout le
+ * livre) ; rate : lettres entendues par seconde, pour dire le temps qui reste. parts : début de
+ * chaque partie, montrée quand on fait glisser la barre.
+ */
+export type BookTimeline = { at: number; total: number; rate: number; parts: { title: string; at: number }[] };
 export type StorySource = { text: string } | { story: string } | { photo: File } | { book: BookStart };
 
 export type StoryView = {
@@ -23,6 +30,7 @@ export type StoryView = {
   started?: boolean;
   /** Livre : la partie en cours et où on en est (« 3 - La loi… · 12 % »). */
   progress?: string;
+  timeline?: BookTimeline;
 };
 
 type Snapshot = { active: StoryView | null; stories: ReadonlyMap<string, StoryView> };
@@ -54,7 +62,9 @@ const engine = () => import("./story-engine");
 
 /** Ouvre le globe et raconte (ou rejoue l'histoire déjà préparée sous cette clé). */
 export function playStory(key: string, source: StorySource) {
-  patchStory(key, { status: "preparing", message: undefined, started: false, progress: undefined, kind: "story" in source ? "histoire" : "lecture" }, true);
+  // Un livre garde sa barre pendant qu'il se prépare : elle ne saute pas quand on la déplace.
+  const timeline = "book" in source ? {} : { timeline: undefined };
+  patchStory(key, { status: "preparing", message: undefined, started: false, progress: undefined, kind: "story" in source ? "histoire" : "lecture", ...timeline }, true);
   // Le son doit s'ouvrir pendant le geste de la personne : avant le chargement du moteur.
   unlockAudio();
   void engine().then((m) => m.runStory(key, source));
@@ -70,6 +80,12 @@ export function playStoryOnce(key: string, source: StorySource) {
 
 export function toggleStory() {
   void engine().then((m) => m.toggleStory());
+}
+
+/** La barre du livre lâchée à cette position (en lettres) : la lecture reprend là. */
+export function seekStory(at: number) {
+  unlockAudio();
+  void engine().then((m) => m.seekBook(at));
 }
 
 export function stopStory() {

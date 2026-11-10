@@ -68,14 +68,14 @@ export function BookButton({ disabled = false }: { disabled?: boolean }) {
     };
   }, [open]);
 
-  const listen = (id: string, chapter: number, chunk: number) => {
+  const listen = (id: string, chapter: number, chunk: number, from = 0) => {
     setOpen(false);
-    playStory(viewKey(id), { book: { id, chapter, chunk } });
+    playStory(viewKey(id), { book: { id, chapter, chunk, from } });
   };
 
   const resume = (book: BookSummary) => {
     const mark = book.progress;
-    if (mark && !mark.done) listen(book.id, mark.chapter, mark.chunk);
+    if (mark && !mark.done) listen(book.id, mark.chapter, mark.chunk, mark.from);
     else listen(book.id, 0, 0);
   };
 

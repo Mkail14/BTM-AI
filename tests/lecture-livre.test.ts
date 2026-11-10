@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   bookContextSchema,
+  bookLength,
+  bookPlace,
   bookShare,
+  charsBefore,
   chunkParagraphs,
   cleanText,
   isSkippedPart,
@@ -111,5 +114,18 @@ describe("Livre : continuité entre les morceaux", () => {
     assert.match(prompt, /annonce la partie qui commence/);
     assert.ok(scriptSchema(undefined, true).required.includes("resume"));
     assert.ok(!(scriptSchema().required as readonly string[]).includes("resume"));
+  });
+
+  it("place la barre du livre au début d'une phrase", () => {
+    const book = { chapters: [{ title: "A", chunks: ["Une phrase. Deux mots ici.", "Bonjour toi."] }, { title: "B", chunks: [] }, { title: "C", chunks: ["Fin du livre."] }] };
+    assert.equal(bookLength(book), 26 + 12 + 13);
+    assert.equal(charsBefore(book, 2, 0), 38);
+    assert.deepEqual(bookPlace(book, 0), { chapter: 0, chunk: 0, from: 0 });
+    // Au milieu de « Deux mots » : la lecture reprend à « Deux ».
+    assert.deepEqual(bookPlace(book, 18), { chapter: 0, chunk: 0, from: 12 });
+    assert.deepEqual(bookPlace(book, 30), { chapter: 0, chunk: 1, from: 0 });
+    // La partie vide est sautée.
+    assert.deepEqual(bookPlace(book, 40), { chapter: 2, chunk: 0, from: 0 });
+    assert.deepEqual(bookPlace(book, 999), { chapter: 2, chunk: 0, from: 0 });
   });
 });

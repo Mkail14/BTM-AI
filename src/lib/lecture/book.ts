@@ -22,8 +22,11 @@ export type StoredBook = { id: string; title: string; addedAt: number; pages: nu
 
 /** Ce que Tamilya garde d'un morceau à l'autre : les voix des personnages, le décor, où on en est. */
 export type BookMemory = { resume: string; personnages: KnownCharacter[]; lieu: ScenePlace | null; musique: string | null; decor: string[] };
-/** Marque-page : le morceau en cours (repris depuis son début), avec la mémoire qui a servi à le préparer. done : livre fini. */
-export type BookProgress = { chapter: number; chunk: number; memory: BookMemory | null; updatedAt: number; done?: boolean };
+/**
+ * Marque-page : le morceau en cours (repris depuis son début, ou depuis from quand la personne a
+ * déplacé la barre), avec la mémoire qui a servi à le préparer. done : livre fini.
+ */
+export type BookProgress = { chapter: number; chunk: number; from?: number; memory: BookMemory | null; updatedAt: number; done?: boolean };
 
 export const EMPTY_MEMORY: BookMemory = { resume: "", personnages: [], lieu: null, musique: null, decor: [] };
 
@@ -233,6 +236,38 @@ export function bookShare(book: Pick<StoredBook, "chapters">, chapter: number, c
   const total = book.chapters.reduce((n, c) => n + c.chunks.length, 0);
   const before = book.chapters.slice(0, chapter).reduce((n, c) => n + c.chunks.length, 0) + chunk;
   return total ? before / total : 0;
+}
+
+/** Nombre de lettres avant ce morceau (chapitres d'avant compris) : la position dans le livre. */
+export function charsBefore(book: Pick<StoredBook, "chapters">, chapter: number, chunk: number) {
+  let n = 0;
+  for (let c = 0; c < chapter; c++) for (const text of book.chapters[c]?.chunks ?? []) n += text.length;
+  for (const text of book.chapters[chapter]?.chunks.slice(0, chunk) ?? []) n += text.length;
+  return n;
+}
+
+export const bookLength = (book: Pick<StoredBook, "chapters">) => charsBefore(book, book.chapters.length, 0);
+
+/**
+ * L'endroit du livre à une position (en lettres) : le morceau, et dans le morceau le début de la
+ * phrase la plus proche avant (from), pour ne jamais commencer au milieu d'un mot.
+ */
+export function bookPlace(book: Pick<StoredBook, "chapters">, at: number): { chapter: number; chunk: number; from: number } {
+  let rest = Math.max(0, at);
+  let last = { chapter: 0, chunk: 0, from: 0 };
+  for (let c = 0; c < book.chapters.length; c++) {
+    const chunks = book.chapters[c].chunks;
+    for (let k = 0; k < chunks.length; k++) {
+      last = { chapter: c, chunk: k, from: 0 };
+      if (rest < chunks[k].length) {
+        const head = chunks[k].slice(0, rest);
+        const starts = [...head.matchAll(/(?:^|\n\n|[.!?…»]\s+)(?=\S)/g)].map((m) => (m.index ?? 0) + m[0].length);
+        return { chapter: c, chunk: k, from: starts.at(-1) ?? 0 };
+      }
+      rest -= chunks[k].length;
+    }
+  }
+  return last;
 }
 
 /** Morceau suivant (chapitre suivant au besoin) ; null à la fin du livre. */

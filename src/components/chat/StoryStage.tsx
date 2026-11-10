@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
 import { IconClose } from "@/components/ui/icons";
-import { getServerStories, getStories, stopStory, subscribeStories, toggleStory, type StoryView } from "@/lib/lecture/stage";
+import { getServerStories, getStories, seekStory, stopStory, subscribeStories, toggleStory, type BookTimeline, type StoryView } from "@/lib/lecture/stage";
 import { AwaBlob } from "./AwaBlob";
 import { useLeavingStage } from "./stage-fade";
 
@@ -11,7 +11,7 @@ import { useLeavingStage } from "./stage-fade";
  * Le grand globe de Tamilya qui raconte une histoire (lecture en 3D), en plein écran comme le vocal.
  * Monté une seule fois pour tout le site (layout) : il ne disparaît pas quand la conversation se
  * redessine. Le globe bouge pendant qu'elle se prépare, puis gonfle au rythme de ce qu'on entend.
- * Toucher le globe : pause ; la croix : stop.
+ * Toucher le globe : pause ; la croix : stop. Un livre a sa barre, à faire glisser comme une vidéo.
  */
 export function StoryStage() {
   const { active: current } = useSyncExternalStore(subscribeStories, getStories, getServerStories);
@@ -48,6 +48,7 @@ export function StoryStage() {
           ) : null}
         </div>
       </div>
+      {active.timeline ? <BookBar timeline={active.timeline} /> : null}
       <span className="sr-only" aria-live="polite">
         {label}
       </span>
@@ -83,5 +84,60 @@ function WaitingNote({ kind }: { kind: StoryView["kind"] }) {
     <p key={text} aria-live="polite" className="animate-[voice-fade-in_400ms_ease-out] text-center text-sm text-white/70">
       {text}
     </p>
+  );
+}
+
+/** « 50 min », « 2 h 05 » : le temps d'écoute, à la minute près. */
+function duration(seconds: number) {
+  const minutes = Math.round(seconds / 60);
+  if (minutes < 60) return `${minutes} min`;
+  const rest = minutes % 60;
+  return `${Math.floor(minutes / 60)} h${rest ? ` ${String(rest).padStart(2, "0")}` : ""}`;
+}
+
+/**
+ * La barre du livre (demande de l'utilisateur, 2026-11-10) : où on en est et le temps qui reste,
+ * à faire glisser comme celle d'une vidéo. Pendant qu'on la tient, la partie visée s'affiche ; une
+ * fois lâchée, la lecture reprend au début de la phrase la plus proche.
+ */
+function BookBar({ timeline }: { timeline: BookTimeline }) {
+  /** base : la position au moment de toucher ; la barre lâchée reste là jusqu'à ce que la lecture y soit. */
+  const [drag, setDrag] = useState<{ at: number; base: number; held: boolean } | null>(null);
+  const shown = drag && (drag.held || drag.base === timeline.at) ? drag.at : timeline.at;
+  const left = (timeline.total - shown) / timeline.rate;
+  const part = drag?.held ? timeline.parts.findLast((p) => p.at <= drag.at) : undefined;
+  const fill = timeline.total ? (shown / timeline.total) * 100 : 0;
+  const elapsed = duration(shown / timeline.rate);
+  const remaining = left < 60 ? "Presque fini" : `Il reste ${duration(left)}`;
+  const commit = () => {
+    if (!drag?.held) return;
+    setDrag({ ...drag, held: false });
+    seekStory(drag.at);
+  };
+
+  return (
+    <div className="mb-6 w-full max-w-md">
+      <p className="h-5 truncate text-center text-xs text-white/70">{part?.title}</p>
+      <input
+        type="range"
+        min={0}
+        max={timeline.total}
+        // Les flèches du clavier avancent ou reculent d'environ 30 secondes.
+        step={Math.max(1, Math.round(timeline.rate * 30))}
+        value={shown}
+        onChange={(event) => setDrag({ at: Number(event.target.value), base: drag?.held ? drag.base : timeline.at, held: true })}
+        onPointerUp={commit}
+        onKeyUp={commit}
+        onBlur={commit}
+        aria-label="Position dans le livre"
+        aria-valuetext={`${elapsed} écoutées, ${remaining.toLowerCase()}`}
+        className="book-bar"
+        style={{ "--fill": `${fill}%` } as CSSProperties}
+      />
+      <div className="flex justify-between text-xs text-white/60 tabular-nums">
+        <span>{elapsed}</span>
+        <span>{remaining}</span>
+      </div>
+    </div>
   );
 }
