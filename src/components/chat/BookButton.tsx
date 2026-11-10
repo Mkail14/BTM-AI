@@ -1,6 +1,6 @@
 "use client";
 
-import { BookOpen, FileUp, LoaderCircle, Trash2 } from "lucide-react";
+import { BookOpen, ChevronDown, FileUp, LoaderCircle, Play, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { IconPlus } from "@/components/ui/icons";
@@ -25,6 +25,8 @@ export function BookButton({ disabled = false }: { disabled?: boolean }) {
   const [books, setBooks] = useState<BookSummary[] | null>(null);
   const [reading, setReading] = useState<string | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  /** Le livre dont on voit les parties (une seule liste ouverte à la fois). */
+  const [parts, setParts] = useState<string | null>(null);
   const picker = useRef<HTMLInputElement>(null);
   const box = useRef<HTMLDivElement>(null);
   const { active } = useSyncExternalStore(subscribeStories, getStories, getServerStories);
@@ -121,13 +123,13 @@ export function BookButton({ disabled = false }: { disabled?: boolean }) {
       {open ? (
         <div role="menu" className="absolute bottom-full left-0 z-30 mb-2 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-border bg-bg shadow-xl">
           {books?.length ? (
-            <ul className="max-h-64 overflow-y-auto py-1">
+            <ul className="max-h-[min(24rem,60vh)] overflow-y-auto py-1">
               {books.map((book) => {
                 const mark = book.progress;
                 const shape = { chapters: book.chapters.map((c) => ({ title: c.title, chunks: Array.from({ length: c.chunks }, () => "") })) };
                 const share = mark ? (mark.done ? 1 : bookShare(shape, mark.chapter, mark.chunk)) : 0;
                 return (
-                  <li key={book.id} className="flex items-center">
+                  <li key={book.id} className="flex flex-wrap items-center">
                     <button type="button" role="menuitem" onClick={() => resume(book)} className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2 text-left hover:bg-bg-muted">
                       <BookOpen size={16} aria-hidden="true" className="shrink-0 text-accent" />
                       <span className="min-w-0 flex-1">
@@ -138,9 +140,36 @@ export function BookButton({ disabled = false }: { disabled?: boolean }) {
                         </span>
                       </span>
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => setParts(parts === book.id ? null : book.id)}
+                      aria-label={`Parties de ${book.title}`}
+                      aria-expanded={parts === book.id}
+                      className="shrink-0 rounded-full p-2 text-fg-muted hover:bg-bg-muted hover:text-fg"
+                    >
+                      <ChevronDown size={14} aria-hidden="true" className={`transition ${parts === book.id ? "rotate-180" : ""}`} />
+                    </button>
                     <button type="button" onClick={() => void remove(book)} aria-label={`Retirer ${book.title}`} className="mr-1 shrink-0 rounded-full p-2 text-fg-muted hover:bg-bg-muted hover:text-danger">
                       <Trash2 size={14} aria-hidden="true" />
                     </button>
+                    {parts === book.id ? (
+                      // Une partie précise : lue depuis son début, puis la suite du livre.
+                      <ol className="w-full basis-full border-y border-border bg-bg-subtle py-1">
+                        {book.chapters.map((chapter, index) => (
+                          <li key={index}>
+                            <button
+                              type="button"
+                              role="menuitem"
+                              onClick={() => listen(book.id, index, 0)}
+                              className={`flex w-full items-center gap-2 py-1.5 pr-3 pl-9 text-left text-xs hover:bg-bg-muted ${mark && !mark.done && mark.chapter === index ? "font-semibold text-accent" : ""}`}
+                            >
+                              <Play size={10} aria-hidden="true" className="shrink-0 text-fg-muted" />
+                              <span className="min-w-0 flex-1 truncate">{chapter.title}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ol>
+                    ) : null}
                   </li>
                 );
               })}
