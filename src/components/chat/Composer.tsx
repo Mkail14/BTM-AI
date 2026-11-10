@@ -99,7 +99,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
   }
 
   return (
-    // Envoyer (ou arrêter) flotte à droite de la barre, dans sa propre bulle ronde, comme le + des livres à gauche.
+    // Envoyer (ou arrêter) flotte à droite de la barre, dans sa propre bulle ronde, comme le + à gauche.
     <div className="flex items-end gap-2">
       <form
         id="composer-form"

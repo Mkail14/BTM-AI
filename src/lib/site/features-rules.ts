@@ -7,26 +7,26 @@
 export const FEATURES = [
   {
     id: "documents",
-    label: "Envoyer un document",
-    description: "Le + de la conversation range une photo, un scan ou un PDF dans le Google Drive de la personne, et la page Mes documents.",
+    label: "Photo ou document",
+    description: "Le + de la conversation : prendre une photo, ou envoyer un document ou une image, rangés dans le Google Drive de la personne. Et la page Mes documents.",
     default: true,
   },
   {
     id: "cyclone",
     label: "Cyclones",
-    description: "La carte des cyclones, depuis le + ou quand on en parle à Tamilya.",
+    description: "La carte des cyclones, quand on en parle à Tamilya.",
     default: true,
   },
   {
     id: "attestation",
     label: "Attestation d'hébergement",
-    description: "Le formulaire d'attestation d'hébergement, depuis le + ou quand on la demande à Tamilya.",
+    description: "Le formulaire d'attestation d'hébergement, quand on la demande à Tamilya.",
     default: true,
   },
   {
     id: "livres",
     label: "Livres lus par Tamilya",
-    description: "Un PDF lu en entier, en 3D, depuis le + de la conversation. Coûte des appels Gemini à chaque morceau (~4 min d'écoute).",
+    description: "Un PDF lu en entier, en 3D. Sorti du + le 2026-11-10 : plus d'entrée dans le site pour l'instant. Coûte des appels Gemini à chaque morceau (~4 min d'écoute).",
     default: false,
   },
 ] as const;

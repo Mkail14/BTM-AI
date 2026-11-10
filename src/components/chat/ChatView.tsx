@@ -832,9 +832,9 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
               {voice.error}
             </p>
           ) : null}
-          {/* Le + (documents, cyclones, attestation, livres : /admin/fonctionnalites) flotte à gauche de la barre, dans sa propre bulle. */}
+          {/* Le + (photo ou document, si « documents » est allumé : /admin/fonctionnalites) flotte à gauche de la barre, dans sa propre bulle. */}
           <div className="flex items-end gap-2">
-            {user ? <PlusMenu features={user.features ?? []} isAdmin={Boolean(user.isAdmin)} disabled={blocked || !online || isStreaming} onAsk={(text) => void send(text)} /> : null}
+            {user?.features?.includes("documents") ? <PlusMenu disabled={blocked || !online || isStreaming} /> : null}
             <div className="min-w-0 flex-1">
               <Composer
                 ref={composerRef}
