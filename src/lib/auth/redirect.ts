@@ -17,7 +17,6 @@ export const PROTECTED_PATH_PREFIXES = [
   "/parametres",
   "/portefeuille",
   "/documents",
-  "/livres",
   "/utilisation",
   "/admin",
   "/auth/nouveau-mot-de-passe",

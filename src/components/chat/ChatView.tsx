@@ -23,6 +23,7 @@ import type { ChatStreamEvent, ChatTurn } from "@/lib/chat/types";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
 import { AwaBlob } from "./AwaBlob";
 import { fadeOutHome, noteGlobeOrigin, takeGlobeOrigin } from "./globe-origin";
+import { BookButton } from "./BookButton";
 import { Composer, type ComposerHandle } from "./Composer";
 import { MessageItem, type UiMessage } from "./MessageItem";
 import { wantsSpokenReply } from "@/lib/voice-live/spoken-request";
@@ -849,6 +850,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             placeholder="Demande-moi ce que tu veux…"
             // Conversation vide : des exemples défilent pour montrer ce que Tamilya sait faire ; ensuite, le texte reste fixe.
             examples={messages.length === 0 ? [...(user?.isAdmin ? [FOOD_EXAMPLE] : []), ...EXAMPLES] : undefined}
+            // Livres lus en entier par Tamilya : la lecture en 3D est encore réservée aux administrateurs.
+            leading={user?.isAdmin ? <BookButton disabled={!online} /> : null}
             trailing={
               voiceEnabled ? (
                 <button
