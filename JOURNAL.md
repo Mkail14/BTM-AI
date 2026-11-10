@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `d27a206` (2026-11-10)**
+**Dernier commit noté : `d59720a` (2026-11-10)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -103,6 +103,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-10
+- **Lecture : une image avec du texte, en photo ou en capture d'écran** (`d59720a`). Demande de l'utilisateur : pouvoir demander la lecture d'une image avec du texte, d'une capture ou d'une photo. Le + propose « Lire une page en photo » (appareil photo) et « Lire une image ou une capture » (galerie : avant, la carte ouvrait seulement l'appareil photo, donc pas de capture d'écran possible) ; la carte de lecture a les deux boutons. « Lis-moi cette image / cette capture / ce qui est écrit sur la photo » est reconnu. Gemini lit une capture sans l'interface (heure, boutons) ; dans une conversation, chaque personne est un personnage. Image réduite à 1,47 Mpx au lieu de 1 400 px de côté : une capture de téléphone (haute et étroite) restait à 630 px de large, trop petit pour lire. PDF scanné toujours refusé. Vérifié : types, lint, 663 tests (1 nouveau). Pas encore essayé sur la tablette.
 - **Conversation : envoyer dans sa propre bulle** (`d27a206`). Demande de l'utilisateur : le même rendu que le + des livres pour le bouton envoyer. Il sort de la barre, à droite, en bulle ronde de la hauteur de la barre, remplie de la couleur de Tamilya avec une ombre de la même couleur ; il grossit un peu au toucher. Le bouton arrêter (pendant une réponse) a la même forme. La barre garde le micro. Vérifié : types, lint. Pas encore vu à l'écran.
 - **Livres : le + dans sa propre bulle** (`c598b15`). Demande de l'utilisateur : le + arrondi en dehors de la barre de conversation, pour un rendu plus stylé. Bulle ronde à gauche de la barre, de sa hauteur (une ligne), avec le même bord et la même ombre ; elle grossit un peu au toucher, prend la couleur de Tamilya et le + tourne en × quand le menu est ouvert. Vérifié : types, lint. Pas encore vu à l'écran.
 - **Livres : choisir une partie dans le +** (`9c283d7`). Demande de l'utilisateur, après le retrait de la page « Mes livres » : retrouver le choix d'un chapitre. Une flèche par livre dans le menu du + montre ses parties ; en toucher une la lit depuis son début, puis la suite du livre. Vérifié : types, lint. Pas encore vu sur la tablette.
