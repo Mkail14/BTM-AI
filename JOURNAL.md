@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `44b3802` (2026-11-12, audit/2026-11-07, develop et main)**
+**Dernier commit noté : `0e25fe0` (2026-11-12, audit/2026-11-07)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -104,6 +104,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-12
+- **Tickets de barge payés : mise en page revue** (`0e25fe0`). Remarque de l'utilisateur : le fond des tickets était retiré, mais pas la disposition faite pour un cadre. Maintenant : plus de marge en trop, tickets et textes alignés à gauche comme les messages de Tamilya ; plusieurs tickets posés en haut (un ticket usé, plus court, ne décale plus les autres), 3 tickets sur une même ligne ; total et consigne en une seule ligne. Dans le formulaire de rachat, les tickets gardent leur marge. Vérifié : types, lint. Pas vu sur téléphone.
 - Repas : Freddy's May Food (Passamainty), Top Cuisine 976 (en face de la mosquée de Majicavo-Lamir) et Kazdal (rue du Collège Ouvoimoja, Passamainty) placés d'après les indications de l'utilisateur (`44b3802`). Reste à placer : Tasty Snack, Le Finidy, Lunch Box Gourmet, Traiteur Good Eat, Le Goût des îles. Vérifié : 3 tests.
 - Repas : position exacte de 16 restaurants sur 24, relevée sur Google Maps à la demande de l'utilisateur (`3ecf1b8`). Le tri « les plus proches » et la distance en km marchent pour eux ; le quartier affiché est le plus proche connu (Kawéni, Cavani…). Pas placés : Freddy's May Food (deux fiches possibles), Top Cuisine 976 (fiches à Koungou et Combani seulement), Kazdal, Tasty Snack, Le Finidy, Lunch Box Gourmet, Traiteur Good Eat, Le Goût des îles. Vérifié : types, lint, 3 tests.
 - **Tout envoyé sur main et develop** (`62e9f03` sur main, `3e778d5` sur develop). Remarque de l'utilisateur : le logo Groupe BTM n'apparaissait toujours pas dans les tickets de barge. Cause : le correctif (`086e4b8`) était resté sur la branche audit/2026-11-07, jamais fusionné. Envoyés avec lui : devis BTM en 3D, ticket usé qui se ferme, cartes du chat, clavier Android, correction des mots appris, restos les plus proches. Conflit dans `Composer.tsx` : gardé le bouton envoyer dans sa bulle (main) avec le correctif du clavier Android. Vérifié : types (sauf pdfjs, pas installé sur le PC), 684 tests (3 lents qui passent seuls).
