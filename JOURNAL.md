@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `7c42986` (2026-11-12, branche audit/2026-11-07)**
+**Dernier commit noté : `30d42cb` (2026-11-12, branche audit/2026-11-07)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -104,6 +104,8 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-12
+- Champ du chat : sur Android, le clavier remettait parfois le début du message dans le champ juste après l'envoi ; ce retour est ignoré pendant 1,5 s (`30d42cb`). Vérifié : types. Pas testé sur téléphone.
+- Cartes du chat : quand Tamilya colle le bloc d'une carte au bout de sa phrase (« ```ticket-barge »), il est remis sur ses lignes ; avant, on voyait le texte brut et une barre grise (`9410295`). Seuls les blocs de cartes connus sont touchés. Vérifié : types, 6 tests.
 - **Tamilya corrige le français d'un mot appris en conversation** (`7c42986`). Remarque de l'utilisateur : Tamilya avait retenu « ya havih » = « il est ou » ; la correction « c'est où avec un accent » ne changeait rien. Causes : le message n'était pas reconnu comme une leçon (« accent », « corrige », « faux »… absents), la consigne ne parlait que de corriger le shimaoré, et le remplacement ne visait que le même français écrit à l'identique. Maintenant : ces mots déclenchent la relecture, la consigne donne l'exemple, et une leçon du chat remplace aussi l'entrée du même shimaoré (pas les listes collées dans /admin/lexique, pour garder les synonymes). Entrée réparée à la main dans la base : « il est où ? » = « Ya havih ». Vérifié : types, tests. Pas encore essayé en conversation.
 - **Ticket de barge usé : toucher le flou le ferme** (`8819b97`). Remarque de l'utilisateur : sur téléphone, un ticket usé affiché en grand ne se fermait pas en touchant le flou. Cause : le bas arraché laissait une zone vide qui comptait encore comme le ticket. Maintenant le cadre du ticket usé est raccourci, et toucher le texte « Ticket utilisé » ferme aussi. Le commit inclut des retouches déjà en attente (tickets sans cadre, ticket usé raccourci dans la liste). Vérifié : types. Pas testé sur téléphone.
 - Tickets de barge : le logo Groupe BTM remplace le mot « BTM » au centre du QR code ; même carré blanc, donc le QR reste lisible (`086e4b8`).
