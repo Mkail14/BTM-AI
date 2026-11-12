@@ -9,10 +9,8 @@ import { VILLAGES } from "@/lib/geo/villages";
  * position de chaque restaurant, relevée sur Google Maps le 2026-11-12 à la demande
  * de l'utilisateur. Gardé hors de jeje-catalog.ts, qui est regénéré.
  *
- * Pas encore placés (fiche absente ou douteuse sur Google Maps) : Freddy's May Food
- * (« Freddy's » à Passamainty ou « May'Food » rue du Cinéma ?), Top Cuisine 976
- * (fiches à Koungou et Combani, pas à Mamoudzou), Kazdal, Tasty Snack, Le Finidy,
- * Lunch Box Gourmet, Traiteur Good Eat, Le Goût des îles. Sans position, le
+ * Pas encore placés (fiche absente ou douteuse sur Google Maps) : Tasty Snack,
+ * Le Finidy, Lunch Box Gourmet, Traiteur Good Eat, Le Goût des îles. Sans position, le
  * restaurant est placé au centre de sa commune, sans distance affichée.
  */
 export const RESTAURANT_SPOTS: Record<string, { lat: number; lng: number; address: string }> = {
@@ -32,6 +30,12 @@ export const RESTAURANT_SPOTS: Record<string, { lat: number; lng: number; addres
   "le-quartz": { lat: -12.75688, lng: 45.22903, address: "Les Hauts Vallons, Mamoudzou" },
   "m-biwi-pizza": { lat: -12.75686, lng: 45.22905, address: "Les Hauts Vallons, Mamoudzou" },
   "mfaoume-snack": { lat: -12.78217, lng: 45.23246, address: "16 avenue Chehou Soilihi, Mamoudzou" },
+  // Donnés par l'utilisateur le 2026-11-12, placés d'après Google Maps.
+  "freddys-may-food": { lat: -12.80171, lng: 45.214, address: "113 avenue Arantabé, Passamainty" },
+  // « En face de la mosquée de la route » : la mosquée de Majicavo-Lamir.
+  "top-cuisine-976": { lat: -12.75271, lng: 45.23084, address: "En face de la mosquée, Majicavo-Lamir" },
+  // 76 rue du Collège Ouvoimoja : placé au collège de Passamainty, à quelques dizaines de mètres près.
+  kazdal: { lat: -12.79906, lng: 45.20581, address: "76 rue du Collège Ouvoimoja, Passamainty" },
 };
 
 type Located = { commune: string; id: string };
