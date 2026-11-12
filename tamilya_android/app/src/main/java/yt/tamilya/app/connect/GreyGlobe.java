@@ -26,16 +26,18 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * Le globe de Tamilya, en gris : même goutte vivante que sur le site (AwaBlob.tsx), dessinée ici
- * parce que Tamilya Connect s'affiche sans internet. Forme, gouttelettes, cœur et sursauts
- * suivent un bruit calculé à chaque image, comme sur le site.
+ * Le globe de Tamilya : même goutte vivante que sur le site (AwaBlob.tsx), aux mêmes couleurs,
+ * dessinée ici parce que Tamilya Connect s'affiche sans internet. Forme, gouttelettes, cœur et
+ * sursauts suivent un bruit calculé à chaque image, comme sur le site.
  */
 final class GreyGlobe extends View {
-    private static final int BLOB = Color.parseColor("#8E9398");
-    private static final int LIGHT = Color.parseColor("#DDE0E3");
-    private static final int DEEP = Color.parseColor("#44474B");
-    /** Couleurs du battement du site, ramenées à des gris. */
-    private static final int[] SHIMMER = {BLOB, 0xFF94989D, 0xFFA0A4A8, 0xFFB0B4B8, 0xFFA0A4A8, 0xFF94989D, BLOB};
+    // Couleurs du globe du site : --blob = accent, éclat et ombre en color-mix (globals.css, .awa-blob).
+    // Champs d'instance : getContext() est prêt quand ils sont calculés (juste après super()).
+    private final int BLOB = ConnectTheme.of(getContext()).accent;
+    private final int LIGHT = ConnectTheme.mix(BLOB, 0.55f, 0xFFFFE3EF);
+    private final int DEEP = ConnectTheme.mix(BLOB, 0.70f, 0xFF2A0614);
+    /** Battement du site : l'arc-en-ciel de .awa-blob (conic-gradient). */
+    private final int[] SHIMMER = {BLOB, 0xFF9B72CB, 0xFF4285F4, 0xFF34A853, 0xFFFBBC05, 0xFFEA4335, BLOB};
 
     private static final int FPS_ACTIVE = 30;
     private static final int FPS_IDLE = 20;

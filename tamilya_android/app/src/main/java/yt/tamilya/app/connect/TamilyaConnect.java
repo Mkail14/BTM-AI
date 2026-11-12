@@ -555,16 +555,16 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         if (changed) store.saveMessages(messages);
     }
 
-    /** Petite fenêtre de confirmation, aux couleurs de Connect. */
+    /** Petite fenêtre de confirmation, aux couleurs du site. */
     private void confirm(String question, String detail, Runnable yes) {
-        int cream = Color.parseColor("#F5F0E6");
-        int muted = Color.parseColor("#8E9398");
-        int accent = Color.parseColor("#F06A9B");
+        int cream = ConnectTheme.of(activity).fg;
+        int muted = ConnectTheme.of(activity).fgMuted;
+        int accent = ConnectTheme.of(activity).accent;
         LinearLayout card = new LinearLayout(activity);
         card.setOrientation(LinearLayout.VERTICAL);
         card.setPadding(dp(24), dp(24), dp(24), dp(20));
         GradientDrawable bg = new GradientDrawable();
-        bg.setColor(Color.parseColor("#17191B"));
+        bg.setColor(ConnectTheme.of(activity).bg);
         bg.setCornerRadius(dp(26));
         card.setBackground(bg);
 
@@ -643,12 +643,12 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         showPinDialog(actionId, label, cart);
     }
 
-    /** Fenêtre du code de paiement, aux couleurs de Connect (fini la boîte grise du système). */
+    /** Fenêtre du code de paiement, aux couleurs du site (fini la boîte grise du système). */
     private void showPinDialog(String actionId, String label, JSONArray cart) {
-        int ink = Color.parseColor("#17191B");
-        int cream = Color.parseColor("#F5F0E6");
-        int muted = Color.parseColor("#8E9398");
-        int accent = Color.parseColor("#F06A9B");
+        int ink = ConnectTheme.of(activity).bg;
+        int cream = ConnectTheme.of(activity).fg;
+        int muted = ConnectTheme.of(activity).fgMuted;
+        int accent = ConnectTheme.of(activity).accent;
 
         LinearLayout card = new LinearLayout(activity);
         card.setOrientation(LinearLayout.VERTICAL);
@@ -683,7 +683,7 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
         pin.setLetterSpacing(0.5f);
         pin.setPadding(dp(16), dp(14), dp(16), dp(14));
         GradientDrawable field = new GradientDrawable();
-        field.setColor(Color.parseColor("#1D1F21"));
+        field.setColor(ConnectTheme.of(activity).bgMuted);
         field.setCornerRadius(dp(16));
         pin.setBackground(field);
         card.addView(pin, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -880,6 +880,9 @@ public final class TamilyaConnect implements MeshRelay.Listener, ConnectScreen.A
                     .put("at", System.currentTimeMillis());
             JSONArray choices = answer.optJSONArray("actions");
             if (choices != null) theirs.put("actions", choices);
+            // Tickets de barge payés : l'app dessine les cartes (code + ticket seulement).
+            JSONArray tickets = answer.optJSONArray("tickets");
+            if (tickets != null) theirs.put("tickets", tickets);
             messages.put(theirs);
             String conversationId = answer.optString("conversationId");
             if (!conversationId.isEmpty()) {

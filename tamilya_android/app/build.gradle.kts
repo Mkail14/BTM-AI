@@ -52,6 +52,8 @@ dependencies {
     implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
     implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
     // Tamilya Connect : messages de téléphone en téléphone, sans internet.
+    // QR code des tickets de barge, dessiné dans l'app (sans internet), mêmes réglages que le site.
+    implementation("com.google.zxing:core:3.5.3")
 
     testImplementation("junit:junit:4.13.2")
     // Vraie bibliothèque JSON pour les tests sur l ordinateur (celle d Android n y est qu une coquille).

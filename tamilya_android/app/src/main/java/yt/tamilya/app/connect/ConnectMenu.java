@@ -32,12 +32,13 @@ import java.util.Locale;
  * ou avec le bouton retour.
  */
 final class ConnectMenu {
-    private static final int CREAM = Color.parseColor("#F5F0E6");
-    private static final int MUTED = Color.parseColor("#8E9398");
-    private static final int ACCENT = Color.parseColor("#F06A9B");
-    private static final int PANEL = Color.parseColor("#161819");
-    private static final int LINE = Color.parseColor("#2B2E33");
-    private static final int MENU = Color.parseColor("#1D1F21");
+    // Couleurs du site (barre latérale : bg-subtle, lignes : border, menu du compte : bg-muted).
+    private final int CREAM;
+    private final int MUTED;
+    private final int ACCENT;
+    private final int PANEL;
+    private final int LINE;
+    private final int MENU;
     private static final int SLIDE_MS = 200;
 
     private final Context context;
@@ -53,6 +54,13 @@ final class ConnectMenu {
         this.context = context;
         this.screen = screen;
         this.actions = actions;
+        ConnectTheme theme = ConnectTheme.of(context);
+        CREAM = theme.fg;
+        MUTED = theme.fgMuted;
+        ACCENT = theme.accent;
+        PANEL = theme.bgSubtle;
+        LINE = theme.border;
+        MENU = theme.bgMuted;
         dialog = new Dialog(context, android.R.style.Theme_Translucent_NoTitleBar);
         dialog.setOnKeyListener((d, key, event) -> {
             if (key == android.view.KeyEvent.KEYCODE_BACK && event.getAction() == android.view.KeyEvent.ACTION_UP) {
@@ -126,9 +134,9 @@ final class ConnectMenu {
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
         row.setPadding(dp(16), dp(16), dp(8), dp(12));
-        TextView brand = text("Tamilya", 20, CREAM);
-        brand.setTypeface(brand.getTypeface(), Typeface.BOLD);
-        row.addView(brand, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        View brand = ConnectScreen.logo(context, CREAM, 22);
+        row.addView(brand, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(22)));
+        row.addView(new View(context), new LinearLayout.LayoutParams(0, 1, 1f));
 
         TextView plus = text("+", 22, Color.WHITE);
         plus.setGravity(Gravity.CENTER);
