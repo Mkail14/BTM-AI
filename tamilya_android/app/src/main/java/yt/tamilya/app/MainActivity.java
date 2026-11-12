@@ -140,6 +140,10 @@ public class MainActivity extends Activity {
     private final ArrayList<Runnable> ttsWaiting = new ArrayList<>();
 
     private TamilyaConnect connect;
+    /** Accueil et conversation natifs : la page « / » du site n'est plus montrée dans l'app. */
+    private HomeChat home;
+    /** Fenêtre de connexion du site ouverte depuis l'accueil natif : « / » reste à la WebView jusqu'à la connexion. */
+    private boolean webAuthFlow;
     /** « Obtenir de l'aide » de l'app : la page /aide du site n'y est jamais ouverte. */
     private HelpScreen help;
     private LinkViewer links;
@@ -177,7 +181,9 @@ public class MainActivity extends Activity {
         // Pendant que la vue se construit : l'adresse du site est cherchée, et l'image de
         // la dernière page est lue, pour l'afficher au lieu du logo.
         warmUpSite();
-        if (state == null && HOME.equals(startUrl(getIntent()))) LastPage.load(this, this::showLastPage);
+        // Accueil natif : montré tout de suite (pas d'écran d'attente), sauf pour un lien profond
+        // vers une autre page du site, qui s'ouvre dans la WebView comme avant.
+        boolean nativeHome = state == null ? HOME.equals(startUrl(getIntent())) : state.getBoolean("home", false);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -253,9 +259,49 @@ public class MainActivity extends Activity {
             }
         });
         Perf.end("connect.new", built);
+        home = new HomeChat(this, new HomeChat.Host() {
+            @Override
+            public void openPage(String path) {
+                home.close();
+                web.loadUrl(SITE_ORIGIN + path);
+            }
+
+            @Override
+            public void openLink(Uri uri) {
+                if (isSiteOrigin(uri)) {
+                    openPage(uri.getPath() == null ? "/" : uri.getPath() + (uri.getQuery() == null ? "" : "?" + uri.getQuery()));
+                } else if (LinkViewer.opensInside(uri)) {
+                    links.show(uri);
+                } else {
+                    openExternally(uri);
+                }
+            }
+
+            @Override
+            public void openHelp() {
+                help.show();
+            }
+
+            @Override
+            public void openConnect() {
+                openedOnline = online;
+                connect.open();
+            }
+
+            @Override
+            public void signIn() {
+                webAuthFlow = true;
+                openPage("/?auth=required&next=%2F");
+            }
+        });
+        content.addView(home.view(), match());
         content.addView(connect.view(), match());
         splash = buildSplashView();
         content.addView(splash, match());
+        if (nativeHome) {
+            splash.setVisibility(View.GONE);
+            home.open();
+        }
         root.addView(content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         setContentView(root);
         applySystemBars(root);
@@ -330,10 +376,10 @@ public class MainActivity extends Activity {
     /** Garde l'image de la page d'accueil telle qu'elle est, pour la prochaine ouverture. */
     private void keepLastPage() {
         Uri now = Uri.parse(String.valueOf(web.getUrl()));
-        boolean home = isSiteOrigin(now) && ("/".equals(now.getPath()) || now.getPath() == null || now.getPath().isEmpty());
+        boolean onHome = isSiteOrigin(now) && ("/".equals(now.getPath()) || now.getPath() == null || now.getPath().isEmpty());
         View parent = (View) web.getParent();
-        if (!home || pageFailed || offline.getVisibility() == View.VISIBLE || splash.getVisibility() == View.VISIBLE
-                || connect.isOpen() || help.isOpen() || links.isOpen()
+        if (!onHome || pageFailed || offline.getVisibility() == View.VISIBLE || splash.getVisibility() == View.VISIBLE
+                || connect.isOpen() || home.isOpen() || help.isOpen() || links.isOpen()
                 || parent == null || web.getHeight() != parent.getHeight() || keyboardOpen()) return;
         LastPage.save(this, web);
     }
@@ -433,6 +479,7 @@ public class MainActivity extends Activity {
         boolean changed = value != online;
         online = value;
         connect.setOnline(value);
+        home.setOnline(value);
         if (!changed || !value) return;
         // Internet revenu : Tamilya Connect se ferme tout seul, sauf si la personne l'a ouvert avec internet.
         if (connect.isOpen()) {
@@ -457,14 +504,15 @@ public class MainActivity extends Activity {
                 touching = true;
                 // Avec internet, la page répond plus lentement : on part de ce qu'elle a déjà dit.
                 webAtBottom = pageAtBottom;
-                if (!connect.isOpen() && offline.getVisibility() != View.VISIBLE) askConversationAtBottom(event);
+                if (!connect.isOpen() && !home.isOpen() && offline.getVisibility() != View.VISIBLE) askConversationAtBottom(event);
                 break;
             case MotionEvent.ACTION_MOVE: {
                 float up = swipeY - event.getRawY();
                 float side = Math.abs(event.getRawX() - swipeX);
                 if (!touching) break;
                 if (!swipeDone) {
-                    boolean eligible = connect.isOpen() ? connect.atBottom() : webAtBottom;
+                    boolean eligible = connect.isOpen() ? connect.atBottom()
+                            : home.isOpen() ? (!home.menuOpen() && home.atBottom()) : webAtBottom;
                     if (!eligible || up < dp(18) || up < side * 2) break;
                     // C'est bien le geste : la page ne reçoit plus le doigt.
                     swipeDone = true;
@@ -498,7 +546,8 @@ public class MainActivity extends Activity {
     /** Appui sans glisser sur un bouton de Tamilya Connect ou de l'écran hors ligne. */
     private boolean pressedNativeButton(MotionEvent event) {
         if (Math.abs(event.getRawX() - swipeX) > dp(12) || Math.abs(event.getRawY() - swipeY) > dp(12)) return false;
-        View screen = connect.isOpen() ? connect.view() : offline.getVisibility() == View.VISIBLE ? offline : null;
+        View screen = connect.isOpen() ? connect.view() : home.isOpen() ? home.view()
+                : offline.getVisibility() == View.VISIBLE ? offline : null;
         return screen instanceof ViewGroup && hitsButton((ViewGroup) screen, event.getRawX(), event.getRawY());
     }
 
@@ -534,6 +583,7 @@ public class MainActivity extends Activity {
     private void setPull(float progress) {
         pullProgress = progress;
         if (connect.isOpen()) connect.setPull(progress);
+        else if (home.isOpen()) home.setPull(progress);
         else setPagePull(progress);
     }
 
@@ -561,7 +611,8 @@ public class MainActivity extends Activity {
         } else {
             openedOnline = online;
             connect.open();
-            web.postDelayed(() -> setPagePull(0f), PAGE_PULL_RESET_MS);
+            if (home.isOpen()) home.setPull(0f);
+            else web.postDelayed(() -> setPagePull(0f), PAGE_PULL_RESET_MS);
         }
     }
 
@@ -640,6 +691,23 @@ public class MainActivity extends Activity {
 
     private static boolean isSiteOrigin(Uri origin) {
         return origin != null && "https".equals(origin.getScheme()) && SITE_HOST.equals(origin.getHost());
+    }
+
+    /** La page « / » du site, sans paramètre : dans l'app, c'est l'accueil natif. */
+    private static boolean isSiteHome(Uri uri) {
+        if (!isSiteOrigin(uri)) return false;
+        String path = uri.getPath();
+        String query = uri.getQuery();
+        return (path == null || path.isEmpty() || path.equals("/")) && (query == null || query.isEmpty());
+    }
+
+    /** Une page « / » vient d'arriver dans la WebView : l'accueil natif reprend la main. */
+    private void siteHomeReached() {
+        // Fenêtre de connexion ouverte depuis l'accueil natif : le site remet l'adresse à « / » tout de
+        // suite ; on attend que le compte soit connecté pour revenir à l'accueil natif.
+        if (webAuthFlow && !ChatApi.signedIn()) return;
+        webAuthFlow = false;
+        if (!home.isOpen() && !connect.isOpen()) home.open();
     }
 
     private void openExternally(Uri uri) {
@@ -1163,6 +1231,11 @@ public class MainActivity extends Activity {
                 help.show();
                 return true;
             }
+            if (isSiteHome(uri)) {
+                // Lien vers « / » (logo du site…) : l'accueil natif, sans recharger la page.
+                siteHomeReached();
+                if (home.isOpen()) return true;
+            }
             if (staysInApp(uri)) return false;
             // Lien d'un autre site (dans une conversation…) : ouvert par-dessus Tamilya, pas dans Chrome.
             if (LinkViewer.opensInside(uri)) links.show(uri);
@@ -1174,7 +1247,12 @@ public class MainActivity extends Activity {
         public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
             // Arrivée sur /aide sans clic (lien d'une autre app, navigation du site) : retour à la
             // page d'avant, ou à l'accueil, et la page d'aide de l'app s'ouvre.
-            if (!isHelpPage(Uri.parse(String.valueOf(url)))) return;
+            Uri visited = Uri.parse(String.valueOf(url));
+            if (isSiteHome(visited)) {
+                siteHomeReached();
+                return;
+            }
+            if (!isHelpPage(visited)) return;
             if (view.canGoBack()) view.goBack();
             else view.loadUrl(HOME);
             help.show();
@@ -1202,6 +1280,9 @@ public class MainActivity extends Activity {
             // En ligne : prépare Tamilya Connect (clé de l'appareil, clé du serveur) pour le hors ligne.
             if (!pageFailed && online && isSiteOrigin(Uri.parse(String.valueOf(url)))) {
                 connect.syncAccount(CookieManager.getInstance().getCookie(HOME));
+                home.onSiteLoaded();
+                // Page « / » rechargée (après une connexion, par exemple) : l'accueil natif revient.
+                if (isSiteHome(Uri.parse(String.valueOf(url)))) siteHomeReached();
             }
             if (!pageFailed) {
                 offline.setVisibility(View.GONE);
@@ -1336,7 +1417,14 @@ public class MainActivity extends Activity {
     protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
-        if (intent.getData() != null) web.loadUrl(startUrl(intent));
+        if (intent.getData() == null) return;
+        String url = startUrl(intent);
+        if (HOME.equals(url)) {
+            home.open();
+        } else {
+            home.close();
+            web.loadUrl(url);
+        }
     }
 
     @Override
@@ -1344,14 +1432,19 @@ public class MainActivity extends Activity {
         if (links.isOpen()) links.back();
         else if (help.isOpen()) help.close();
         else if (connect.isOpen()) connect.close();
+        else if (home.isOpen()) {
+            if (home.menuOpen()) home.closeMenu();
+            else super.onBackPressed();
+        }
         else if (web.canGoBack()) web.goBack();
-        else super.onBackPressed();
+        else home.open();
     }
 
     @Override
     protected void onSaveInstanceState(Bundle state) {
         super.onSaveInstanceState(state);
         web.saveState(state);
+        state.putBoolean("home", home.isOpen());
     }
 
     @Override
@@ -1377,6 +1470,7 @@ public class MainActivity extends Activity {
     protected void onDestroy() {
         if (connectivity != null && networkCallback != null) connectivity.unregisterNetworkCallback(networkCallback);
         connect.destroy();
+        home.destroy();
         if (recognizer != null) {
             recognizer.destroy();
             recognizer = null;
