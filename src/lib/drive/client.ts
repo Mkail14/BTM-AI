@@ -116,3 +116,25 @@ export async function trashDriveFile(accessToken: string, fileId: string): Promi
     body: JSON.stringify({ trashed: true }),
   });
 }
+
+/** Ce qu'on accepte d'afficher dans la page ; le reste ne fait que se télécharger. */
+const SHOWABLE = /^(image\/(png|jpe?g|gif|webp|avif)|application\/pdf)$/;
+
+/**
+ * Contenu d'un document, en flux (rien n'est gardé chez nous). Les fichiers Google
+ * (Docs, Sheets…) n'ont pas de contenu brut : on les exporte en PDF.
+ */
+export async function readDriveContent(accessToken: string, fileId: string): Promise<{ body: ReadableStream<Uint8Array> | null; type: string; name: string; size: string | null; showable: boolean }> {
+  const id = encodeURIComponent(fileId);
+  const meta = (await (await call(accessToken, `/files/${id}?fields=name,mimeType,trashed`)).json()) as { name?: string; mimeType?: string; trashed?: boolean };
+  if (meta.trashed || meta.mimeType === DRIVE_FOLDER_MIME) throw new Error("Google Drive a répondu 404 (notFound)");
+  const native = meta.mimeType?.startsWith("application/vnd.google-apps.") ?? false;
+  const response = await fetch(native ? `${API}/files/${id}/export?mimeType=application%2Fpdf` : `${API}/files/${id}?alt=media`, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (!response.ok) throw new Error(`Google Drive a répondu ${response.status}${driveReason(await response.text().catch(() => ""))}`);
+  const type = native ? "application/pdf" : (meta.mimeType ?? response.headers.get("content-type") ?? "application/octet-stream").split(";")[0].trim().toLowerCase();
+  const name = native ? `${meta.name ?? "document"}.pdf` : (meta.name ?? "document");
+  return { body: response.body, type, name, size: native ? null : response.headers.get("content-length"), showable: SHOWABLE.test(type) };
+}
