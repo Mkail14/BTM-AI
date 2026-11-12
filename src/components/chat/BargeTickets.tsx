@@ -185,7 +185,7 @@ function PassCard({ pass, scannedAt, tearing }: { pass: BargePass; scannedAt: st
       {part(TOP_PART, { filter: "grayscale(0.75)", opacity: 0.85 }, tearing ? "barge-tear-top" : undefined)}
       {tearing ? part(STUB_PART, undefined, "barge-tear-stub") : null}
       <span
-        className={`absolute top-[24%] left-1/2 rounded-md border-4 border-red-600 bg-white/85 px-3 py-1 text-[min(9cqw,2.4rem)] font-black tracking-widest text-red-600 ${tearing ? "barge-stamp" : "-translate-x-1/2 -rotate-[14deg]"}`}
+        className={`absolute top-[24%] left-1/2 rounded-md border-4 border-red-600 bg-white/85 px-3 py-1 text-[min(9cqw,2.4rem)] font-black tracking-widest whitespace-nowrap text-red-600 ${tearing ? "barge-stamp" : "-translate-x-1/2 -rotate-[14deg]"}`}
       >
         UTILISÉ
       </span>
@@ -232,18 +232,31 @@ function PassFullscreen({
           e.stopPropagation();
           onTap(e.timeStamp);
         }}
-        className="booking-pop relative aspect-[540/860] drop-shadow-2xl select-none [container-type:inline-size]"
-        style={{ height: scannedAt ? "min(74dvh, calc((100vw - 2rem) * 860 / 540))" : "min(92dvh, calc((100vw - 2rem) * 860 / 540))" }}
+        className="booking-pop relative overflow-hidden drop-shadow-2xl select-none [container-type:inline-size]"
+        style={
+          // Ticket usé : le bas arraché n'occupe plus de place, toucher là où il était ferme le ticket.
+          scannedAt && !tearing
+            ? { aspectRatio: "540 / 510", height: "min(60dvh, calc((100vw - 2rem) * 510 / 540))" }
+            : {
+                aspectRatio: "540 / 860",
+                height: scannedAt ? "min(74dvh, calc((100vw - 2rem) * 860 / 540))" : "min(92dvh, calc((100vw - 2rem) * 860 / 540))",
+              }
+        }
       >
-        <PassCard pass={pass} scannedAt={scannedAt} tearing={tearing} />
+        <span className="absolute inset-x-0 top-0 block aspect-[540/860] [container-type:inline-size]">
+          <PassCard pass={pass} scannedAt={scannedAt} tearing={tearing} />
+        </span>
       </div>
       {scannedAt && !tearing ? (
-        <div onClick={(e) => e.stopPropagation()} className="booking-step max-w-xs text-center text-white">
+        <div className="booking-step max-w-xs text-center text-white">
           <p className="font-semibold">Ticket utilisé le {frDate(new Date(scannedAt))}</p>
           <p className="mt-1 text-sm text-white/80">Il n&apos;est plus valable. Commande un nouveau ticket pour la prochaine traversée.</p>
           <button
             type="button"
-            onClick={onReorder}
+            onClick={(e) => {
+              e.stopPropagation();
+              onReorder();
+            }}
             className="mt-3 rounded-full px-5 py-2.5 font-medium text-white transition hover:brightness-110 active:scale-[0.98]"
             style={{ background: PERSONA }}
           >
@@ -309,16 +322,20 @@ function BoughtTickets({ purchases, onReorder }: { purchases: BargeTicketBought[
 
   return (
     <div className="booking-step p-4">
-      <ul className={several ? "grid grid-cols-2 gap-3" : ""}>
+      <ul className={`m-0 list-none p-0 ${several ? "grid grid-cols-2 gap-3" : ""}`}>
         {passes.map((pass) => (
-          <li key={pass.code} className="text-center">
+          <li key={pass.code} className="m-0 list-none p-0 text-center">
             <button
               type="button"
               onClick={(e) => tap(pass.code, e.timeStamp)}
               aria-label={`Ticket ${pass.title}, ${scans[pass.code] ? "déjà utilisé" : "toucher pour l'agrandir, deux fois pour le scanner"}`}
-              className={`relative mx-auto block aspect-[540/860] w-full cursor-zoom-in drop-shadow-md transition select-none active:scale-[0.98] [container-type:inline-size] ${several ? "" : "max-w-[260px]"}`}
+              style={{ aspectRatio: scans[pass.code] ? "540 / 510" : "540 / 860" }}
+              className={`relative mx-auto block w-full cursor-zoom-in overflow-hidden drop-shadow-md transition select-none active:scale-[0.98] [container-type:inline-size] ${several ? "" : "max-w-[260px]"}`}
             >
-              <PassCard pass={pass} scannedAt={scans[pass.code] ?? null} />
+              {/* Ticket utilisé : le bas arraché ne garde pas sa place vide. */}
+              <span className="absolute inset-x-0 top-0 block aspect-[540/860]">
+                <PassCard pass={pass} scannedAt={scans[pass.code] ?? null} />
+              </span>
             </button>
             <p className="mt-2 font-mono text-xs font-bold tracking-widest">{pass.code}</p>
           </li>
@@ -464,19 +481,20 @@ export function BargeTickets({ query = "" }: { query?: string }) {
     }
   }
 
-  const shell = (children: ReactNode) => (
+  // Tickets seuls (sans formulaire) : pas de cadre autour, ils sont posés sur la conversation.
+  const shell = (children: ReactNode, bare = false) => (
     <section
       ref={root}
       data-barge-block
       aria-label="Acheter un ticket de barge"
-      className="w-full max-w-md overflow-hidden rounded-3xl border border-border bg-bg text-sm leading-normal shadow-sm"
+      className={`w-full max-w-md text-sm leading-normal ${bare ? "" : "overflow-hidden rounded-3xl border border-border bg-bg shadow-sm"}`}
     >
       {children}
     </section>
   );
 
   const tickets = bought.length ? <BoughtTickets purchases={bought} onReorder={startReorder} /> : null;
-  if (!loaded || (bought.length && !reorder)) return shell(tickets);
+  if (!loaded || (bought.length && !reorder)) return shell(tickets, true);
   if (error) return shell(
     <>
       {tickets}
