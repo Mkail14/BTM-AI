@@ -67,29 +67,96 @@ export async function loadBtmPrices(): Promise<PrixBtm> {
   }
 }
 
+/** Prix du devis chez un fournisseur partenaire de btm.yt (son catalogue, sinon le prix BTM). */
+export type OffreFournisseur = {
+  id: string;
+  nom: string;
+  commune: string;
+  livraison: boolean;
+  logo: string | null;
+  /** Fiche fictive de btm.yt, en attendant les premiers partenaires. */
+  demonstration: boolean;
+  total: number;
+  totalComptoir: number;
+  prix: { id: string; prixUnitaire: number; sousTotal: number }[];
+  /** Matériaux du devis qu'il ne vend pas ou n'a plus. */
+  manquants: string[];
+};
+
+const OFFRES_MS = 60_000;
+const offresCache = new Map<string, { value: OffreFournisseur[]; expiresAt: number }>();
+
+/** Fournisseurs de btm.yt qui vendent les matériaux du devis, avec leur prix (1 min en cache) ; null si btm.yt ne répond pas. */
+export async function loadBtmFournisseurs(resultat: ResultatDevis): Promise<OffreFournisseur[] | null> {
+  if (!config()) return null;
+  const lignes = resultat.lignes.map((l) => ({ id: l.id, quantite: l.quantite }));
+  const key = JSON.stringify(lignes);
+  const hit = offresCache.get(key);
+  if (hit && hit.expiresAt > Date.now()) return hit.value;
+  try {
+    const { status, json } = await call({ action: "fournisseurs", lignes }, 6_000);
+    if (status !== 200 || !Array.isArray(json.fournisseurs)) throw new Error(`fournisseurs ${status}`);
+    const value = (json.fournisseurs as OffreFournisseur[]).filter((f) => typeof f?.id === "string" && Number.isFinite(f.total));
+    if (offresCache.size > 200) offresCache.clear();
+    offresCache.set(key, { value, expiresAt: Date.now() + OFFRES_MS });
+    return value;
+  } catch (error) {
+    console.error("[btm] Fournisseurs de btm.yt indisponibles", error);
+    return null;
+  }
+}
+
 export type SaveResult =
-  | { ok: true; code: string; nom: string; total: number }
-  | { ok: false; reason: "no_account" | "not_allowed" | "rate_limited" | "unavailable" };
+  | { ok: true; code: string; nom: string; total: number; fournisseur: string | null }
+  | { ok: false; reason: "no_account" | "not_allowed" | "rate_limited" | "unavailable" | "supplier" };
 
 /**
  * Enregistre le devis dans « Mes projets » du compte btm.yt qui a la même
  * adresse e-mail (vérifiée des deux côtés). btm.yt revérifie les prix et
  * donne le code de retrait.
  */
-export async function saveBtmDevis(email: string, nom: string, resultat: ResultatDevis): Promise<SaveResult> {
+export async function saveBtmDevis(email: string, nom: string, resultat: ResultatDevis, fournisseurId?: string): Promise<SaveResult> {
   if (!config()) return { ok: false, reason: "unavailable" };
   try {
     const { status, json } = await call(
-      { action: "enregistrer", email, nom, type: resultat.type, dimensions: resultat.dimensions, resultat },
+      { action: "enregistrer", email, nom, type: resultat.type, dimensions: resultat.dimensions, resultat, fournisseur_id: fournisseurId },
       15_000,
     );
     if (status === 200 && json.ok === true && typeof json.code === "string") {
-      return { ok: true, code: json.code, nom: typeof json.nom === "string" ? json.nom : nom, total: Number(json.total) || resultat.total };
+      return {
+        ok: true,
+        code: json.code,
+        nom: typeof json.nom === "string" ? json.nom : nom,
+        total: Number(json.total) || resultat.total,
+        fournisseur: typeof json.fournisseur === "string" ? json.fournisseur : null,
+      };
     }
     if (status === 404) return { ok: false, reason: "no_account" };
     if (status === 403) return { ok: false, reason: "not_allowed" };
     if (status === 429) return { ok: false, reason: "rate_limited" };
+    if (status === 400 && json.erreur === "Fournisseur indisponible.") return { ok: false, reason: "supplier" };
     console.error("[btm] Enregistrement du devis refusé", status, json.erreur);
+    return { ok: false, reason: "unavailable" };
+  } catch (error) {
+    console.error("[btm] btm.yt injoignable", error);
+    return { ok: false, reason: "unavailable" };
+  }
+}
+
+export type ChoiceResult = { ok: true; total: number; fournisseur: string } | { ok: false; reason: "not_found" | "paid" | "supplier" | "unavailable" };
+
+/** Change le fournisseur d'un devis déjà enregistré : le code de retrait reste le même. */
+export async function chooseBtmFournisseur(email: string, code: string, fournisseurId: string): Promise<ChoiceResult> {
+  if (!config()) return { ok: false, reason: "unavailable" };
+  try {
+    const { status, json } = await call({ action: "choisir", email, code, fournisseur_id: fournisseurId }, 10_000);
+    if (status === 200 && json.ok === true) {
+      return { ok: true, total: Number(json.total) || 0, fournisseur: typeof json.fournisseur === "string" ? json.fournisseur : "" };
+    }
+    if (status === 404) return { ok: false, reason: "not_found" };
+    if (status === 409) return { ok: false, reason: "paid" };
+    if (status === 400) return { ok: false, reason: "supplier" };
+    console.error("[btm] Choix du fournisseur refusé", status, json.erreur);
     return { ok: false, reason: "unavailable" };
   } catch (error) {
     console.error("[btm] btm.yt injoignable", error);

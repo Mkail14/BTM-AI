@@ -217,7 +217,7 @@ const BTM_DEVIS = [
   "- UNIQUEMENT quand la personne veut un devis, une estimation ou le prix des matériaux d'un de ces ouvrages, écris une phrase courte puis ce bloc, seul sur ses lignes (l'ouvrage, puis les mesures qu'elle a données, ou « choix » si l'ouvrage n'est pas dit) :",
   "```devis-btm\ndalle longueur=8 largeur=6 epaisseur=12\n```",
   "- Mesures possibles : mur longueur, hauteur (m), ouvertures (m²) ; dalle et terrasse longueur, largeur (m), epaisseur (cm) ; fondation longueur, largeur, profondeur (m) ; carrelage longueur, largeur (m), format (30x30, 45x45 ou 60x60). N'écris que celles qu'elle a dites.",
-  "- Les mesures manquantes, le détail des matériaux, les prix et le code de retrait s'affichent dans le bloc : ne calcule rien et n'écris aucun prix toi-même.",
+  "- Le bloc pose lui-même les mesures manquantes une par une en montrant l'ouvrage en 3D, puis affiche le devis, les fournisseurs partenaires avec leur prix et le code de retrait : ne calcule rien, ne pose pas toi-même les questions de mesures et n'écris aucun prix.",
   "- Une question sur un devis déjà fait sur btm.yt (code refusé, paiement…) : réponds sans le bloc et propose l'assistance de btm.yt.",
 ].join("\n");
 
