@@ -4,7 +4,7 @@ import { Gauge, Globe, Info, Navigation, ShieldCheck, Wind, X } from "lucide-rea
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import type { Cyclone, CyclonePoint, CyclonesResponse } from "@/lib/cyclone/intent";
+import type { Cyclone, CyclonePoint, CycloneZone, CyclonesResponse } from "@/lib/cyclone/intent";
 import { motionOf } from "@/lib/cyclone/motion";
 import { loadMapLibre } from "@/lib/geo/maplibre";
 import { CycloneTimeline } from "./CycloneTimeline";
@@ -42,8 +42,10 @@ function estimateHint(c: Cyclone) {
   return Date.parse(e.when) > Date.now() ? `plutôt ${day.format(new Date(e.when))}` : "donnée trop vieille";
 }
 
-const summary = (cyclones: Cyclone[]) => {
-  if (!cyclones.length) return "Aucun cyclone en ce moment dans l'océan Indien";
+const summary = (cyclones: Cyclone[], zone: CycloneZone) => {
+  if (!cyclones.length) return zone === "monde" ? "Aucun cyclone en ce moment dans le monde" : "Aucun cyclone en ce moment dans l'océan Indien";
+  // Le monde : les systèmes loin de notre océan ne se comptent pas en distance de Mayotte.
+  if (zone === "monde" && !cyclones.some((c) => c.local)) return cyclones.length > 1 ? `${cyclones.length} cyclones dans le monde, loin de Mayotte` : `${cyclones[0].name}, loin de Mayotte`;
   const first = cyclones[0];
   const more = cyclones.length > 1 ? ` · ${cyclones.length} systèmes suivis` : "";
   return `${first.name} à ${km(first.distanceKm)} de Mayotte${more}`;
@@ -54,7 +56,7 @@ const summary = (cyclones: Cyclone[]) => {
  * compacte (« Système n°2 à 960 km de Mayotte »), qui ouvre le panneau : la
  * carte de l'océan Indien avec les trajets, et l'essentiel en bas.
  */
-export function CycloneCard() {
+export function CycloneCard({ zone = "ocean-indien" }: { zone?: CycloneZone }) {
   const [state, setState] = useState<State>({ status: "loading" });
   const [open, setOpen] = useState(false);
   const autoOpen = useRef<boolean | null>(null);
@@ -64,7 +66,7 @@ export function CycloneCard() {
     // En même temps que les données : le moteur de la carte et son dessin (déjà dans l'app Android).
     loadMapLibre().catch(() => {});
     import("./CycloneMap").catch(() => {});
-    fetch("/api/cyclones")
+    fetch(zone === "monde" ? "/api/cyclones?zone=monde" : "/api/cyclones")
       .then(async (res) => ((await res.json().catch(() => null)) as CyclonesResponse | null) ?? { error: "Carte des cyclones indisponible." })
       .then((body) => {
         if (!alive) return;
@@ -81,7 +83,7 @@ export function CycloneCard() {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [zone]);
 
   const data = state.status === "ok" ? state : null;
 
@@ -92,9 +94,9 @@ export function CycloneCard() {
           <CycloneIcon />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold">Cyclones autour de Mayotte</span>
+          <span className="block truncate font-semibold">{zone === "monde" ? "Cyclones dans le monde" : "Cyclones autour de Mayotte"}</span>
           <span className="block text-xs text-fg-muted">
-            {state.status === "loading" ? "Je regarde l'océan Indien…" : state.status === "ok" ? summary(state.cyclones) : state.message}
+            {state.status === "loading" ? (zone === "monde" ? "Je regarde le monde entier…" : "Je regarde l'océan Indien…") : state.status === "ok" ? summary(state.cyclones, zone) : state.message}
           </span>
         </span>
         {data ? (
@@ -103,17 +105,18 @@ export function CycloneCard() {
           </button>
         ) : null}
       </div>
-      {open && data ? <CyclonePanel cyclones={data.cyclones} updatedAt={data.updatedAt} onClose={() => setOpen(false)} /> : null}
+      {open && data ? <CyclonePanel key={zone} cyclones={data.cyclones} world={zone === "monde"} updatedAt={data.updatedAt} onClose={() => setOpen(false)} /> : null}
     </>
   );
 }
 
 /** Panneau des cyclones : la carte en haut, l'essentiel en bas, sans défilement. */
-function CyclonePanel({ cyclones: nearby, updatedAt, onClose }: { cyclones: Cyclone[]; updatedAt: string; onClose: () => void }) {
-  // Le reste du monde : chargé seulement si la personne le demande.
-  const [world, setWorld] = useState<{ status: "idle" | "loading" | "error" } | { status: "ok"; cyclones: Cyclone[] }>({ status: "idle" });
+function CyclonePanel({ cyclones: given, world: worldGiven = false, updatedAt, onClose }: { cyclones: Cyclone[]; world?: boolean; updatedAt: string; onClose: () => void }) {
+  // Le reste du monde : chargé seulement si la personne le demande (déjà là si elle a demandé « les autres cyclones »).
+  const [world, setWorld] = useState<{ status: "idle" | "loading" | "error" } | { status: "ok"; cyclones: Cyclone[] }>(worldGiven ? { status: "ok", cyclones: given } : { status: "idle" });
+  const nearby = worldGiven ? given.filter((c) => c.local) : given;
   const cyclones = world.status === "ok" ? world.cyclones : nearby;
-  const [focus, setFocus] = useState<string | null>(nearby[0]?.id ?? null);
+  const [focus, setFocus] = useState<string | null>(worldGiven ? null : (nearby[0]?.id ?? null));
   // Position rejouée par le curseur du temps (null : dernière mesure).
   const [ghost, setGhost] = useState<CyclonePoint | null>(null);
   const showWorld = () => {
@@ -247,7 +250,7 @@ function CyclonePanel({ cyclones: nearby, updatedAt, onClose }: { cyclones: Cycl
           ) : (
             <div className="order-rise">
               <p className="text-lg leading-tight font-semibold">Aucun cyclone en ce moment</p>
-              <p className="mt-0.5 text-xs text-fg-muted">Rien n&apos;est suivi dans le sud-ouest de l&apos;océan Indien, même en formation.</p>
+              <p className="mt-0.5 text-xs text-fg-muted">{world.status === "ok" ? "Rien n’est suivi dans le monde, même en formation." : "Rien n’est suivi dans le sud-ouest de l’océan Indien, même en formation."}</p>
             </div>
           )}
           <p className="order-rise flex items-start gap-2 text-[11px] leading-snug text-fg-muted [animation-delay:80ms]">

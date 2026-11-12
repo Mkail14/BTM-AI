@@ -4,7 +4,7 @@ import { AIProviderError, buildSystemPrompt, getAIProvider } from "@/lib/ai";
 import { getAuthContext } from "@/lib/auth/session";
 import { canOrderFood } from "@/lib/food/access";
 import { canBuyBargeTickets } from "@/lib/barge/access";
-import { CYCLONE_BLOCK, cycloneBlock, detectCyclone } from "@/lib/cyclone/intent";
+import { CYCLONE_BLOCK, cycloneBlock, cycloneZoneFor, detectCyclone } from "@/lib/cyclone/intent";
 import { detectSong } from "@/lib/music/intent";
 import { readingMode, withSceneBlock } from "@/lib/lecture/intent";
 import { BARGE_BLOCK, bargeBlockFor, bargeSpec, detectBargeTicket } from "@/lib/barge/intent";
@@ -447,8 +447,8 @@ export async function POST(request: NextRequest) {
   const btmDevis = !body.voice && detectBtmDevis(body.message) ? btmDevisSpec(body.message) : null;
   // Trajet demandé (« combien de temps de chez moi à la CSSM ») : la carte du trajet s'ouvre à coup sûr (compte requis).
   const trip = user && !body.voice && !foodQuery && !foodGroup && !btmDevis ? detectTrip(body.message) : null;
-  // Cyclones demandés (« il y a un cyclone ? ») : la carte des cyclones s'ouvre à coup sûr.
-  const cyclone = !body.voice && detectCyclone(body.message);
+  // Cyclones demandés (« il y a un cyclone ? ») : la carte des cyclones s'ouvre à coup sûr, sur le monde si la personne parle des autres.
+  const cyclone = !body.voice && detectCyclone(body.message) ? cycloneZoneFor(body.message) : null;
   // Chanson demandée (« chante-moi quelque chose ») : Tamilya écrit une chanson, chantée sous son message.
   const song = !body.voice && detectSong(body.message);
   // Lecture en 3D demandée (« lis-moi cette page », ou demandée juste avant et le texte arrive) :
@@ -745,7 +745,7 @@ ${block}`;
         }
         // Cyclones demandés mais pas de bloc dans la réponse : on l'ajoute.
         if (cyclone && text && !text.includes("```" + CYCLONE_BLOCK)) {
-          const block = cycloneBlock();
+          const block = cycloneBlock(cyclone);
           text += block;
           send({ type: "delta", text: block });
         }

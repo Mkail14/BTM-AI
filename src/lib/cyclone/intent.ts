@@ -7,8 +7,14 @@
 /** Bloc remplacé dans la conversation par la carte des cyclones (CycloneCard). */
 export const CYCLONE_BLOCK = "carte-cyclones";
 
-/** Contenu du bloc : la zone suivie (une seule pour l'instant). */
-export const cycloneBlock = () => `\n\n\`\`\`${CYCLONE_BLOCK}\nocean-indien\n\`\`\``;
+/** Zone voulue : l'océan Indien autour de Mayotte (par défaut), ou le monde entier (sur demande). */
+export type CycloneZone = "ocean-indien" | "monde";
+
+/** Contenu du bloc : la zone montrée par la carte. */
+export const cycloneBlock = (zone: CycloneZone = "ocean-indien") => `\n\n\`\`\`${CYCLONE_BLOCK}\n${zone}\n\`\`\``;
+
+/** Zone lue dans le bloc : « monde », sinon l'océan Indien. */
+export const cycloneZoneOf = (spec: string): CycloneZone => (spec.trim() === "monde" ? "monde" : "ocean-indien");
 
 const normalize = (text: string) =>
   ` ${text
@@ -21,6 +27,13 @@ const CYCLONE = /\b(?:cyclones?|cycloniques?|tempetes? tropicales?|depressions? 
 
 /** La personne parle des cyclones (en cours, en formation, qui arrivent). */
 export const detectCyclone = (message: string) => CYCLONE.test(normalize(message));
+
+/** « Les autres cyclones », « dans le monde », « ailleurs », « au Japon »… : pas seulement notre océan. */
+const WORLD =
+  /\b(?:autres?|monde|mondial|ailleurs|partout|planete|reste|pacifique|atlantique|japon|chine|philippines|inde|australie|amerique|etats unis|usa|caraibes?|antilles|typhons?|ouragans?)\b/;
+
+/** Zone voulue par le message : le monde si la personne parle d'ailleurs, sinon notre océan. */
+export const cycloneZoneFor = (message: string): CycloneZone => (WORLD.test(normalize(message)) ? "monde" : "ocean-indien");
 
 /* -------------------------------------------------------------------------- */
 /* Données envoyées à la carte                                                */

@@ -1,8 +1,10 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
 import { estimate } from "./engine";
-import { MAYOTTE, type Cyclone, type CyclonePoint } from "./intent";
+import { MAYOTTE, type Cyclone, type CyclonePoint, type CycloneZone } from "./intent";
 import { ageHours, motionOf, STALE_AFTER_H } from "./motion";
+
+export type { CycloneZone } from "./intent";
 
 /**
  * Cyclones en cours dans le sud-ouest de l'océan Indien, lus sur GDACS
@@ -23,9 +25,6 @@ const CACHE_S = 15 * 60;
 const CACHE_MS = CACHE_S * 1000;
 /** La géométrie du trajet met souvent plus de 10 s à venir de GDACS. */
 const TIMEOUT_MS = 20_000;
-
-/** Zone voulue : l'océan Indien autour de Mayotte (par défaut), ou le monde entier (sur demande). */
-export type CycloneZone = "ocean-indien" | "monde";
 
 const memory = new Map<CycloneZone, { at: number; cyclones: Cyclone[] }>();
 
@@ -320,11 +319,34 @@ function estimateLine(c: Cyclone): string | null {
  * ne sont pas dans ces données : seuls les journaux ou les sources officielles
  * peuvent les donner.
  */
-export async function cyclonesText(): Promise<string> {
-  const cyclones = await getCyclones();
-  if (!cyclones.length) {
-    return "Cyclones (GDACS, d'après Météo-France La Réunion) : sûr, aucun cyclone ni système en formation suivi en ce moment dans le sud-ouest de l'océan Indien.";
-  }
+export async function cyclonesText(zone: CycloneZone = "ocean-indien"): Promise<string> {
+  const [near, world] = await Promise.all([
+    getCyclones(),
+    zone === "monde" ? worldText().catch(() => "Cyclones dans le reste du monde : GDACS ne répond pas, le dire simplement.") : null,
+  ]);
+  const ours = near.length
+    ? nearText(near)
+    : "Cyclones (GDACS, d'après Météo-France La Réunion) : sûr, aucun cyclone ni système en formation suivi en ce moment dans le sud-ouest de l'océan Indien.";
+  return [ours, world].filter(Boolean).join("\n");
+}
+
+/** Les cyclones loin de notre océan, une ligne chacun : ils ne peuvent pas atteindre Mayotte. */
+async function worldText(): Promise<string> {
+  const far = (await getCyclones("monde")).filter((c) => !c.local);
+  if (!far.length) return "Cyclones dans le reste du monde (GDACS) : sûr, aucun suivi en ce moment.";
+  return [
+    "Cyclones dans le reste du monde (GDACS, d'après le centre météo de chaque océan), tous trop loin pour atteindre Mayotte :",
+    ...far.map((c) => {
+      const m = motionOf(c);
+      const wind = c.windKmh ? `, vents jusqu'à ${c.windKmh} km/h` : "";
+      const going = m ? `, va vers ${m.direction} à environ ${m.speedKmh} km/h` : "";
+      return `- ${c.name} (${c.region}) : ${c.status.toLowerCase()}${wind}${going}, mesuré le ${clock.format(new Date(c.now.at))}.`;
+    }),
+  ].join("\n");
+}
+
+/** Les cyclones de notre océan, en détail. */
+function nearText(cyclones: Cyclone[]): string {
   return [
     "Cyclones en cours dans le sud-ouest de l'océan Indien (GDACS, d'après Météo-France La Réunion) :",
     ...cyclones.map((c) =>

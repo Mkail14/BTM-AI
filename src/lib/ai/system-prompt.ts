@@ -4,6 +4,7 @@ import { VOICE_TONE } from "./voice-tone";
 import { CODE_EXAM_OFFICES } from "@/lib/code-exam/offices";
 import { FOOD_CATALOG } from "@/lib/food/catalog";
 import { tripSpec, type TripSpec } from "@/lib/trip/intent";
+import type { CycloneZone } from "@/lib/cyclone/intent";
 import { READING_BLOCK } from "@/lib/lecture/intent";
 import { SONGWRITING } from "@/lib/music/songwriting";
 import type { ValidatedExample } from "@/lib/language/types";
@@ -108,8 +109,8 @@ export type PromptContext = {
   btmDevis?: string | null;
   /** Ce message demande un trajet (detectTrip) : contenu du bloc itineraire. */
   trip?: TripSpec | null;
-  /** Ce message parle des cyclones (detectCyclone) : la carte des cyclones s'ouvre. */
-  cyclone?: boolean;
+  /** Ce message parle des cyclones (detectCyclone) : la carte des cyclones s'ouvre, sur notre océan ou sur le monde (cycloneZoneFor). */
+  cyclone?: CycloneZone | null;
   /** Ce message demande à Tamilya de chanter (detectSong) : elle écrit une chanson, chantée par la carte SongCard. */
   song?: boolean;
   /**
@@ -587,14 +588,14 @@ export function buildSystemPrompt(
   if (context.cyclone && !context.site && !context.voice) {
     sections.push(
       [
-        "POUR CE MESSAGE : la personne veut savoir s'il y a des cyclones (en cours ou en formation).",
-        "Réponds en deux ou trois phrases courtes, puis ce bloc exactement, seul sur ses lignes :",
-        "```carte-cyclones\nocean-indien\n```",
-        "Tu parles comme quelqu'un d'honnête sur ce qu'il sait : tu sépares ce qui est sûr (la position et la force mesurées) de ce qui est prévu (le trajet, moins sûr plus on regarde loin), et tu dis clairement à quel point c'est probable pour Mayotte, d'après le « risque pour Mayotte » des informations en direct. Tu ne grossis rien et tu ne rassures pas plus que les données.",
-        "La pluie, le vent, la mer, les dates et les alertes : seulement si un article des journaux de Mayotte ou une source officielle des informations en direct le dit, en nommant ce journal. Sinon, tu dis que les prévisions ne le disent pas encore. Tu n'inventes jamais un effet ni une date.",
-        "La carte de l'océan Indien, les trajets faits et prévus et la zone où chaque système peut passer s'affichent dans ce bloc. Pour les alertes officielles, renvoie vers la préfecture de Mayotte.",
-        "S'il a bougé, tu le dis avec le déplacement mesuré (combien de km, vers où, plus près ou plus loin de Mayotte). Si la dernière mesure est vieille, tu le dis d'abord : sinon on croit qu'il ne bouge pas.",
-        "Tu peux donner l'estimation BTM (les chances de passer près de Mayotte et le moment le plus probable) : c'est un calcul maison, un deuxième avis à côté de Météo-France, jamais une alerte ; tu le présentes comme tel, avec ses chiffres, sans les arrondir vers le pire ni vers le mieux.",
+        context.cyclone === "monde"
+          ? "POUR CE MESSAGE : la personne veut voir les cyclones ailleurs dans le monde, pas seulement autour de Mayotte. Tu as aussi « Cyclones dans le reste du monde » dans les informations du moment : parle de ceux-là (leur nom, leur océan), en disant qu'ils sont trop loin pour toucher Mayotte. Ne dis jamais « aucun cyclone » s'il y en a ailleurs."
+          : "POUR CE MESSAGE : la personne veut savoir s'il y a des cyclones (en cours ou en formation).",
+        "Tu réponds comme un voisin qui suit la météo : une ou deux phrases simples qui disent l'essentiel (y en a-t-il, et est-ce que ça concerne Mayotte), puis ce bloc exactement, seul sur ses lignes :",
+        `\`\`\`carte-cyclones\n${context.cyclone}\n\`\`\``,
+        "La carte montre déjà tout le reste (positions, trajets, zones possibles) : tu ne le récites pas. Tu détailles seulement si la personne le demande, ou si c'est vraiment utile (un cyclone qui se rapproche de Mayotte, une mesure trop vieille pour savoir où il est).",
+        "Tu restes honnête : tu ne grossis rien et tu ne rassures pas plus que les données du « risque pour Mayotte ». Tu n'inventes jamais un effet (pluie, vent, mer) ni une date ; ceux-là viennent seulement d'un journal de Mayotte ou d'une source officielle, que tu nommes.",
+        "Si tu donnes l'estimation BTM, tu dis que c'est un calcul maison, un deuxième avis à côté de Météo-France, jamais une alerte. Pour les alertes officielles : la préfecture de Mayotte.",
       ].join("\n"),
     );
   }

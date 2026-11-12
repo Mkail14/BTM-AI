@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { backtest, closestOf, estimate, stateOf } from "@/lib/cyclone/engine";
+import { cycloneBlock, cycloneZoneFor, cycloneZoneOf } from "@/lib/cyclone/intent";
 import { motionOf, positionAt } from "@/lib/cyclone/motion";
 
 const p = (at: string, lat: number, lng: number, forecast = false) => ({ at, lat, lng, forecast });
@@ -82,5 +83,21 @@ describe("cyclones : moteur d'estimation", () => {
     const r = backtest({ fromSeason: 2005 });
     assert.ok(r.cases > 200, `${r.cases} cas`);
     assert.ok(r.skill > 0.05, `gain ${r.skill}`);
+  });
+});
+
+describe("cyclones : notre océan ou le monde", () => {
+  it("« les autres cyclones », « le monde », un typhon : la carte s'ouvre sur le monde", () => {
+    for (const m of ["Montre-moi les autres cyclones", "il y a des cyclones dans le monde ?", "un typhon au Japon ?", "et ailleurs, des cyclones ?"]) {
+      assert.equal(cycloneZoneFor(m), "monde", m);
+    }
+  });
+  it("une question sur Mayotte reste sur notre océan", () => {
+    for (const m of ["il y a un cyclone ?", "un cyclone arrive à Mayotte cette semaine ?"]) assert.equal(cycloneZoneFor(m), "ocean-indien", m);
+  });
+  it("le bloc garde la zone, et la carte la relit", () => {
+    assert.equal(cycloneZoneOf(cycloneBlock("monde").split("\n")[3]), "monde");
+    assert.equal(cycloneZoneOf("ocean-indien"), "ocean-indien");
+    assert.equal(cycloneZoneOf(""), "ocean-indien");
   });
 });

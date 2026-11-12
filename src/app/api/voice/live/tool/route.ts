@@ -93,11 +93,15 @@ export async function POST(request: NextRequest) {
   // Carte des cyclones : elle s'ajoute à la conversation, et Tamilya dit l'essentiel à voix haute.
   if (parsed.data.name === "carte_cyclones") {
     // Les cyclones (GDACS) et les articles des journaux de Mayotte qui en parlent, ensemble.
-    const said = await liveContextFor("cyclone", { maxWaitMs: CYCLONE_INFO_WAIT_MS }).catch(() => null);
+    // « monde » : la personne parle des autres cyclones (ailleurs sur la Terre).
+    const zone = parsed.data.args.zone === "monde" ? "monde" : "ocean-indien";
+    const said = await liveContextFor(zone === "monde" ? "cyclones du monde" : "cyclone", { maxWaitMs: CYCLONE_INFO_WAIT_MS }).catch(() => null);
+    const world =
+      zone === "monde" ? "La personne veut les cyclones du monde : parle de ceux d'ailleurs (nom, océan), trop loin pour toucher Mayotte ; ne dis jamais « aucun cyclone » s'il y en a ailleurs. " : "";
     return NextResponse.json({
-      trip: cycloneBlock().trim(),
+      trip: cycloneBlock(zone).trim(),
       info: said
-        ? `${said}\n\nLa carte est à l'écran. Dis en une ou deux phrases ce qui est sûr, ce qui est prévu et à quel point c'est probable pour Mayotte ; un effet (pluie, vent, mer) seulement si un journal le dit, en le nommant.`
+        ? `${said}\n\nLa carte est à l'écran. ${world}Dis en une ou deux phrases ce qui est sûr, ce qui est prévu et à quel point c'est probable pour Mayotte ; un effet (pluie, vent, mer) seulement si un journal le dit, en le nommant.`
         : "La carte est à l'écran, mais les données des cyclones ne répondent pas : dis-le simplement.",
     });
   }

@@ -8,7 +8,7 @@ import { splitStableMarkdown } from "@/lib/chat/markdown-split";
 import { ATTESTATION_BLOCK, SIGNATURES_STEP } from "@/lib/attestation/intent";
 import { BARGE_BLOCK } from "@/lib/barge/intent";
 import { BTM_DEVIS_BLOCK } from "@/lib/btm/intent";
-import { CYCLONE_BLOCK } from "@/lib/cyclone/intent";
+import { CYCLONE_BLOCK, cycloneZoneOf } from "@/lib/cyclone/intent";
 import { SONG_BLOCK } from "@/lib/music/intent";
 import { READING_BLOCK } from "@/lib/lecture/intent";
 import { GROUP_BLOCK } from "@/lib/food/group-block";
@@ -105,8 +105,8 @@ const components: Components = {
       const block = textOf(children).trim();
       return <TripCard key={block} spec={block} />;
     }
-    // Bloc ```carte-cyclones``` : carte des cyclones de l'océan Indien (en cours et en formation).
-    if (code === `language-${CYCLONE_BLOCK}`) return <CycloneCard />;
+    // Bloc ```carte-cyclones``` : carte des cyclones (« ocean-indien » autour de Mayotte, ou « monde »), en cours et en formation.
+    if (code === `language-${CYCLONE_BLOCK}`) return <CycloneCard zone={cycloneZoneOf(textOf(children))} />;
     // Bloc ```chanson``` : paroles écrites par Tamilya, chantées avec des instruments (Lyria) ; le globe chante.
     // Sans clé : la carte doit garder son état pendant que le bloc s'écrit.
     if (code === `language-${SONG_BLOCK}`) return <SongCard spec={textOf(children)} />;
