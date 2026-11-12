@@ -22,8 +22,8 @@ type Props = {
   /** Système choisi en bas : la carte se cadre sur lui. null : vue d'ensemble. */
   focus: string | null;
   onPick: (id: string) => void;
-  /** Position rejouée (curseur du temps) : un cyclone fantôme s'y place. null : rien à rejouer. */
-  ghost?: { lat: number; lng: number } | null;
+  /** Position rejouée (curseur du temps) : le cyclone `id` lui-même s'y déplace, il n'y en a qu'un. null : dernière mesure. */
+  ghost?: { id: string; lat: number; lng: number } | null;
 };
 
 type Geo = { type: "FeatureCollection"; features: unknown[] };
@@ -32,6 +32,9 @@ const collection = (features: unknown[]): Geo => ({ type: "FeatureCollection", f
 /** Symbole météo du cyclone : un rond et deux bras enroulés. */
 const CYCLONE_SVG =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 8.8C12 4.5 15 2.5 19 2.5"/><path d="M12 15.2c0 4.3-3 6.3-7 6.3"/></svg>';
+/** Fin du suivi : une croix. */
+const CROSS_SVG =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg>';
 const PIN_SVG =
   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg>';
 
@@ -63,22 +66,45 @@ function shapes(cyclones: readonly Cyclone[]) {
     if (done.length > 1) past.push({ type: "Feature", properties: { id: c.id }, geometry: { type: "LineString", coordinates: done.map((t) => [t.lng, t.lat]) } });
     if (next.length > 1) ahead.push({ type: "Feature", properties: { id: c.id }, geometry: { type: "LineString", coordinates: next.map((t) => [t.lng, t.lat]) } });
     for (const t of c.track.filter((t) => t.forecast)) dots.push({ type: "Feature", properties: { id: c.id }, geometry: { type: "Point", coordinates: [t.lng, t.lat] } });
-    if (c.cone) cones.push({ type: "Feature", properties: { id: c.id }, geometry: { type: "Polygon", coordinates: c.cone } });
+    if (c.cone) cones.push({ type: "Feature", properties: { id: c.id }, geometry: { type: "MultiPolygon", coordinates: c.cone.map((ring) => [ring]) } });
   }
   return { past: collection(past), ahead: collection(ahead), dots: collection(dots), cones: collection(cones), spread: collection(spread) };
 }
 
 /** Cadre qui montre Mayotte et les systèmes voulus (tout leur trajet). */
 function boundsOf(cyclones: readonly Cyclone[]): [[number, number], [number, number]] {
-  const pts = [MAYOTTE, ...cyclones.flatMap((c) => c.track)];
-  const lngs = pts.map((p) => p.lng);
+  // Mayotte n'est dans le cadre que si un système de notre océan y est (sinon, pour un typhon au Japon, on verrait la moitié du monde).
+  const pts = [...(cyclones.length && !cyclones.some((c) => c.local) ? [] : [MAYOTTE]), ...cyclones.flatMap((c) => c.track)];
+  const [west, east] = shortestSpan(pts.map((p) => p.lng));
   const lats = pts.map((p) => p.lat);
   // Sans cyclone : le canal du Mozambique et Madagascar autour de Mayotte.
   const pad = cyclones.length ? 1 : 8;
   return [
-    [Math.min(...lngs) - pad, Math.min(...lats) - pad],
-    [Math.max(...lngs) + pad, Math.max(...lats) + pad],
+    [west - pad, Math.min(...lats) - pad],
+    [east + pad, Math.max(...lats) + pad],
   ];
+}
+
+/**
+ * Ouest et est par le chemin le plus court autour de la Terre. Sans ça, un
+ * cyclone juste après le changement de date (Pena, -172°) et un autre près du
+ * Japon (154°) étaient cadrés par l'Afrique : la carte montrait le monde
+ * entier. On coupe là où il y a le plus grand vide ; l'est peut dépasser 180.
+ */
+function shortestSpan(lngs: number[]): [number, number] {
+  const sorted = [...new Set(lngs.map((l) => ((((l + 180) % 360) + 360) % 360) - 180))].sort((a, b) => a - b);
+  if (sorted.length < 2) return [sorted[0] ?? MAYOTTE.lng, sorted[0] ?? MAYOTTE.lng];
+  let cut = sorted.length - 1; // vide entre le dernier et le premier (en passant par 180°)
+  let widest = sorted[0] + 360 - sorted[cut];
+  for (let i = 0; i < sorted.length - 1; i++) {
+    if (sorted[i + 1] - sorted[i] > widest) {
+      widest = sorted[i + 1] - sorted[i];
+      cut = i;
+    }
+  }
+  const west = sorted[(cut + 1) % sorted.length];
+  const east = sorted[cut];
+  return [west, east >= west ? east : east + 360];
 }
 
 const FIT = { padding: { top: 70, bottom: 40, left: 40, right: 40 }, maxZoom: 7 };
@@ -86,8 +112,7 @@ const FIT = { padding: { top: 70, bottom: 40, left: 40, right: 40 }, maxZoom: 7 
 export function CycloneMap({ cyclones, focus, onPick, ghost = null }: Props) {
   const frame = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
-  const markers = useRef<Marker[]>([]);
-  const ghostMarker = useRef<Marker | null>(null);
+  const markers = useRef(new Map<string, Marker>());
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const latest = useRef({ cyclones, onPick });
@@ -141,17 +166,16 @@ export function CycloneMap({ cyclones, focus, onPick, ghost = null }: Props) {
         created.addLayer({ id: "dots", type: "circle", source: "dots", paint: { "circle-radius": 4, "circle-color": "#ffffff", "circle-stroke-color": accent, "circle-stroke-width": 2 } });
         frame.current.querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show");
 
-        // Position actuelle de chaque système : le symbole tourne (dans le sens des aiguilles, comme dans l'hémisphère sud).
+        // Position actuelle de chaque système : le symbole tourne dans le sens des aiguilles au sud de l'équateur, dans l'autre sens au nord (symbole retourné).
         for (const c of latest.current.cyclones) {
-          const el = pin("map-cyclone", `<span class="map-cyclone-ring"></span><span class="map-cyclone-dot">${CYCLONE_SVG}</span>`, c.name);
+          // Plus suivi : une croix grise, immobile, à sa dernière position connue.
+          const el = c.ended
+            ? pin("map-cyclone map-cyclone-ended", `<span class="map-cyclone-dot">${CROSS_SVG}</span>`, `${c.name}, plus suivi`)
+            : pin(c.now.lat > 0 ? "map-cyclone map-cyclone-north" : "map-cyclone", `<span class="map-cyclone-ring"></span><span class="map-cyclone-dot">${CYCLONE_SVG}</span>`, c.name);
           el.style.cursor = "pointer";
           el.addEventListener("click", () => latest.current.onPick(c.id));
-          markers.current.push(new maplibre.Marker({ element: el }).setLngLat([c.now.lng, c.now.lat]).addTo(created));
+          markers.current.set(c.id, new maplibre.Marker({ element: el }).setLngLat([c.now.lng, c.now.lat]).addTo(created));
         }
-        // Cyclone fantôme du curseur du temps : caché tant qu'on ne rejoue pas.
-        const ghostEl = pin("map-cyclone map-cyclone-ghost", `<span class="map-cyclone-dot">${CYCLONE_SVG}</span>`);
-        ghostMarker.current = new maplibre.Marker({ element: ghostEl }).setLngLat([MAYOTTE.lng, MAYOTTE.lat]).addTo(created);
-        ghostEl.style.visibility = "hidden";
         setReady(true);
       });
     })().catch((error) => {
@@ -160,8 +184,7 @@ export function CycloneMap({ cyclones, focus, onPick, ghost = null }: Props) {
     });
     return () => {
       cancelled = true;
-      markers.current = [];
-      ghostMarker.current = null;
+      markers.current = new Map();
       created?.remove();
       map.current = null;
     };
@@ -175,17 +198,13 @@ export function CycloneMap({ cyclones, focus, onPick, ghost = null }: Props) {
     m.fitBounds(boundsOf(chosen.length ? chosen : cyclones), { ...FIT, duration: 800 });
   }, [ready, focus, cyclones]);
 
-  // Curseur du temps : le fantôme suit la position rejouée.
+  // Curseur du temps : le cyclone lui-même suit la position rejouée (jamais de second cyclone) ; les autres restent à leur dernière mesure.
   useEffect(() => {
-    const g = ghostMarker.current;
-    if (!ready || !g) return;
-    const el = g.getElement();
-    if (!ghost) {
-      el.style.visibility = "hidden";
-      return;
+    if (!ready) return;
+    for (const c of latest.current.cyclones) {
+      const at = ghost?.id === c.id ? ghost : c.now;
+      markers.current.get(c.id)?.setLngLat([at.lng, at.lat]);
     }
-    g.setLngLat([ghost.lng, ghost.lat]);
-    el.style.visibility = "visible";
   }, [ready, ghost]);
 
   return (

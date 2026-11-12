@@ -7,8 +7,14 @@
 /** Bloc remplacé dans la conversation par la carte des cyclones (CycloneCard). */
 export const CYCLONE_BLOCK = "carte-cyclones";
 
-/** Contenu du bloc : la zone suivie (une seule pour l'instant). */
-export const cycloneBlock = () => `\n\n\`\`\`${CYCLONE_BLOCK}\nocean-indien\n\`\`\``;
+/** Zone voulue : l'océan Indien autour de Mayotte (par défaut), ou le monde entier (sur demande). */
+export type CycloneZone = "ocean-indien" | "monde";
+
+/** Contenu du bloc : la zone montrée par la carte. */
+export const cycloneBlock = (zone: CycloneZone = "ocean-indien") => `\n\n\`\`\`${CYCLONE_BLOCK}\n${zone}\n\`\`\``;
+
+/** Zone lue dans le bloc : « monde », sinon l'océan Indien. */
+export const cycloneZoneOf = (spec: string): CycloneZone => (spec.trim() === "monde" ? "monde" : "ocean-indien");
 
 const normalize = (text: string) =>
   ` ${text
@@ -21,6 +27,13 @@ const CYCLONE = /\b(?:cyclones?|cycloniques?|tempetes? tropicales?|depressions? 
 
 /** La personne parle des cyclones (en cours, en formation, qui arrivent). */
 export const detectCyclone = (message: string) => CYCLONE.test(normalize(message));
+
+/** « Les autres cyclones », « dans le monde », « ailleurs », « au Japon »… : pas seulement notre océan. */
+const WORLD =
+  /\b(?:autres?|monde|mondial|ailleurs|partout|planete|reste|pacifique|atlantique|japon|chine|philippines|inde|australie|amerique|etats unis|usa|caraibes?|antilles|typhons?|ouragans?)\b/;
+
+/** Zone voulue par le message : le monde si la personne parle d'ailleurs, sinon notre océan. */
+export const cycloneZoneFor = (message: string): CycloneZone => (WORLD.test(normalize(message)) ? "monde" : "ocean-indien");
 
 /* -------------------------------------------------------------------------- */
 /* Données envoyées à la carte                                                */
@@ -38,12 +51,16 @@ export type Cyclone = {
   status: string;
   /** Vent le plus fort, en km/h. */
   windKmh: number | null;
-  /** Position à la dernière mesure. */
+  /** Dans notre océan (sud-ouest de l'océan Indien) : seul cas où la distance à Mayotte et l'estimation ont un sens. */
+  local: boolean;
+  /** « Pacifique nord-ouest », « Atlantique nord »… */
+  region: string;
+  /** Position à la dernière mesure (longitudes du trajet et du cône suivies sans saut au changement de date : elles peuvent dépasser ±180). */
   now: { lat: number; lng: number; at: string };
   /** Trajet : déjà fait puis prévu, dans l'ordre. */
   track: CyclonePoint[];
   /** Zone où il peut passer (cône d'incertitude), en [lng, lat]. */
-  cone: [number, number][][] | null;
+  cone: [number, number][][] | null; // un contour par morceau (deux si GDACS la coupe au changement de date)
   /** Distance de Mayotte maintenant, en km. */
   distanceKm: number;
   /** Plus proche de Mayotte selon la prévision. */
@@ -54,6 +71,12 @@ export type Cyclone = {
   link: string;
   /** Estimation BTM du passage près de Mayotte (moteur des anciens cyclones). null : pas assez de données. */
   estimate: CycloneEstimate | null;
+  /**
+   * Plus suivi (fini depuis moins de 7 jours, dans notre océan) : trop faible,
+   * il s'est sûrement dissipé. `now` est alors sa dernière position connue, et
+   * il n'y a plus de prévision. Montré pour que personne ne croie à un bug.
+   */
+  ended: boolean;
 };
 
 /**

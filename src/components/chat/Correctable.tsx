@@ -67,15 +67,19 @@ export function Correctable({
   messageId,
   reply,
   question,
+  disabled = false,
   children,
 }: {
   messageId: string;
   /** Réponse complète de Tamilya et message auquel elle répond : pour retrouver ce qu'elle voulait dire. */
   reply: string;
   question?: string;
+  /** Réponse encore en train de s'écrire : pas de correction, mais le même cadre (le contenu n'est pas redessiné). */
+  disabled?: boolean;
   children: ReactNode;
 }) {
-  const correct = use(CorrectContext);
+  const master = use(CorrectContext);
+  const correct = disabled ? null : master;
   const rootRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const [selection, setSelection] = useState<{ text: string; anchor: Anchor } | null>(null);
@@ -126,7 +130,14 @@ export function Correctable({
     };
   }, [form]);
 
-  if (!correct) return <>{children}</>;
+  if (!master) return <>{children}</>;
+  if (!correct) {
+    return (
+      <div ref={rootRef} className="group/correct relative">
+        {children}
+      </div>
+    );
+  }
 
   function open(text: string, nextMode: Mode = "correct") {
     setMode(nextMode);

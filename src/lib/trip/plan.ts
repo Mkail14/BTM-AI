@@ -2,6 +2,7 @@ import "server-only";
 import type { Address } from "@/lib/address";
 import { COMMUNE_CENTERS, PETITE_TERRE, distanceKm, nearestCommune, type Point } from "@/lib/geo/communes";
 import { geocodeAddress, geocodeQuery, snapToRoad, type GeocodePrecision } from "@/lib/geo/geocode";
+import { findLandmark, landmarkChoices } from "@/lib/geo/landmarks";
 import { findVillage, placeKey } from "@/lib/geo/villages";
 import { getMayotteServices, matchServices, servicesAsked } from "@/lib/live/services";
 import { formatMinutes } from "./intent";
@@ -43,6 +44,9 @@ export type TripPlan = {
 
 export type TripFailure = "no_destination" | "no_origin" | "no_route";
 
+/** Un nom pour plusieurs lieux (« Moya ») : on demande lequel au lieu de choisir à la place de la personne. */
+export type TripChoice = { choose: { side: "to" | "from"; said: string; choices: string[] } };
+
 const capitalize = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
 
 /**
@@ -65,6 +69,9 @@ export async function resolvePlace(text: string, near?: Point): Promise<(TripPla
   // Villages et quartiers gardés dans le site : la carte en ligne ne répond pas toujours au serveur.
   const village = findVillage(query);
   if (village) return { label: village.name, detail: nearestCommune(village.point), point: await snapToRoad(village.point), phones: [], hours: null, link: null };
+  // Plages et lieux connus (« Grande Moya ») : gardés dans le site, comme les villages.
+  const landmark = findLandmark(query);
+  if (landmark) return { label: landmark.name, detail: nearestCommune(landmark.point), point: await snapToRoad(landmark.point), phones: [], hours: null, link: null };
   const point = await geocodeQuery(query);
   return point ? { label: capitalize(query), detail: nearestCommune(point), point, phones: [], hours: null, link: null } : null;
 }
@@ -93,7 +100,12 @@ async function osrm(base: string, from: Point, to: Point, full: boolean) {
 export async function planTrip(
   { to, from, gps }: { to: string; from: string | null; gps: Point | null },
   home: Address | null,
-): Promise<TripPlan | TripFailure> {
+): Promise<TripPlan | TripFailure | TripChoice> {
+  // Avant tout calcul : « Moya », c'est la Grande ou la Petite ? On demande.
+  const toChoices = landmarkChoices(to);
+  if (toChoices) return { choose: { side: "to", said: to, choices: toChoices } };
+  const fromChoices = from ? landmarkChoices(from) : null;
+  if (from && fromChoices) return { choose: { side: "from", said: from, choices: fromChoices } };
   // Départ d'abord : l'arrivée (« la CSSM ») est choisie la plus proche de lui.
   const departure = await (async (): Promise<TripPlan["from"] | null> => {
     if (gps) return { label: "Ma position", detail: nearestCommune(gps), point: await snapToRoad(gps), kind: "gps" };

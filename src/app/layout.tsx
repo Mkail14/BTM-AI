@@ -16,6 +16,7 @@ import { ThemeScript } from "@/components/ui/ThemeScript";
 import { getAuthContext } from "@/lib/auth/session";
 import { getProfile } from "@/lib/conversations/repository";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
+import { userFeatures } from "@/lib/site/features";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -58,7 +59,8 @@ async function loadInitialUser(): Promise<AuthUser | null> {
   } catch {
     // Profil indisponible (migrations non appliquées ?) : sans incidence sur la session.
   }
-  return { id: user.id, email: user.email, displayName, isAdmin: user.isAdmin, personality };
+  const features = await userFeatures(user);
+  return { id: user.id, email: user.email, displayName, isAdmin: user.isAdmin, personality, features };
 }
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {

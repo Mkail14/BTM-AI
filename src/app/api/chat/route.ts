@@ -4,10 +4,11 @@ import { AIProviderError, buildSystemPrompt, getAIProvider } from "@/lib/ai";
 import { getAuthContext } from "@/lib/auth/session";
 import { canOrderFood } from "@/lib/food/access";
 import { canBuyBargeTickets } from "@/lib/barge/access";
-import { CYCLONE_BLOCK, cycloneBlock, detectCyclone } from "@/lib/cyclone/intent";
+import { CYCLONE_BLOCK, cycloneBlock, cycloneZoneFor, detectCyclone } from "@/lib/cyclone/intent";
 import { detectSong } from "@/lib/music/intent";
 import { readingMode, withSceneBlock } from "@/lib/lecture/intent";
 import { BARGE_BLOCK, bargeBlockFor, bargeSpec, detectBargeTicket } from "@/lib/barge/intent";
+import { userFeatures } from "@/lib/site/features";
 import { ATTESTATION_BLOCK, attestationBlock, detectAttestation, wantsOwnInfo } from "@/lib/attestation/intent";
 import { BTM_DEVIS_BLOCK, btmDevisBlockFor, btmDevisSpec, detectBtmDevis } from "@/lib/btm/intent";
 import { FOOD_CATALOG } from "@/lib/food/catalog";
@@ -447,8 +448,10 @@ export async function POST(request: NextRequest) {
   const btmDevis = !body.voice && detectBtmDevis(body.message) ? btmDevisSpec(body.message) : null;
   // Trajet demandé (« combien de temps de chez moi à la CSSM ») : la carte du trajet s'ouvre à coup sûr (compte requis).
   const trip = user && !body.voice && !foodQuery && !foodGroup && !btmDevis ? detectTrip(body.message) : null;
-  // Cyclones demandés (« il y a un cyclone ? ») : la carte des cyclones s'ouvre à coup sûr.
-  const cyclone = !body.voice && detectCyclone(body.message);
+  // Cyclones demandés (« il y a un cyclone ? ») : la carte des cyclones s'ouvre à coup sûr, sur le monde si la personne parle des autres.
+  // Éteint dans /admin/fonctionnalites : seulement pour les administrateurs.
+  const features = await userFeatures(user);
+  const cyclone = !body.voice && features.includes("cyclone") && detectCyclone(body.message) ? cycloneZoneFor(body.message) : null;
   // Chanson demandée (« chante-moi quelque chose ») : Tamilya écrit une chanson, chantée sous son message.
   const song = !body.voice && detectSong(body.message);
   // Lecture en 3D demandée (« lis-moi cette page », ou demandée juste avant et le texte arrive) :
@@ -461,7 +464,7 @@ export async function POST(request: NextRequest) {
   // Demande d'attestation d'hébergement reconnue ici : le formulaire s'ouvre à coup sûr.
   // « Mets mes infos » juste après l'ouverture : c'est la même attestation.
   const attestationOpen = history.slice(-4).some((turn) => turn.role === "assistant" && turn.content.includes(ATTESTATION_BLOCK));
-  const attestation = !body.voice && (detectAttestation(body.message) || (attestationOpen && wantsOwnInfo(body.message)));
+  const attestation = !body.voice && features.includes("attestation") && (detectAttestation(body.message) || (attestationOpen && wantsOwnInfo(body.message)));
   // Jour voulu pour le code (« demain », « vendredi matin ») : calculé ici, les modèles se trompent de date.
   const codeWhen = parseCodeExamWhen(body.message);
   const pastTalksRead = await pastTalksTask;
@@ -503,7 +506,7 @@ export async function POST(request: NextRequest) {
     song,
     reading: reading ? (reading.kind === "page" ? "photo" : reading.kind) : undefined,
     readingOffer: Boolean(user?.isAdmin),
-    attestationOffer: true,
+    attestationOffer: features.includes("attestation"),
     attestation,
     codeExamDay: codeWhen.day ? formatWhenDay(codeWhen.day) : null,
     foodOrder,
@@ -745,7 +748,7 @@ ${block}`;
         }
         // Cyclones demandés mais pas de bloc dans la réponse : on l'ajoute.
         if (cyclone && text && !text.includes("```" + CYCLONE_BLOCK)) {
-          const block = cycloneBlock();
+          const block = cycloneBlock(cyclone);
           text += block;
           send({ type: "delta", text: block });
         }

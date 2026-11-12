@@ -194,17 +194,15 @@ function AssistantMessage({ message, question }: { message: UiMessage; question?
             {message.team?.length ? <p className="mt-1 text-xs text-fg-muted">Je consulte : {message.team.join(", ")}…</p> : null}
           </div>
         ) : text ? (
-          writing ? (
-            // Point qui clignote au bout du texte pendant que Tamilya écrit.
-            <div className="typing-cursor">
-              <Markdown text={text} streaming />
+          // Même arbre pendant et après l'écriture : sinon tout le message est redessiné à la fin
+          // et les tableaux qu'il contient (cyclones, barge…) se rechargent une seconde fois.
+          // Maître de Tamilya : sélection d'un passage pour le corriger, une fois la réponse finie.
+          <Correctable messageId={message.id} reply={message.content} question={question} disabled={writing}>
+            {/* Point qui clignote au bout du texte pendant que Tamilya écrit. */}
+            <div className={writing ? "typing-cursor" : undefined}>
+              <Markdown text={writing ? text : message.content} />
             </div>
-          ) : (
-            // Maître de Tamilya : sélection d'un passage pour le corriger (sans effet pour les autres).
-            <Correctable messageId={message.id} reply={message.content} question={question}>
-              <Markdown text={message.content} />
-            </Correctable>
-          )
+          </Correctable>
         ) : null}
 
         {/* Mode maître : le shimaoré que Tamilya vient de retenir, pour voir qu'elle a bien appris. */}

@@ -129,7 +129,7 @@ export function AccountMenu({
           {/* Portefeuille et administration sont déjà à l'extérieur (solde, Tableau de bord) :
               le portefeuille ne revient ici que si la barre repliée cache le solde. */}
           {compact && walletOn ? (
-            <Link href="/portefeuille" role="menuitem" onClick={close} className={`${itemClass} max-md:hidden`}>
+            <Link prefetch={false} href="/portefeuille" role="menuitem" onClick={close} className={`${itemClass} max-md:hidden`}>
               <IconWallet /> Portefeuille
               {balance !== null ? (
                 <span className="ml-auto text-xs font-semibold text-fg-muted tabular-nums">
@@ -139,13 +139,13 @@ export function AccountMenu({
               ) : null}
             </Link>
           ) : null}
-          <Link href="/parametres" role="menuitem" onClick={close} className={itemClass}>
+          <Link prefetch={false} href="/parametres" role="menuitem" onClick={close} className={itemClass}>
             <IconSettings /> Paramètres
           </Link>
-          <Link href="/utilisation" role="menuitem" onClick={close} className={itemClass}>
+          <Link prefetch={false} href="/utilisation" role="menuitem" onClick={close} className={itemClass}>
             <IconGauge /> Utilisation
           </Link>
-          <Link href="/aide" role="menuitem" onClick={close} className={itemClass}>
+          <Link prefetch={false} href="/aide" role="menuitem" onClick={close} className={itemClass}>
             <IconHelp /> Obtenir de l&apos;aide
           </Link>
           <div className="my-1 border-t border-border" role="separator" />
@@ -191,7 +191,7 @@ export function AccountMenu({
       </button>
       {/* Solde du portefeuille : un clic ouvre la page pour recharger ou voir l'historique. */}
       {walletOn ? (
-      <Link
+      <Link prefetch={false}
         href="/portefeuille"
         onClick={onNavigate}
         aria-label={balance !== null ? `Portefeuille : ${formatEuros(balance.cents)}${balance.demo ? " (solde fictif de démonstration)" : ""}` : "Portefeuille"}

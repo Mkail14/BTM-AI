@@ -11,7 +11,7 @@ import { hapticPress } from "@/lib/chat/haptics";
  * - une phrase « depuis hier 15 h : 375 km vers l'ouest, 16 km/h, 375 km plus près » ;
  * - un avertissement si la dernière mesure est vieille (sinon on croit qu'il ne bouge pas) ;
  * - la courbe de sa distance à Mayotte (trait plein : mesuré ; pointillés : prévu) ;
- * - un curseur du temps et « Rejouer » : un cyclone fantôme parcourt le trajet sur la carte.
+ * - un curseur du temps et « Rejouer » : le cyclone parcourt son trajet sur la carte.
  */
 
 const PERSONA = "var(--persona,var(--accent))";
@@ -38,7 +38,7 @@ export function CycloneTimeline({ cyclone, onMove }: Props) {
   const motion = useMemo(() => motionOf(cyclone), [cyclone]);
   const age = ageHours(cyclone);
 
-  // Rendu avec key={cyclone.id} : un autre système repart de sa dernière mesure. En partant, le fantôme disparaît.
+  // Rendu avec key={cyclone.id} : un autre système repart de sa dernière mesure. En partant, le cyclone revient à sa dernière mesure.
   useEffect(() => () => onMove(null), [onMove]);
 
   const moveTo = (value: number) => {
@@ -50,7 +50,7 @@ export function CycloneTimeline({ cyclone, onMove }: Props) {
     moveRef.current = moveTo;
   });
 
-  // Relecture : le fantôme part du début et va jusqu'au bout de la prévision.
+  // Relecture : le cyclone part du début et va jusqu'au bout de la prévision.
   useEffect(() => {
     if (!playing) return;
     const start = performance.now();
@@ -69,7 +69,9 @@ export function CycloneTimeline({ cyclone, onMove }: Props) {
   const forecast = t > tNow;
   const canPlay = track.length > 1 && t1 > t0;
 
-  const toward = !motion
+  // Loin de notre océan : la distance à Mayotte ne veut rien dire, on ne la montre pas.
+  const local = cyclone.local;
+  const toward = !motion || !local
     ? null
     : motion.closerKm > 20
       ? `${motion.closerKm.toLocaleString("fr-FR")} km plus près de Mayotte`
@@ -95,7 +97,7 @@ export function CycloneTimeline({ cyclone, onMove }: Props) {
           </span>
           <span className="text-fg-muted">
             {" "}
-            · {motion.speedKmh} km/h · {toward}
+            · {motion.speedKmh} km/h{toward ? ` · ${toward}` : ""}
           </span>
         </p>
       ) : null}
@@ -118,14 +120,15 @@ export function CycloneTimeline({ cyclone, onMove }: Props) {
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline justify-between gap-2 text-[11px] leading-tight">
               <span className="truncate font-semibold tabular-nums">
-                {when.format(new Date(t))} · {distance.toLocaleString("fr-FR")} km
+                {when.format(new Date(t))}
+                {local ? ` · ${distance.toLocaleString("fr-FR")} km` : ""}
               </span>
               <span className={forecast ? "shrink-0 font-semibold" : "shrink-0 text-fg-muted"} style={forecast ? { color: PERSONA } : undefined}>
                 {forecast ? "prévu" : t === tNow ? "dernière mesure" : "mesuré"}
               </span>
             </div>
             <div className="relative mt-1 h-8">
-              <DistanceCurve track={track} t0={t0} t1={t1} tNow={tNow} t={t} />
+              <DistanceCurve track={track} t0={t0} t1={t1} tNow={tNow} t={t} flat={!local} />
               <input
                 type="range"
                 min={t0}
@@ -137,7 +140,7 @@ export function CycloneTimeline({ cyclone, onMove }: Props) {
                   moveTo(Number(e.target.value));
                 }}
                 aria-label="Heure du trajet"
-                aria-valuetext={`${when.format(new Date(t))}, ${distance} km de Mayotte, ${forecast ? "prévu" : "mesuré"}`}
+                aria-valuetext={`${when.format(new Date(t))}${local ? `, ${distance} km de Mayotte` : ""}, ${forecast ? "prévu" : "mesuré"}`}
                 className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
               />
             </div>
@@ -151,20 +154,21 @@ export function CycloneTimeline({ cyclone, onMove }: Props) {
 /**
  * Distance à Mayotte dans le temps : plus la courbe descend, plus il s'approche.
  * Trait plein jusqu'à la dernière mesure, pointillés ensuite ; un rond marque l'heure choisie.
+ * flat : cyclone loin de notre océan, simple trait du temps (sa distance à Mayotte n'a pas de sens).
  */
-function DistanceCurve({ track, t0, t1, tNow, t }: { track: readonly CyclonePoint[]; t0: number; t1: number; tNow: number; t: number }) {
-  const pts = track.map((p) => ({ t: Date.parse(p.at), d: km(MAYOTTE, p) }));
+function DistanceCurve({ track, t0, t1, tNow, t, flat = false }: { track: readonly CyclonePoint[]; t0: number; t1: number; tNow: number; t: number; flat?: boolean }) {
+  const pts = track.map((p) => ({ t: Date.parse(p.at), d: flat ? 0 : km(MAYOTTE, p) }));
   const max = Math.max(...pts.map((p) => p.d));
   const min = Math.min(0, ...pts.map((p) => p.d));
   const W = 100;
   const Hh = 32;
   const x = (time: number) => ((time - t0) / (t1 - t0 || 1)) * W;
-  const y = (d: number) => 3 + (1 - (d - min) / (max - min || 1)) * (Hh - 6);
+  const y = (d: number) => (flat ? Hh / 2 : 3 + (1 - (d - min) / (max - min || 1)) * (Hh - 6));
   const done = pts.filter((p) => p.t <= tNow);
   const ahead = pts.filter((p) => p.t >= tNow);
   const path = (list: typeof pts) => list.map((p, i) => `${i ? "L" : "M"}${x(p.t).toFixed(2)},${y(p.d).toFixed(2)}`).join(" ");
   const here = positionAt(track, t);
-  const hd = here ? km(MAYOTTE, here) : 0;
+  const hd = here && !flat ? km(MAYOTTE, here) : 0;
   return (
     <>
       <svg viewBox={`0 0 ${W} ${Hh}`} preserveAspectRatio="none" aria-hidden="true" className="absolute inset-0 size-full overflow-visible">
