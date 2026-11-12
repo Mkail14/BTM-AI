@@ -7,7 +7,7 @@ import { readOwnInfo, SIGNATURE_HELP_EVENT } from "@/lib/attestation/intent";
 import { pdfBase64 } from "@/lib/attestation/pdf-base64";
 import { applyPrefill, type AttestationPrefill } from "@/lib/attestation/prefill";
 import { DRIVE_UPLOAD_MESSAGES, uploadToDrive } from "@/lib/drive/upload";
-import { removeSignatureBackground, type SignatureProblem } from "@/lib/attestation/signature";
+import { cleanSignature, SIGNATURE_PROBLEMS, type CleanSignature } from "@/lib/attestation/clean-signature";
 import { APP_USER_AGENT } from "@/components/ui/ThemeScript";
 import { AttestationAsk } from "./attestation-ask";
 import { AttestationPreview } from "./AttestationPreview";
@@ -20,51 +20,17 @@ declare global {
 }
 
 const PERSONA = "var(--persona,var(--accent))";
-const MAX_PHOTO_SIDE = 1400;
 
 type Person = "hebergeant" | "heberge";
 type Step = "role" | "form" | "signatures" | "rappel" | "papier" | "done" | "moved";
-type Signature = { bytes: Uint8Array; url: string };
+type Signature = CleanSignature;
 
 const PERSON_LABEL: Record<Person, string> = { hebergeant: "L'hébergeant", heberge: "La personne hébergée" };
 
-const PROBLEMS: Record<SignatureProblem | "unreadable", string> = {
-  empty: "Aucune signature visible. Signe en noir ou en bleu foncé et reprends la photo de plus près.",
-  not_white_sheet: "Le fond n'est pas assez blanc. Reprends la photo sur une feuille blanche bien éclairée.",
-  unreadable: "Cette image ne s'ouvre pas. Essaie avec une autre photo.",
-};
+const PROBLEMS = SIGNATURE_PROBLEMS;
 
 /** Formulaire rempli, repris par le bloc qui revient sous l'explication. Reste sur l'appareil, en mémoire. */
 let filled: AttestationFields | null = null;
-
-/** Photo → PNG à fond transparent. Tout se passe sur l'appareil : rien n'est envoyé au serveur. */
-async function cleanSignature(file: File): Promise<{ ok: true; signature: Signature } | { ok: false; problem: SignatureProblem | "unreadable" }> {
-  let bitmap: ImageBitmap;
-  try {
-    bitmap = await createImageBitmap(file);
-  } catch {
-    return { ok: false, problem: "unreadable" };
-  }
-  const scale = Math.min(1, MAX_PHOTO_SIDE / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-  if (!context) return { ok: false, problem: "unreadable" };
-  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-
-  const result = removeSignatureBackground(context.getImageData(0, 0, canvas.width, canvas.height));
-  if (!result.ok) return result;
-
-  const { data, width, height } = result.image;
-  canvas.width = width;
-  canvas.height = height;
-  context.putImageData(new ImageData(new Uint8ClampedArray(data), width, height), 0, 0);
-  const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"));
-  if (!blob) return { ok: false, problem: "unreadable" };
-  return { ok: true, signature: { bytes: new Uint8Array(await blob.arrayBuffer()), url: canvas.toDataURL("image/png") } };
-}
 
 type TextKey = Exclude<keyof AttestationFields, "civilite">;
 

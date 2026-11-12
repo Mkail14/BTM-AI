@@ -63,7 +63,9 @@ export type MeshCartLine = { ticketId: string; quantity: number };
  * (rangé dans l'APK, sans internet), rempli avec cart. Une ancienne app montre le bouton label.
  */
 export type MeshAction = { id: string; label: string; pay: boolean; table?: "barge"; cart?: MeshCartLine[] };
-export type MeshReplyBody = { status: "ok" | "error"; text: string; conversationId?: string; actions: MeshAction[] };
+/** Ticket de barge payé : l'app dessine la carte (rangée dans l'APK) avec ce code en QR et ce titre. */
+export type MeshTicket = { code: string; title: string };
+export type MeshReplyBody = { status: "ok" | "error"; text: string; conversationId?: string; actions: MeshAction[]; tickets?: MeshTicket[] };
 export type ReplyEnvelope = { v: 1; type: "reply"; id: string; nonce: string; ct: string };
 
 /** Trop vieille, ou datée dans le futur. */

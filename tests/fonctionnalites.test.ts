@@ -5,8 +5,8 @@ import { FEATURE_IDS, featuresFor, readSwitches } from "../src/lib/site/features
 describe("Fonctionnalités allumées pour tous", () => {
   it("prend les valeurs par défaut quand rien n'est enregistré, et ignore le reste", () => {
     const switches = readSwitches({ livres: true, inconnue: true, cyclone: "oui" });
-    assert.deepEqual(switches, { documents: true, cyclone: true, attestation: true, livres: true });
-    assert.deepEqual(readSwitches(null), { documents: true, cyclone: true, attestation: true, livres: false });
+    assert.deepEqual(switches, { documents: true, cyclone: true, attestation: true, signature: false, livres: true });
+    assert.deepEqual(readSwitches(null), { documents: true, cyclone: true, attestation: true, signature: false, livres: false });
   });
 
   it("donne tout aux administrateurs, et seulement ce qui est allumé aux autres", () => {

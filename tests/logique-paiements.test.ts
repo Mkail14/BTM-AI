@@ -144,6 +144,17 @@ describe("Tamilya Connect : choix touché (billet, repas)", () => {
     assert.equal(s.spent, 1);
   });
 
+  it("billet payé : les tickets à dessiner reprennent le même code", async () => {
+    const result = await settleAction({
+      prepare: async () => ({ ok: true, kind: "barge", text: (code) => `ok ${code}`, tickets: (code) => [{ code, title: "BARGE SEULE" }, { code: `${code}-2`, title: "VOITURE" }] }),
+      checkPin: async () => null,
+      allow: async () => true,
+      spend: async () => true,
+      code: () => "BTM-TEST",
+    });
+    assert.deepEqual(result.tickets, [{ code: "BTM-TEST", title: "BARGE SEULE" }, { code: "BTM-TEST-2", title: "VOITURE" }]);
+  });
+
   it("deux messages simultanés avec le même choix : un seul aboutit", async () => {
     const db = fakeDb({ mesh_actions: [{ id: "choix-barge-1234567890", used_at: null }] });
     const admin = fakeClient(db);

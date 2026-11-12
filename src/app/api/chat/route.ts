@@ -10,6 +10,7 @@ import { readingMode, withSceneBlock } from "@/lib/lecture/intent";
 import { BARGE_BLOCK, bargeBlockFor, bargeSpec, detectBargeTicket } from "@/lib/barge/intent";
 import { userFeatures } from "@/lib/site/features";
 import { ATTESTATION_BLOCK, attestationBlock, detectAttestation, wantsOwnInfo } from "@/lib/attestation/intent";
+import { detectDocumentTask, DOCUMENT_BLOCK, documentBlock } from "@/lib/document-signe/intent";
 import { BTM_DEVIS_BLOCK, btmDevisBlockFor, btmDevisSpec, detectBtmDevis } from "@/lib/btm/intent";
 import { FOOD_CATALOG } from "@/lib/food/catalog";
 import { GROUP_BLOCK, groupBlock } from "@/lib/food/group-block";
@@ -51,6 +52,7 @@ import { learnWordsFromMessage, teachWords } from "@/lib/ai/words-store";
 import { createUnknownTagFilter } from "@/lib/language/unknown-tag";
 import { parseTeaching, type TaughtWord, type WordList } from "@/lib/language/teaching";
 import { enforceShimaore, fillKnownWords } from "@/lib/language/unknown-words";
+import { isShimaoreTranslationRequest } from "@/lib/language/translate-request";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
 import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
 import { consumeRateLimits, type RateLimitSubject } from "@/lib/rate-limit";
@@ -465,6 +467,10 @@ export async function POST(request: NextRequest) {
   // « Mets mes infos » juste après l'ouverture : c'est la même attestation.
   const attestationOpen = history.slice(-4).some((turn) => turn.role === "assistant" && turn.content.includes(ATTESTATION_BLOCK));
   const attestation = !body.voice && features.includes("attestation") && (detectAttestation(body.message) || (attestationOpen && wantsOwnInfo(body.message)));
+  // « Signe ce PDF », « remplis mon formulaire » : la carte pour choisir le document s'ouvre à coup sûr.
+  const documentTask = !body.voice && !attestation && features.includes("signature") ? detectDocumentTask(body.message) : null;
+  // Traduction en shimaoré demandée par un administrateur : Tamilya essaie tout le texte, sans équipe d'agents.
+  const shimaoreTranslation = Boolean(user?.isAdmin) && !master && !body.voice && isShimaoreTranslationRequest(body.message);
   // Jour voulu pour le code (« demain », « vendredi matin ») : calculé ici, les modèles se trompent de date.
   const codeWhen = parseCodeExamWhen(body.message);
   const pastTalksRead = await pastTalksTask;
@@ -508,6 +514,9 @@ export async function POST(request: NextRequest) {
     readingOffer: Boolean(user?.isAdmin),
     attestationOffer: features.includes("attestation"),
     attestation,
+    documentOffer: features.includes("signature"),
+    documentTask: documentTask ?? undefined,
+    shimaoreTranslation,
     codeExamDay: codeWhen.day ? formatWhenDay(codeWhen.day) : null,
     foodOrder,
   });
@@ -517,7 +526,7 @@ export async function POST(request: NextRequest) {
   // Réservé d'abord aux administrateurs : l'équipe ajoute environ 10 s avant le premier mot (mesuré le 2026-11-08).
   const agentsMode = process.env.AI_AGENTS?.trim() || "admin";
   const agentsAllowed = agentsMode === "all" || (agentsMode === "admin" && Boolean(user?.isAdmin));
-  const dedicatedFlow = Boolean(foodQuery || foodGroup || bargeIntent || btmDevis || trip || cyclone || song || reading || attestation);
+  const dedicatedFlow = Boolean(foodQuery || foodGroup || bargeIntent || btmDevis || trip || cyclone || song || reading || attestation || documentTask || shimaoreTranslation);
   const teamPlan =
     !agentsAllowed
       ? null
@@ -756,6 +765,12 @@ ${block}`;
         if (attestation && text && !text.includes("```" + ATTESTATION_BLOCK)) {
           text += attestationBlock;
           send({ type: "delta", text: attestationBlock });
+        }
+        // Document à signer ou remplir demandé mais pas de bloc dans la réponse : on l'ajoute.
+        if (documentTask && text && !text.includes("```" + DOCUMENT_BLOCK)) {
+          const block = documentBlock(documentTask);
+          text += block;
+          send({ type: "delta", text: block });
         }
         // Lecture en 3D : le texte à lire (ou la demande d'histoire) est glissé dans le bloc par le serveur
         // (Tamilya n'a pas à le recopier) ; bloc ajouté s'il manque.

@@ -11,8 +11,13 @@ const normalize = (text: string) =>
     .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, " ")} `;
 
-const BARGE = /\b(?:barge|barges|amphidrome|traversee|petite terre|ptite terre|dzaoudzi|pamandzi)\b/;
-const TICKET = /\b(?:ticket|tickets|tiket|billet|billets|acheter|achete|achat|payer|paye|reserver|reservation)\b/;
+// « bargr », « barg », « barje » : fautes de frappe courantes sur téléphone.
+const BARGE = /\b(?:barge|barges|bargr|barg|barje|amphidrome|traversee|petite terre|ptite terre|dzaoudzi|pamandzi)\b/;
+const TICKET = /\b(?:ticket|tickets|tiket|tikets|billet|billets|acheter|achete|achat|payer|paye|reserver|reservation|commander|commande|commandes)\b/;
+/** « je veux prendre la barge » : une envie de traverser, pas une question d'horaire. */
+const TAKE = /\b(?:veux|voudrais|veut|vais|dois|faut) (?:\w+ )?prendre (?:la |une )?(?:barge|barges|bargr|barg|barje)\b/;
+/** Question d'horaire ou de fonctionnement : jamais d'achat. */
+const QUESTION = /\b(?:quelle heure|horaire|horaires|quand|combien de temps)\b/;
 
 /** Questions sur un ticket déjà acheté : Tamilya répond, sans rouvrir l'achat. */
 const ALREADY = /\b(?:mon ticket|mon billet|mes tickets|mes billets|deja achete|j ai achete|rembours\w*|annuler)\b/;
@@ -24,7 +29,8 @@ export type BargeIntent = "buy" | "free" | null;
 
 export function detectBargeTicket(message: string): BargeIntent {
   const text = normalize(message);
-  if (!BARGE.test(text) || !TICKET.test(text) || ALREADY.test(text)) return null;
+  if (!BARGE.test(text) || ALREADY.test(text)) return null;
+  if (!TICKET.test(text) && (!TAKE.test(text) || QUESTION.test(text))) return null;
   // « ticket pour aller de Petite-Terre à Mamoudzou » : le retour est gratuit.
   if (FROM_PETITE_TERRE.test(text) && !/\b(?:vers|pour|aller a|aller sur)\s+(?:la\s+)?(?:petite terre|ptite terre|dzaoudzi|pamandzi)\b/.test(text)) return "free";
   return "buy";

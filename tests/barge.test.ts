@@ -44,6 +44,12 @@ describe("Tickets de barge", () => {
     assert.equal(detectBargeTicket("un ticket pour aller à Petite-Terre avec ma voiture"), "buy");
     // Simple question : pas d'achat.
     assert.equal(detectBargeTicket("la barge part à quelle heure ?"), null);
+    // Fautes de frappe, « commander », « prendre la barge » (Tamilya Connect, 2026-11-12).
+    assert.equal(detectBargeTicket("Yo tsaha ticket ya bargr"), "buy");
+    assert.equal(detectBargeTicket("je veux commander la barge"), "buy");
+    assert.equal(detectBargeTicket("je veux prendre la barge"), "buy");
+    assert.equal(detectBargeTicket("je dois prendre la barge à quelle heure ?"), null);
+    assert.equal(detectBargeTicket("la barge est en panne aujourd'hui ?"), null);
     assert.equal(detectBargeTicket("je veux un ticket de cinéma"), null);
     // Ticket déjà acheté : Tamilya répond, sans rouvrir l'achat.
     assert.equal(detectBargeTicket("où est mon ticket de barge ?"), null);

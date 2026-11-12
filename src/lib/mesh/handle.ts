@@ -9,7 +9,7 @@ import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
 import { hasAdminRole, hasPrincipalAdminRole } from "@/lib/auth/roles";
 import type { SessionUser } from "@/lib/auth/session";
 import { canBuyBargeTickets } from "@/lib/barge/access";
-import { describeBargeLines, priceBargeOrder } from "@/lib/barge/catalog";
+import { describeBargeLines, priceBargeOrder, splitBargePasses } from "@/lib/barge/catalog";
 import { quickTitle } from "@/lib/chat/title";
 import { getSiteFlags } from "@/lib/site/flags";
 import { sendSosAlert } from "@/lib/sos/alert";
@@ -36,7 +36,7 @@ son téléphone n'a pas internet, son message est passé de téléphone en tél�
 const INSTRUCTIONS = `Ta façon de répondre avec Tamilya Connect (prime sur les règles de style générales) :
 - Chaque message voyage lentement : réponds en une à trois phrases courtes, texte simple, sans Markdown, sans lien ni image.
 - Pas de carte ni de suivi du livreur, pas de vidéo, pas de vocal ici.
-- Billet de barge : un tableau s'affiche sous ta réponse, avec les tickets demandés et leur prix. Dis-lui d'ajuster le nombre de tickets si besoin, puis de toucher « Payer ».
+- Billet de barge : seulement si un tableau de barge figure dans les choix affichés plus bas, dis-lui d'ajuster le nombre de tickets si besoin, puis de toucher « Payer ». S'il n'y en a pas, n'annonce aucun tableau : demande-lui de redire sa demande avec le mot « ticket de barge ».
 - Repas : si des plats sont possibles, ils s'affichent en boutons sous ta réponse, avec leur prix. Dis-lui de toucher celui qui lui va.
 - N'invente aucun prix, horaire ni plat.
 - Si elle demande quelque chose qui demande internet (vidéo, carte, page web), dis-lui que ce sera possible quand elle aura retrouvé internet.`;
@@ -186,7 +186,17 @@ async function prepareBarge(user: SessionUser, action: StoredAction, chosen?: Me
   const order = priceBargeOrder(chosen ?? (action.data.cart as MeshCartLine[]) ?? []);
   if (!order) return refuse("Ce billet n'existe plus : redemande un billet.");
   const what = describeBargeLines(order.lines.map((l) => ({ label: l.ticket.label, detail: l.ticket.detail, quantity: l.quantity })));
-  return { ok: true, kind: "barge", text: (code) => bargeDemoText({ what, totalCents: order.totalCents, code }) };
+  const lines = order.lines.map((l) => ({ ticketId: l.ticket.id, quantity: l.quantity }));
+  return {
+    ok: true,
+    kind: "barge",
+    text: (code) => bargeDemoText({ what, totalCents: order.totalCents, code }),
+    // Un ticket par véhicule, piétons ensemble (comme sur le site) : le premier garde le code, les autres code-2, code-3…
+    tickets: (code) => {
+      let n = 0;
+      return splitBargePasses(lines, () => (n++ === 0 ? code : `${code}-${n}`)).map((p) => ({ code: p.code, title: p.title }));
+    },
+  };
 }
 
 /** Repas : tout ce qui peut refuser d'avance (plat disparu, adresse ou téléphone manquant), sans toucher au choix. */
@@ -227,7 +237,7 @@ async function act(admin: SupabaseClient, user: SessionUser, payload: Extract<Me
     spend: () => spendAction(admin, action.id),
     code: orderCode,
   });
-  const result = settled.ok ? reply(settled.text) : failure(settled.text);
+  const result = settled.ok ? reply(settled.text, settled.tickets ? { tickets: settled.tickets } : {}) : failure(settled.text);
   if (conversationId && (await ownTask)) {
     await insertMessage(admin, { conversationId, userId: user.id, role: "assistant", content: result.text }).catch(() => {});
   }

@@ -8,6 +8,7 @@ import { splitStableMarkdown } from "@/lib/chat/markdown-split";
 import { separateCardBlocks } from "@/lib/chat/block-fence";
 import { ATTESTATION_BLOCK, SIGNATURES_STEP } from "@/lib/attestation/intent";
 import { BARGE_BLOCK } from "@/lib/barge/intent";
+import { DOCUMENT_BLOCK } from "@/lib/document-signe/intent";
 import { BTM_DEVIS_BLOCK } from "@/lib/btm/intent";
 import { CYCLONE_BLOCK, cycloneZoneOf } from "@/lib/cyclone/intent";
 import { SONG_BLOCK } from "@/lib/music/intent";
@@ -23,6 +24,7 @@ import { YouTubeCard, YouTubeRow } from "./YouTubeCard";
 // Tickets de barge, créneaux du code et commande de repas : chargés seulement
 // quand Tamilya écrit le bloc spécial (carte, QR code, formulaires…).
 const AttestationHebergement = dynamic(() => import("./AttestationHebergement").then((m) => m.AttestationHebergement));
+const SignDocument = dynamic(() => import("./SignDocument").then((m) => m.SignDocument));
 const BargeTickets = dynamic(() => import("./BargeTickets").then((m) => m.BargeTickets));
 const BtmDevis = dynamic(() => import("./BtmDevis").then((m) => m.BtmDevis));
 const CombinedBoard = dynamic(() => import("./CombinedBoard").then((m) => m.CombinedBoard));
@@ -54,6 +56,7 @@ const CARD_BLOCKS = [
   BARGE_BLOCK,
   BTM_DEVIS_BLOCK,
   ATTESTATION_BLOCK,
+  DOCUMENT_BLOCK,
   TRIP_BLOCK,
   CYCLONE_BLOCK,
   SONG_BLOCK,
@@ -113,6 +116,14 @@ const components: Components = {
       return (
         <Board>
           <AttestationHebergement resume={textOf(children).trim() === SIGNATURES_STEP} mode={textOf(children).trim()} />
+        </Board>
+      );
+    }
+    // Bloc ```document-a-signer``` : choisir un PDF ou un Word, le remplir, le signer, le tout sur l'appareil.
+    if (code === `language-${DOCUMENT_BLOCK}`) {
+      return (
+        <Board>
+          <SignDocument spec={textOf(children).trim()} />
         </Board>
       );
     }

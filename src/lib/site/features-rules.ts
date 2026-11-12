@@ -24,6 +24,12 @@ export const FEATURES = [
     default: true,
   },
   {
+    id: "signature",
+    label: "Signer ou remplir un document",
+    description: "Tamilya pose la signature de la personne sur un PDF ou un Word, ou remplit ses cases vides. Le document reste sur l'appareil ; seuls les noms des cases partent à Gemini.",
+    default: false,
+  },
+  {
     id: "livres",
     label: "Livres lus par Tamilya",
     description: "Un PDF lu en entier, en 3D. Sorti du + le 2026-11-10 : plus d'entrée dans le site pour l'instant. Coûte des appels Gemini à chaque morceau (~4 min d'écoute).",

@@ -5,6 +5,7 @@ import type { SceneLine, SceneMeta, SceneScript } from "./script";
 import { preloadResonance, ScenePlayer } from "./soundscape";
 import { LIGHT_MOODS, SCARY_SOUNDS, type Mood } from "./bank";
 import { preloadMusic, preloadSounds, setSoundCatalog, soundInfo } from "./sounds";
+import { tidyAmbiences, tidyCues } from "./sound-rules";
 
 /** Réglages de /admin/sons d'abord (reçus avec l'histoire), sinon les sons d'origine. */
 const isLight = (mood: Mood | null) => mood !== null && (soundInfo(mood) ? soundInfo(mood)?.light === true : LIGHT_MOODS.has(mood));
@@ -455,9 +456,11 @@ async function play(story: Story, script: SceneScript, carried: ScenePlayer | nu
   if (!piece?.plain) {
     void scene.setMusic(mood);
     if (carried) scene.setPlace(script.place);
-    await scene.prepare(script.ambiences.map((a) => a.sound), 4000);
+    // Garde-fous : pas de mélange jour/nuit, deux décors au plus (sound-rules.ts).
+    const chosen = tidyAmbiences(script.ambiences, isLight(mood), isScary);
+    await scene.prepare(chosen.map((a) => a.sound), 4000);
     // Sous une musique légère, le décor reste un peu plus discret.
-    const ambiences = isLight(mood) ? script.ambiences.map((a) => ({ ...a, volume: a.volume * 0.75 })) : script.ambiences;
+    const ambiences = isLight(mood) ? chosen.map((a) => ({ ...a, volume: a.volume * 0.75 })) : chosen;
     if (carried) scene.changeAmbiences(ambiences, 4);
     else scene.startAmbiences(ambiences, 3);
   }
@@ -476,6 +479,7 @@ async function play(story: Story, script: SceneScript, carried: ScenePlayer | nu
   }
 
   let previous: string | null = null;
+  let previousSounds: ReadonlySet<string> = new Set();
   for (let i = 0; !scene.isStopped; i++) {
     const line = await lineAt(story, i);
     if (!line || scene.isStopped) break;
@@ -483,8 +487,9 @@ async function play(story: Story, script: SceneScript, carried: ScenePlayer | nu
       mood = line.music === "silence" ? null : line.music;
       void scene.setMusic(mood, line.music === "silence" ? 1.2 : 3);
     }
-    // Une histoire légère ne fait pas peur : cœur, porte qui grince et tonnerre sont écartés.
-    const cues = isLight(mood) ? line.cues.filter((c) => !isScary(c.sound)) : line.cues;
+    // Une histoire légère ne fait pas peur ; deux bruits au plus ; pas le même bruit qu'à la réplique d'avant.
+    const cues = tidyCues(line.cues, isLight(mood), isScary, previousSounds, line.placed);
+    previousSounds = new Set(line.cues.map((c) => c.sound));
     for (let k = 1; k <= AHEAD; k++) void voiceOf(story, offset + i + k);
     // Un silence plus long quand la voix change : on sent qu'un autre parle.
     if (previous !== null && previous !== line.speaker) await scene.wait(0.35);

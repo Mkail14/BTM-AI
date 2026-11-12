@@ -1,5 +1,6 @@
 import { BARGE_ROUTE } from "@/lib/barge/catalog";
 import { formatEuros } from "@/lib/wallet/limits";
+import type { MeshTicket } from "./envelope";
 
 /**
  * Tamilya Connect : un choix touché (billet, repas), dans un ordre sûr.
@@ -19,7 +20,7 @@ export type ActionKind = "barge" | "food";
 
 export type PreparedAction =
   | { ok: false; text: string }
-  | { ok: true; kind: ActionKind; text: (code: string) => string };
+  | { ok: true; kind: ActionKind; text: (code: string) => string; tickets?: (code: string) => MeshTicket[] };
 
 export type SettleSteps = {
   prepare: () => Promise<PreparedAction>;
@@ -35,14 +36,16 @@ const LIMITED: Record<ActionKind, string> = {
   food: "Trop de commandes d'un coup : réessaie dans une heure.",
 };
 
-export async function settleAction(steps: SettleSteps): Promise<{ ok: boolean; text: string }> {
+export async function settleAction(steps: SettleSteps): Promise<{ ok: boolean; text: string; tickets?: MeshTicket[] }> {
   const prepared = await steps.prepare();
   if (!prepared.ok) return { ok: false, text: prepared.text };
   const pinProblem = await steps.checkPin();
   if (pinProblem) return { ok: false, text: pinProblem };
   if (!(await steps.allow(prepared.kind))) return { ok: false, text: LIMITED[prepared.kind] };
   if (!(await steps.spend())) return { ok: false, text: ALREADY_USED };
-  return { ok: true, text: prepared.text(steps.code()) };
+  const code = steps.code();
+  const tickets = prepared.tickets?.(code);
+  return tickets?.length ? { ok: true, text: prepared.text(code), tickets } : { ok: true, text: prepared.text(code) };
 }
 
 /** Billet de démonstration : rien n'est débité, aucun vrai billet n'est émis. */

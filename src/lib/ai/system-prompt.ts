@@ -1,4 +1,5 @@
 import { buildLanguageGuidance } from "@/lib/language/shimaore";
+import { SHIMAORE_TRANSLATION } from "@/lib/language/translate-request";
 import { AWA_BIRTH_LABEL, AWA_NAME, awaAge, isAwaBirthday } from "./awa-identity";
 import { VOICE_TONE } from "./voice-tone";
 import { CODE_EXAM_OFFICES } from "@/lib/code-exam/offices";
@@ -125,6 +126,12 @@ export type PromptContext = {
   attestationOffer?: boolean;
   /** Ce message demande une attestation d'hébergement (detectAttestation). */
   attestation?: boolean;
+  /** Signer ou remplir un PDF ou un Word possible ici (bloc document-a-signer). */
+  documentOffer?: boolean;
+  /** Un administrateur demande de traduire un texte en shimaoré (isShimaoreTranslationRequest). */
+  shimaoreTranslation?: boolean;
+  /** Ce message demande de signer ou remplir un document (detectDocumentTask). */
+  documentTask?: { sign: boolean; fill: boolean };
   /** Dernière commande de repas et son état à l'instant (describeOrder, src/lib/food/last-order.ts). */
   foodOrder?: string | null;
   /** Tamilya sur un autre site de GROUPE BTM (route /api/awa) : rôle sur place et données du site. */
@@ -228,6 +235,15 @@ const ATTESTATION = [
   "```attestation-hebergement\nformulaire\n```",
   "- Les noms, dates, adresse et signatures se remplissent dans ce qui s'affiche : ne les demande pas et ne les écris pas dans la conversation.",
   "- Le document met en forme ce que déclarent les deux personnes. Refuse d'aider à déclarer un faux hébergement, à signer à la place de quelqu'un ou à fabriquer une facture, une pièce d'identité ou un autre justificatif.",
+].join("\n");
+
+// Le bloc est remplacé par la carte SignDocument : le document et la signature restent sur l'appareil.
+const SIGN_DOCUMENT = [
+  "Documents : tu sais poser la signature de la personne sur son PDF ou son fichier Word, et remplir les cases vides d'un document (nom, date, adresse…).",
+  "- UNIQUEMENT quand la personne veut que tu signes ou remplisses un document, écris une phrase courte puis ce bloc, seul sur ses lignes (garde seulement ce qu'elle demande) :",
+  "```document-a-signer\nremplir signer\n```",
+  "- C'est dans ce qui s'affiche qu'elle choisit son document et donne sa signature (photo sur une feuille blanche, ou au doigt) : ne lui demande pas de te l'envoyer autrement.",
+  "- Tu ne signes que pour la personne elle-même. Refuse de signer à la place de quelqu'un d'autre, d'imiter une signature, ou de remplir un faux document.",
 ].join("\n");
 
 // Non modifiable depuis la base, et placé en fin de message système : sans elle, les petits modèles remplissent.
@@ -517,6 +533,7 @@ export function buildSystemPrompt(
   if (context.bargeTickets && !context.site && !context.voice) sections.push(BARGE);
   if (context.btmDevisOffer && !context.site && !context.voice) sections.push(BTM_DEVIS);
   if (context.attestationOffer && !context.site && !context.voice) sections.push(ATTESTATION);
+  if (context.documentOffer && !context.site && !context.voice) sections.push(SIGN_DOCUMENT);
   // Commande en cours (une donnée, pas une consigne) : Tamilya répond « elle arrive quand ? » sans rouvrir le bloc.
   if (context.foodOrder && !context.site) {
     sections.push(
@@ -644,6 +661,19 @@ export function buildSystemPrompt(
       ].join("\n"),
     );
   }
+  // Document à signer ou remplir, reconnu par le serveur.
+  if (context.documentTask && context.documentOffer && !context.site && !context.voice) {
+    const what = [context.documentTask.fill ? "remplir" : "", context.documentTask.sign ? "signer" : ""].filter(Boolean).join(" ");
+    sections.push(
+      [
+        `POUR CE MESSAGE : la personne veut que tu ${what.replace(" ", " et ")} son document.`,
+        "Réponds en UNE phrase courte, sans poser de question, puis ce bloc exactement, seul sur ses lignes :",
+        `\`\`\`document-a-signer\n${what}\n\`\`\``,
+      ].join("\n"),
+    );
+  }
+  // Traduction en shimaoré demandée par un administrateur : elle essaie tout le texte au lieu de refuser.
+  if (context.shimaoreTranslation && !context.teacher && !context.site && !context.voice) sections.push(SHIMAORE_TRANSLATION);
   // Vers la fin : l'heure change à chaque message, le début du prompt reste identique (cache Gemini).
   sections.push(`Heure exacte : à Mayotte, nous sommes le ${mayotteClock()}. Pour dire l'heure ou le jour, sers-toi de cette information : ne cherche pas sur internet et ne devine pas.`);
   if (context.voice) sections.push(VOICE, VOICE_TONE);

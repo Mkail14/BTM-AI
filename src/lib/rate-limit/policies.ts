@@ -24,6 +24,8 @@ export const RATE_LIMIT_POLICIES = {
   driveUpload: [{ name: "drive-upload-hour", limit: 120, windowSeconds: 3_600 }],
   // Attestation reçue par mail : de quoi la refaire après une correction.
   attestationEmail: [{ name: "attestation-email-hour", limit: 5, windowSeconds: 3_600 }],
+  // Document à remplir : un appel Gemini par document ouvert.
+  documentFill: [{ name: "document-fill-hour", limit: 30, windowSeconds: 3_600 }],
   // Formulaires avec téléphone et adresse : assez pour se tromper, pas pour inonder l'équipe.
   foodOrder: [{ name: "food-order-hour", limit: 10, windowSeconds: 3_600 }],
   bargeTicket: [{ name: "barge-ticket-hour", limit: 10, windowSeconds: 3_600 }],
