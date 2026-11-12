@@ -1,6 +1,40 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { priceBargeOrder } from "@/lib/barge/catalog";
+import { priceBargeOrder, splitBargePasses } from "@/lib/barge/catalog";
+
+describe("Tickets de barge : un ticket par véhicule, piétons ensemble", () => {
+  let n = 0;
+  const code = () => `BTM-${++n}`;
+  it("met les piétons sur un seul ticket", () => {
+    const passes = splitBargePasses([{ ticketId: "pieton", quantity: 5 }], code);
+    assert.equal(passes.length, 1);
+    assert.equal(passes[0].title, "BARGE À 5");
+    assert.equal(splitBargePasses([{ ticketId: "pieton", quantity: 1 }], code)[0].title, "BARGE SEULE");
+  });
+  it("donne un ticket à chaque véhicule, avec un code différent", () => {
+    const passes = splitBargePasses(
+      [
+        { ticketId: "voiture", quantity: 2 },
+        { ticketId: "pieton", quantity: 3 },
+        { ticketId: "moto", quantity: 1 },
+        { ticketId: "pl-26", quantity: 1 },
+        { ticketId: "utilitaire", quantity: 1 },
+      ],
+      code,
+    );
+    assert.deepEqual(
+      passes.map((p) => p.title),
+      ["BARGE À 3", "VOITURE", "VOITURE", "2 ROUES", "CAMION", "UTILITAIRE"],
+    );
+    assert.equal(new Set(passes.map((p) => p.code)).size, passes.length);
+  });
+  it("ne donne jamais deux fois le même code", () => {
+    let i = 0;
+    const repeats = () => (i++ < 3 ? "BTM-SAME" : `BTM-${i}`);
+    const passes = splitBargePasses([{ ticketId: "voiture", quantity: 2 }], repeats);
+    assert.notEqual(passes[0].code, passes[1].code);
+  });
+});
 import { detectBargeTicket } from "@/lib/barge/intent";
 
 describe("Tickets de barge", () => {

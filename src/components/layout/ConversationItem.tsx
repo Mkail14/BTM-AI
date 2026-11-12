@@ -60,7 +60,7 @@ export function ConversationItem({
 
   return (
     <li ref={itemRef} className="group relative">
-      <Link
+      <Link prefetch={false}
         href={`/c/${id}`}
         aria-current={active ? "page" : undefined}
         onClick={(event) => {

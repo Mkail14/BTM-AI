@@ -35,6 +35,7 @@ const ROWS: [name: string, lat: number, lng: number][] = [
   ["Hagnoundrou", -12.9037, 45.1013],
   ["Hajangoua", -12.8674, 45.1956],
   ["Hamjago", -12.6889, 45.0743],
+  ["Hapandzo", -12.8353, 45.1327],
   ["Hamouro", -12.8813, 45.215],
   ["Handréma", -12.6813, 45.1001],
   ["Ironi Bé", -12.8274, 45.193],
@@ -112,6 +113,13 @@ for (const village of VILLAGES) {
   // « Miréréni (Tsingoni) » se trouve aussi par « Miréréni Tsingoni » ; « Miréréni » seul : le premier.
   const bare = placeKey(village.name.replace(/\s*\(.*\)$/, ""));
   if (!BY_KEY.has(bare)) BY_KEY.set(bare, village);
+}
+
+// Autres noms du même lieu (liste des villages de l'Insee, 2017).
+const OTHER_NAMES: [other: string, name: string][] = [["Iloni", "Ironi Bé"]];
+for (const [other, name] of OTHER_NAMES) {
+  const village = BY_KEY.get(placeKey(name));
+  if (village) BY_KEY.set(placeKey(other), village);
 }
 
 /** Le village nommé (« kangani », « Kangani, Mayotte », « mtsapere »), ou null. */

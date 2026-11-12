@@ -33,6 +33,51 @@ const isFinder = (row: number, col: number, size: number) =>
 /** Motif d'alignement des versions 2 à 6 : 5 × 5, centré en (size − 7, size − 7). */
 const isAlignment = (row: number, col: number, size: number) => Math.abs(row - (size - 7)) <= 2 && Math.abs(col - (size - 7)) <= 2;
 
+/**
+ * QR classique, noir et carré (comme sur les cartes imprimées), avec « BTM »
+ * au centre. Même place laissée au logo que StyledQr : il reste lisible.
+ */
+export function PlainQr({ text, label }: { text: string; label: string }) {
+  const matrix = useMemo(() => buildMatrix(text), [text]);
+  if (!matrix) return null;
+  const { size, dark } = matrix;
+  const quiet = 1;
+  const view = size + quiet * 2;
+  const logo = Math.ceil(size * LOGO_RATIO) | 1;
+  const logoStart = (size - logo) / 2;
+  const inLogo = (row: number, col: number) =>
+    row >= logoStart && row < logoStart + logo && col >= logoStart && col < logoStart + logo;
+
+  let path = "";
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      if (dark(row, col) && !inLogo(row, col)) path += `M${col} ${row}h1v1h-1z`;
+    }
+  }
+  const center = quiet + size / 2;
+  const badge = logo - 1;
+
+  return (
+    <svg viewBox={`0 0 ${view} ${view}`} role="img" aria-label={label} className="size-full" shapeRendering="crispEdges">
+      <rect width={view} height={view} fill="#fff" />
+      <path d={path} fill="#111" transform={`translate(${quiet} ${quiet})`} />
+      <rect x={center - badge / 2} y={center - badge / 2} width={badge} height={badge} fill="#fff" stroke="#111" strokeWidth={0.7} />
+      <text
+        x={center}
+        y={center}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="#111"
+        fontSize={badge * 0.4}
+        fontWeight={900}
+        fontFamily="var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif"
+      >
+        BTM
+      </text>
+    </svg>
+  );
+}
+
 export function StyledQr({ text, label }: { text: string; label: string }) {
   const id = useId().replace(/:/g, "");
   const matrix = useMemo(() => buildMatrix(text), [text]);

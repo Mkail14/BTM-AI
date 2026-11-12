@@ -7,6 +7,7 @@ import { communesBlock } from "./communes";
 import { servicesAsked, servicesBlock } from "./services";
 import { getMayotteWeather } from "./weather";
 import { cyclonesText } from "@/lib/cyclone/gdacs";
+import { cycloneZoneFor } from "@/lib/cyclone/intent";
 
 const MAX_WAIT_MS = 3_500;
 /** Question sur l'actu : on attend les journaux plus longtemps (ils sont lents). */
@@ -60,7 +61,8 @@ export async function liveContextFor(message: string, { maxWaitMs }: { maxWaitMs
     intent.jobs ? jobsBlock() : null,
     newsBlock(message, intent.news),
     intent.weather ? getMayotteWeather() : null,
-    intent.cyclones ? cyclonesText() : null,
+    // « Les autres cyclones », « dans le monde » : aussi ceux des autres océans.
+    intent.cyclones ? cyclonesText(cycloneZoneFor(message)) : null,
     intent.communes ? communesBlock() : null,
     servicesAsked(message) ? servicesBlock(message) : null,
   ].filter(

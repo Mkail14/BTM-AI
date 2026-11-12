@@ -2,7 +2,16 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getAuthContext } from "@/lib/auth/session";
 import { canBuyBargeTickets } from "@/lib/barge/access";
-import { BARGE_MAX_QUANTITY, BARGE_ROUTE, BARGE_TICKETS, describeBargeLines, priceBargeOrder, type BargeTicketType } from "@/lib/barge/catalog";
+import {
+  BARGE_MAX_QUANTITY,
+  BARGE_ROUTE,
+  BARGE_TICKETS,
+  describeBargeLines,
+  priceBargeOrder,
+  splitBargePasses,
+  type BargePass,
+  type BargeTicketType,
+} from "@/lib/barge/catalog";
 import { orderCode } from "@/lib/food/order-code";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
@@ -40,11 +49,16 @@ const purchaseSchema = z.object({
     .max(BARGE_TICKETS.length),
 });
 
-/** Ce que renvoie POST : le billet à montrer à l'embarquement. Sans date : valable jusqu'à son scan à Mamoudzou. */
+/**
+ * Ce que renvoie POST : les tickets à montrer à l'embarquement (piétons ensemble,
+ * un ticket par véhicule). Sans date : valables jusqu'à leur scan à Mamoudzou.
+ * `code` = code du premier ticket (anciens billets : un seul code pour tout l'achat).
+ */
 export type BargeTicketBought = {
   ok: true;
   demo: boolean;
   code: string;
+  passes?: BargePass[];
   lines: { label: string; detail: string; emoji: string; quantity: number }[];
   totalCents: number;
   boughtAt: string;
@@ -92,10 +106,15 @@ export async function POST(request: NextRequest) {
   const paid = await recordDemoOperation(user.id, "payment", order.totalCents, label);
   if (!paid) return fail(402, "Solde insuffisant.");
 
+  const passes = splitBargePasses(
+    order.lines.map((l) => ({ ticketId: l.ticket.id, quantity: l.quantity })),
+    orderCode,
+  );
   const body: BargeTicketBought = {
     ok: true,
     demo: true,
-    code: orderCode(),
+    code: passes[0].code,
+    passes,
     lines,
     totalCents: order.totalCents,
     boughtAt: new Date().toISOString(),

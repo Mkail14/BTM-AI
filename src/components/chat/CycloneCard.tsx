@@ -1,10 +1,11 @@
 "use client";
 
-import { Gauge, Info, Navigation, Wind, X } from "lucide-react";
+import { Gauge, Globe, Info, Navigation, ShieldCheck, Wind, X } from "lucide-react";
 import dynamic from "next/dynamic";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import type { Cyclone, CyclonePoint, CyclonesResponse } from "@/lib/cyclone/intent";
+import type { Cyclone, CyclonePoint, CycloneZone, CyclonesResponse } from "@/lib/cyclone/intent";
+import { motionOf } from "@/lib/cyclone/motion";
 import { loadMapLibre } from "@/lib/geo/maplibre";
 import { CycloneTimeline } from "./CycloneTimeline";
 
@@ -41,46 +42,84 @@ function estimateHint(c: Cyclone) {
   return Date.parse(e.when) > Date.now() ? `plutôt ${day.format(new Date(e.when))}` : "donnée trop vieille";
 }
 
-const summary = (cyclones: Cyclone[]) => {
-  if (!cyclones.length) return "Aucun cyclone en ce moment dans l'océan Indien";
+const summary = (all: Cyclone[], zone: CycloneZone) => {
+  const cyclones = all.filter((c) => !c.ended);
+  // Plus rien de suivi, mais un système vient de finir : on dit ce qu'il est devenu (sinon on croit à un bug).
+  const gone = all.find((c) => c.ended);
+  if (!cyclones.length && gone) return `${gone.name} n'est plus suivi : sûrement dissipé`;
+  if (!cyclones.length) return zone === "monde" ? "Aucun cyclone en ce moment dans le monde" : "Aucun cyclone en ce moment dans l'océan Indien";
+  // Le monde : les systèmes loin de notre océan ne se comptent pas en distance de Mayotte.
+  if (zone === "monde" && !cyclones.some((c) => c.local)) return cyclones.length > 1 ? `${cyclones.length} cyclones dans le monde, loin de Mayotte` : `${cyclones[0].name}, loin de Mayotte`;
   const first = cyclones[0];
   const more = cyclones.length > 1 ? ` · ${cyclones.length} systèmes suivis` : "";
   return `${first.name} à ${km(first.distanceKm)} de Mayotte${more}`;
 };
+
+/** Au-delà, les données gardées sont trop vieilles pour être montrées, même en attendant. */
+const KEEP_MAX_MS = 3 * 60 * 60 * 1000;
+const keepKey = (zone: CycloneZone) => `tamilya:cyclones:${zone}`;
+
+function readKept(zone: CycloneZone): { cyclones: Cyclone[]; updatedAt: string } | null {
+  try {
+    const raw = localStorage.getItem(keepKey(zone));
+    if (!raw) return null;
+    const kept = JSON.parse(raw) as { cyclones?: unknown; updatedAt?: unknown };
+    if (!Array.isArray(kept.cyclones) || typeof kept.updatedAt !== "string") return null;
+    const age = Date.now() - Date.parse(kept.updatedAt);
+    return age >= 0 && age < KEEP_MAX_MS ? { cyclones: kept.cyclones as Cyclone[], updatedAt: kept.updatedAt } : null;
+  } catch {
+    return null;
+  }
+}
+
+function keep(zone: CycloneZone, cyclones: Cyclone[], updatedAt: string) {
+  try {
+    localStorage.setItem(keepKey(zone), JSON.stringify({ cyclones, updatedAt }));
+  } catch {
+    // Stockage refusé (navigation privée) : on recharge simplement la prochaine fois.
+  }
+}
 
 /**
  * Cyclones dans la conversation (bloc ```carte-cyclones```) : une carte
  * compacte (« Système n°2 à 960 km de Mayotte »), qui ouvre le panneau : la
  * carte de l'océan Indien avec les trajets, et l'essentiel en bas.
  */
-export function CycloneCard() {
+export function CycloneCard({ zone = "ocean-indien" }: { zone?: CycloneZone }) {
   const [state, setState] = useState<State>({ status: "loading" });
   const [open, setOpen] = useState(false);
   const autoOpen = useRef<boolean | null>(null);
 
   useEffect(() => {
     let alive = true;
+    const show = (cyclones: Cyclone[], updatedAt: string) => {
+      setState({ status: "ok", cyclones, updatedAt });
+      // Écrit à l'instant par Tamilya (pas relu dans l'historique) : le panneau s'ouvre de lui-même.
+      if (autoOpen.current === null) {
+        autoOpen.current = performance.now() > FRESH_AFTER_MS;
+        if (autoOpen.current) setOpen(true);
+      }
+    };
     // En même temps que les données : le moteur de la carte et son dessin (déjà dans l'app Android).
     loadMapLibre().catch(() => {});
     import("./CycloneMap").catch(() => {});
-    fetch("/api/cyclones")
+    // Dernières données gardées dans le téléphone : affichées tout de suite, puis remplacées par les nouvelles.
+    const kept = readKept(zone);
+    if (kept) show(kept.cyclones, kept.updatedAt);
+    fetch(zone === "monde" ? "/api/cyclones?zone=monde" : "/api/cyclones")
       .then(async (res) => ((await res.json().catch(() => null)) as CyclonesResponse | null) ?? { error: "Carte des cyclones indisponible." })
       .then((body) => {
         if (!alive) return;
         if ("cyclones" in body) {
-          setState({ status: "ok", cyclones: body.cyclones, updatedAt: body.updatedAt });
-          // Écrit à l'instant par Tamilya (pas relu dans l'historique) : le panneau s'ouvre de lui-même.
-          if (autoOpen.current === null) {
-            autoOpen.current = performance.now() > FRESH_AFTER_MS;
-            if (autoOpen.current) setOpen(true);
-          }
-        } else setState({ status: "error", message: body.error });
+          show(body.cyclones, body.updatedAt);
+          keep(zone, body.cyclones, body.updatedAt);
+        } else if (!kept) setState({ status: "error", message: body.error });
       })
-      .catch(() => alive && setState({ status: "error", message: "Carte des cyclones indisponible : vérifie ta connexion." }));
+      .catch(() => alive && !kept && setState({ status: "error", message: "Carte des cyclones indisponible : vérifie ta connexion." }));
     return () => {
       alive = false;
     };
-  }, []);
+  }, [zone]);
 
   const data = state.status === "ok" ? state : null;
 
@@ -91,9 +130,9 @@ export function CycloneCard() {
           <CycloneIcon />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold">Cyclones autour de Mayotte</span>
+          <span className="block truncate font-semibold">{zone === "monde" ? "Cyclones dans le monde" : "Cyclones autour de Mayotte"}</span>
           <span className="block text-xs text-fg-muted">
-            {state.status === "loading" ? "Je regarde l'océan Indien…" : state.status === "ok" ? summary(state.cyclones) : state.message}
+            {state.status === "loading" ? (zone === "monde" ? "Je regarde le monde entier…" : "Je regarde l'océan Indien…") : state.status === "ok" ? summary(state.cyclones, zone) : state.message}
           </span>
         </span>
         {data ? (
@@ -102,17 +141,18 @@ export function CycloneCard() {
           </button>
         ) : null}
       </div>
-      {open && data ? <CyclonePanel cyclones={data.cyclones} updatedAt={data.updatedAt} onClose={() => setOpen(false)} /> : null}
+      {open && data ? <CyclonePanel key={zone} cyclones={data.cyclones} world={zone === "monde"} updatedAt={data.updatedAt} onClose={() => setOpen(false)} /> : null}
     </>
   );
 }
 
 /** Panneau des cyclones : la carte en haut, l'essentiel en bas, sans défilement. */
-function CyclonePanel({ cyclones: nearby, updatedAt, onClose }: { cyclones: Cyclone[]; updatedAt: string; onClose: () => void }) {
-  // Le reste du monde : chargé seulement si la personne le demande.
-  const [world, setWorld] = useState<{ status: "idle" | "loading" | "error" } | { status: "ok"; cyclones: Cyclone[] }>({ status: "idle" });
+function CyclonePanel({ cyclones: given, world: worldGiven = false, updatedAt, onClose }: { cyclones: Cyclone[]; world?: boolean; updatedAt: string; onClose: () => void }) {
+  // Le reste du monde : chargé seulement si la personne le demande (déjà là si elle a demandé « les autres cyclones »).
+  const [world, setWorld] = useState<{ status: "idle" | "loading" | "error" } | { status: "ok"; cyclones: Cyclone[] }>(worldGiven ? { status: "ok", cyclones: given } : { status: "idle" });
+  const nearby = worldGiven ? given.filter((c) => c.local) : given;
   const cyclones = world.status === "ok" ? world.cyclones : nearby;
-  const [focus, setFocus] = useState<string | null>(nearby[0]?.id ?? null);
+  const [focus, setFocus] = useState<string | null>(worldGiven ? null : (nearby[0]?.id ?? null));
   // Position rejouée par le curseur du temps (null : dernière mesure).
   const [ghost, setGhost] = useState<CyclonePoint | null>(null);
   const showWorld = () => {
@@ -146,6 +186,8 @@ function CyclonePanel({ cyclones: nearby, updatedAt, onClose }: { cyclones: Cycl
   }, []);
 
   const chosen = cyclones.find((c) => c.id === focus) ?? cyclones[0] ?? null;
+  const heading = chosen && !chosen.local ? motionOf(chosen) : null;
+  const endedHeading = chosen?.ended ? motionOf(chosen) : null;
 
   return createPortal(
     <div className="fixed inset-0 z-[70]" data-closing={closing || undefined}>
@@ -162,7 +204,7 @@ function CyclonePanel({ cyclones: nearby, updatedAt, onClose }: { cyclones: Cycl
         {/* Carte de l'océan Indien : toute la place libre. */}
         <div className="relative min-h-[8rem] flex-1">
           <div className="absolute inset-0">
-            <CycloneMap key={world.status === "ok" ? "monde" : "ocean-indien"} cyclones={cyclones} focus={focus} onPick={setFocus} ghost={ghost} />
+            <CycloneMap key={world.status === "ok" ? "monde" : "ocean-indien"} cyclones={cyclones} focus={focus} onPick={setFocus} ghost={ghost && chosen ? { id: chosen.id, lat: ghost.lat, lng: ghost.lng } : null} />
           </div>
           <div className="absolute inset-x-0 top-0 z-10 flex items-center gap-2 p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
             <button
@@ -200,43 +242,74 @@ function CyclonePanel({ cyclones: nearby, updatedAt, onClose }: { cyclones: Cycl
               <div className="order-rise flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <p className="truncate text-lg leading-tight font-semibold">{chosen.name}</p>
-                  <p className="mt-0.5 truncate text-xs text-fg-muted">{chosen.forming ? `${chosen.status} en formation, pas encore nommée` : chosen.status}</p>
+                  <p className="mt-0.5 truncate text-xs text-fg-muted">
+                    {chosen.ended ? "Plus suivi : sûrement dissipé" : chosen.forming ? `${chosen.status} en formation, pas encore nommée` : chosen.status}
+                  </p>
                 </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-2xl leading-none font-semibold tracking-tight tabular-nums">{km(chosen.distanceKm)}</p>
-                  <p className="mt-1 text-[11px] text-fg-muted">de Mayotte</p>
-                </div>
+                {chosen.local ? (
+                  <div className="shrink-0 text-right">
+                    <p className="text-2xl leading-none font-semibold tracking-tight tabular-nums">{km(chosen.distanceKm)}</p>
+                    <p className="mt-1 text-[11px] text-fg-muted">de Mayotte</p>
+                  </div>
+                ) : (
+                  <p className="flex shrink-0 items-center gap-1.5 rounded-full bg-bg-subtle px-3 py-1.5 text-xs font-semibold">
+                    <ShieldCheck size={14} aria-hidden="true" />
+                    Aucun danger pour Mayotte
+                  </p>
+                )}
               </div>
               <div className="order-rise [animation-delay:20ms]">
                 <CycloneTimeline key={chosen.id} cyclone={chosen} onMove={setGhost} />
               </div>
-              <div className="order-rise grid grid-cols-3 gap-2 [animation-delay:40ms]">
-                <Fact icon={<Wind size={18} />} label="Vents" value={chosen.windKmh ? `${chosen.windKmh} km/h` : "—"} />
-                <Fact
-                  icon={<Navigation size={18} />}
-                  label="Au plus près"
-                  value={chosen.closest ? km(chosen.closest.km) : "—"}
-                  hint={chosen.closest ? day.format(new Date(chosen.closest.at)) : "prévu"}
-                />
-                <Fact
-                  icon={<Gauge size={18} />}
-                  label="À moins de 200 km"
-                  value={chosen.estimate ? `${chosen.estimate.within200} %` : "—"}
-                  hint={estimateHint(chosen)}
-                />
-              </div>
+              {chosen.ended ? (
+                // Fini : où et quand il s'est arrêté, et sa force à la fin (pas de prévision, elle ne vaut plus rien).
+                <div className="order-rise grid grid-cols-3 gap-2 [animation-delay:40ms]">
+                  <Fact icon={<Wind size={18} />} label="Vents à la fin" value={chosen.windKmh ? `${chosen.windKmh} km/h` : "—"} hint="trop faible" />
+                  <Fact icon={<X size={18} />} label="Fin du suivi" value={day.format(new Date(chosen.now.at))} />
+                  <Fact icon={<Navigation size={18} />} label="Allait vers" value={endedHeading ? endedHeading.direction.replace(/^(le |l')/, "") : "—"} hint={endedHeading ? `${endedHeading.speedKmh} km/h` : undefined} />
+                </div>
+              ) : chosen.local ? (
+                <div className="order-rise grid grid-cols-3 gap-2 [animation-delay:40ms]">
+                  <Fact icon={<Wind size={18} />} label="Vents" value={chosen.windKmh ? `${chosen.windKmh} km/h` : "—"} />
+                  <Fact
+                    icon={<Navigation size={18} />}
+                    label="Au plus près"
+                    value={chosen.closest ? km(chosen.closest.km) : "—"}
+                    hint={chosen.closest ? day.format(new Date(chosen.closest.at)) : "prévu"}
+                  />
+                  <Fact
+                    icon={<Gauge size={18} />}
+                    label="À moins de 200 km"
+                    value={chosen.estimate ? `${chosen.estimate.within200} %` : "—"}
+                    hint={estimateHint(chosen)}
+                  />
+                </div>
+              ) : (
+                // Loin de notre océan : ce qui compte, c'est où il est et où il va, pas Mayotte.
+                <div className="order-rise grid grid-cols-3 gap-2 [animation-delay:40ms]">
+                  <Fact icon={<Wind size={18} />} label="Vents" value={chosen.windKmh ? `${chosen.windKmh} km/h` : "—"} />
+                  <Fact icon={<Globe size={18} />} label="Océan" value={chosen.region.split(" ")[0]} hint={chosen.region.split(" ").slice(1).join(" ") || undefined} />
+                  <Fact icon={<Navigation size={18} />} label="Va vers" value={heading ? heading.direction.replace(/^(le |l')/, "") : "—"} hint={heading ? `${heading.speedKmh} km/h` : undefined} />
+                </div>
+              )}
             </>
           ) : (
             <div className="order-rise">
               <p className="text-lg leading-tight font-semibold">Aucun cyclone en ce moment</p>
-              <p className="mt-0.5 text-xs text-fg-muted">Rien n&apos;est suivi dans le sud-ouest de l&apos;océan Indien, même en formation.</p>
+              <p className="mt-0.5 text-xs text-fg-muted">{world.status === "ok" ? "Rien n’est suivi dans le monde, même en formation." : "Rien n’est suivi dans le sud-ouest de l’océan Indien, même en formation."}</p>
             </div>
           )}
           <p className="order-rise flex items-start gap-2 text-[11px] leading-snug text-fg-muted [animation-delay:80ms]">
             <Info size={14} aria-hidden="true" className="mt-px shrink-0" />
             <span>
-              Prévisions de Météo-France La Réunion, via GDACS, à {clock.format(new Date(updatedAt))}. Trait plein : trajet fait ; pointillés : prévu ; voile : où il peut passer ; traits fins : anciens cyclones semblables depuis 1980.
-              Le pourcentage est une estimation BTM (prévision officielle et anciens cyclones), pas une alerte : les alertes viennent de la préfecture de Mayotte.
+              {chosen?.ended
+                ? "Météo-France La Réunion a arrêté ses bulletins : il était devenu trop faible pour rester suivi. Trait gris : son trajet ; croix : sa dernière position connue."
+                : chosen?.local === false
+                  ? `Prévisions du centre météo de cet océan, via GDACS, à ${clock.format(new Date(updatedAt))}. Trait plein : trajet fait ; pointillés : prévu ; voile : où il peut passer. Loin de notre océan : il ne peut pas atteindre Mayotte.`
+                  : `Prévisions de Météo-France La Réunion, via GDACS, à ${clock.format(new Date(updatedAt))}. Trait plein : trajet fait ; pointillés : prévu ; voile : où il peut passer ; traits fins : anciens cyclones semblables depuis 1980.`}
+              {chosen?.local === false || chosen?.ended
+                ? ""
+                : " Le pourcentage est une estimation BTM (prévision officielle et anciens cyclones), pas une alerte : les alertes viennent de la préfecture de Mayotte."}
               {chosen ? (
                 <>
                   {" "}

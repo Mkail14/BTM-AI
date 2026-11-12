@@ -29,7 +29,7 @@ export default async function ChatLayout({ children }: LayoutProps<"/">) {
     <>
       {/* Rappel pour les administrateurs : ce qu'ils voient n'est pas le site public. */}
       {flags?.demoMode || (flags && flags.status !== "online") ? (
-        <Link
+        <Link prefetch={false}
           href={user?.isPrincipalAdmin ? "/admin/profil" : "/admin"}
           className="fixed top-[calc(0.5rem+env(safe-area-inset-top))] left-1/2 z-50 -translate-x-1/2 rounded-full bg-warning px-3 py-1 text-[11px] font-semibold text-warning-fg shadow-md hover:brightness-110"
         >

@@ -29,6 +29,13 @@ describe("message écrit qui demande la voix de Tamilya", () => {
       "parle-moi de ce que tu as écrit",
       "tu peux me répéter ta réponse ?",
       "pourquoi tu parles pas ?",
+      "fais moi un journal en vocal",
+      "Fais-moi le journal en vocal stp",
+      "donne-moi la météo à voix haute",
+      "le trajet de Kahani à Sada en vocal",
+      "fais moi un vocal sur les infos",
+      "envoie-moi un message vocal",
+      "dis-moi en vocal comment aller à Sada",
     ]) {
       assert.equal(wantsSpokenReply(message), true, message);
     }
@@ -46,6 +53,9 @@ describe("message écrit qui demande la voix de Tamilya", () => {
       "Tu parles shimaoré ?",
       "tu peux parler de la pêche ?",
       "Comment marche le vocal ?",
+      "c est quoi le mode en vocal ?",
+      "le vocal marche pas",
+      "fais moi un journal",
     ]) {
       assert.equal(wantsSpokenReply(message), false, message);
     }

@@ -61,6 +61,13 @@ export async function POST(request: NextRequest) {
     if (!to) return NextResponse.json({ info: "Demande-lui où elle veut aller." });
     const home = from || !supabase ? null : (await getProfileContact(supabase, user.id).catch(() => null))?.address ?? null;
     const plan = await planTrip({ to, from, gps: null }, home).catch(() => "no_route" as const);
+    if (typeof plan === "object" && "choose" in plan) {
+      const { choices, side } = plan.choose;
+      return NextResponse.json({
+        trip: null,
+        info: `« ${plan.choose.said} » : il y a plusieurs lieux de ce nom (${choices.join(", ")}). Ne choisis pas à sa place : demande-lui lequel en une courte question, puis rappelle itineraire avec son choix en ${side === "to" ? "« vers »" : "« depuis »"}.`,
+      });
+    }
     const said =
       plan === "no_destination"
         ? "Lieu introuvable à Mayotte : demande-lui un autre nom ou la commune."
@@ -93,11 +100,15 @@ export async function POST(request: NextRequest) {
   // Carte des cyclones : elle s'ajoute à la conversation, et Tamilya dit l'essentiel à voix haute.
   if (parsed.data.name === "carte_cyclones") {
     // Les cyclones (GDACS) et les articles des journaux de Mayotte qui en parlent, ensemble.
-    const said = await liveContextFor("cyclone", { maxWaitMs: CYCLONE_INFO_WAIT_MS }).catch(() => null);
+    // « monde » : la personne parle des autres cyclones (ailleurs sur la Terre).
+    const zone = parsed.data.args.zone === "monde" ? "monde" : "ocean-indien";
+    const said = await liveContextFor(zone === "monde" ? "cyclones du monde" : "cyclone", { maxWaitMs: CYCLONE_INFO_WAIT_MS }).catch(() => null);
+    const world =
+      zone === "monde" ? "La personne veut les cyclones du monde : parle de ceux d'ailleurs (nom, océan), trop loin pour toucher Mayotte ; ne dis jamais « aucun cyclone » s'il y en a ailleurs. " : "";
     return NextResponse.json({
-      trip: cycloneBlock().trim(),
+      trip: cycloneBlock(zone).trim(),
       info: said
-        ? `${said}\n\nLa carte est à l'écran. Dis en une ou deux phrases ce qui est sûr, ce qui est prévu et à quel point c'est probable pour Mayotte ; un effet (pluie, vent, mer) seulement si un journal le dit, en le nommant.`
+        ? `${said}\n\nLa carte est à l'écran. ${world}Dis en une ou deux phrases ce qui est sûr, ce qui est prévu et à quel point c'est probable pour Mayotte ; un effet (pluie, vent, mer) seulement si un journal le dit, en le nommant.`
         : "La carte est à l'écran, mais les données des cyclones ne répondent pas : dis-le simplement.",
     });
   }

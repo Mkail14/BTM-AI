@@ -126,7 +126,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         aria-modal={open ? true : undefined}
       >
         <div className={`flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 ${collapsed ? "md:justify-center md:px-0" : ""}`}>
-          <Link href="/" onClick={onClose} aria-label="BTM AI — accueil" className={`rounded ${wide}`}>
+          <Link prefetch={false} href="/" onClick={onClose} aria-label="BTM AI — accueil" className={`rounded ${wide}`}>
             <BrandLogo size="md" />
           </Link>
           {/* Repliée : le « + » passe sous le bouton de repli. */}
@@ -168,7 +168,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
 
         <div className={`px-3 ${collapsed ? "md:px-2.5" : ""}`}>
           {user?.isAdmin ? (
-            <Link
+            <Link prefetch={false}
               href="/admin"
               onClick={onClose}
               title={collapsed ? "Tableau de bord" : undefined}
@@ -238,6 +238,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
               {/* Le coffre (Google Drive) en vue, juste au-dessus du profil : si « Envoyer un document » est ouvert (/admin/fonctionnalites). */}
               {user.features?.includes("documents") ? (
                 <Link
+                  prefetch={false}
                   href="/documents"
                   onClick={onClose}
                   aria-current={pathname === "/documents" ? "page" : undefined}
@@ -281,7 +282,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
               >
                 Se connecter
               </button>
-              <Link href="/confidentialite" onClick={onClose} className="mt-2 block px-2 text-xs text-fg-muted hover:underline">
+              <Link prefetch={false} href="/confidentialite" onClick={onClose} className="mt-2 block px-2 text-xs text-fg-muted hover:underline">
                 Données et confidentialité
               </Link>
             </div>

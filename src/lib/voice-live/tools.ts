@@ -162,8 +162,11 @@ export function liveToolDeclarations(access: LiveAccess) {
     {
       name: "carte_cyclones",
       description:
-        "Ouvre à l'écran la carte des cyclones de l'océan Indien (en cours et en formation) : leur position, le trajet fait et prévu, la distance de Mayotte. À utiliser dès que la personne parle de cyclone, de tempête ou de dépression tropicale. Renvoie aussi ce qu'il faut dire.",
-      parameters: { type: "OBJECT", properties: {} },
+        "Ouvre à l'écran la carte des cyclones de l'océan Indien (en cours et en formation) : leur position, le trajet fait et prévu, la distance de Mayotte. À utiliser dès que la personne parle de cyclone, de tempête ou de dépression tropicale. Si elle parle des autres cyclones, du monde, d'ailleurs, d'un typhon ou d'un ouragan : zone « monde ». Renvoie aussi ce qu'il faut dire.",
+      parameters: {
+        type: "OBJECT",
+        properties: { zone: { type: "STRING", enum: ["ocean-indien", "monde"], description: "« ocean-indien » (autour de Mayotte, par défaut) ou « monde » (tous les cyclones de la Terre)." } },
+      },
     },
     {
       name: "videos_youtube",

@@ -18,7 +18,11 @@ const SEEN_KEY = "btm-trip-seen";
 /** Un bloc affiché plus tard que ça après l'ouverture de la page vient d'être écrit par Tamilya. */
 const FRESH_AFTER_MS = 3000;
 
-type State = { status: "loading" } | { status: "ok"; plan: TripPlan } | { status: "error"; error: string; message: string };
+type State =
+  | { status: "loading" }
+  | { status: "ok"; plan: TripPlan }
+  | { status: "choose"; side: "to" | "from"; choices: string[]; message: string }
+  | { status: "error"; error: string; message: string };
 
 function seen(spec: string): boolean {
   try {
@@ -51,18 +55,22 @@ export function TripCard({ spec }: { spec: string }) {
   const autoOpen = useRef<boolean | null>(null);
   /** Relance le calcul (maison posée sur la carte). */
   const [reload, setReload] = useState(0);
+  /** Lieu choisi quand le nom en désignait plusieurs (« Grande Moya » pour « Moya »). */
+  const [picked, setPicked] = useState<{ to?: string; from?: string }>({});
 
   useEffect(() => {
     if (!parsed) return;
     let alive = true;
-    const params = new URLSearchParams({ to: parsed.to });
+    const params = new URLSearchParams({ to: picked.to ?? parsed.to });
+    const from = picked.from ?? parsed.from;
     if (gps) params.set("at", `${gps.lat},${gps.lng}`);
-    else if (parsed.from) params.set("from", parsed.from);
+    else if (from) params.set("from", from);
     fetch(`/api/trip?${params}`)
       .then(async (res) => ((await res.json().catch(() => null)) as TripResponse | null) ?? { error: "unavailable" as const, message: "Trajet indisponible." })
       .then((body) => {
         if (!alive) return;
-        if ("plan" in body) {
+        if ("choose" in body) setState({ status: "choose", side: body.choose.side, choices: body.choose.choices, message: body.message });
+        else if ("plan" in body) {
           setState({ status: "ok", plan: body.plan });
           // Écrit à l'instant par Tamilya (pas relu dans l'historique) : le panneau s'ouvre de lui-même, une fois.
           if (autoOpen.current === null) {
@@ -75,7 +83,7 @@ export function TripCard({ spec }: { spec: string }) {
     return () => {
       alive = false;
     };
-  }, [parsed, gps, spec, reload]);
+  }, [parsed, gps, spec, reload, picked]);
 
   const locate = async () => {
     setLocating(true);
@@ -109,7 +117,7 @@ export function TripCard({ spec }: { spec: string }) {
                   : plan.walk
                     ? `${formatMinutes(plan.walk.minutes)} à pied`
                     : ""
-                : state.status === "error"
+                : state.status === "error" || state.status === "choose"
                   ? state.message
                   : ""}
           </span>
@@ -119,6 +127,24 @@ export function TripCard({ spec }: { spec: string }) {
           <button type="button" onClick={() => setOpen(true)} className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-accent-fg" style={{ background: PERSONA }} aria-haspopup="dialog">
             Voir
           </button>
+        ) : state.status === "choose" ? (
+          <span className="flex shrink-0 flex-col gap-1.5">
+            {state.choices.map((choice) => (
+              <button
+                key={choice}
+                type="button"
+                onClick={() => {
+                  const side = state.side;
+                  setState({ status: "loading" });
+                  setPicked((now) => ({ ...now, [side]: choice }));
+                }}
+                className="rounded-full px-3 py-1.5 text-xs font-semibold text-accent-fg"
+                style={{ background: PERSONA }}
+              >
+                {choice}
+              </button>
+            ))}
+          </span>
         ) : state.status === "error" && state.error === "no_origin" ? (
           <button type="button" onClick={locate} disabled={locating} className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-accent-fg disabled:opacity-60" style={{ background: PERSONA }}>
             {locating ? "…" : "Ma position"}
