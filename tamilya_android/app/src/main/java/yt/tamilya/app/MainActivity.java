@@ -137,6 +137,7 @@ public class MainActivity extends Activity {
     private TamilyaConnect connect;
     /** « Obtenir de l'aide » de l'app : la page /aide du site n'y est jamais ouverte. */
     private HelpScreen help;
+    private LinkViewer links;
     /** Moteur et styles des cartes, rangés dans l'APK et mis à jour tout seuls. */
     private MapCache mapCache;
     private ConnectivityManager connectivity;
@@ -219,6 +220,17 @@ public class MainActivity extends Activity {
             @Override
             public String accountEmail() {
                 return connect.accountEmail();
+            }
+
+            @Override
+            public void feedback(String kind) {
+                MainActivity.this.feedback(kind);
+            }
+        });
+        links = new LinkViewer(this, content, new LinkViewer.Host() {
+            @Override
+            public void openExternally(Uri uri) {
+                MainActivity.this.openExternally(uri);
             }
 
             @Override
@@ -1092,7 +1104,9 @@ public class MainActivity extends Activity {
                 return true;
             }
             if (staysInApp(uri)) return false;
-            openExternally(uri);
+            // Lien d'un autre site (dans une conversation…) : ouvert par-dessus Tamilya, pas dans Chrome.
+            if (LinkViewer.opensInside(uri)) links.show(uri);
+            else openExternally(uri);
             return true;
         }
 
@@ -1263,7 +1277,8 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        if (help.isOpen()) help.close();
+        if (links.isOpen()) links.back();
+        else if (help.isOpen()) help.close();
         else if (connect.isOpen()) connect.close();
         else if (web.canGoBack()) web.goBack();
         else super.onBackPressed();
