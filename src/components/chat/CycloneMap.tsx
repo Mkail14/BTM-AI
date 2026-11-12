@@ -72,14 +72,36 @@ function shapes(cyclones: readonly Cyclone[]) {
 function boundsOf(cyclones: readonly Cyclone[]): [[number, number], [number, number]] {
   // Mayotte n'est dans le cadre que si un système de notre océan y est (sinon, pour un typhon au Japon, on verrait la moitié du monde).
   const pts = [...(cyclones.length && !cyclones.some((c) => c.local) ? [] : [MAYOTTE]), ...cyclones.flatMap((c) => c.track)];
-  const lngs = pts.map((p) => p.lng);
+  const [west, east] = shortestSpan(pts.map((p) => p.lng));
   const lats = pts.map((p) => p.lat);
   // Sans cyclone : le canal du Mozambique et Madagascar autour de Mayotte.
   const pad = cyclones.length ? 1 : 8;
   return [
-    [Math.min(...lngs) - pad, Math.min(...lats) - pad],
-    [Math.max(...lngs) + pad, Math.max(...lats) + pad],
+    [west - pad, Math.min(...lats) - pad],
+    [east + pad, Math.max(...lats) + pad],
   ];
+}
+
+/**
+ * Ouest et est par le chemin le plus court autour de la Terre. Sans ça, un
+ * cyclone juste après le changement de date (Pena, -172°) et un autre près du
+ * Japon (154°) étaient cadrés par l'Afrique : la carte montrait le monde
+ * entier. On coupe là où il y a le plus grand vide ; l'est peut dépasser 180.
+ */
+function shortestSpan(lngs: number[]): [number, number] {
+  const sorted = [...new Set(lngs.map((l) => ((((l + 180) % 360) + 360) % 360) - 180))].sort((a, b) => a - b);
+  if (sorted.length < 2) return [sorted[0] ?? MAYOTTE.lng, sorted[0] ?? MAYOTTE.lng];
+  let cut = sorted.length - 1; // vide entre le dernier et le premier (en passant par 180°)
+  let widest = sorted[0] + 360 - sorted[cut];
+  for (let i = 0; i < sorted.length - 1; i++) {
+    if (sorted[i + 1] - sorted[i] > widest) {
+      widest = sorted[i + 1] - sorted[i];
+      cut = i;
+    }
+  }
+  const west = sorted[(cut + 1) % sorted.length];
+  const east = sorted[cut];
+  return [west, east >= west ? east : east + 360];
 }
 
 const FIT = { padding: { top: 70, bottom: 40, left: 40, right: 40 }, maxZoom: 7 };
