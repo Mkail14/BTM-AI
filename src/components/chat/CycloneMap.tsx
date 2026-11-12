@@ -32,6 +32,9 @@ const collection = (features: unknown[]): Geo => ({ type: "FeatureCollection", f
 /** Symbole météo du cyclone : un rond et deux bras enroulés. */
 const CYCLONE_SVG =
   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M12 8.8C12 4.5 15 2.5 19 2.5"/><path d="M12 15.2c0 4.3-3 6.3-7 6.3"/></svg>';
+/** Fin du suivi : une croix. */
+const CROSS_SVG =
+  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7 7 17"/></svg>';
 const PIN_SVG =
   '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></svg>';
 
@@ -165,7 +168,10 @@ export function CycloneMap({ cyclones, focus, onPick, ghost = null }: Props) {
 
         // Position actuelle de chaque système : le symbole tourne dans le sens des aiguilles au sud de l'équateur, dans l'autre sens au nord (symbole retourné).
         for (const c of latest.current.cyclones) {
-          const el = pin(c.now.lat > 0 ? "map-cyclone map-cyclone-north" : "map-cyclone",`<span class="map-cyclone-ring"></span><span class="map-cyclone-dot">${CYCLONE_SVG}</span>`, c.name);
+          // Plus suivi : une croix grise, immobile, à sa dernière position connue.
+          const el = c.ended
+            ? pin("map-cyclone map-cyclone-ended", `<span class="map-cyclone-dot">${CROSS_SVG}</span>`, `${c.name}, plus suivi`)
+            : pin(c.now.lat > 0 ? "map-cyclone map-cyclone-north" : "map-cyclone", `<span class="map-cyclone-ring"></span><span class="map-cyclone-dot">${CYCLONE_SVG}</span>`, c.name);
           el.style.cursor = "pointer";
           el.addEventListener("click", () => latest.current.onPick(c.id));
           markers.current.set(c.id, new maplibre.Marker({ element: el }).setLngLat([c.now.lng, c.now.lat]).addTo(created));

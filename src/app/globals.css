@@ -1232,6 +1232,25 @@ input::-ms-clear {
   scale: -1 1;
 }
 
+/* Plus suivi (sûrement dissipé) : gris, plus petit, et il ne tourne plus. */
+.map-cyclone-ended {
+  width: 1.9rem;
+  height: 1.9rem;
+}
+
+.map-cyclone-ended .map-cyclone-dot {
+  color: #6b7280;
+  box-shadow:
+    0 0 0 2px #9aa1ab,
+    0 4px 10px -2px rgb(0 0 0 / 0.3);
+}
+
+.map-cyclone-ended .map-cyclone-dot svg {
+  width: 1.1rem;
+  height: 1.1rem;
+  animation: none;
+}
+
 @keyframes map-cyclone-spin {
   to {
     rotate: 360deg;

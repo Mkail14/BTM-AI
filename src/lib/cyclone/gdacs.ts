@@ -2,7 +2,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { estimate } from "./engine";
 import { MAYOTTE, type Cyclone, type CyclonePoint, type CycloneZone } from "./intent";
-import { ageHours, motionOf, STALE_AFTER_H } from "./motion";
+import { ageHours, directionOf, motionOf, STALE_AFTER_H } from "./motion";
 
 export type { CycloneZone } from "./intent";
 
@@ -25,6 +25,8 @@ const CACHE_S = 15 * 60;
 const CACHE_MS = CACHE_S * 1000;
 /** La géométrie du trajet met souvent plus de 10 s à venir de GDACS. */
 const TIMEOUT_MS = 20_000;
+/** Un cyclone de notre océan plus suivi reste montré 7 jours (« il s'est dissipé là, tel jour »). */
+const ENDED_KEPT_MS = 7 * 86_400_000;
 
 const memory = new Map<CycloneZone, { at: number; cyclones: Cyclone[] }>();
 
@@ -140,6 +142,12 @@ async function readCyclone(event: Feature): Promise<Cyclone | null> {
     }
     track = track.sort((a, b) => a.at.localeCompare(b.at));
   }
+  // Plus suivi : sa vieille prévision ne vaut plus rien, on ne garde que le trajet fait.
+  const ended = String(p.iscurrent) !== "true";
+  if (ended) {
+    track = track.filter((t) => !t.forecast);
+    cone = null;
+  }
   if (!track.length) track = [{ ...now, forecast: false }];
   // Changement de date : le trajet et le cône restent d'un seul tenant autour de la position actuelle.
   const lngs = unwrap(
@@ -175,7 +183,8 @@ async function readCyclone(event: Feature): Promise<Cyclone | null> {
     mayotteInCone: local && cone ? inside(MAYOTTE, cone) : local ? null : false,
     link: url.report?.startsWith("https://www.gdacs.org/") ? url.report : "https://www.gdacs.org/",
     // Estimation BTM : seulement dans notre océan (l'archive ne couvre que le sud-ouest de l'océan Indien ; au nord de l'équateur, elle serait fausse).
-    estimate: local && distanceKm <= 3000 ? safely(() => estimate({ now, track, windKmh })) : null,
+    estimate: local && !ended && distanceKm <= 3000 ? safely(() => estimate({ now, track, windKmh })) : null,
+    ended,
   };
 }
 
@@ -222,20 +231,23 @@ async function readCyclones(zone: CycloneZone): Promise<Cyclone[]> {
   const from = new Date(today.getTime() - 10 * 86_400_000);
   const ymd = (d: Date) => d.toISOString().slice(0, 10);
   const list = await get(`${SEARCH}?eventlist=TC&alertlevel=Green;Orange;Red&fromdate=${ymd(from)}&todate=${ymd(today)}`);
-  const events = (list.features ?? []).filter(
+  const tc = (list.features ?? []).filter((f) => f.properties.eventtype === "TC" && f.geometry.type === "Point");
+  const current = tc.filter((f) => String(f.properties.iscurrent) === "true" && (zone === "monde" || inBasin(f.geometry.coordinates as number[])));
+  // Finis depuis moins de 7 jours dans notre océan : on les montre pour dire ce qu'ils sont devenus (sinon « aucun cyclone » fait croire à un bug).
+  const ended = tc.filter(
     (f) =>
-      f.properties.eventtype === "TC" &&
-      String(f.properties.iscurrent) === "true" &&
-      f.geometry.type === "Point" &&
-      (zone === "monde" || inBasin(f.geometry.coordinates as number[])),
+      String(f.properties.iscurrent) !== "true" &&
+      inBasin(f.geometry.coordinates as number[]) &&
+      today.getTime() - Date.parse(`${String(f.properties.todate)}Z`) < ENDED_KEPT_MS,
   );
-  return (await Promise.all(events.slice(0, zone === "monde" ? 12 : 6).map((e) => readCyclone(e).catch(() => null))))
+  const events = [...current.slice(0, zone === "monde" ? 12 : 6), ...ended.slice(0, 3)];
+  return (await Promise.all(events.map((e) => readCyclone(e).catch(() => null))))
     .filter((c): c is Cyclone => c !== null)
-    .sort((a, b) => a.distanceKm - b.distanceKm);
+    .sort((a, b) => Number(a.ended) - Number(b.ended) || a.distanceKm - b.distanceKm);
 }
 
 /** Gardée 15 minutes et partagée par tout le site (cache de données de Next). */
-const cachedCyclones = unstable_cache(readCyclones, ["cyclones-gdacs-v5"], { revalidate: CACHE_S });
+const cachedCyclones = unstable_cache(readCyclones, ["cyclones-gdacs-v6"], { revalidate: CACHE_S });
 
 /** Cyclones en cours (océan Indien par défaut, ou le monde), du plus proche de Mayotte au plus loin. */
 export async function getCyclones(zone: CycloneZone = "ocean-indien"): Promise<Cyclone[]> {
@@ -324,10 +336,28 @@ export async function cyclonesText(zone: CycloneZone = "ocean-indien"): Promise<
     getCyclones(),
     zone === "monde" ? worldText().catch(() => "Cyclones dans le reste du monde : GDACS ne répond pas, le dire simplement.") : null,
   ]);
-  const ours = near.length
-    ? nearText(near)
+  const live = near.filter((c) => !c.ended);
+  const ours = live.length
+    ? nearText(live)
     : "Cyclones (GDACS, d'après Météo-France La Réunion) : sûr, aucun cyclone ni système en formation suivi en ce moment dans le sud-ouest de l'océan Indien.";
-  return [ours, world].filter(Boolean).join("\n");
+  return [ours, endedText(near.filter((c) => c.ended)), world].filter(Boolean).join("\n");
+}
+
+/**
+ * Les systèmes de notre océan qui ne sont plus suivis : ce qu'ils sont devenus.
+ * Sans ça, Tamilya dit « aucun cyclone » et la personne croit que le site bugue.
+ */
+function endedText(ended: Cyclone[]): string | null {
+  if (!ended.length) return null;
+  return [
+    "Systèmes de notre océan qui ne sont PLUS suivis (fin des bulletins de Météo-France La Réunion) : s'il était suivi par la personne, explique-lui ce qu'il est devenu, simplement, au lieu de dire seulement « aucun cyclone ».",
+    ...ended.map((c) => {
+      const m = motionOf(c);
+      const wind = c.windKmh ? `, vents de ${c.windKmh} km/h seulement à la fin` : "";
+      const going = m ? ` Les dernières 24 h, il allait vers ${m.direction} (${m.movedKm} km).` : "";
+      return `- ${c.name} : plus suivi depuis le ${clock.format(new Date(c.now.at))}. Dernière position connue : à ${c.distanceKm} km de Mayotte, direction ${directionOf(MAYOTTE, c.now)} depuis Mayotte${wind}.${going} Ce que ça veut dire : il était devenu trop faible pour rester suivi, il s'est très probablement dissipé (sûr : il n'est plus suivi ; probable : dissipé ; la cause exacte n'est pas dans les données, ne l'invente pas).`;
+    }),
+  ].join("\n");
 }
 
 /** Les cyclones loin de notre océan, une ligne chacun : ils ne peuvent pas atteindre Mayotte. */

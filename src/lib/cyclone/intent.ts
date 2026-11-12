@@ -71,6 +71,12 @@ export type Cyclone = {
   link: string;
   /** Estimation BTM du passage près de Mayotte (moteur des anciens cyclones). null : pas assez de données. */
   estimate: CycloneEstimate | null;
+  /**
+   * Plus suivi (fini depuis moins de 7 jours, dans notre océan) : trop faible,
+   * il s'est sûrement dissipé. `now` est alors sa dernière position connue, et
+   * il n'y a plus de prévision. Montré pour que personne ne croie à un bug.
+   */
+  ended: boolean;
 };
 
 /**

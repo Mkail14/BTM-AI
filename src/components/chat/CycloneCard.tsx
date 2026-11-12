@@ -42,7 +42,11 @@ function estimateHint(c: Cyclone) {
   return Date.parse(e.when) > Date.now() ? `plutôt ${day.format(new Date(e.when))}` : "donnée trop vieille";
 }
 
-const summary = (cyclones: Cyclone[], zone: CycloneZone) => {
+const summary = (all: Cyclone[], zone: CycloneZone) => {
+  const cyclones = all.filter((c) => !c.ended);
+  // Plus rien de suivi, mais un système vient de finir : on dit ce qu'il est devenu (sinon on croit à un bug).
+  const gone = all.find((c) => c.ended);
+  if (!cyclones.length && gone) return `${gone.name} n'est plus suivi : sûrement dissipé`;
   if (!cyclones.length) return zone === "monde" ? "Aucun cyclone en ce moment dans le monde" : "Aucun cyclone en ce moment dans l'océan Indien";
   // Le monde : les systèmes loin de notre océan ne se comptent pas en distance de Mayotte.
   if (zone === "monde" && !cyclones.some((c) => c.local)) return cyclones.length > 1 ? `${cyclones.length} cyclones dans le monde, loin de Mayotte` : `${cyclones[0].name}, loin de Mayotte`;
@@ -151,6 +155,7 @@ function CyclonePanel({ cyclones: given, world: worldGiven = false, updatedAt, o
 
   const chosen = cyclones.find((c) => c.id === focus) ?? cyclones[0] ?? null;
   const heading = chosen && !chosen.local ? motionOf(chosen) : null;
+  const endedHeading = chosen?.ended ? motionOf(chosen) : null;
 
   return createPortal(
     <div className="fixed inset-0 z-[70]" data-closing={closing || undefined}>
@@ -205,7 +210,9 @@ function CyclonePanel({ cyclones: given, world: worldGiven = false, updatedAt, o
               <div className="order-rise flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <p className="truncate text-lg leading-tight font-semibold">{chosen.name}</p>
-                  <p className="mt-0.5 truncate text-xs text-fg-muted">{chosen.forming ? `${chosen.status} en formation, pas encore nommée` : chosen.status}</p>
+                  <p className="mt-0.5 truncate text-xs text-fg-muted">
+                    {chosen.ended ? "Plus suivi : sûrement dissipé" : chosen.forming ? `${chosen.status} en formation, pas encore nommée` : chosen.status}
+                  </p>
                 </div>
                 {chosen.local ? (
                   <div className="shrink-0 text-right">
@@ -222,7 +229,14 @@ function CyclonePanel({ cyclones: given, world: worldGiven = false, updatedAt, o
               <div className="order-rise [animation-delay:20ms]">
                 <CycloneTimeline key={chosen.id} cyclone={chosen} onMove={setGhost} />
               </div>
-              {chosen.local ? (
+              {chosen.ended ? (
+                // Fini : où et quand il s'est arrêté, et sa force à la fin (pas de prévision, elle ne vaut plus rien).
+                <div className="order-rise grid grid-cols-3 gap-2 [animation-delay:40ms]">
+                  <Fact icon={<Wind size={18} />} label="Vents à la fin" value={chosen.windKmh ? `${chosen.windKmh} km/h` : "—"} hint="trop faible" />
+                  <Fact icon={<X size={18} />} label="Fin du suivi" value={day.format(new Date(chosen.now.at))} />
+                  <Fact icon={<Navigation size={18} />} label="Allait vers" value={endedHeading ? endedHeading.direction.replace(/^(le |l')/, "") : "—"} hint={endedHeading ? `${endedHeading.speedKmh} km/h` : undefined} />
+                </div>
+              ) : chosen.local ? (
                 <div className="order-rise grid grid-cols-3 gap-2 [animation-delay:40ms]">
                   <Fact icon={<Wind size={18} />} label="Vents" value={chosen.windKmh ? `${chosen.windKmh} km/h` : "—"} />
                   <Fact
@@ -256,10 +270,12 @@ function CyclonePanel({ cyclones: given, world: worldGiven = false, updatedAt, o
           <p className="order-rise flex items-start gap-2 text-[11px] leading-snug text-fg-muted [animation-delay:80ms]">
             <Info size={14} aria-hidden="true" className="mt-px shrink-0" />
             <span>
-              {chosen?.local === false
-                ? `Prévisions du centre météo de cet océan, via GDACS, à ${clock.format(new Date(updatedAt))}. Trait plein : trajet fait ; pointillés : prévu ; voile : où il peut passer. Loin de notre océan : il ne peut pas atteindre Mayotte.`
-                : `Prévisions de Météo-France La Réunion, via GDACS, à ${clock.format(new Date(updatedAt))}. Trait plein : trajet fait ; pointillés : prévu ; voile : où il peut passer ; traits fins : anciens cyclones semblables depuis 1980.`}
-              {chosen?.local === false
+              {chosen?.ended
+                ? "Météo-France La Réunion a arrêté ses bulletins : il était devenu trop faible pour rester suivi. Trait gris : son trajet ; croix : sa dernière position connue."
+                : chosen?.local === false
+                  ? `Prévisions du centre météo de cet océan, via GDACS, à ${clock.format(new Date(updatedAt))}. Trait plein : trajet fait ; pointillés : prévu ; voile : où il peut passer. Loin de notre océan : il ne peut pas atteindre Mayotte.`
+                  : `Prévisions de Météo-France La Réunion, via GDACS, à ${clock.format(new Date(updatedAt))}. Trait plein : trajet fait ; pointillés : prévu ; voile : où il peut passer ; traits fins : anciens cyclones semblables depuis 1980.`}
+              {chosen?.local === false || chosen?.ended
                 ? ""
                 : " Le pourcentage est une estimation BTM (prévision officielle et anciens cyclones), pas une alerte : les alertes viennent de la préfecture de Mayotte."}
               {chosen ? (
