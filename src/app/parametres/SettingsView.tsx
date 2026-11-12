@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, type ComponentType, type MouseEvent, type ReactNode, type SVGProps } from "react";
 import { IconFolder, IconLock, IconMapPin, IconShield, IconSparkle, IconStar, IconSun, IconUser, IconWallet } from "@/components/ui/icons";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { SignOutButton } from "./SignOutButton";
 
 export type SettingsTab = "profil" | "adresse" | "sos" | "securite" | "awa" | "apparence" | "avis";
@@ -72,6 +73,8 @@ export function SettingsView({
   toComplete?: SettingsTab[];
 }) {
   const active = tabFrom(useSearchParams().get("rubrique"));
+  // « Mes documents » seulement s'il est ouvert à cette personne (/admin/fonctionnalites).
+  const documents = useAuth().user?.features?.includes("documents") ?? false;
   const current = SECTIONS.find((section) => section.id === active) ?? SECTIONS[0];
   const heading = useRef<HTMLHeadingElement>(null);
   const panel = useRef<HTMLElement>(null);
@@ -164,13 +167,15 @@ export function SettingsView({
                 </a>
               </li>
               ) : null}
-              <li>
-                <a href="/documents" className={`${ITEM} ${IDLE}`}>
-                  <IconFolder width={18} height={18} className="shrink-0 text-fg-muted" />
-                  <span className="min-w-0 flex-1 truncate">Mes documents</span>
-                  <Chevron />
-                </a>
-              </li>
+              {documents ? (
+                <li>
+                  <a href="/documents" className={`${ITEM} ${IDLE}`}>
+                    <IconFolder width={18} height={18} className="shrink-0 text-fg-muted" />
+                    <span className="min-w-0 flex-1 truncate">Mes documents</span>
+                    <Chevron />
+                  </a>
+                </li>
+              ) : null}
             </ul>
           </div>
 

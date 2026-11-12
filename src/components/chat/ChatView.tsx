@@ -23,6 +23,7 @@ import type { ChatStreamEvent, ChatTurn } from "@/lib/chat/types";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
 import { AwaBlob } from "./AwaBlob";
 import { fadeOutHome, noteGlobeOrigin, takeGlobeOrigin } from "./globe-origin";
+import { PlusMenu } from "./PlusMenu";
 import { Composer, type ComposerHandle } from "./Composer";
 import { MessageItem, type UiMessage } from "./MessageItem";
 import { wantsSpokenReply } from "@/lib/voice-live/spoken-request";
@@ -831,39 +832,45 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
               {voice.error}
             </p>
           ) : null}
-          <Composer
-            ref={composerRef}
-            isStreaming={isStreaming}
-            disabled={blocked || !online}
-            disabledReason={!online ? "Hors ligne" : importCandidate ? "Choisis d'abord ci-dessus" : "Conversation terminée"}
-            onSend={(text) => {
-              // « Chante », « dis-le à voix haute » : le vocal s'ouvre tout seul et elle répond à voix haute.
-              // Sauf juste après une histoire collée : « dis-le à voix haute » lance la lecture en 3D (voix et bruits).
-              const asked = messages.filter((m) => m.role === "user").map((m) => m.content).reverse();
-              // « Lis-moi une histoire » aussi : Tamilya l'invente et la joue en 3D, plutôt que de la dire en vocal simple.
-              const reading = Boolean(user?.isAdmin) && readingMode(text, asked) !== null;
-              if (!reading && voiceEnabled && online && voice.startWith && wantsSpokenReply(text)) voice.startWith(text, () => sendRef.current(text));
-              else void send(text);
-            }}
-            onStop={() => abortRef.current?.abort()}
-            placeholder="Demande-moi ce que tu veux…"
-            // Conversation vide : des exemples défilent pour montrer ce que Tamilya sait faire ; ensuite, le texte reste fixe.
-            examples={messages.length === 0 ? [...(user?.isAdmin ? [FOOD_EXAMPLE] : []), ...EXAMPLES] : undefined}
-            trailing={
-              voiceEnabled ? (
-                <button
-                  type="button"
-                  onClick={voice.start}
-                  disabled={blocked || !online || isStreaming}
-                  aria-label="Parler à Tamilya"
-                  title="Parler à Tamilya"
-                  className="grid size-9 shrink-0 place-items-center rounded-full text-fg-muted transition pointer-coarse:size-10 hover:bg-bg-muted hover:text-fg disabled:opacity-45"
-                >
-                  <IconMic />
-                </button>
-              ) : null
-            }
-          />
+          {/* Le + (photo ou document, si « documents » est allumé : /admin/fonctionnalites) flotte à gauche de la barre, dans sa propre bulle. */}
+          <div className="flex items-end gap-2">
+            {user?.features?.includes("documents") ? <PlusMenu disabled={blocked || !online || isStreaming} /> : null}
+            <div className="min-w-0 flex-1">
+              <Composer
+                ref={composerRef}
+                isStreaming={isStreaming}
+                disabled={blocked || !online}
+                disabledReason={!online ? "Hors ligne" : importCandidate ? "Choisis d'abord ci-dessus" : "Conversation terminée"}
+                onSend={(text) => {
+                  // « Chante », « dis-le à voix haute » : le vocal s'ouvre tout seul et elle répond à voix haute.
+                  // Sauf juste après une histoire collée : « dis-le à voix haute » lance la lecture en 3D (voix et bruits).
+                  const asked = messages.filter((m) => m.role === "user").map((m) => m.content).reverse();
+                  // « Lis-moi une histoire » aussi : Tamilya l'invente et la joue en 3D, plutôt que de la dire en vocal simple.
+                  const reading = Boolean(user?.isAdmin) && readingMode(text, asked) !== null;
+                  if (!reading && voiceEnabled && online && voice.startWith && wantsSpokenReply(text)) voice.startWith(text, () => sendRef.current(text));
+                  else void send(text);
+                }}
+                onStop={() => abortRef.current?.abort()}
+                placeholder="Demande-moi ce que tu veux…"
+                // Conversation vide : des exemples défilent pour montrer ce que Tamilya sait faire ; ensuite, le texte reste fixe.
+                examples={messages.length === 0 ? [...(user?.isAdmin ? [FOOD_EXAMPLE] : []), ...EXAMPLES] : undefined}
+                trailing={
+                  voiceEnabled ? (
+                    <button
+                      type="button"
+                      onClick={voice.start}
+                      disabled={blocked || !online || isStreaming}
+                      aria-label="Parler à Tamilya"
+                      title="Parler à Tamilya"
+                      className="grid size-9 shrink-0 place-items-center rounded-full text-fg-muted transition pointer-coarse:size-10 hover:bg-bg-muted hover:text-fg disabled:opacity-45"
+                    >
+                      <IconMic />
+                    </button>
+                  ) : null
+                }
+              />
+            </div>
+          </div>
           {!userId && !anonymousLimitReached && guestSent > 0 ? (
             <p className="text-center text-[11px] text-fg-muted">
               Encore {guestLeft} message{guestLeft > 1 ? "s" : ""} sans compte ·{" "}

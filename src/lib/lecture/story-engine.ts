@@ -9,7 +9,8 @@ import { preloadMusic, preloadSounds, setSoundCatalog, soundInfo } from "./sound
 /** Réglages de /admin/sons d'abord (reçus avec l'histoire), sinon les sons d'origine. */
 const isLight = (mood: Mood | null) => mood !== null && (soundInfo(mood) ? soundInfo(mood)?.light === true : LIGHT_MOODS.has(mood));
 const isScary = (sound: string) => (soundInfo(sound) ? soundInfo(sound)?.scary === true : SCARY_SOUNDS.has(sound));
-import { patchStory, unlockAudio, type StorySource } from "./stage";
+import { patchStory, playStory, unlockAudio, type BookStart, type BookTimeline, type StorySource, type StoryView } from "./stage";
+import { bookPlace, bookShare, charsBefore, EMPTY_MEMORY, nextChunk, nextMemory, type BookContext, type BookMemory, type StoredBook } from "./book";
 
 /**
  * Moteur de la lecture en 3D : la page (photo ou texte) ou l'histoire demandée part à Gemini
@@ -23,16 +24,49 @@ type Voiced = { text: string; voice: GeminiVoiceId | null };
 type Feed = { script: SceneScript; done: boolean; waiters: (() => void)[] };
 type Story = {
   key: string;
+  /** L'histoire que montre le globe (stage.ts) : un livre garde la même d'un morceau à l'autre. */
+  view: string;
   feed: Feed | null;
   items: Voiced[];
   voices: Map<number, Promise<AudioBuffer | null>>;
   outro: Promise<AudioBuffer | null> | null;
   /** Fermée par la personne pendant la préparation : elle ne démarre pas toute seule derrière. */
   cancelled: boolean;
+  /** Morceau d'un livre : sa place, la mémoire reçue, et ce qu'il laisse au suivant. */
+  book: BookPiece | null;
+  /** Le début du script est arrivé (ou la préparation a échoué pour de bon). */
+  ready: Promise<void>;
+  markReady: () => void;
 };
 
-/** Photo envoyée : assez grande pour lire le texte, assez légère pour le débit de Mayotte. */
-const MAX_SIDE = 1400;
+/**
+ * Un livre lu d'un bout à l'autre : chaque morceau est une histoire préparée par Gemini, la
+ * suivante pendant que la précédente se lit. La scène 3D reste ouverte entre les deux : décor,
+ * lieu et musique changent en fondu, sans coupure.
+ */
+type BookRun = { book: StoredBook; view: string; cancelled: boolean; timeline: Omit<BookTimeline, "at" | "rate"> };
+type BookPiece = {
+  run: BookRun;
+  chapter: number;
+  chunk: number;
+  /** Lettres sautées au début du morceau (la barre a été déplacée au milieu). */
+  from: number;
+  /** Mémoire reçue (gardée avec le marque-page : reprendre ici redonne les mêmes voix). */
+  memory: BookMemory;
+  /** Mémoire laissée au morceau suivant, une fois le début du script arrivé. */
+  after: BookMemory | null;
+  /** Mise en scène impossible : la narratrice lit le texte simplement, sans toucher au décor. */
+  plain: boolean;
+  next: Story | null;
+};
+
+/**
+ * Photo envoyée : assez grande pour lire le texte, assez légère pour le débit de Mayotte. Comptée
+ * en pixels (une photo 4:3 reste à 1400 × 1050) : une capture d'écran de téléphone, haute et
+ * étroite, garde ainsi des lettres lisibles au lieu de tomber à 630 px de large.
+ */
+const MAX_PIXELS = 1400 * 1050;
+const MAX_SIDE = 2400;
 /** Répliques préparées d'avance pendant que Tamilya lit. */
 const AHEAD = 3;
 const FAILED = "Je n'arrive pas à préparer la page : réessaie.";
@@ -43,13 +77,24 @@ let player: ScenePlayer | null = null;
 let paused = false;
 let wakeLock: WakeLockSentinel | null = null;
 
+/** Lettres par seconde de la voix de Tamilya, pauses comprises, tant qu'on ne l'a pas mesuré. */
+const DEFAULT_RATE = 14;
+/** Ce qui a été entendu des livres : la vitesse mesurée sert au temps qui reste. */
+let heardChars = 0;
+let heardSeconds = 0;
+const listenRate = () => (heardSeconds > 60 ? heardChars / heardSeconds : DEFAULT_RATE);
+
 async function shrinkPhoto(file: File): Promise<string> {
   const bitmap = await createImageBitmap(file);
-  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
+  const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height), Math.sqrt(MAX_PIXELS / (bitmap.width * bitmap.height)));
   const canvas = document.createElement("canvas");
   canvas.width = Math.round(bitmap.width * scale);
   canvas.height = Math.round(bitmap.height * scale);
-  canvas.getContext("2d")!.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+  const context = canvas.getContext("2d")!;
+  // Fond blanc : une image PNG transparente deviendrait noire en JPEG, texte noir compris.
+  context.fillStyle = "#fff";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
   bitmap.close();
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.75));
   if (!blob) throw new Error("photo");
@@ -116,38 +161,163 @@ function stopPlayer() {
 }
 
 /** Raconte l'histoire de cette clé : rejouée si elle est déjà prête, sinon préparée. */
+function newStory(key: string, view: string, book: BookPiece | null = null): Story {
+  let markReady = () => {};
+  const ready = new Promise<void>((resolve) => (markReady = resolve));
+  return { key, view, feed: null, items: [], voices: new Map(), outro: null, cancelled: false, book, ready, markReady };
+}
+
+function cancel(story: Story | null) {
+  if (!story) return;
+  story.cancelled = true;
+  if (story.book) story.book.run.cancelled = true;
+}
+
 export async function runStory(key: string, source: StorySource) {
-  if (current && current.key !== key) current.cancelled = true;
+  if (current && current.key !== key) cancel(current);
   stopPlayer();
+  if ("book" in source) return runBook(key, source.book);
   const known = stories.get(key);
   if (known?.feed?.done && known.feed.script.lines.length) {
     known.cancelled = false;
     current = known;
     return startPlaying(known, known.feed.script);
   }
-  const story: Story = { key, feed: null, items: [], voices: new Map(), outro: null, cancelled: false };
+  const story = newStory(key, key);
   stories.set(key, story);
   current = story;
-  await prepare(story, source);
+  await prepare(story, "photo" in source ? shrinkPhoto(source.photo).then((image) => ({ image, mimeType: "image/jpeg" })) : Promise.resolve(source));
+}
+
+/** Ouvre le livre au morceau demandé ; la mémoire du marque-page revient s'il reprend au même endroit. */
+async function runBook(view: string, start: BookStart) {
+  const { loadBook, loadProgress } = await import("./book-store");
+  const [book, saved] = await Promise.all([loadBook(start.id).catch(() => null), loadProgress(start.id).catch(() => null)]);
+  if (!book || !book.chapters[start.chapter]?.chunks[start.chunk]) {
+    patchStory(view, { status: "error", message: "Je ne retrouve pas ce livre sur ce téléphone." }, false);
+    return announceReadingDone();
+  }
+  const from = start.from ?? 0;
+  const parts: BookTimeline["parts"] = [];
+  let total = 0;
+  for (const chapter of book.chapters) {
+    if (chapter.chunks.length) parts.push({ title: chapter.title, at: total });
+    for (const text of chapter.chunks) total += text.length;
+  }
+  const run: BookRun = { book, view, cancelled: false, timeline: { total, parts } };
+  // La barre se place tout de suite là où la lecture va reprendre.
+  patchStory(view, { timeline: { ...run.timeline, at: charsBefore(book, start.chapter, start.chunk) + from, rate: listenRate() } });
+  const kept = saved && saved.chapter === start.chapter && saved.chunk === start.chunk && (saved.from ?? 0) === from ? saved.memory : null;
+  // Ailleurs dans le livre : les voix des personnages restent, le résumé ne va plus.
+  const memory = kept ?? { ...EMPTY_MEMORY, personnages: saved?.memory?.personnages ?? [] };
+  const story = bookStory(run, start.chapter, start.chunk, memory, start.chunk > 0 || from > 0, true, from);
+  current = story;
+}
+
+/** Prépare un morceau du livre (et le lance si c'est le premier). */
+function bookStory(run: BookRun, chapter: number, chunk: number, memory: BookMemory, reprise: boolean, autostart: boolean, from = 0): Story {
+  const story = newStory(`${run.view}#${chapter}.${chunk}`, run.view, { run, chapter, chunk, from, memory, after: null, plain: false, next: null });
+  const part = run.book.chapters[chapter];
+  const livre: BookContext = {
+    livre: run.book.title,
+    chapitre: part.title,
+    nouveauChapitre: chunk === 0 && from === 0,
+    reprise,
+    fin: nextChunk(run.book, chapter, chunk) === null,
+    ...memory,
+  };
+  void prepare(story, Promise.resolve({ text: part.chunks[chunk].slice(from), livre }), autostart);
+  return story;
+}
+
+/** Le morceau suivant, préparé pendant que celui-ci se lit (un seul d'avance). */
+function prepareNext(story: Story) {
+  const piece = story.book;
+  if (!piece || piece.next || piece.run.cancelled) return;
+  const at = nextChunk(piece.run.book, piece.chapter, piece.chunk);
+  if (!at) return;
+  piece.next = bookStory(piece.run, at.chapter, at.chunk, piece.after ?? piece.memory, false, false);
+}
+
+/** Texte d'un morceau découpé en répliques de la narratrice (mise en scène impossible, ou fin oubliée par Gemini). */
+function plainLines(text: string): SceneLine[] {
+  const lines: SceneLine[] = [];
+  let current = "";
+  const push = () => {
+    if (current.trim()) lines.push({ voice: null, speaker: "Tamilya", text: current.trim(), side: 0, distance: "tout-pres", height: "milieu", from: null, path: [], placed: false, cues: [], music: null });
+    current = "";
+  };
+  for (const paragraph of text.split(/\n{2,}/)) {
+    for (const sentence of paragraph.split(/(?<=[.!?…»])\s+/)) {
+      if (current && current.length + sentence.length > 450) push();
+      current = current ? `${current} ${sentence}` : sentence;
+    }
+    push();
+  }
+  return lines;
+}
+
+const squash = (text: string) => text.replace(/\s+/g, " ").trim();
+
+/**
+ * Ce que Gemini n'a pas recopié à la fin du morceau (coupé, ou flux interrompu) : la narratrice
+ * le lit simplement, pour ne jamais sauter de texte. Vide si tout y est ou si on ne s'y retrouve pas.
+ */
+function leftover(text: string, lines: SceneLine[]): string {
+  const last = lines.at(-1);
+  if (!last) return text;
+  const whole = squash(text);
+  const tail = squash(last.text).slice(-40);
+  const at = tail.length >= 12 ? whole.lastIndexOf(tail) : -1;
+  if (at < 0) return "";
+  const rest = whole.slice(at + tail.length).trim();
+  return rest.length > 80 ? rest : "";
 }
 
 /**
  * La page arrive au fil de l'eau (/api/lecture) : le décor et l'intro dès le début du script,
  * puis chaque réplique. La lecture démarre tout de suite, sans attendre la page entière.
  */
-async function prepare(story: Story, source: StorySource) {
+async function prepare(story: Story, request: Promise<object>, autostart = true) {
   // Le moteur 3D se télécharge pendant que Gemini écrit.
   void preloadResonance();
-  const fail = (message: string) => {
+  const piece = story.book;
+  const chunkText = piece ? piece.run.book.chapters[piece.chapter].chunks[piece.chunk].slice(piece.from) : "";
+  /** Livre : le texte manquant est lu simplement, et le morceau suivant se prépare. */
+  const complete = () => {
+    if (!piece || !story.feed) return;
+    const rest = story.feed.done ? "" : leftover(chunkText, story.feed.script.lines);
+    for (const line of plainLines(rest)) {
+      story.feed.script.lines.push(line);
+      story.items.push({ text: line.text, voice: null });
+    }
     finish(story.feed);
+    prepareNext(story);
+  };
+  const fail = (message: string) => {
+    if (piece && !piece.run.cancelled) {
+      // Un livre ne s'arrête pas pour un morceau raté : la narratrice le lit sans mise en scène.
+      if (!story.feed) {
+        piece.plain = true;
+        const lines = plainLines(chunkText);
+        story.feed = { script: { title: piece.run.book.chapters[piece.chapter].title, place: "maison", intro: "", outro: "", music: null, ambiences: [], lines }, done: false, waiters: [] };
+        story.items = lines.map((line) => ({ text: line.text, voice: null }));
+        piece.after = piece.memory;
+        story.markReady();
+        if (autostart) void startPlaying(story, story.feed.script);
+      }
+      return complete();
+    }
+    finish(story.feed);
+    story.markReady();
     if (!story.feed || !story.feed.script.lines.length) {
       stopPlayer();
-      patchStory(story.key, { status: "error", message }, false);
+      patchStory(story.view, { status: "error", message }, false);
       announceReadingDone();
     }
   };
   try {
-    const payload = "photo" in source ? { image: await shrinkPhoto(source.photo), mimeType: "image/jpeg" } : source;
+    const payload = await request;
     const response = await fetch("/api/lecture", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -170,9 +340,11 @@ async function prepare(story: Story, source: StorySource) {
         preloadSounds(event.meta.ambiences.map((a) => a.sound));
         if (event.meta.music) void preloadMusic(event.meta.music);
         story.items = event.meta.intro ? [{ text: event.meta.intro, voice: null }] : [];
-        patchStory(story.key, { title: event.meta.title });
+        if (piece) piece.after = nextMemory(piece.memory, event.meta);
+        else patchStory(story.view, { title: event.meta.title });
         void voiceOf(story, 0);
-        void startPlaying(story, story.feed.script);
+        story.markReady();
+        if (autostart) void startPlaying(story, story.feed.script);
       } else if (event.type === "line" && event.line && story.feed) {
         story.feed.script.lines.push(event.line);
         preloadSounds(event.line.cues.map((c) => c.sound));
@@ -182,7 +354,8 @@ async function prepare(story: Story, source: StorySource) {
         if (story.items.length <= AHEAD + 1) void voiceOf(story, story.items.length - 1);
         wake(story.feed);
       } else if (event.type === "end") {
-        finish(story.feed);
+        if (piece) complete();
+        else finish(story.feed);
         const outro = story.feed?.script.outro;
         if (outro && !story.outro) story.outro = speak({ text: outro, voice: null });
       } else if (event.type === "error") {
@@ -205,6 +378,7 @@ async function prepare(story: Story, source: StorySource) {
       if (done) break;
     }
     if (!story.feed) fail(FAILED);
+    else if (piece) complete();
     else finish(story.feed);
   } catch {
     fail("Connexion perdue pendant que je préparais la page : réessaie.");
@@ -221,38 +395,72 @@ async function startPlaying(story: Story, script: SceneScript) {
   await Promise.race([context.resume().catch(() => {}), new Promise((resolve) => window.setTimeout(resolve, 800))]);
   if (story.cancelled || current !== story) return;
   if (context.state === "running") void play(story, script);
-  else patchStory(story.key, { status: "ready" });
+  else patchStory(story.view, { status: "ready" });
 }
 
-async function play(story: Story, script: SceneScript) {
-  stopPlayer();
-  const scene = await ScenePlayer.create(unlockAudio(), script.place);
-  if (story.cancelled || current !== story) return scene.stop();
-  player = scene;
-  try {
-    wakeLock = await navigator.wakeLock?.request("screen");
-  } catch {
-    // L'écran pourra s'éteindre : le son continue en général.
+/** Où on en est dans le livre, sous le globe. */
+function bookProgress(piece: BookPiece) {
+  const title = piece.run.book.chapters[piece.chapter].title;
+  return `${title.length > 48 ? `${title.slice(0, 47)}…` : title} · ${Math.round(bookShare(piece.run.book, piece.chapter, piece.chunk) * 100)} %`;
+}
+
+/** Marque-page : ce morceau, avec la mémoire qui permet de le préparer pareil (mêmes voix, même résumé). */
+function saveBookmark(piece: BookPiece, done = false) {
+  void import("./book-store").then(({ saveProgress }) =>
+    saveProgress(piece.run.book.id, { chapter: piece.chapter, chunk: piece.chunk, from: piece.from, memory: piece.memory, updatedAt: Date.now(), ...(done && { done }) }),
+  ).catch(() => {});
+}
+
+/**
+ * carried : la scène du morceau d'avant (livre), gardée ouverte ; le décor, le lieu et la musique
+ * passent en fondu à ceux de ce morceau.
+ */
+async function play(story: Story, script: SceneScript, carried: ScenePlayer | null = null) {
+  let scene: ScenePlayer;
+  if (carried) {
+    scene = carried;
+  } else {
+    stopPlayer();
+    scene = await ScenePlayer.create(unlockAudio(), script.place);
+    if (story.cancelled || current !== story) return scene.stop();
+    player = scene;
+    try {
+      wakeLock = await navigator.wakeLock?.request("screen");
+    } catch {
+      // L'écran pourra s'éteindre : le son continue en général.
+    }
   }
+  const piece = story.book;
+  if (piece) saveBookmark(piece);
   const offset = script.intro ? 1 : 0;
-  patchStory(story.key, { status: "playing", title: script.title }, true);
+  // Livre : la barre avance à chaque réplique lue (le texte recopié par Gemini, à peu près celui du livre).
+  const start = piece ? charsBefore(piece.run.book, piece.chapter, piece.chunk) + piece.from : 0;
+  const size = piece ? piece.run.book.chapters[piece.chapter].chunks[piece.chunk].length - piece.from : 0;
+  let read = 0;
+  const timeline = (): Partial<StoryView> => (piece ? { timeline: { ...piece.run.timeline, at: start + Math.min(read, size), rate: listenRate() } } : {});
+  patchStory(story.view, { status: "playing", title: piece ? piece.run.book.title : script.title, ...(piece && { progress: bookProgress(piece) }), ...timeline() }, true);
   setVoiceLevelSource(() => scene.level());
   // Sa voix se fait entendre : le message d'attente sous le globe s'efface.
   let heard = false;
   const hear = () => {
     if (heard) return;
     heard = true;
-    patchStory(story.key, { started: true });
+    patchStory(story.view, { started: true });
   };
 
   // Le décor monte tout de suite (après au plus 4 s d'attente des vrais sons ; sinon, la version fabriquée).
   // La musique monte dès qu'elle est arrivée, sans retenir l'histoire.
-  let mood: Mood | null = script.music;
-  void scene.setMusic(mood);
-  await scene.prepare(script.ambiences.map((a) => a.sound), 4000);
-  // Sous une musique légère, le décor reste un peu plus discret.
-  const light = isLight(mood);
-  scene.startAmbiences(light ? script.ambiences.map((a) => ({ ...a, volume: a.volume * 0.75 })) : script.ambiences, 3);
+  // Morceau lu sans mise en scène : la scène du morceau d'avant continue telle quelle.
+  let mood: Mood | null = piece?.plain ? null : script.music;
+  if (!piece?.plain) {
+    void scene.setMusic(mood);
+    if (carried) scene.setPlace(script.place);
+    await scene.prepare(script.ambiences.map((a) => a.sound), 4000);
+    // Sous une musique légère, le décor reste un peu plus discret.
+    const ambiences = isLight(mood) ? script.ambiences.map((a) => ({ ...a, volume: a.volume * 0.75 })) : script.ambiences;
+    if (carried) scene.changeAmbiences(ambiences, 4);
+    else scene.startAmbiences(ambiences, 3);
+  }
   if (script.intro) {
     const intro = await voiceOf(story, 0);
     if (intro && !scene.isStopped) {
@@ -263,7 +471,7 @@ async function play(story: Story, script: SceneScript) {
       scene.duck(false);
     }
     await scene.wait(0.6);
-  } else {
+  } else if (!carried) {
     await scene.wait(script.ambiences.length ? 2 : 0.3);
   }
 
@@ -291,6 +499,16 @@ async function play(story: Story, script: SceneScript) {
       hear();
       await scene.playLine(line, voice);
       scene.duck(false);
+      if (piece && !scene.isStopped) {
+        heardChars += line.text.length;
+        heardSeconds += voice.duration + 0.65;
+      }
+    }
+    // Un livre fait des heures de voix : chaque réplique lue libère sa mémoire.
+    if (piece) {
+      story.voices.delete(offset + i);
+      read += line.text.length;
+      if (!scene.isStopped) patchStory(story.view, timeline());
     }
     const after = cues.filter((c) => c.when === "apres");
     if (after.length) await scene.wait(Math.min(2, Math.max(...after.map((c) => scene.playCue(c))) * 0.7));
@@ -299,6 +517,20 @@ async function play(story: Story, script: SceneScript) {
   }
 
   if (scene.isStopped) return;
+  // Livre : le morceau suivant prend la suite dans la même scène.
+  if (piece && !piece.run.cancelled) {
+    prepareNext(story);
+    const next = piece.next;
+    if (next) {
+      current = next;
+      if (!next.feed) patchStory(story.view, { started: false });
+      await next.ready;
+      if (scene.isStopped || next.cancelled || current !== next) return;
+      if (next.feed?.script.lines.length) return play(next, next.feed.script, scene);
+    } else {
+      saveBookmark(piece, true);
+    }
+  }
   scene.fadeOutAmbiences(5);
   await scene.wait(1.6);
   // Elle prend des nouvelles, à sa façon (phrase écrite par Gemini avec l'histoire).
@@ -308,7 +540,7 @@ async function play(story: Story, script: SceneScript) {
   const completed = !scene.isStopped;
   if (player === scene) stopPlayer();
   else scene.stop();
-  patchStory(story.key, { status: "done" }, false);
+  patchStory(story.view, { status: "done" }, false);
   announceReadingDone({ converse: completed && Boolean(outro) });
 }
 
@@ -323,16 +555,26 @@ export async function toggleStory() {
   if (paused) await player.resume();
   else await player.pause();
   paused = !paused;
-  patchStory(story.key, { status: paused ? "paused" : "playing" });
+  patchStory(story.view, { status: paused ? "paused" : "playing" });
+}
+
+/** La barre du livre lâchée ailleurs : la lecture repart du début de la phrase la plus proche. */
+export function seekBook(at: number) {
+  const piece = current?.book;
+  if (!piece) return;
+  const { run } = piece;
+  const place = bookPlace(run.book, at);
+  patchStory(run.view, { timeline: { ...run.timeline, at: charsBefore(run.book, place.chapter, place.chunk) + place.from, rate: listenRate() } });
+  playStory(run.view, { book: { id: run.book.id, ...place } });
 }
 
 /** La croix : arrête l'histoire (ou l'empêche de démarrer si elle se prépare encore). */
 export function stopStory() {
   const story = current;
   if (!story) return;
-  story.cancelled = true;
+  cancel(story);
   stopPlayer();
-  patchStory(story.key, { status: story.feed?.script.lines.length ? "done" : "error", message: story.feed ? undefined : "Histoire arrêtée." }, false);
+  patchStory(story.view, { status: story.feed?.script.lines.length || story.book ? "done" : "error", message: story.feed || story.book ? undefined : "Histoire arrêtée." }, false);
   // Le vocal en direct attendait la fin de l'histoire : il peut reprendre.
   announceReadingDone();
 }

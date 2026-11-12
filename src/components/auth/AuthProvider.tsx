@@ -8,6 +8,7 @@ import { clearAnonymousDraft } from "@/lib/chat/anonymous-draft";
 import { APP_USER_AGENT } from "@/components/ui/ThemeScript";
 import dynamic from "next/dynamic";
 import type { AuthDialogOptions } from "./AuthDialog";
+import type { FeatureId } from "@/lib/site/features-rules";
 
 /** Client Supabase du navigateur, chargé à la demande (hors du premier chargement de chaque page). */
 const loadSupabase = () => import("@/lib/supabase/client").then((m) => m.getSupabaseBrowserClient());
@@ -24,6 +25,8 @@ export type AuthUser = {
   isAdmin?: boolean;
   /** null : pas encore choisie (fenêtre de choix) ; undefined : inconnue. */
   personality?: PersonalityId | null;
+  /** Fonctionnalités allumées pour cette personne (/admin/fonctionnalites) : affichage seulement, le serveur revérifie. */
+  features?: FeatureId[];
 };
 
 type AuthContextValue = {
@@ -107,7 +110,7 @@ export function AuthProvider({
 
   // Le serveur reste la référence : on se resynchronise quand il renvoie un autre utilisateur.
   const serverKey = initialUser
-    ? `${initialUser.id}:${initialUser.displayName ?? ""}:${initialUser.isAdmin ? "admin" : ""}:${String(initialUser.personality)}`
+    ? `${initialUser.id}:${initialUser.displayName ?? ""}:${initialUser.isAdmin ? "admin" : ""}:${String(initialUser.personality)}:${initialUser.features?.join(",") ?? ""}`
     : "";
   const [prevServerKey, setPrevServerKey] = useState(serverKey);
   if (prevServerKey !== serverKey) {

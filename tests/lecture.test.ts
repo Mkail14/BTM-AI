@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { detectReading, isReadingRequest, parseReadingBlock, readingText, withReadingBlock } from "../src/lib/lecture/intent";
+import { detectReading, isReadingRequest, parseReadingBlock, readingMode, readingText, withReadingBlock } from "../src/lib/lecture/intent";
 import { alternateRepeats, AMBIENCES, assignVoices, buildScript, EFFECTS, PLACES, READING_LIMITS, type SoundCue } from "../src/lib/lecture/script";
 import { along, between, flyby, ROOMS } from "../src/lib/lecture/soundscape";
 import { renderSamples, SYNTHESIZED } from "../src/lib/lecture/sounds";
@@ -16,6 +16,16 @@ describe("Lecture en 3D : demande reconnue", () => {
 
   it("ne se déclenche pas pour une simple question sur les livres", () => {
     for (const message of ["c'est quoi ton livre préféré ?", "raconte-moi une histoire", "j'ai lu un livre hier", "la page d'accueil ne marche pas", "chante-moi une chanson"]) {
+      assert.equal(detectReading(message), false, message);
+    }
+  });
+
+  it("lit aussi une image avec du texte : photo, capture d'écran", () => {
+    for (const message of ["Lis-moi cette image", "lis moi cette capture", "tu peux me lire cette photo ?", "lis-moi ce qui est écrit sur la capture", "lis moi ce qu'il y a sur cette image", "lis moi ce screenshot"]) {
+      assert.equal(detectReading(message), true, message);
+      assert.deepEqual(readingMode(message, null), { kind: "page" }, message);
+    }
+    for (const message of ["envoie-moi une photo de Mamoudzou", "j'ai pris une capture d'écran", "c'est quoi cette image ?"]) {
       assert.equal(detectReading(message), false, message);
     }
   });

@@ -18,6 +18,7 @@ import {
   IconMenu,
   IconSettings,
   IconShield,
+  IconSparkle,
   IconSpeaker,
   IconUsers,
 } from "@/components/ui/icons";
@@ -68,6 +69,7 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
       { label: "Utilisateurs", icon: IconUsers, href: "/admin/utilisateurs" },
       { label: "Circuit de Tamilya", tab: "Circuit", icon: IconChip, href: "/admin/circuit" },
       { label: "Bandeau d'accueil", tab: "Bandeau", icon: IconMegaphone, href: "/admin/bandeau" },
+      { label: "Fonctionnalités", icon: IconSparkle, href: "/admin/fonctionnalites" },
     ],
   },
 ];

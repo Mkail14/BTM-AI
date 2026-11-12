@@ -1,3 +1,4 @@
+import { canUse } from "@/lib/site/features";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { AIProviderError } from "@/lib/ai";
@@ -39,7 +40,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Voix indisponible." }, { status: 503 });
   }
 
-  const voice: GeminiVoiceId = user.isAdmin && parsed.data.voice ? (parsed.data.voice as GeminiVoiceId) : await loadVoice();
+  // Voix d'un personnage : histoires des administrateurs, et livres quand ils sont ouverts à tous (/admin/fonctionnalites).
+  const voices = Boolean(parsed.data.voice) && (user.isAdmin || (await canUse(user, "livres")));
+  const voice: GeminiVoiceId = voices ? (parsed.data.voice as GeminiVoiceId) : await loadVoice();
   const startedAt = Date.now();
   try {
     // Développement local : Google refuse Gemini depuis Mayotte, le site en ligne lit à la place.

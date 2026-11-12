@@ -1,5 +1,6 @@
 import { DISTANCES, HEIGHTS, NARRATOR, PLACES, READING_LIMITS } from "./script";
 import { BUILTIN_CATALOG, usableSounds, type CatalogSound, type SoundKind } from "./catalog";
+import type { BookContext } from "./book";
 
 /**
  * Seulement les sons branchés dans /admin/sons et qu'on peut vraiment jouer (fichier ou version
@@ -23,17 +24,19 @@ const ids = (sounds: CatalogSound[]) => (sounds.length ? sounds.map((s) => s.id)
  * histoire »), l'inventer directement en répliques. Puis imaginer la scène sonore en 3D.
  * On décrit ce qu'on attend, sans imposer de phrase.
  */
-export type ScriptSource = "photo" | "texte" | "histoire" | "ecrite";
+export type ScriptSource = "photo" | "texte" | "histoire" | "ecrite" | "livre";
 
 const GIVEN = (source: "photo" | "texte" | "ecrite") => `Le texte :
 - Recopie le texte de la page mot pour mot, dans sa langue, sans rien résumer, ajouter ni corriger. Ignore les numéros de page, les en-têtes et les notes de bas de page.${
   source === "texte"
     ? "\n- Texte collé : lis seulement l'histoire. Ignore la mise en forme (#, **, ---), les titres de page et tout ce qui n'en fait pas partie (consignes, listes de vérification, commentaires autour)."
-    : ""
+    : source === "photo"
+      ? "\n- Capture d'écran ou photo d'un écran, d'un message, d'une affiche : lis le texte qu'on y lit, dans l'ordre. Ignore l'heure, la batterie, les boutons, les menus et les icônes de l'application. Dans une conversation (SMS, WhatsApp…), chaque personne qui écrit est un personnage."
+      : ""
 }
 - Découpe-le en répliques, dans l'ordre. Le récit va à la « ${NARRATOR} » (c'est toi). Les paroles d'un personnage vont à ce personnage ; les incises (« dit-il », « cria la vieille femme ») restent à la ${NARRATOR}.
 - Au plus ${READING_LIMITS.lines} répliques ; coupe une longue narration en morceaux de quelques phrases.
-- Si ${source === "photo" ? "la photo n'est pas une page de texte lisible" : "il n'y a pas d'histoire ou de texte à lire"}, mets lisible à false et explique simplement pourquoi dans raison (une phrase, en français, comme tu le dirais à une amie).`;
+- Si ${source === "photo" ? "l'image n'a pas de texte lisible" : "il n'y a pas d'histoire ou de texte à lire"}, mets lisible à false et explique simplement pourquoi dans raison (une phrase, en français, comme tu le dirais à une amie).`;
 
 const INVENTED = `L'histoire :
 - Invente une histoire originale, faite pour être écoutée les yeux fermés au casque : 250 à 450 mots, un début qui accroche, un moment fort, une fin. Jamais une histoire existante ni ses personnages.
@@ -51,25 +54,66 @@ const INVENTED = `L'histoire :
 - Découpe-la directement en répliques, dans l'ordre : le récit à la « ${NARRATOR} » (c'est toi), les paroles à chaque personnage (deux à quatre personnages). Au plus ${READING_LIMITS.lines} répliques, souvent courtes.
 - lisible vaut true.`;
 
-export const scriptPrompt = (source: ScriptSource, catalog: CatalogSound[] = BUILTIN_CATALOG) => {
+const list = (items: string[]) => (items.length ? items.join(", ") : "aucun");
+
+/**
+ * Un livre lu en entier, morceau après morceau : Tamilya recopie ce morceau, adapte la mise en
+ * scène au passage (une histoire se joue, une explication se lit), et garde la continuité avec
+ * le morceau d'avant (mêmes voix, même décor tant que la scène ne change pas).
+ */
+const BOOK = (book: BookContext) => `Le texte : un morceau du livre « ${book.livre} »${book.chapitre ? `, partie « ${book.chapitre} »` : ""}. La personne écoute le livre en entier, morceau après morceau, sans coupure : ce morceau suit directement le précédent et sera suivi d'un autre. Ces règles du livre passent avant celles de la scène plus bas.
+- Recopie le texte mot pour mot, dans sa langue, sans rien résumer, ajouter ni corriger. Ignore les numéros de page, les titres courants répétés et les appels de note (¹, [1]). Un titre de partie ou de chapitre se lit : une réplique courte à toi.
+- Découpe-le en répliques, dans l'ordre. Le récit va à la « ${NARRATOR} » (c'est toi). Les paroles d'un personnage vont à ce personnage ; les incises (« dit-il ») restent à la ${NARRATOR}. Au plus ${READING_LIMITS.lines} répliques ; coupe une longue narration en morceaux de quelques phrases, sans jamais sauter une phrase.
+- Adapte la mise en scène au passage, c'est le plus important :
+  - une histoire, une anecdote, une scène (des gens qui agissent et se parlent, un lieu, une époque) : mise en scène complète, comme décrit plus bas (voix des personnages, décor, bruits, musique qui suit le ton).
+  - une explication, une analyse, des conseils, une réflexion : un bon livre audio. C'est toi qui lis, posée et claire ; pas de personnages (une citation ou un exemple court restent à toi), un décor très discret ou aucun, presque pas de bruits (seulement un bruit que le texte décrit vraiment), une musique calme ou null.
+  - une citation en exergue : à toi, lentement, avec son auteur.
+- Ce qui s'est passé avant : ${book.resume || "rien, c'est le début du livre."}
+- Personnages déjà entendus dans le livre, qui gardent leur voix : ${list(book.personnages.map((p) => `${p.id} (${p.nom || "sans nom"}, ${p.genre}, ${p.age})`))}. S'ils parlent ici, reprends exactement le même id ; un nouveau personnage prend un nouvel id.
+- Scène du morceau d'avant : lieu ${book.lieu ?? "aucun"}, musique ${book.musique ?? "aucune"}, décor ${list(book.decor)}. Garde-les tant que le passage ne change pas vraiment de lieu ou de ton : on ne doit pas entendre la coupure entre deux morceaux. Change-les quand le texte change de scène, d'époque ou passe du récit à l'explication.
+- titre : le nom de la partie en cours, court.
+- resume : trois à cinq phrases, pour toi, qui disent où on en est après ce morceau (l'idée de la partie, l'histoire en cours et qui est qui), pour que le morceau suivant continue juste.
+- lisible vaut true.`;
+
+const BOOK_ENDS = (book: BookContext) => `L'intro : ${
+  book.nouveauChapitre
+    ? `une phrase à toi, chaleureuse, qui annonce la partie qui commence (« ${book.chapitre} ») sans rien en dévoiler.`
+    : book.reprise
+      ? "une phrase courte à toi : on reprend la lecture là où on s'était arrêtées ; rappelle en quelques mots où on en était."
+      : "rien (une chaîne vide) : le texte continue sans pause."
+} Ne parle ni des écouteurs ni de fermer les yeux.
+
+La fin (fin) : ${
+  book.fin
+    ? "c'est la fin du livre : une phrase à toi, comme une amie, pour lui demander ce qu'elle en a pensé."
+    : "rien (une chaîne vide) : le livre continue juste après."
+}`;
+
+export const scriptPrompt = (source: ScriptSource, catalog: CatalogSound[] = BUILTIN_CATALOG, book?: BookContext) => {
   const sounds = byKind(catalog);
   return `Tu es Tamilya, une jeune femme de Mayotte qui raconte et lit des histoires à voix haute. ${
   source === "photo"
-    ? "La personne t'envoie la photo d'une page de livre."
+    ? "La personne t'envoie une image avec du texte : la photo d'une page de livre, une capture d'écran, la photo d'un message ou d'une affiche."
     : source === "texte"
       ? "La personne t'a donné le texte ci-dessus, écrit ou collé dans la conversation."
-      : source === "ecrite"
-        ? "La personne t'a demandé une histoire : la voici ci-dessus, déjà écrite par ton conteur. Tu la lis telle quelle."
-        : "La personne t'a demandé une histoire (sa demande est ci-dessus) : c'est toi qui l'inventes."
+      : source === "livre"
+        ? "Tu lis à la personne un livre entier, comme un livre audio vivant ; le morceau à lire est ci-dessus."
+        : source === "ecrite"
+          ? "La personne t'a demandé une histoire : la voici ci-dessus, déjà écrite par ton conteur. Tu la lis telle quelle."
+          : "La personne t'a demandé une histoire (sa demande est ci-dessus) : c'est toi qui l'inventes."
 } Elle va mettre des écouteurs et fermer les yeux : tu prépares la mise en scène sonore, pour qu'elle se sente DANS l'histoire.
 
-${source === "histoire" ? INVENTED : GIVEN(source)}
+${source === "livre" && book ? BOOK(book) : source === "histoire" ? INVENTED : GIVEN(source === "livre" ? "texte" : source)}
 
 Les personnages : un id court (ex. « vieil-homme », « fillette »), son nom s'il en a un, son genre et son âge, pour lui choisir une voix.
 
-L'intro : une ou deux phrases à toi, dans tes mots, qui donnent envie et plantent le décor sans rien dévoiler. Invente-la pour CETTE histoire : un son, une odeur, un lieu de Mayotte, une question qu'on se pose, une confidence… Ne commence pas par les écouteurs ni par « ferme les yeux » : c'est la phrase que tu dis toujours, la personne la connaît déjà. Ton caractère, chaleureux et vivant ; pas de formule toute faite.
+${
+  source === "livre" && book
+    ? BOOK_ENDS(book)
+    : `L'intro : une ou deux phrases à toi, dans tes mots, qui donnent envie et plantent le décor sans rien dévoiler. Invente-la pour CETTE histoire : un son, une odeur, un lieu de Mayotte, une question qu'on se pose, une confidence… Ne commence pas par les écouteurs ni par « ferme les yeux » : c'est la phrase que tu dis toujours, la personne la connaît déjà. Ton caractère, chaleureux et vivant ; pas de formule toute faite.
 
-La fin (fin) : une phrase à toi, dite juste après l'histoire, quand la personne rouvre les yeux : tu prends de ses nouvelles ou tu lui demandes ce qu'elle en a pensé, avec tes mots, comme une amie ; pas de formule toute faite.
+La fin (fin) : une phrase à toi, dite juste après l'histoire, quand la personne rouvre les yeux : tu prends de ses nouvelles ou tu lui demandes ce qu'elle en a pensé, avec tes mots, comme une amie ; pas de formule toute faite.`
+}
 
 La musique (musique), comme au cinéma : une musique de fond discrète sous les voix, choisie pour le ton de l'histoire : ${describe(sounds.musique)}. Presque toujours une ; null seulement si une musique ne convient pas (un texte religieux, une prière, une page de cours). C'est le ton qui décide : une histoire drôle n'a jamais horreur ni suspense. Prends la musique la plus juste, pas la plus sûre : une poursuite ou un danger appelle action, une histoire drôle comedie (seulement si elle est vraiment drôle), une enquête ou un secret mystere, la vie de tous les jours vlog, un grand moment héroïque film ; calme est seulement pour ce qui est doux ou pour s'endormir. Dans une réplique, musique change l'ambiance à partir de là quand le ton bascule vraiment (le calme qui tourne à la peur, la poursuite qui finit dans la joie), deux ou trois fois au plus dans l'histoire ; « silence » coupe la musique (juste avant un moment fort). Sinon, musique vaut null dans la réplique.
 
@@ -99,7 +143,7 @@ const TRAJET = {
 };
 
 /** Forme de la réponse imposée à Gemini (JSON), avec les sons du moment. */
-export function scriptSchema(catalog: CatalogSound[] = BUILTIN_CATALOG) {
+export function scriptSchema(catalog: CatalogSound[] = BUILTIN_CATALOG, book = false) {
   const sounds = byKind(catalog);
   const AMBIENCES = ids(sounds.decor);
   const EFFECTS = ids(sounds.bruit);
@@ -114,6 +158,8 @@ export function scriptSchema(catalog: CatalogSound[] = BUILTIN_CATALOG) {
       lieu: { type: "STRING", enum: [...PLACES] },
       intro: { type: "STRING" },
       fin: { type: "STRING" },
+      // Livre : où on en est, pour le morceau suivant (écrit avant les répliques, lu dès le début du flux).
+      ...(book && { resume: { type: "STRING" } }),
       musique: { type: "STRING", enum: [...MOOD_IDS], nullable: true },
       decor: {
         type: "ARRAY",
@@ -173,9 +219,9 @@ export function scriptSchema(catalog: CatalogSound[] = BUILTIN_CATALOG) {
         },
       },
     },
-    required: ["lisible", "titre", "lieu", "intro", "fin", "musique", "decor", "personnages", "repliques"],
+    required: ["lisible", "titre", "lieu", "intro", "fin", ...(book ? ["resume"] : []), "musique", "decor", "personnages", "repliques"],
     // Ordre imposé : tout le début d'abord, les répliques en dernier (lues au fil de l'eau, stream.ts).
-    propertyOrdering: ["lisible", "raison", "titre", "lieu", "intro", "fin", "musique", "decor", "personnages", "repliques"],
+    propertyOrdering: ["lisible", "raison", "titre", "lieu", "intro", "fin", ...(book ? ["resume"] : []), "musique", "decor", "personnages", "repliques"],
   } as const;
 }
 
