@@ -4,6 +4,7 @@ import {
   buildTeachingRequest,
   mayBeTeaching,
   parseTaughtWords,
+  shimaoreEntryKey,
   TEACHING_SYSTEM_PROMPT,
   type TaughtWord,
 } from "@/lib/language/teaching";
@@ -16,20 +17,26 @@ const key = (french: string) => french.trim().toLowerCase();
 /**
  * Enregistre des mots appris (chat ou liste collée dans /admin/lexique).
  * La dernière leçon fait foi : les traductions déjà connues d'un même mot
- * français sont remplacées. Client RLS d'un administrateur requis.
+ * français sont remplacées ; avec `sameShimaore`, aussi celles du même
+ * shimaoré (correction du français en conversation). Client RLS d'un
+ * administrateur requis.
  */
 export async function teachWords(
   supabase: SupabaseClient,
   userId: string,
   words: readonly TaughtWord[],
   category: string | null = null,
+  options: { sameShimaore?: boolean } = {},
 ): Promise<number> {
   if (words.length === 0) return 0;
 
   const taught = new Set(words.map((w) => key(w.french)));
-  const { data: existing, error: readError } = await supabase.from("awa_words").select("id, french").limit(10000);
+  const taughtShimaore = new Set(options.sameShimaore ? words.map((w) => shimaoreEntryKey(w.shimaore)) : []);
+  const { data: existing, error: readError } = await supabase.from("awa_words").select("id, french, shimaore").limit(10000);
   if (readError) throw readError;
-  const replaced = (existing ?? []).filter((row) => taught.has(key(row.french))).map((row) => row.id as string);
+  const replaced = (existing ?? [])
+    .filter((row) => taught.has(key(row.french)) || taughtShimaore.has(shimaoreEntryKey(String(row.shimaore ?? ""))))
+    .map((row) => row.id as string);
 
   for (let i = 0; i < replaced.length; i += 200) {
     const { error } = await supabase.from("awa_words").delete().in("id", replaced.slice(i, i + 200));
@@ -62,7 +69,7 @@ export async function learnWordsFromMessage(
   });
   const words = parseTaughtWords(output);
   if (words.length > 0) {
-    await teachWords(supabase, userId, words);
+    await teachWords(supabase, userId, words, null, { sameShimaore: true });
     invalidateAwaBrain();
   }
   return words;
