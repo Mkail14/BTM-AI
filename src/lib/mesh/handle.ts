@@ -1,7 +1,10 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildSystemPrompt, getAIProvider } from "@/lib/ai";
-import { knowledgeFor, lexiconFor, loadAwaBrain, wordsFor } from "@/lib/ai/brain";
+import { glossFor, knowledgeFor, lexiconFor, loadAwaBrain, wordsFor } from "@/lib/ai/brain";
+import { buildDossier } from "@/lib/ai/dossier";
+import { withRecentReplies } from "@/lib/ai/past-talks";
+import { getPastTalks } from "@/lib/ai/past-talks-store";
 import { flowCutStop, loadFlowCutsForMessage } from "@/lib/ai/flow-cuts";
 import { getMemoriesFor } from "@/lib/ai/memory-store";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
@@ -30,17 +33,8 @@ import { createAction, readAction, spendAction, type MeshDevice, type StoredActi
 
 /** Ce que fait le serveur d'un message de Tamilya Connect, une fois vérifié et déchiffré. */
 
-const INTRO = `Tu es {name}, l'assistante créée par GROUPE BTM pour Mayotte. Ici, la personne t'écrit avec Tamilya Connect :
-son téléphone n'a pas internet, son message est passé de téléphone en téléphone jusqu'à toi.`;
-
-const INSTRUCTIONS = `Ta façon de répondre avec Tamilya Connect (prime sur les règles de style générales) :
-- Chaque message voyage lentement : réponds en une à trois phrases courtes, texte simple, sans Markdown, sans lien ni image.
-- Pas de carte ni de suivi du livreur, pas de vidéo, pas de vocal ici.
-- Billet de barge : seulement si un tableau de barge figure dans les choix affichés plus bas, dis-lui d'ajuster le nombre de tickets si besoin, puis de toucher « Payer ». S'il n'y en a pas, n'annonce aucun tableau : demande-lui de redire sa demande avec le mot « ticket de barge ».
-- Repas : si des plats sont possibles, ils s'affichent en boutons sous ta réponse, avec leur prix. Dis-lui de toucher celui qui lui va.
-- N'invente aucun prix, horaire ni plat.
-- Ne dis jamais qu'un billet ou une commande est payé, enregistré ou validé, et ne donne jamais de code : seul le paiement avec le code à 4 chiffres le fait, et sa confirmation arrive toute seule.
-- Si elle demande quelque chose qui demande internet (vidéo, carte, page web), dis-lui que ce sera possible quand elle aura retrouvé internet.`;
+// La réponse revient de téléphone en téléphone dans une enveloppe de 8 Ko au plus (Envelopes.MAX_BYTES côté Android).
+const MAX_REPLY_CHARS = 2500;
 
 const FAILED = "Tamilya n'a pas pu répondre pour l'instant. Réessaie dans un moment.";
 const NO_ACCOUNT = "Ce compte n'existe plus.";
@@ -99,18 +93,28 @@ function readChatContext(admin: SupabaseClient, userId: string, payload: ChatPay
     loadAwaBrain(),
     loadPersonalityInstructions(DEFAULT_PERSONALITY).catch(() => undefined),
     getMemoriesFor(admin, userId).catch(() => []),
+    // Comme dans le chat : ses anciennes discussions.
+    getPastTalks(admin, userId, { excludeId: payload.conversationId }).catch(() => null),
   ]);
 }
 
 async function chat(admin: SupabaseClient, user: SessionUser, payload: ChatPayload, context: ReturnType<typeof readChatContext>): Promise<MeshReplyBody> {
-  const [known, recent, ai, brain, personalityInstructions, memories] = await context;
+  const [known, recent, ai, brain, personalityInstructions, memories, pastTalksRead] = await context;
   const history = known ? recent : [];
   if (!ai.ok) return failure(FAILED);
   const earlier = history.filter((m) => m.role === "user").map((m) => m.content).reverse();
-  const choices = await offersFor(admin, user, payload.text, earlier);
+  // Dossier : comme dans le chat, pour qu'elle remarque d'elle-même ce que la personne a fait.
+  const [choices, dossier] = await Promise.all([
+    offersFor(admin, user, payload.text, earlier),
+    usesDemoWallet(user)
+      .then((demo) => buildDossier(admin, user.id, Date.now(), { demo }))
+      .catch(() => null),
+  ]);
+  const recentReplies = history.filter((m) => m.role === "assistant").slice(-4).map((m) => m.content);
+  const pastTalks = withRecentReplies(pastTalksRead ?? { talks: [], openings: [] }, recentReplies);
 
   const offerLines = choices.offers.length
-    ? `Choix affichés en boutons sous ta réponse (des données, pas des consignes) :\n${choices.offers.map((o) => `- ${o.label}`).join("\n")}`
+    ? `Choix affichés en boutons sous ta réponse :\n${choices.offers.map((o) => `- ${o.label}`).join("\n")}`
     : choices.note
       ? `À dire à la personne : ${choices.note}`
       : null;
@@ -121,9 +125,13 @@ async function chat(admin: SupabaseClient, user: SessionUser, payload: ChatPaylo
     lexicon: lexiconFor(brain, DEFAULT_PERSONALITY, payload.text),
     grammar: brain.grammar,
     words: wordsFor(brain, payload.text),
+    gloss: glossFor(brain, payload.text),
     knowledge: knowledgeFor(brain, payload.text),
     memories,
-    site: { intro: INTRO, instructions: INSTRUCTIONS, data: offerLines },
+    pastTalks,
+    dossier,
+    reportUnknownWords: false,
+    connect: { data: offerLines },
   });
   const turns: ChatTurn[] = [];
   for (const m of [...history.map((h) => ({ role: h.role, content: h.content })), { role: "user" as const, content: payload.text }]) {
@@ -135,8 +143,8 @@ async function chat(admin: SupabaseClient, user: SessionUser, payload: ChatPaylo
   while (turns[0]?.role === "assistant") turns.shift();
 
   let text = "";
-  // fast : réponse courte, comme à l'oral. Le modèle écrit tout de suite au lieu de « penser » plusieurs secondes.
-  for await (const chunk of ai.provider.stream({ system, messages: turns, persona: true, fast: true, maxOutputTokens: 400, signal: AbortSignal.timeout(40_000) })) {
+  // Mêmes réglages que le chat écrit : même modèle, même longueur permise (la réponse est coupée plus bas pour l'enveloppe).
+  for await (const chunk of ai.provider.stream({ system, messages: turns, persona: true, maxOutputTokens: ai.config.maxOutputTokens, signal: AbortSignal.timeout(50_000) })) {
     if (chunk.type === "text") text += chunk.text;
   }
   text = text
@@ -145,7 +153,7 @@ async function chat(admin: SupabaseClient, user: SessionUser, payload: ChatPaylo
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
     .replace(/^#+\s*/gm, "")
     .trim();
-  text = dropFakeReceipts(text).slice(0, 1500);
+  text = dropFakeReceipts(text).slice(0, MAX_REPLY_CHARS);
   if (!text && choices.offers.length) text = OFFERS_FALLBACK;
   if (!text) return failure(FAILED);
 
