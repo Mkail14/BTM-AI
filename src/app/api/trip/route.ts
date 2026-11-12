@@ -3,7 +3,7 @@ import { isInMayotte } from "@/lib/address";
 import { getAuthContext } from "@/lib/auth/session";
 import { getProfileContact } from "@/lib/profile-contact";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
-import { planTrip, type TripFailure, type TripPlan } from "@/lib/trip/plan";
+import { planTrip, type TripChoice, type TripFailure, type TripPlan } from "@/lib/trip/plan";
 
 /**
  * Trajet pour la carte de la conversation (bloc ```itineraire```).
@@ -11,7 +11,7 @@ import { planTrip, type TripFailure, type TripPlan } from "@/lib/trip/plan";
  * Sans départ ni position : l'adresse enregistrée dans les paramètres.
  */
 
-export type TripResponse = { plan: TripPlan } | { error: TripFailure | "unavailable"; message: string };
+export type TripResponse = { plan: TripPlan } | (TripChoice & { message: string }) | { error: TripFailure | "unavailable"; message: string };
 
 const MESSAGES: Record<TripFailure | "unavailable", string> = {
   no_destination: "Je n'ai pas trouvé ce lieu à Mayotte : essaie avec un autre nom ou la commune.",
@@ -40,6 +40,11 @@ export async function GET(request: NextRequest) {
     const home = from || gps ? null : (await getProfileContact(supabase, user.id)).address;
     const plan = await planTrip({ to, from, gps }, home);
     if (typeof plan === "string") return fail(plan, plan === "no_route" ? 503 : 404);
+    if ("choose" in plan) {
+      const { choices } = plan.choose;
+      const message = `Il y a plusieurs lieux : ${choices.slice(0, -1).join(", ")} ou ${choices.at(-1)} ?`;
+      return NextResponse.json({ ...plan, message } satisfies TripResponse, { headers: { "Cache-Control": "private, no-store" } });
+    }
     return NextResponse.json({ plan } satisfies TripResponse, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     console.error("[trajet] Calcul impossible", error);

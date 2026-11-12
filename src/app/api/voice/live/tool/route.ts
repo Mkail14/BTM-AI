@@ -61,6 +61,13 @@ export async function POST(request: NextRequest) {
     if (!to) return NextResponse.json({ info: "Demande-lui où elle veut aller." });
     const home = from || !supabase ? null : (await getProfileContact(supabase, user.id).catch(() => null))?.address ?? null;
     const plan = await planTrip({ to, from, gps: null }, home).catch(() => "no_route" as const);
+    if (typeof plan === "object" && "choose" in plan) {
+      const { choices, side } = plan.choose;
+      return NextResponse.json({
+        trip: null,
+        info: `« ${plan.choose.said} » : il y a plusieurs lieux de ce nom (${choices.join(", ")}). Ne choisis pas à sa place : demande-lui lequel en une courte question, puis rappelle itineraire avec son choix en ${side === "to" ? "« vers »" : "« depuis »"}.`,
+      });
+    }
     const said =
       plan === "no_destination"
         ? "Lieu introuvable à Mayotte : demande-lui un autre nom ou la commune."
