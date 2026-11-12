@@ -9,7 +9,8 @@ import type { FoodCartLine, FoodItem, FoodRestaurant } from "@/lib/food/catalog"
 import { MAYOTTE_COMMUNES, type GeoPoint } from "@/lib/address-fields";
 import { blockKey as keyOf, moveBlockValue, readBlockValue, saveBlockValue } from "@/lib/chat/block-key";
 import { DISH_KINDS, dishKindOf, illustrationOf, matchFoodQuery, normalizeFood } from "@/lib/food/match";
-import { COMMUNE_CENTERS, distanceKm, locateMe, PETITE_TERRE } from "@/lib/geo/communes";
+import { COMMUNE_CENTERS, locateMe } from "@/lib/geo/communes";
+import { kmToRestaurant, NEAREST_COUNT, restaurantPlace } from "@/lib/food/places";
 import { boardDone } from "@/lib/voice-live/stage";
 import { formatEuros } from "@/lib/wallet/limits";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
@@ -240,6 +241,9 @@ export function FoodOrder({ query = "", group = false }: { query?: string; group
   const [spot, setSpot] = useState<Spot | null>(null);
   const [askWhere, setAskWhere] = useState(false);
   const [unsorted, setUnsorted] = useState(false);
+  // Liste des plus proches : un restaurant ouvert depuis elle y revient ; « plus loin » montre les autres.
+  const [fromNearest, setFromNearest] = useState(false);
+  const [farther, setFarther] = useState(false);
   const rail = useRef<HTMLDivElement>(null);
   // Le bloc dans la page : son rang donne la clé de sa commande (blockKey).
   const root = useRef<HTMLElement>(null);
@@ -369,11 +373,7 @@ export function FoodOrder({ query = "", group = false }: { query?: string; group
   const from = origin ? (origin.geo ?? COMMUNE_CENTERS[origin.commune] ?? null) : null;
   const home = origin?.commune ?? null;
   /** km jusqu'au restaurant (barge comptée 15 km), null sans position connue. */
-  const kmTo = (r: FoodRestaurant) => {
-    const to = COMMUNE_CENTERS[r.commune];
-    if (!from || !to || !origin) return null;
-    return distanceKm(from, to) + (PETITE_TERRE.has(r.commune) !== PETITE_TERRE.has(origin.commune) ? 15 : 0);
-  };
+  const kmTo = (r: FoodRestaurant) => kmToRestaurant(from, home, r);
   const nearness = (r: FoodRestaurant) => (kmTo(r) ?? 0) * 3 + r.etaMinutes[0];
   const shown = dishes
     .filter((d) => (kind ? d.kind === kind : !["boisson", "accompagnement"].includes(d.kind ?? "")))
@@ -455,7 +455,7 @@ export function FoodOrder({ query = "", group = false }: { query?: string; group
               {kindInfo?.label} {home ? `près de toi · ${home}` : "à Mayotte"}
             </p>
             <p className="truncate text-xs text-fg-muted">
-              {shown.length} résultat{shown.length > 1 ? "s" : ""}
+              {farther ? places.length : Math.min(places.length, NEAREST_COUNT)} restaurant{places.length > 1 ? "s" : ""}
               {home ? " · du plus proche au plus loin" : ""}
             </p>
           </div>
@@ -466,31 +466,60 @@ export function FoodOrder({ query = "", group = false }: { query?: string; group
             <span className="shrink-0 rounded-full bg-warning-soft px-2 py-0.5 text-[10px] font-semibold text-warning">Démo</span>
           ) : null}
         </div>
-        {shown.length ? (
+        {places.length ? (
           <ul className="max-h-[28rem] space-y-2 overflow-y-auto overscroll-contain px-3 pb-3">
-            {shown.map((dish) => {
-              const km = kmTo(dish.restaurant);
+            {/* Les restaurants les plus proches qui font ce plat ; on touche un restaurant pour voir ses plats. */}
+            {(farther ? places : places.slice(0, NEAREST_COUNT)).map((r) => {
+              const own = shown.filter((d) => d.restaurant.id === r.id);
+              const km = kmTo(r);
+              const place = restaurantPlace(r);
+              const cheapest = Math.min(...own.map((d) => d.item.priceCents));
               return (
-                <li key={dish.item.id} className="group flex items-center gap-3 rounded-2xl border border-border p-2">
-                  <DishPicture dish={dish} className="size-16 shrink-0 rounded-xl [&_span]:text-3xl" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{dish.item.name}</p>
-                    <p className="truncate text-xs text-fg-muted">
-                      {[
-                        dish.restaurant.name,
-                        dish.restaurant.commune,
-                        km !== null ? `~${Math.max(1, Math.round(km))} km` : null,
-                        `${dish.restaurant.etaMinutes[0]}–${dish.restaurant.etaMinutes[1]} min`,
-                      ]
-                        .filter(Boolean)
-                        .join(" · ")}
-                    </p>
-                    <p className="mt-0.5 text-sm font-semibold tabular-nums">{formatEuros(dish.item.priceCents)}</p>
-                  </div>
-                  <Quantity dish={dish} quantity={quantityOf(dish)} change={change} />
+                <li key={r.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRestaurantId(r.id);
+                      setFromNearest(true);
+                    }}
+                    className="flex w-full items-center gap-3 rounded-2xl border border-border p-2 text-left transition hover:bg-bg-subtle"
+                  >
+                    {own[0] ? <DishPicture dish={own[0]} className="size-16 shrink-0 rounded-xl [&_span]:text-3xl" /> : null}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{r.name}</p>
+                      <p className="truncate text-xs text-fg-muted">
+                        {[
+                          place?.label ?? r.commune,
+                          // Distance seulement quand le quartier du restaurant est connu (sinon elle serait la même pour tous).
+                          km !== null && place?.exact ? (km < 1 ? "moins de 1 km" : `${km.toFixed(1).replace(".", ",")} km`) : null,
+                          `${r.etaMinutes[0]}–${r.etaMinutes[1]} min`,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ")}
+                      </p>
+                      <p className="mt-0.5 text-sm">
+                        {own.length} {kindInfo?.label.toLowerCase()} · dès <span className="font-semibold tabular-nums">{formatEuros(cheapest)}</span>
+                      </p>
+                    </div>
+                    <span aria-hidden="true" className="shrink-0 text-lg text-fg-muted">
+                      ›
+                    </span>
+                  </button>
                 </li>
               );
             })}
+            {places.length > NEAREST_COUNT ? (
+              <li>
+                <button
+                  type="button"
+                  onClick={() => setFarther((v) => !v)}
+                  className="w-full py-1 text-xs font-medium hover:underline"
+                  style={{ color: PERSONA }}
+                >
+                  {farther ? "Seulement les plus proches" : `Voir plus loin (${places.length - NEAREST_COUNT})`}
+                </button>
+              </li>
+            ) : null}
           </ul>
         ) : (
           <p className="px-4 pb-4 text-fg-muted">Aucun restaurant ne propose ce plat pour le moment.</p>
@@ -510,7 +539,9 @@ export function FoodOrder({ query = "", group = false }: { query?: string; group
           () => {
             setRestaurantId(null);
             setFullMenu(false);
-            setBrowse(true);
+            // Ouvert depuis « les plus proches » : on y revient ; sinon, toute l'application.
+            if (fromNearest) setFromNearest(false);
+            else setBrowse(true);
           },
         )}
         <ul className="grid max-h-[26rem] gap-2 overflow-y-auto overscroll-contain px-3 pb-2 sm:grid-cols-2">
