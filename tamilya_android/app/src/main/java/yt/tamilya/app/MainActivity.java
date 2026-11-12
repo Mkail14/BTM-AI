@@ -113,8 +113,13 @@ public class MainActivity extends Activity {
 
     private WebView web;
     private View splash;
+    /** Image de la dernière page, posée sur l'écran d'accueil quand elle est prête. */
+    private ImageView splashPage;
+    private View splashLogo;
     private View offline;
     private boolean pageFailed;
+    /** Version de test : départ de l'app, pour dater l'arrivée de la première page. */
+    private long launchNs;
 
     private PermissionRequest pendingWebMic;
     private GeolocationPermissions.Callback pendingGeo;
@@ -167,7 +172,12 @@ public class MainActivity extends Activity {
                     .detectAll().penaltyLog().build());
         }
         long created = Perf.start("onCreate");
+        launchNs = created;
         super.onCreate(state);
+        // Pendant que la vue se construit : l'adresse du site est cherchée, et l'image de
+        // la dernière page est lue, pour l'afficher au lieu du logo.
+        warmUpSite();
+        if (state == null && HOME.equals(startUrl(getIntent()))) LastPage.load(this, this::showLastPage);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
@@ -180,6 +190,10 @@ public class MainActivity extends Activity {
         offline.setVisibility(View.GONE);
         content.addView(offline, match());
         mapCache = new MapCache(this);
+        // La page est demandée dès que la WebView existe : le reste se construit pendant l'attente du serveur.
+        configureWebView();
+        if (state != null) web.restoreState(state);
+        if (web.getUrl() == null) web.loadUrl(startUrl(getIntent()));
         long built = Perf.start("connect.new");
         connect = new TamilyaConnect(this, new TamilyaConnect.Host() {
             @Override
@@ -246,12 +260,8 @@ public class MainActivity extends Activity {
         setContentView(root);
         applySystemBars(root);
 
-        configureWebView();
         loadSounds();
         watchNetwork();
-
-        if (state != null) web.restoreState(state);
-        if (web.getUrl() == null) web.loadUrl(startUrl(getIntent()));
         Perf.end("onCreate", created);
     }
 
@@ -279,7 +289,53 @@ public class MainActivity extends Activity {
         icon.setImageResource(R.mipmap.ic_launcher);
         int size = dp(128);
         box.addView(icon, new FrameLayout.LayoutParams(size, size, Gravity.CENTER));
+        splashLogo = icon;
+        splashPage = new ImageView(this);
+        splashPage.setScaleType(ImageView.ScaleType.FIT_XY);
+        splashPage.setVisibility(View.GONE);
+        box.addView(splashPage, match());
         return box;
+    }
+
+    /** Dernière page prête : montrée à la place du logo, si la vraie page n'est pas déjà là. */
+    private void showLastPage(android.graphics.Bitmap image) {
+        if (image == null || splash == null || splash.getVisibility() != View.VISIBLE) return;
+        splashPage.setImageBitmap(image);
+        splashPage.setVisibility(View.VISIBLE);
+        splashLogo.setVisibility(View.GONE);
+        // Ce n'est qu'une image : les appuis ne doivent pas tomber sur la page qui charge dessous.
+        splash.setClickable(true);
+        Perf.mark("lastpage.affichee", launchNs);
+    }
+
+    /** Cherche l'adresse de tamilya.yt en avance : la WebView la trouve ensuite déjà prête. */
+    private static void warmUpSite() {
+        new Thread(() -> {
+            try {
+                java.net.InetAddress.getAllByName(SITE_HOST);
+            } catch (java.io.IOException ignored) {
+                // Pas de réseau : la WebView le dira elle-même.
+            }
+        }, "tamilya-dns").start();
+    }
+
+    /** Clavier ouvert : la page est alors plus courte, son image serait étirée à l'ouverture. */
+    private boolean keyboardOpen() {
+        View decor = getWindow().getDecorView();
+        android.graphics.Rect seen = new android.graphics.Rect();
+        decor.getWindowVisibleDisplayFrame(seen);
+        return seen.height() < decor.getHeight() * 0.8f;
+    }
+
+    /** Garde l'image de la page d'accueil telle qu'elle est, pour la prochaine ouverture. */
+    private void keepLastPage() {
+        Uri now = Uri.parse(String.valueOf(web.getUrl()));
+        boolean home = isSiteOrigin(now) && ("/".equals(now.getPath()) || now.getPath() == null || now.getPath().isEmpty());
+        View parent = (View) web.getParent();
+        if (!home || pageFailed || offline.getVisibility() == View.VISIBLE || splash.getVisibility() == View.VISIBLE
+                || connect.isOpen() || help.isOpen() || links.isOpen()
+                || parent == null || web.getHeight() != parent.getHeight() || keyboardOpen()) return;
+        LastPage.save(this, web);
     }
 
     private View buildOfflineView() {
@@ -604,7 +660,11 @@ public class MainActivity extends Activity {
 
     private void hideSplash() {
         if (splash.getVisibility() != View.VISIBLE) return;
-        splash.animate().alpha(0f).setDuration(220).withEndAction(() -> splash.setVisibility(View.GONE)).start();
+        splash.animate().alpha(0f).setDuration(220).withEndAction(() -> {
+            splash.setVisibility(View.GONE);
+            splash.setClickable(false);
+            splashPage.setImageDrawable(null);
+        }).start();
     }
 
     private void injectPageSupport(WebView view) {
@@ -1123,16 +1183,20 @@ public class MainActivity extends Activity {
         @Override
         public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
             pageFailed = false;
+            Perf.mark("page.start", launchNs);
         }
 
         @Override
         public void onPageCommitVisible(WebView view, String url) {
+            Perf.mark("page.visible", launchNs);
             injectPageSupport(view);
             if (!pageFailed) hideSplash();
         }
 
         @Override
         public void onPageFinished(WebView view, String url) {
+            Perf.mark("page.finie", launchNs);
+            launchNs = 0L;
             injectPageSupport(view);
             CookieManager.getInstance().flush();
             // En ligne : prépare Tamilya Connect (clé de l'appareil, clé du serveur) pour le hors ligne.
@@ -1292,6 +1356,7 @@ public class MainActivity extends Activity {
 
     @Override
     protected void onPause() {
+        keepLastPage();
         long paused = Perf.start("onPause.flush");
         CookieManager.getInstance().flush();
         Perf.end("onPause.flush", paused);

@@ -29,6 +29,12 @@ public final class Perf {
         Log.i(TAG, what + " " + ms(startNs) + " ms");
     }
 
+    /** Étape repérée depuis un départ (sans section de trace) : ex. « page.visible 812 ms ». */
+    public static void mark(String what, long startNs) {
+        if (!on || startNs == 0L) return;
+        Log.i(TAG, what + " " + ms(startNs) + " ms");
+    }
+
     /** Temps jusqu'au prochain dessin de cette vue : ce que la personne voit vraiment. */
     public static void untilDrawn(String what, View view, long startNs) {
         if (!on || view == null) return;
