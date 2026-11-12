@@ -56,6 +56,55 @@ export function priceBargeOrder(cart: readonly BargeCartLine[]) {
   return { lines, totalCents };
 }
 
+export type BargePassKind = "pieton" | "deux-roues" | "voiture" | "utilitaire" | "camion";
+
+/** Un ticket à montrer à l'embarquement, avec son propre QR code. */
+export type BargePass = { code: string; kind: BargePassKind; people: number; title: string };
+
+const PASS_KIND: Record<string, BargePassKind> = {
+  pieton: "pieton",
+  velo: "deux-roues",
+  moto: "deux-roues",
+  voiture: "voiture",
+  utilitaire: "utilitaire",
+  "pl-15": "camion",
+  "pl-26": "camion",
+  "pl-max": "camion",
+};
+
+/** Texte imprimé sur le ticket : « BARGE SEULE », « BARGE À 5 », « 2 ROUES », « VOITURE »… */
+export function bargePassTitle(kind: BargePassKind, people = 1): string {
+  if (kind === "pieton") return people > 1 ? `BARGE À ${people}` : "BARGE SEULE";
+  return { "deux-roues": "2 ROUES", voiture: "VOITURE", utilitaire: "UTILITAIRE", camion: "CAMION" }[kind];
+}
+
+/**
+ * Découpe un achat en tickets, sans mélange : tous les piétons ensemble sur un
+ * seul ticket, et un ticket par véhicule (deux voitures = deux tickets).
+ * Chaque ticket reçoit un code différent.
+ */
+export function splitBargePasses(lines: readonly BargeCartLine[], newCode: () => string): BargePass[] {
+  const used = new Set<string>();
+  const code = () => {
+    let c = newCode();
+    for (let i = 0; used.has(c) && i < 20; i++) c = newCode();
+    used.add(c);
+    return c;
+  };
+  const people = lines.filter((l) => PASS_KIND[l.ticketId] === "pieton").reduce((n, l) => n + l.quantity, 0);
+  const passes: BargePass[] = people > 0 ? [{ code: code(), kind: "pieton", people, title: bargePassTitle("pieton", people) }] : [];
+  for (const line of lines) {
+    const kind = PASS_KIND[line.ticketId];
+    if (!kind || kind === "pieton") continue;
+    for (let i = 0; i < line.quantity; i++) passes.push({ code: code(), kind, people: 1, title: bargePassTitle(kind) });
+  }
+  return passes;
+}
+
+/** Identifiant du ticket à partir de son nom (billets gardés avant l'ajout des identifiants). */
+export const bargeTicketIdOf = (label: string, detail: string) =>
+  BARGE_TICKETS.find((t) => t.label === label && t.detail === detail)?.id ?? BARGE_TICKETS.find((t) => t.label === label)?.id ?? "pieton";
+
 /** « 2× Piéton, 1× Voiture » */
 export const describeBargeLines = (lines: readonly { label: string; detail?: string; quantity: number }[]) =>
   lines.map((l) => `${l.quantity}× ${l.label}${l.detail && l.label === "Poids lourd" ? ` (${l.detail})` : ""}`).join(", ");

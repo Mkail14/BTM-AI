@@ -3,9 +3,11 @@
 import { Pictogram } from "@/components/ui/Pictogram";
 import { Ship } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { boardDone } from "@/lib/voice-live/stage";
 import type { BargeResponse, BargeTicketBought } from "@/app/api/barge/route";
+import { bargeTicketIdOf, splitBargePasses, type BargePass } from "@/lib/barge/catalog";
 import { parseBargeRequest } from "@/lib/barge/intent";
 import { blockKey as keyOf, moveBlockValue, readBlockValue, saveBlockValue } from "@/lib/chat/block-key";
 import { formatEuros } from "@/lib/wallet/limits";
@@ -14,19 +16,63 @@ import { askPayPin } from "@/lib/wallet/pay-pin";
 
 const PERSONA = "var(--persona,var(--accent))";
 const TICKET_KEY = "btm-barge-ticket:";
+/** Démo : ticket « scanné » (deux touches rapides), gardé sur l'appareil. Le vrai scan viendra du gestionnaire des barges. */
+const SCAN_KEY = "btm-barge-scan:";
+/** Deux touches à moins de 350 ms : le ticket est scanné. */
+const DOUBLE_TAP_MS = 350;
+/** Hauteur (en %) où le ticket se déchire, juste sous le cadre blanc. */
+const TEAR = 57;
 
-/** Clé d'un bloc : la conversation et le rang du bloc dans la page (chaque bloc garde son billet). */
+/** Clé d'un bloc : la conversation et le rang du bloc dans la page (chaque bloc garde ses billets). */
 function blockKey(el: HTMLElement | null) {
   return keyOf(TICKET_KEY, el, "[data-barge-block]");
 }
 
-/** Billet acheté depuis ce bloc, gardé sur l'appareil : sans date, il sert jusqu'à son scan. */
-function savedTicket(key: string): BargeTicketBought | null {
+/** Achats faits depuis ce bloc, gardés sur l'appareil (avant : un seul achat par bloc). */
+function savedPurchases(key: string): BargeTicketBought[] {
   try {
-    return JSON.parse(readBlockValue(key) ?? "null") as BargeTicketBought | null;
+    const value = JSON.parse(readBlockValue(key) ?? "null") as BargeTicketBought | BargeTicketBought[] | null;
+    if (!value) return [];
+    return Array.isArray(value) ? value : [value];
+  } catch {
+    return [];
+  }
+}
+
+/** Tickets d'un achat. Anciens billets (sans `passes`) : découpés ici, le premier garde le code d'origine. */
+function passesOf(purchase: BargeTicketBought): BargePass[] {
+  if (purchase.passes?.length) return purchase.passes;
+  let n = 0;
+  const lines = purchase.lines.map((l) => ({ ticketId: bargeTicketIdOf(l.label, l.detail), quantity: l.quantity }));
+  return splitBargePasses(lines, () => (n++ === 0 ? purchase.code : `${purchase.code}-${n}`));
+}
+
+function readScan(code: string): string | null {
+  try {
+    return localStorage.getItem(SCAN_KEY + code);
   } catch {
     return null;
   }
+}
+
+function saveScan(code: string, iso: string) {
+  try {
+    localStorage.setItem(SCAN_KEY + code, iso);
+  } catch {
+    // Stockage bloqué : le scan vaut pour cette page seulement.
+  }
+}
+
+const frDate = (d: Date) => d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" });
+
+/** Date du jour, remise à jour à minuit si la page reste ouverte. */
+function useToday(): string {
+  const [today, setToday] = useState(() => frDate(new Date()));
+  useEffect(() => {
+    const timer = window.setInterval(() => setToday(frDate(new Date())), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return today;
 }
 
 function Step({ label, onClick, disabled, children }: { label: string; onClick: () => void; disabled?: boolean; children: ReactNode }) {
@@ -43,54 +89,21 @@ function Step({ label, onClick, disabled, children }: { label: string; onClick: 
   );
 }
 
-/** Texte imprimé dans le cadre blanc de la carte : « BARGE SEULE » pour un piéton, sinon le véhicule. */
-function cardText(lines: BargeTicketBought["lines"]): string[] {
-  const plain = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
-  const all = lines.map((l) => {
-    const name = l.label === "Piéton" ? "BARGE SEULE" : plain(l.label === "Poids lourd" ? `${l.label} ${l.detail}` : l.label);
-    return l.quantity > 1 ? `${name} X${l.quantity}` : name;
-  });
-  return all.length > 2 ? [all[0], `+ ${all.length - 1} AUTRES`] : all;
-}
-
-/** Contour d'hippocampe (tourné vers la droite), dans une boîte 100 × 200. */
-const HORSE =
-  "M42 14 L44 2 L50 11 L55 3 L58 13 L64 8 L64 19 C74 22 84 28 98 33 C100 36 100 40 97 42 C86 42 76 41 66 45 C72 56 74 70 68 82 C80 94 84 116 76 136 C70 152 58 160 52 170 C48 178 52 190 62 189 C70 188 71 178 63 177 C57 177 56 182 59 184 M52 170 C40 162 30 152 28 142 C20 128 20 110 28 98 C18 86 18 66 30 54 C24 40 28 24 42 14 M68 82 L58 88 M74 100 L62 104 M77 118 L64 120 M74 136 L62 134 M66 150 L56 146 M28 98 L20 94 M28 142 L20 144 M30 54 L22 50";
-
-function Horse({ transform, width }: { transform: string; width: number }) {
-  return (
-    <g transform={transform}>
-      <path d={HORSE} fill="none" strokeWidth={width} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-      <circle cx={60} cy={26} r={3} />
-    </g>
-  );
-}
-
-/** Fleur jaune du blason (huit pétales). */
-function Flower({ x, y }: { x: number; y: number }) {
-  return (
-    <g transform={`translate(${x} ${y})`} stroke="#f7d117" strokeWidth={2.4} strokeLinecap="round">
-      {[0, 45, 90, 135].map((a) => (
-        <line key={a} x1={-9} y1={0} x2={9} y2={0} transform={`rotate(${a})`} />
-      ))}
-      <circle r={2.6} fill="#f0a500" stroke="none" />
-    </g>
-  );
-}
-
-/** Fond de la carte : bleu, hippocampes, cadres blancs, blason et « DÉPARTEMENT DE MAYOTTE ». */
-function CardArt({ text }: { text: string[] }) {
+/**
+ * Fond de la carte, comme la vraie carte de barge :
+ * - grands hippocampes repris de la photo de la carte (public/barge/hippocampe.png, côté gauche, retourné à droite) ;
+ * - logo officiel du Département (Wikimedia Commons, « Département de Mayotte Logo.svg », CC BY-SA 4.0),
+ *   passé en blanc sur le bleu (public/barge/departement-mayotte.svg).
+ * Dans le cadre blanc : le ticket (« BARGE SEULE »…) et, dessous, la date.
+ */
+function CardArt({ title, date }: { title: string; date: string }) {
   const id = useId().replace(/:/g, "");
-  const scallops = (x0: number, x1: number, y: number) =>
-    Array.from({ length: Math.floor((x1 - x0) / 9) + 1 }, (_, i) => <circle key={`${y}-${i}`} cx={x0 + i * 9} cy={y} r={3.6} fill="#fff" />);
-  const scallopsV = (x: number, y0: number, y1: number) =>
-    Array.from({ length: Math.floor((y1 - y0) / 9) + 1 }, (_, i) => <circle key={`${x}-${i}`} cx={x} cy={y0 + i * 9} r={3.6} fill="#fff" />);
   return (
     <svg viewBox="0 0 540 860" aria-hidden="true" className="absolute inset-0 size-full">
       <defs>
         <linearGradient id={`${id}-sea`} x1="0" y1="0" x2="0.4" y2="1">
-          <stop offset="0%" stopColor="#4fb6ea" />
-          <stop offset="100%" stopColor="#2f9ad6" />
+          <stop offset="0%" stopColor="#44aee5" />
+          <stop offset="100%" stopColor="#3399d7" />
         </linearGradient>
         <clipPath id={`${id}-in`}>
           <rect x={22} y={22} width={496} height={816} rx={28} />
@@ -101,98 +114,237 @@ function CardArt({ text }: { text: string[] }) {
       <rect x={1} y={1} width={538} height={858} rx={34} fill="#f3f8fb" stroke="#cfe2ec" strokeWidth={2} />
       <rect x={22} y={22} width={496} height={816} rx={28} fill={`url(#${id}-sea)`} />
 
-      {/* Grands hippocampes clairs sur les bords */}
-      <g clipPath={`url(#${id}-in)`} stroke="#bfe6fa" fill="#bfe6fa" opacity={0.75}>
-        <Horse transform="translate(-50 40) scale(2.5)" width={2} />
-        <Horse transform="translate(590 40) scale(-2.5 2.5)" width={2} />
+      {/* Grands hippocampes sur les bords */}
+      <g clipPath={`url(#${id}-in)`} opacity={0.9}>
+        <image href="/barge/hippocampe.png" x={22} y={22} width={248} height={816} preserveAspectRatio="none" />
+        <image href="/barge/hippocampe.png" x={22} y={22} width={248} height={816} preserveAspectRatio="none" transform="translate(540 0) scale(-1 1)" />
       </g>
 
       {/* Cadre du QR code */}
       <rect x={143} y={60} width={254} height={245} fill="#fff" />
 
-      {/* Cadre blanc du texte imprimé */}
+      {/* Cadre blanc : le ticket et la date, centrés */}
       <rect x={104} y={383} width={332} height={72} fill="#fff" opacity={0.95} />
-      {text.map((line, i) => {
-        const long = line.length * 15.6 > 330;
-        return (
-          <text
-            key={line}
-            x={98}
-            y={text.length > 1 ? 413 + i * 30 : 418}
-            fill="#232323"
-            fontSize={26}
-            fontWeight={700}
-            fontFamily="'Arial Narrow', 'Roboto Condensed', ui-monospace, monospace"
-            letterSpacing={0.5}
-            textLength={long ? 330 : undefined}
-            lengthAdjust="spacingAndGlyphs"
-          >
-            {line}
-          </text>
-        );
-      })}
-
-      {/* DÉPARTEMENT */}
-      <text x={270} y={532} textAnchor="middle" fill="#fff" fontSize={34} fontWeight={800} textLength={252} lengthAdjust="spacingAndGlyphs" fontFamily="ui-sans-serif, system-ui, sans-serif">
-        DÉPARTEMENT
+      <text
+        x={270}
+        y={414}
+        textAnchor="middle"
+        fill="#232323"
+        fontSize={27}
+        fontWeight={700}
+        fontFamily="ui-monospace, 'Roboto Mono', monospace"
+        letterSpacing={0.5}
+      >
+        {title}
+      </text>
+      <text x={270} y={443} textAnchor="middle" fill="#3a3a3a" fontSize={19} fontWeight={600} fontFamily="ui-monospace, 'Roboto Mono', monospace">
+        {date}
       </text>
 
-      {/* Hippocampes qui tiennent le blason */}
-      <g stroke="#d9f1fc" fill="#d9f1fc">
-        <Horse transform="translate(156 556) scale(0.6 0.68)" width={1.4} />
-        <Horse transform="translate(384 556) scale(-0.6 0.68)" width={1.4} />
-      </g>
-
-      {/* Blason : bleu au croissant, rouge aux deux fleurs, bord festonné */}
-      <rect x={216} y={548} width={108} height={136} rx={3} fill="#fff" />
-      <rect x={224} y={556} width={92} height={59} fill="#2b4fb3" />
-      <rect x={224} y={615} width={92} height={61} fill="#d7262d" />
-      {scallops(224, 316, 556)}
-      {scallops(224, 316, 676)}
-      {scallopsV(224, 556, 676)}
-      {scallopsV(316, 556, 676)}
-      <circle cx={270} cy={585} r={16} fill="#fff" />
-      <circle cx={270} cy={578} r={14.5} fill="#2b4fb3" />
-      <Flower x={252} y={646} />
-      <Flower x={288} y={646} />
-
-      {/* Ruban sous le blason */}
-      <path d="M204 700 Q270 722 336 700 L342 712 Q270 736 198 712 Z" fill="#fff" stroke="#d9f1fc" strokeWidth={1} />
-      <text x={270} y={718} textAnchor="middle" fill="#2f9ad6" fontSize={7} fontWeight={700} letterSpacing={1} fontFamily="ui-sans-serif, system-ui, sans-serif">
-        RA HACHIRI
-      </text>
-
-      {/* DE (vertical) MAYOTTE */}
-      <text transform="translate(147 772) rotate(-90)" textAnchor="middle" fill="#fff" fontSize={25} fontWeight={900} fontFamily="ui-sans-serif, system-ui, sans-serif">
-        DE
-      </text>
-      <text x={160} y={795} fill="#fff" fontSize={68} fontWeight={900} textLength={262} lengthAdjust="spacingAndGlyphs" fontFamily="ui-sans-serif, system-ui, sans-serif">
-        MAYOTTE
-      </text>
+      {/* Logo du Département : DÉPARTEMENT, blason et hippocampes, RA HACHIRI, DE MAYOTTE */}
+      <image href="/barge/departement-mayotte.svg" x={124} y={503} width={292} height={279} />
 
       {/* Trait jaune du bas */}
-      <line x1={70} y1={816} x2={470} y2={816} stroke="#dff03c" strokeWidth={5} />
+      <line x1={70} y1={812} x2={470} y2={812} stroke="#dff03c" strokeWidth={5} />
     </svg>
   );
 }
 
-/** Billet payé : la carte bleue de la barge, QR code à montrer à l'embarquement. */
-function BoughtTicket({ ticket }: { ticket: BargeTicketBought }) {
-  const count = ticket.lines.reduce((n, l) => n + l.quantity, 0);
+/** Bord déchiré (dents de scie) à la hauteur TEAR. */
+const ZIGZAG = Array.from({ length: 21 }, (_, i) => `${i * 5}% ${TEAR + (i % 2 ? 1.2 : -1.2)}%`);
+const TOP_PART = `polygon(0 0, 100% 0, ${[...ZIGZAG].reverse().join(", ")})`;
+const STUB_PART = `polygon(${ZIGZAG.join(", ")}, 100% 100%, 0 100%)`;
+
+function CardFace({ pass, date }: { pass: BargePass; date: string }) {
+  return (
+    <>
+      <CardArt title={pass.title} date={date} />
+      <div className="absolute" style={{ left: "30.56%", top: "8.37%", width: "38.89%" }}>
+        <PlainQr text={pass.code} label={`QR code du ticket ${pass.code}`} />
+      </div>
+    </>
+  );
+}
+
+/**
+ * Le ticket : entier tant qu'il n'est pas scanné (avec la date du jour) ; une fois scanné,
+ * le bas est arraché comme un ticket de cinéma, le reste grisé avec « UTILISÉ » et la date du scan.
+ * `tearing` : l'arrachage est en train de se jouer.
+ */
+function PassCard({ pass, scannedAt, tearing }: { pass: BargePass; scannedAt: string | null; tearing?: boolean }) {
+  const today = useToday();
+  const date = scannedAt ? frDate(new Date(scannedAt)) : today;
+  if (!scannedAt) return <CardFace pass={pass} date={date} />;
+  const part = (clip: string, extra?: CSSProperties, className?: string) => (
+    <div className={`absolute inset-0 ${className ?? ""}`} style={{ clipPath: clip, WebkitClipPath: clip, ...extra }}>
+      <CardFace pass={pass} date={date} />
+    </div>
+  );
+  return (
+    <>
+      {part(TOP_PART, { filter: "grayscale(0.75)", opacity: 0.85 }, tearing ? "barge-tear-top" : undefined)}
+      {tearing ? part(STUB_PART, undefined, "barge-tear-stub") : null}
+      <span
+        className={`absolute top-[24%] left-1/2 rounded-md border-4 border-red-600 bg-white/85 px-3 py-1 text-[min(9cqw,2.4rem)] font-black tracking-widest text-red-600 ${tearing ? "barge-stamp" : "-translate-x-1/2 -rotate-[14deg]"}`}
+      >
+        UTILISÉ
+      </span>
+    </>
+  );
+}
+
+/** Le ticket en grand, au milieu de l'écran ; toucher le flou autour (ou Échap) le ferme. */
+function PassFullscreen({
+  pass,
+  scannedAt,
+  tearing,
+  onTap,
+  onClose,
+  onReorder,
+}: {
+  pass: BargePass;
+  scannedAt: string | null;
+  tearing: boolean;
+  onTap: (at: number) => void;
+  onClose: () => void;
+  onReorder: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = overflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Ticket de barge en grand"
+      onClick={onClose}
+      className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-4 bg-black/40 p-4 backdrop-blur-md"
+    >
+      <div
+        onClick={(e) => {
+          e.stopPropagation();
+          onTap(e.timeStamp);
+        }}
+        className="booking-pop relative aspect-[540/860] drop-shadow-2xl select-none [container-type:inline-size]"
+        style={{ height: scannedAt ? "min(74dvh, calc((100vw - 2rem) * 860 / 540))" : "min(92dvh, calc((100vw - 2rem) * 860 / 540))" }}
+      >
+        <PassCard pass={pass} scannedAt={scannedAt} tearing={tearing} />
+      </div>
+      {scannedAt && !tearing ? (
+        <div onClick={(e) => e.stopPropagation()} className="booking-step max-w-xs text-center text-white">
+          <p className="font-semibold">Ticket utilisé le {frDate(new Date(scannedAt))}</p>
+          <p className="mt-1 text-sm text-white/80">Il n&apos;est plus valable. Commande un nouveau ticket pour la prochaine traversée.</p>
+          <button
+            type="button"
+            onClick={onReorder}
+            className="mt-3 rounded-full px-5 py-2.5 font-medium text-white transition hover:brightness-110 active:scale-[0.98]"
+            style={{ background: PERSONA }}
+          >
+            Commander un nouveau ticket
+          </button>
+        </div>
+      ) : null}
+    </div>,
+    document.body,
+  );
+}
+
+/**
+ * Tickets payés : un par véhicule, les piétons ensemble. Toucher un ticket l'agrandit ;
+ * deux touches rapides le « scannent » (démo) : il se déchire et ne sert plus.
+ */
+function BoughtTickets({ purchases, onReorder }: { purchases: BargeTicketBought[]; onReorder: () => void }) {
+  const passes = useMemo(() => purchases.flatMap(passesOf), [purchases]);
+  // Scans gardés sur l'appareil (lus une fois), plus ceux faits sur cette page.
+  const stored = useMemo(() => {
+    const read: Record<string, string> = {};
+    for (const p of passes) {
+      const at = readScan(p.code);
+      if (at) read[p.code] = at;
+    }
+    return read;
+  }, [passes]);
+  const [fresh, setFresh] = useState<Record<string, string>>({});
+  const scans = useMemo(() => ({ ...stored, ...fresh }), [stored, fresh]);
+  const [open, setOpen] = useState<string | null>(null);
+  const [tearing, setTearing] = useState<string | null>(null);
+  const lastTap = useRef<{ code: string; at: number } | null>(null);
+
+  const scan = useCallback((code: string) => {
+    const at = new Date().toISOString();
+    saveScan(code, at);
+    setFresh((s) => ({ ...s, [code]: at }));
+    setOpen(code);
+    setTearing(code);
+    try {
+      navigator.vibrate?.([30, 50, 80]);
+    } catch {
+      // Pas de vibreur.
+    }
+    window.setTimeout(() => setTearing((t) => (t === code ? null : t)), 1200);
+  }, []);
+
+  /** Une touche ouvre le ticket en grand ; une deuxième, juste après, le scanne. */
+  const tap = (code: string, now: number) => {
+    const double = lastTap.current?.code === code && now - lastTap.current.at < DOUBLE_TAP_MS;
+    lastTap.current = { code, at: now };
+    if (double && !scans[code]) {
+      lastTap.current = null;
+      scan(code);
+    } else setOpen(code);
+  };
+
+  const close = useCallback(() => setOpen(null), []);
+  const shown = passes.find((p) => p.code === open) ?? null;
+  const totalCents = purchases.reduce((n, p) => n + p.totalCents, 0);
+  const demo = purchases.some((p) => p.demo);
+  const several = passes.length > 1;
+
   return (
     <div className="booking-step p-4">
-      <div className="relative mx-auto aspect-[540/860] w-full max-w-[260px] drop-shadow-md">
-        <CardArt text={cardText(ticket.lines)} />
-        <div className="absolute" style={{ left: "30.56%", top: "8.37%", width: "38.89%" }}>
-          <PlainQr text={ticket.code} label={`QR code du billet ${ticket.code}`} />
-        </div>
-      </div>
-      <p className="mt-3 text-center font-mono text-sm font-bold tracking-widest">{ticket.code}</p>
-      <p className="text-center text-xs text-fg-muted">
-        {count} ticket{count > 1 ? "s" : ""} · <span className="tabular-nums">{formatEuros(ticket.totalCents)}</span>
-        {ticket.demo ? " · démo" : ""}
+      <ul className={several ? "grid grid-cols-2 gap-3" : ""}>
+        {passes.map((pass) => (
+          <li key={pass.code} className="text-center">
+            <button
+              type="button"
+              onClick={(e) => tap(pass.code, e.timeStamp)}
+              aria-label={`Ticket ${pass.title}, ${scans[pass.code] ? "déjà utilisé" : "toucher pour l'agrandir, deux fois pour le scanner"}`}
+              className={`relative mx-auto block aspect-[540/860] w-full cursor-zoom-in drop-shadow-md transition select-none active:scale-[0.98] [container-type:inline-size] ${several ? "" : "max-w-[260px]"}`}
+            >
+              <PassCard pass={pass} scannedAt={scans[pass.code] ?? null} />
+            </button>
+            <p className="mt-2 font-mono text-xs font-bold tracking-widest">{pass.code}</p>
+          </li>
+        ))}
+      </ul>
+      {shown ? (
+        <PassFullscreen
+          pass={shown}
+          scannedAt={scans[shown.code] ?? null}
+          tearing={tearing === shown.code}
+          onTap={(at) => tap(shown.code, at)}
+          onClose={close}
+          onReorder={() => {
+            setOpen(null);
+            onReorder();
+          }}
+        />
+      ) : null}
+      <p className="mt-2 text-center text-xs text-fg-muted">
+        {passes.length} ticket{several ? "s" : ""} · <span className="tabular-nums">{formatEuros(totalCents)}</span>
+        {demo ? " · démo" : ""}
       </p>
-      <p className="mt-2 text-center text-xs text-fg-muted">Montre ce QR code à l&apos;embarquement, à Mamoudzou. Une fois scanné, il ne sert plus.</p>
+      <p className="mt-2 text-center text-xs text-fg-muted">
+        Montre le QR code à l&apos;embarquement, à Mamoudzou. Une fois scanné, le ticket ne sert plus.
+        {demo ? " Démo : touche deux fois un ticket pour le scanner." : ""}
+      </p>
     </div>
   );
 }
@@ -211,8 +363,11 @@ export function BargeTickets({ query = "" }: { query?: string }) {
   const [others, setOthers] = useState(false);
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState<string | null>(null);
-  const [bought, setBought] = useState<BargeTicketBought | null>(null);
-  // Clé du billet acheté : elle suit la conversation quand son adresse change (« / » → /c/<id>).
+  const [bought, setBought] = useState<BargeTicketBought[]>([]);
+  const [loaded, setLoaded] = useState(false);
+  // « Commander un nouveau ticket » : le formulaire revient sous les tickets déjà achetés.
+  const [reorder, setReorder] = useState(false);
+  // Clé des billets achetés : elle suit la conversation quand son adresse change (« / » → /c/<id>).
   const savedKey = useRef<string | null>(null);
   const pathname = usePathname();
   useEffect(() => {
@@ -223,12 +378,18 @@ export function BargeTickets({ query = "" }: { query?: string }) {
   }, [pathname]);
 
   useEffect(() => {
-    const saved = savedTicket(blockKey(root.current));
-    if (saved) {
-      // Billet déjà acheté depuis ce bloc (après un rechargement).
+    const saved = savedPurchases(blockKey(root.current));
+    if (saved.length) {
+      // Billets déjà achetés depuis ce bloc (après un rechargement).
+      savedKey.current = blockKey(root.current);
       setBought(saved);
-      return;
     }
+    setLoaded(true);
+  }, []);
+
+  const needForm = loaded && (bought.length === 0 || reorder);
+  useEffect(() => {
+    if (!needForm || data) return;
     let cancelled = false;
     fetch("/api/barge", { cache: "no-store" })
       .then(async (res) => {
@@ -241,7 +402,7 @@ export function BargeTickets({ query = "" }: { query?: string }) {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [needForm, data]);
 
   const lines = useMemo(
     () => (data?.tickets ?? []).filter((t) => cart[t.id]).map((ticket) => ({ ticket, quantity: cart[ticket.id] })),
@@ -253,6 +414,16 @@ export function BargeTickets({ query = "" }: { query?: string }) {
   const change = (id: string, delta: number) => {
     setPayError(null);
     setCart((c) => ({ ...c, [id]: Math.max(0, Math.min(20, (c[id] ?? 0) + delta)) }));
+  };
+
+  const startReorder = () => {
+    setCart({ pieton: 1 });
+    setOthers(false);
+    setPayError(null);
+    setReorder(true);
+    // Le solde a baissé depuis le dernier achat : relu.
+    setData(null);
+    window.setTimeout(() => root.current?.scrollIntoView({ behavior: "smooth", block: "end" }), 50);
   };
 
   async function pay() {
@@ -276,9 +447,12 @@ export function BargeTickets({ query = "" }: { query?: string }) {
         setPayError(body?.error ?? "Le paiement a échoué. Réessaie.");
         return;
       }
+      const next = [...bought, body];
       savedKey.current = blockKey(root.current);
-      saveBlockValue(savedKey.current, JSON.stringify(body));
-      setBought(body);
+      saveBlockValue(savedKey.current, JSON.stringify(next));
+      setBought(next);
+      setReorder(false);
+      setData(null);
       boardDone(root.current);
       setCart({});
       // La barre latérale relit le solde.
@@ -301,20 +475,30 @@ export function BargeTickets({ query = "" }: { query?: string }) {
     </section>
   );
 
-  if (bought) return shell(<BoughtTicket ticket={bought} />);
-  if (error) return shell(<p className="p-4 text-fg-muted">{error}</p>);
+  const tickets = bought.length ? <BoughtTickets purchases={bought} onReorder={startReorder} /> : null;
+  if (!loaded || (bought.length && !reorder)) return shell(tickets);
+  if (error) return shell(
+    <>
+      {tickets}
+      <p className="p-4 text-fg-muted">{error}</p>
+    </>,
+  );
   if (!data) {
     return shell(
-      <div aria-label="Chargement des tickets" className="space-y-3 p-4">
-        <div className="h-10 animate-pulse rounded-xl bg-bg-subtle" />
-        <div className="h-14 animate-pulse rounded-xl bg-bg-subtle" />
-      </div>,
+      <>
+        {tickets}
+        <div aria-label="Chargement des tickets" className="space-y-3 p-4">
+          <div className="h-10 animate-pulse rounded-xl bg-bg-subtle" />
+          <div className="h-14 animate-pulse rounded-xl bg-bg-subtle" />
+        </div>
+      </>,
     );
   }
 
   const extra = data.tickets.filter((t) => !cart[t.id]);
   return shell(
     <>
+      {tickets ? <div className="border-b border-border">{tickets}</div> : null}
       {/* Trajet, en une ligne */}
       <div className="flex items-center gap-3 px-4 pt-4">
         <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-bg-subtle text-xl">
