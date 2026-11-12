@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `30d42cb` (2026-11-12, branche audit/2026-11-07)**
+**Dernier commit noté : `33ff18b` (2026-11-12, branche audit/2026-11-07)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -104,6 +104,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-12
+- Repas : « les tacos les plus proches de chez moi » montre maintenant les 5 restaurants les plus proches qui font des tacos (« Voir plus loin » pour les autres), au lieu de chaque tacos de chaque resto (`33ff18b`). On touche un resto pour voir ses plats ; le retour ramène à la liste. Les restos ne connaissaient que leur commune (23 sur 24 « Mamoudzou ») : le tri ne servait à rien. Nouveau fichier `src/lib/food/places.ts` pour le quartier de chaque resto, **encore vide** : aucune adresse fiable trouvée en ligne, à remplir avec l'utilisateur. La distance ne s'affiche que si le quartier est connu. Vérifié : types, lint, 7 tests. Pas essayé dans le navigateur.
 - Champ du chat : sur Android, le clavier remettait parfois le début du message dans le champ juste après l'envoi ; ce retour est ignoré pendant 1,5 s (`30d42cb`). Vérifié : types. Pas testé sur téléphone.
 - Cartes du chat : quand Tamilya colle le bloc d'une carte au bout de sa phrase (« ```ticket-barge »), il est remis sur ses lignes ; avant, on voyait le texte brut et une barre grise (`9410295`). Seuls les blocs de cartes connus sont touchés. Vérifié : types, 6 tests.
 - **Tamilya corrige le français d'un mot appris en conversation** (`7c42986`). Remarque de l'utilisateur : Tamilya avait retenu « ya havih » = « il est ou » ; la correction « c'est où avec un accent » ne changeait rien. Causes : le message n'était pas reconnu comme une leçon (« accent », « corrige », « faux »… absents), la consigne ne parlait que de corriger le shimaoré, et le remplacement ne visait que le même français écrit à l'identique. Maintenant : ces mots déclenchent la relecture, la consigne donne l'exemple, et une leçon du chat remplace aussi l'entrée du même shimaoré (pas les listes collées dans /admin/lexique, pour garder les synonymes). Entrée réparée à la main dans la base : « il est où ? » = « Ya havih ». Vérifié : types, tests. Pas encore essayé en conversation.
