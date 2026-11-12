@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `cd5251e` (2026-11-12, audit/2026-11-07, envoyé sur develop et main)**
+**Dernier commit noté : `e489806` (2026-11-12, audit/2026-11-07, envoyé sur develop et main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -104,6 +104,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-12
+- **Tamilya Connect : racheter un ticket de barge sans insister** (`e489806`). Vu sur la Pad 6 : après un premier ticket, « un autre » ou « vas-y » ne rouvraient pas le tableau (il fallait réécrire « ticket de barge »), et Tamilya recopiait la confirmation du paiement d'avant avec son code, ce qui faisait croire à un ticket payé sans code (rien n'était payé). Maintenant : une relance courte juste après une demande de barge rouvre le tableau ; Tamilya n'a plus le droit d'annoncer un paiement ni un code, et le serveur retire ces phrases si elle les écrit quand même. Vérifié : tests Connect et barge, types, lint. Pas encore essayé sur la tablette.
 - **Traduction en shimaoré pour les admins** (`cd5251e`). Tamilya refusait de traduire un texte long : le linguiste de l'équipe d'agents marquait tout « non validé ». Maintenant, pour un admin qui écrit « traduis en shimaoré… », elle traduit tout le texte sans l'équipe, met en italique les mots incertains (« À vérifier : ») et dit franchement ce qu'elle ne sait pas traduire. Rien ne change pour les autres utilisateurs, la voix et le mode maître. Même commit : signature et remplissage de documents, corrections barge, lecture, paiements Connect, service sons-ia (travail en cours d'avant). Vérifié : 716 tests, types. Pas essayé dans le vrai chat.
 - **Tickets de barge payés : mise en page revue** (`0e25fe0`). Remarque de l'utilisateur : le fond des tickets était retiré, mais pas la disposition faite pour un cadre. Maintenant : plus de marge en trop, tickets et textes alignés à gauche comme les messages de Tamilya ; plusieurs tickets posés en haut (un ticket usé, plus court, ne décale plus les autres), 3 tickets sur une même ligne ; total et consigne en une seule ligne. Dans le formulaire de rachat, les tickets gardent leur marge. Vérifié : types, lint. Pas vu sur téléphone.
 - Repas : Freddy's May Food (Passamainty), Top Cuisine 976 (en face de la mosquée de Majicavo-Lamir) et Kazdal (rue du Collège Ouvoimoja, Passamainty) placés d'après les indications de l'utilisateur (`44b3802`). Reste à placer : Tasty Snack, Le Finidy, Lunch Box Gourmet, Traiteur Good Eat, Le Goût des îles. Vérifié : 3 tests.
