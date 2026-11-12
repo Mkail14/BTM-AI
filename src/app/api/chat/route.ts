@@ -433,11 +433,15 @@ export async function POST(request: NextRequest) {
     ),
     { role: "user", content: body.message },
   ];
+  // Traduction en shimaoré demandée par un administrateur : Tamilya essaie tout le texte, sans équipe d'agents.
+  const shimaoreTranslation = Boolean(user?.isAdmin) && !master && !body.voice && isShimaoreTranslationRequest(body.message);
+  // Texte à traduire : aucune commande de repas, même si un mot ressemble à un restaurant.
+  const foodDetect = foodOrdering && !body.voice && !shimaoreTranslation;
   // Plusieurs articles d'un coup : Tamilya compose le panier, à la place de la commande simple.
-  const foodGroup = foodOrdering && !body.voice ? detectGroupOrder(body.message) : null;
+  const foodGroup = foodDetect ? detectGroupOrder(body.message) : null;
   // Demande de repas reconnue ici, sans attendre le modèle : la commande s'ouvre à coup sûr.
   const foodQuery =
-    foodOrdering && !body.voice && !foodGroup
+    foodDetect && !foodGroup
       ? detectFoodOrder(
           body.message,
           history.filter((turn) => turn.role === "user").map((turn) => turn.content).reverse(),
@@ -469,8 +473,6 @@ export async function POST(request: NextRequest) {
   const attestation = !body.voice && features.includes("attestation") && (detectAttestation(body.message) || (attestationOpen && wantsOwnInfo(body.message)));
   // « Signe ce PDF », « remplis mon formulaire » : la carte pour choisir le document s'ouvre à coup sûr.
   const documentTask = !body.voice && !attestation && features.includes("signature") ? detectDocumentTask(body.message) : null;
-  // Traduction en shimaoré demandée par un administrateur : Tamilya essaie tout le texte, sans équipe d'agents.
-  const shimaoreTranslation = Boolean(user?.isAdmin) && !master && !body.voice && isShimaoreTranslationRequest(body.message);
   // Jour voulu pour le code (« demain », « vendredi matin ») : calculé ici, les modèles se trompent de date.
   const codeWhen = parseCodeExamWhen(body.message);
   const pastTalksRead = await pastTalksTask;

@@ -1,7 +1,7 @@
 "use client";
 
 import { Check } from "lucide-react";
-import { createContext, use, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, use, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { guessFrenchAction } from "@/app/(chat)/actions";
 import { IconCheck, IconClose, IconPencil } from "@/components/ui/icons";
@@ -185,12 +185,27 @@ export function Correctable({
     setStatus(null);
   };
 
+  /** Mot en italique (pas sûr, « À vérifier ») touché : la correction s'ouvre sur ce mot. */
+  function onTapUnsure(event: MouseEvent) {
+    if (window.getSelection()?.toString().trim()) return;
+    const em = (event.target as HTMLElement).closest("em");
+    const word = em?.textContent?.replace(/\s+/g, " ").trim();
+    if (!em || !word || !rootRef.current?.contains(em)) return;
+    open(word.slice(0, MAX));
+  }
+
   return (
-    <div ref={rootRef} className="group/correct relative">
+    <div
+      ref={rootRef}
+      onClick={onTapUnsure}
+      // Mots dont Tamilya n'est pas sûre : surlignés, on les touche pour donner la bonne traduction.
+      className="group/correct relative [&_em]:cursor-pointer [&_em]:rounded [&_em]:bg-warning-soft [&_em]:px-0.5 [&_em]:underline [&_em]:decoration-warning/60 [&_em]:decoration-dotted [&_em]:underline-offset-4"
+    >
       {children}
 
-      {/* Sans sélection (téléphone, découverte) : « C'est juste » garde la réponse entière, le crayon ouvre la correction. */}
-      <div className="mt-2 flex flex-wrap gap-1.5 opacity-80 transition focus-within:opacity-100 sm:opacity-0 sm:group-hover/correct:opacity-80 sm:focus-within:opacity-100">
+      {/* Sans sélection (téléphone, tablette) : « C'est juste » garde la réponse entière, le crayon ouvre la correction.
+          Cachés seulement avec une souris : sur écran tactile, il n'y a pas de survol pour les faire apparaître. */}
+      <div className="mt-2 flex flex-wrap gap-1.5 opacity-80 transition focus-within:opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/correct:opacity-80 [@media(hover:hover)]:focus-within:opacity-100">
         <button
           type="button"
           onClick={() => open(plainReply(reply), "approve")}

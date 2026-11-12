@@ -27,6 +27,11 @@ describe("demande de repas reconnue par le serveur", () => {
     assert.equal(detect("je veux commander à manger"), "tout");
   });
 
+  it("« l'île » seule ne désigne pas Le Goût des Îles", () => {
+    assert.equal(detect("Comparez les fournisseurs de l'île, enregistrez votre devis."), null);
+    assert.equal(detect("le goût des îles"), "LE GOÛT DES ÎLES");
+  });
+
   it("ne confond pas avec d'autres demandes", () => {
     assert.equal(detect("je veux passer mon code"), null);
     assert.equal(detect("je veux passer le code", ["je veux une pizza"]), null);
