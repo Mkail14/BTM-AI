@@ -3,13 +3,13 @@
 import { Pictogram } from "@/components/ui/Pictogram";
 import { Ship } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { boardDone } from "@/lib/voice-live/stage";
 import type { BargeResponse, BargeTicketBought } from "@/app/api/barge/route";
 import { parseBargeRequest } from "@/lib/barge/intent";
 import { blockKey as keyOf, moveBlockValue, readBlockValue, saveBlockValue } from "@/lib/chat/block-key";
 import { formatEuros } from "@/lib/wallet/limits";
-import { StyledQr } from "./OrderTicket";
+import { PlainQr } from "./OrderTicket";
 import { askPayPin } from "@/lib/wallet/pay-pin";
 
 const PERSONA = "var(--persona,var(--accent))";
@@ -43,44 +43,156 @@ function Step({ label, onClick, disabled, children }: { label: string; onClick: 
   );
 }
 
-/** Billet payé : QR code à montrer à l'embarquement. */
+/** Texte imprimé dans le cadre blanc de la carte : « BARGE SEULE » pour un piéton, sinon le véhicule. */
+function cardText(lines: BargeTicketBought["lines"]): string[] {
+  const plain = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toUpperCase();
+  const all = lines.map((l) => {
+    const name = l.label === "Piéton" ? "BARGE SEULE" : plain(l.label === "Poids lourd" ? `${l.label} ${l.detail}` : l.label);
+    return l.quantity > 1 ? `${name} X${l.quantity}` : name;
+  });
+  return all.length > 2 ? [all[0], `+ ${all.length - 1} AUTRES`] : all;
+}
+
+/** Contour d'hippocampe (tourné vers la droite), dans une boîte 100 × 200. */
+const HORSE =
+  "M42 14 L44 2 L50 11 L55 3 L58 13 L64 8 L64 19 C74 22 84 28 98 33 C100 36 100 40 97 42 C86 42 76 41 66 45 C72 56 74 70 68 82 C80 94 84 116 76 136 C70 152 58 160 52 170 C48 178 52 190 62 189 C70 188 71 178 63 177 C57 177 56 182 59 184 M52 170 C40 162 30 152 28 142 C20 128 20 110 28 98 C18 86 18 66 30 54 C24 40 28 24 42 14 M68 82 L58 88 M74 100 L62 104 M77 118 L64 120 M74 136 L62 134 M66 150 L56 146 M28 98 L20 94 M28 142 L20 144 M30 54 L22 50";
+
+function Horse({ transform, width }: { transform: string; width: number }) {
+  return (
+    <g transform={transform}>
+      <path d={HORSE} fill="none" strokeWidth={width} strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+      <circle cx={60} cy={26} r={3} />
+    </g>
+  );
+}
+
+/** Fleur jaune du blason (huit pétales). */
+function Flower({ x, y }: { x: number; y: number }) {
+  return (
+    <g transform={`translate(${x} ${y})`} stroke="#f7d117" strokeWidth={2.4} strokeLinecap="round">
+      {[0, 45, 90, 135].map((a) => (
+        <line key={a} x1={-9} y1={0} x2={9} y2={0} transform={`rotate(${a})`} />
+      ))}
+      <circle r={2.6} fill="#f0a500" stroke="none" />
+    </g>
+  );
+}
+
+/** Fond de la carte : bleu, hippocampes, cadres blancs, blason et « DÉPARTEMENT DE MAYOTTE ». */
+function CardArt({ text }: { text: string[] }) {
+  const id = useId().replace(/:/g, "");
+  const scallops = (x0: number, x1: number, y: number) =>
+    Array.from({ length: Math.floor((x1 - x0) / 9) + 1 }, (_, i) => <circle key={`${y}-${i}`} cx={x0 + i * 9} cy={y} r={3.6} fill="#fff" />);
+  const scallopsV = (x: number, y0: number, y1: number) =>
+    Array.from({ length: Math.floor((y1 - y0) / 9) + 1 }, (_, i) => <circle key={`${x}-${i}`} cx={x} cy={y0 + i * 9} r={3.6} fill="#fff" />);
+  return (
+    <svg viewBox="0 0 540 860" aria-hidden="true" className="absolute inset-0 size-full">
+      <defs>
+        <linearGradient id={`${id}-sea`} x1="0" y1="0" x2="0.4" y2="1">
+          <stop offset="0%" stopColor="#4fb6ea" />
+          <stop offset="100%" stopColor="#2f9ad6" />
+        </linearGradient>
+        <clipPath id={`${id}-in`}>
+          <rect x={22} y={22} width={496} height={816} rx={28} />
+        </clipPath>
+      </defs>
+
+      {/* Carte blanche et zone bleue */}
+      <rect x={1} y={1} width={538} height={858} rx={34} fill="#f3f8fb" stroke="#cfe2ec" strokeWidth={2} />
+      <rect x={22} y={22} width={496} height={816} rx={28} fill={`url(#${id}-sea)`} />
+
+      {/* Grands hippocampes clairs sur les bords */}
+      <g clipPath={`url(#${id}-in)`} stroke="#bfe6fa" fill="#bfe6fa" opacity={0.75}>
+        <Horse transform="translate(-50 40) scale(2.5)" width={2} />
+        <Horse transform="translate(590 40) scale(-2.5 2.5)" width={2} />
+      </g>
+
+      {/* Cadre du QR code */}
+      <rect x={143} y={60} width={254} height={245} fill="#fff" />
+
+      {/* Cadre blanc du texte imprimé */}
+      <rect x={104} y={383} width={332} height={72} fill="#fff" opacity={0.95} />
+      {text.map((line, i) => {
+        const long = line.length * 15.6 > 330;
+        return (
+          <text
+            key={line}
+            x={98}
+            y={text.length > 1 ? 413 + i * 30 : 418}
+            fill="#232323"
+            fontSize={26}
+            fontWeight={700}
+            fontFamily="'Arial Narrow', 'Roboto Condensed', ui-monospace, monospace"
+            letterSpacing={0.5}
+            textLength={long ? 330 : undefined}
+            lengthAdjust="spacingAndGlyphs"
+          >
+            {line}
+          </text>
+        );
+      })}
+
+      {/* DÉPARTEMENT */}
+      <text x={270} y={532} textAnchor="middle" fill="#fff" fontSize={34} fontWeight={800} textLength={252} lengthAdjust="spacingAndGlyphs" fontFamily="ui-sans-serif, system-ui, sans-serif">
+        DÉPARTEMENT
+      </text>
+
+      {/* Hippocampes qui tiennent le blason */}
+      <g stroke="#d9f1fc" fill="#d9f1fc">
+        <Horse transform="translate(156 556) scale(0.6 0.68)" width={1.4} />
+        <Horse transform="translate(384 556) scale(-0.6 0.68)" width={1.4} />
+      </g>
+
+      {/* Blason : bleu au croissant, rouge aux deux fleurs, bord festonné */}
+      <rect x={216} y={548} width={108} height={136} rx={3} fill="#fff" />
+      <rect x={224} y={556} width={92} height={59} fill="#2b4fb3" />
+      <rect x={224} y={615} width={92} height={61} fill="#d7262d" />
+      {scallops(224, 316, 556)}
+      {scallops(224, 316, 676)}
+      {scallopsV(224, 556, 676)}
+      {scallopsV(316, 556, 676)}
+      <circle cx={270} cy={585} r={16} fill="#fff" />
+      <circle cx={270} cy={578} r={14.5} fill="#2b4fb3" />
+      <Flower x={252} y={646} />
+      <Flower x={288} y={646} />
+
+      {/* Ruban sous le blason */}
+      <path d="M204 700 Q270 722 336 700 L342 712 Q270 736 198 712 Z" fill="#fff" stroke="#d9f1fc" strokeWidth={1} />
+      <text x={270} y={718} textAnchor="middle" fill="#2f9ad6" fontSize={7} fontWeight={700} letterSpacing={1} fontFamily="ui-sans-serif, system-ui, sans-serif">
+        RA HACHIRI
+      </text>
+
+      {/* DE (vertical) MAYOTTE */}
+      <text transform="translate(147 772) rotate(-90)" textAnchor="middle" fill="#fff" fontSize={25} fontWeight={900} fontFamily="ui-sans-serif, system-ui, sans-serif">
+        DE
+      </text>
+      <text x={160} y={795} fill="#fff" fontSize={68} fontWeight={900} textLength={262} lengthAdjust="spacingAndGlyphs" fontFamily="ui-sans-serif, system-ui, sans-serif">
+        MAYOTTE
+      </text>
+
+      {/* Trait jaune du bas */}
+      <line x1={70} y1={816} x2={470} y2={816} stroke="#dff03c" strokeWidth={5} />
+    </svg>
+  );
+}
+
+/** Billet payé : la carte bleue de la barge, QR code à montrer à l'embarquement. */
 function BoughtTicket({ ticket }: { ticket: BargeTicketBought }) {
   const count = ticket.lines.reduce((n, l) => n + l.quantity, 0);
   return (
     <div className="booking-step p-4">
-      <div className="mx-auto max-w-xs overflow-hidden rounded-2xl border border-border bg-bg-subtle">
-        <div className="px-4 pt-4 text-center">
-          <p className="text-xs font-semibold tracking-wider text-fg-muted uppercase">Billet de barge{ticket.demo ? " · démo" : ""}</p>
-          <p className="mt-1 font-semibold">Mamoudzou → Dzaoudzi</p>
-          <p className="text-xs text-fg-muted">Sans date · valable jusqu&apos;au scan</p>
-        </div>
-        <div className="mx-auto mt-3 w-48 rounded-xl bg-white p-2">
-          <StyledQr text={ticket.code} label={`QR code du billet ${ticket.code}`} />
-        </div>
-        <p className="mt-2 text-center font-mono text-lg font-bold tracking-widest">{ticket.code}</p>
-        {/* Bord prédécoupé du billet. */}
-        <div aria-hidden="true" className="relative my-3 border-t border-dashed border-border">
-          <span className="absolute -top-2.5 -left-2.5 size-5 rounded-full bg-bg" />
-          <span className="absolute -top-2.5 -right-2.5 size-5 rounded-full bg-bg" />
-        </div>
-        <ul className="space-y-1 px-4 text-sm">
-          {ticket.lines.map((l) => (
-            <li key={`${l.label}${l.detail}`} className="flex justify-between gap-2">
-              <span>
-                {l.quantity}× {l.label}
-                {l.label === "Poids lourd" ? <span className="text-fg-muted"> ({l.detail})</span> : null}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-2 flex justify-between border-t border-border px-4 py-3 text-sm font-semibold">
-          <span>
-            {count} ticket{count > 1 ? "s" : ""}
-          </span>
-          <span className="tabular-nums">{formatEuros(ticket.totalCents)}</span>
+      <div className="relative mx-auto aspect-[540/860] w-full max-w-[260px] drop-shadow-md">
+        <CardArt text={cardText(ticket.lines)} />
+        <div className="absolute" style={{ left: "30.56%", top: "8.37%", width: "38.89%" }}>
+          <PlainQr text={ticket.code} label={`QR code du billet ${ticket.code}`} />
         </div>
       </div>
-      <p className="mt-3 text-center text-xs text-fg-muted">Montre ce QR code à l&apos;embarquement, à Mamoudzou. Une fois scanné, il ne sert plus.</p>
+      <p className="mt-3 text-center font-mono text-sm font-bold tracking-widest">{ticket.code}</p>
+      <p className="text-center text-xs text-fg-muted">
+        {count} ticket{count > 1 ? "s" : ""} · <span className="tabular-nums">{formatEuros(ticket.totalCents)}</span>
+        {ticket.demo ? " · démo" : ""}
+      </p>
+      <p className="mt-2 text-center text-xs text-fg-muted">Montre ce QR code à l&apos;embarquement, à Mamoudzou. Une fois scanné, il ne sert plus.</p>
     </div>
   );
 }
