@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `918021d` (2026-11-12)**
+**Dernier commit noté : `d6e188d` (2026-11-12)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -103,6 +103,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-12
+- **Cyclones du monde : la carte ne fait plus le tour de la Terre** (`d6e188d`). Remarque de l'utilisateur : avec « Voir les autres cyclones du monde », un cyclone semblait faire tout le tour de la Terre. Les données étaient bonnes ; c'était le cadre : Pena (-172°, juste après le changement de date) et Cempaka (154°, Japon) étaient cadrés par le chemin long, par l'Afrique, donc la carte montrait le monde entier. Maintenant `boundsOf` prend le chemin le plus court (coupure au plus grand vide entre les longitudes) : les deux cyclones côte à côte sur le Pacifique. Vérifié : types, lint, calcul sur les vraies données du jour (134,9° à 209,9°). Pas encore vu à l'écran.
 - **Billet de barge : la carte bleue** (`918021d`). Demande de l'utilisateur, photo à l'appui : le billet payé doit ressembler exactement à la carte « Barge seule » du Département, seul changement : « BTM » au centre du QR. Maintenant : carte bleue à bord blanc, grands hippocampes, QR noir carré (`PlainQr`, même place au logo que `StyledQr`), cadre blanc « BARGE SEULE » (ou le véhicule, « X2 » si plusieurs), « DÉPARTEMENT », blason, « DE MAYOTTE », trait jaune. Code, prix et consigne sous la carte. Vérifié : types, lint, aperçu image. Pas encore vu sur le site ni le QR scanné. Nom et blason du Département : accord écrit à obtenir avant toute ouverture au public (démo admin seulement).
 
 ### 2026-11-10
