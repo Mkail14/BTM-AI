@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `3ecf1b8` (2026-11-12, branche audit/2026-11-07 ; pas encore sur develop ni main)**
+**Dernier commit noté : `44b3802` (2026-11-12, branche audit/2026-11-07 ; pas encore sur develop ni main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -104,6 +104,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-12
+- Repas : Freddy's May Food (Passamainty), Top Cuisine 976 (en face de la mosquée de Majicavo-Lamir) et Kazdal (rue du Collège Ouvoimoja, Passamainty) placés d'après les indications de l'utilisateur (`44b3802`). Reste à placer : Tasty Snack, Le Finidy, Lunch Box Gourmet, Traiteur Good Eat, Le Goût des îles. Vérifié : 3 tests.
 - Repas : position exacte de 16 restaurants sur 24, relevée sur Google Maps à la demande de l'utilisateur (`3ecf1b8`). Le tri « les plus proches » et la distance en km marchent pour eux ; le quartier affiché est le plus proche connu (Kawéni, Cavani…). Pas placés : Freddy's May Food (deux fiches possibles), Top Cuisine 976 (fiches à Koungou et Combani seulement), Kazdal, Tasty Snack, Le Finidy, Lunch Box Gourmet, Traiteur Good Eat, Le Goût des îles. Vérifié : types, lint, 3 tests.
 - **Tout envoyé sur main et develop** (`62e9f03` sur main, `3e778d5` sur develop). Remarque de l'utilisateur : le logo Groupe BTM n'apparaissait toujours pas dans les tickets de barge. Cause : le correctif (`086e4b8`) était resté sur la branche audit/2026-11-07, jamais fusionné. Envoyés avec lui : devis BTM en 3D, ticket usé qui se ferme, cartes du chat, clavier Android, correction des mots appris, restos les plus proches. Conflit dans `Composer.tsx` : gardé le bouton envoyer dans sa bulle (main) avec le correctif du clavier Android. Vérifié : types (sauf pdfjs, pas installé sur le PC), 684 tests (3 lents qui passent seuls).
 - Repas : « les tacos les plus proches de chez moi » montre maintenant les 5 restaurants les plus proches qui font des tacos (« Voir plus loin » pour les autres), au lieu de chaque tacos de chaque resto (`33ff18b`). On touche un resto pour voir ses plats ; le retour ramène à la liste. Les restos ne connaissaient que leur commune (23 sur 24 « Mamoudzou ») : le tri ne servait à rien. Nouveau fichier `src/lib/food/places.ts` pour le quartier de chaque resto, **encore vide** : aucune adresse fiable trouvée en ligne, à remplir avec l'utilisateur. La distance ne s'affiche que si le quartier est connu. Vérifié : types, lint, 7 tests. Pas essayé dans le navigateur.
