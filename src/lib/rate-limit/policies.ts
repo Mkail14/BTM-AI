@@ -34,6 +34,8 @@ export const RATE_LIMIT_POLICIES = {
   ],
   // Devis BTM enregistrés sur btm.yt depuis la conversation.
   btmDevis: [{ name: "btm-devis-hour", limit: 15, windowSeconds: 3_600 }],
+  // Fournisseurs d'un devis BTM (sans compte) et changement de fournisseur : on compare, sans spammer btm.yt.
+  btmFournisseurs: [{ name: "btm-fournisseurs-hour", limit: 60, windowSeconds: 3_600 }],
   // Mot de passe redemandé avant de modifier le Profil de l'entreprise : quelques essais, pas plus.
   profileUnlock: [{ name: "profile-unlock-15min", limit: 5, windowSeconds: 900 }],
   // Code de paiement (paiement à la voix) : de quoi se tromper deux ou trois fois, pas de quoi deviner.

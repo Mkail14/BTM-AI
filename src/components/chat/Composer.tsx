@@ -85,10 +85,27 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
     return () => observer.disconnect();
   }, [value]);
 
+  // Clavier Android : juste après l'envoi, il remet parfois le début du message dans le champ vidé
+  // (« Je veux un » après « Je veux un tacos près de chez moi »). Ce retour est ignoré pendant 1,5 s.
+  const sentRef = useRef<{ text: string; at: number } | null>(null);
+
   function submit() {
     if (!canSend) return;
-    onSend(value.trim());
+    const text = value.trim();
+    sentRef.current = { text, at: Date.now() };
+    onSend(text);
     setValue("");
+  }
+
+  function change(next: string) {
+    const sent = sentRef.current;
+    if (sent && Date.now() - sent.at < 1500 && next.trim() && sent.text.startsWith(next.trim())) {
+      if (textareaRef.current) textareaRef.current.value = "";
+      setValue("");
+      return;
+    }
+    sentRef.current = null;
+    setValue(next);
   }
 
   function handleKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -121,7 +138,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             ref={textareaRef}
             rows={1}
             value={value}
-            onChange={(e) => setValue(e.target.value)}
+            onChange={(e) => change(e.target.value)}
             onKeyDown={handleKeyDown}
             disabled={disabled}
             placeholder={disabled && disabledReason ? disabledReason : placeholder}

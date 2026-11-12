@@ -5,6 +5,7 @@ import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { markUnknownWords } from "@/lib/language/unknown-words";
 import { splitStableMarkdown } from "@/lib/chat/markdown-split";
+import { separateCardBlocks } from "@/lib/chat/block-fence";
 import { ATTESTATION_BLOCK, SIGNATURES_STEP } from "@/lib/attestation/intent";
 import { BARGE_BLOCK } from "@/lib/barge/intent";
 import { BTM_DEVIS_BLOCK } from "@/lib/btm/intent";
@@ -44,6 +45,21 @@ function textOf(node: ReactNode): string {
 export const CODE_EXAM_BLOCK = "creneaux-code";
 /** Bloc ```commande-repas``` : remplacé par la commande de repas (FoodOrder). */
 export const FOOD_BLOCK = "commande-repas";
+
+/** Blocs remplacés par une carte : remis sur leurs propres lignes s'ils sont collés à la phrase. */
+const CARD_BLOCKS = [
+  CODE_EXAM_BLOCK,
+  FOOD_BLOCK,
+  GROUP_BLOCK,
+  BARGE_BLOCK,
+  BTM_DEVIS_BLOCK,
+  ATTESTATION_BLOCK,
+  TRIP_BLOCK,
+  CYCLONE_BLOCK,
+  SONG_BLOCK,
+  READING_BLOCK,
+  COMBINED_BLOCK,
+];
 
 // Le HTML brut n'est pas interprété (pas de rehype-raw) : seul le Markdown est rendu.
 const components: Components = {
@@ -179,7 +195,7 @@ const MarkdownPart = memo(function MarkdownPart({ source }: { source: string }) 
  * rechargent pas quand Tamilya termine.
  */
 export const Markdown = memo(function Markdown({ text }: { text: string }) {
-  const source = groupYouTubeLines(markUnknownWords(stripEmoji(text)));
+  const source = groupYouTubeLines(markUnknownWords(separateCardBlocks(stripEmoji(text), CARD_BLOCKS)));
   const { head, tail } = splitStableMarkdown(source);
   return (
     <div className="markdown">

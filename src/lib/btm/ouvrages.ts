@@ -10,8 +10,8 @@ export const OUVRAGE_IDS = ["mur", "dalle", "fondation", "terrasse", "carrelage"
 export type OuvrageId = (typeof OUVRAGE_IDS)[number];
 
 export type Champ =
-  | { nom: string; label: string; type: "nombre"; unite: "m" | "cm" | "m²"; min: number; max: number; exemple: string; optionnel?: boolean; aide?: string }
-  | { nom: string; label: string; type: "choix"; options: { valeur: string; label: string }[]; defaut: string };
+  | { nom: string; label: string; question?: string; type: "nombre"; unite: "m" | "cm" | "m²"; min: number; max: number; exemple: string; optionnel?: boolean; aide?: string }
+  | { nom: string; label: string; question?: string; type: "choix"; options: { valeur: string; label: string }[]; defaut: string };
 
 export type Ouvrage = {
   id: OuvrageId;
@@ -29,9 +29,9 @@ export const OUVRAGES: readonly Ouvrage[] = [
     emoji: "🧱",
     accroche: "Parpaings, ciment, sable",
     champs: [
-      { nom: "longueur", label: "Longueur du mur", type: "nombre", unite: "m", min: 0.1, max: 200, exemple: "10" },
-      { nom: "hauteur", label: "Hauteur du mur", type: "nombre", unite: "m", min: 0.1, max: 20, exemple: "2,5" },
-      { nom: "ouvertures", label: "Portes et fenêtres", type: "nombre", unite: "m²", min: 0, max: 4000, exemple: "0", optionnel: true, aide: "0 s'il n'y en a pas" },
+      { nom: "longueur", label: "Longueur du mur", question: "Quelle longueur fait le mur ?", type: "nombre", unite: "m", min: 0.1, max: 200, exemple: "10" },
+      { nom: "hauteur", label: "Hauteur du mur", question: "Quelle hauteur fait le mur ?", type: "nombre", unite: "m", min: 0.1, max: 20, exemple: "2,5" },
+      { nom: "ouvertures", label: "Portes et fenêtres", question: "Combien de m² de portes et fenêtres ?", type: "nombre", unite: "m²", min: 0, max: 4000, exemple: "0", optionnel: true, aide: "0 s'il n'y en a pas" },
     ],
     parametres: { surfaceParpaing: 0.08, margeParpaing: 1.05, m2ParSacCiment: 2.5, m2ParM3Sable: 10 },
   },
@@ -41,9 +41,9 @@ export const OUVRAGES: readonly Ouvrage[] = [
     emoji: "⬛",
     accroche: "Béton, ferraillage, gravier",
     champs: [
-      { nom: "longueur", label: "Longueur", type: "nombre", unite: "m", min: 0.1, max: 200, exemple: "8" },
-      { nom: "largeur", label: "Largeur", type: "nombre", unite: "m", min: 0.1, max: 200, exemple: "6" },
-      { nom: "epaisseur", label: "Épaisseur", type: "nombre", unite: "cm", min: 5, max: 60, exemple: "12", aide: "Abri : 10 cm · garage : 12 à 15 cm" },
+      { nom: "longueur", label: "Longueur", question: "Quelle longueur ?", type: "nombre", unite: "m", min: 0.1, max: 200, exemple: "8" },
+      { nom: "largeur", label: "Largeur", question: "Quelle largeur ?", type: "nombre", unite: "m", min: 0.1, max: 200, exemple: "6" },
+      { nom: "epaisseur", label: "Épaisseur", question: "Quelle épaisseur ?", type: "nombre", unite: "cm", min: 5, max: 60, exemple: "12", aide: "Abri : 10 cm · garage : 12 à 15 cm" },
     ],
     parametres: { densiteBeton: 2.4, kgFerParM2: 5, tonnesGravierParM3: 0.8 },
   },
@@ -53,9 +53,9 @@ export const OUVRAGES: readonly Ouvrage[] = [
     emoji: "⛰️",
     accroche: "Semelles en béton armé",
     champs: [
-      { nom: "longueur", label: "Longueur des tranchées", type: "nombre", unite: "m", min: 0.1, max: 500, exemple: "30", aide: "Le tour de la maison et les murs intérieurs" },
-      { nom: "largeur", label: "Largeur de la tranchée", type: "nombre", unite: "m", min: 0.1, max: 5, exemple: "0,5" },
-      { nom: "profondeur", label: "Profondeur", type: "nombre", unite: "m", min: 0.1, max: 5, exemple: "0,6" },
+      { nom: "longueur", label: "Longueur des tranchées", question: "Quelle longueur de tranchées en tout ?", type: "nombre", unite: "m", min: 0.1, max: 500, exemple: "30", aide: "Le tour de la maison et les murs intérieurs" },
+      { nom: "largeur", label: "Largeur de la tranchée", question: "Quelle largeur fait la tranchée ?", type: "nombre", unite: "m", min: 0.1, max: 5, exemple: "0,5" },
+      { nom: "profondeur", label: "Profondeur", question: "Quelle profondeur ?", type: "nombre", unite: "m", min: 0.1, max: 5, exemple: "0,6" },
     ],
     parametres: { densiteBeton: 2.4, kgAcierParM3: 50 },
   },
@@ -65,9 +65,9 @@ export const OUVRAGES: readonly Ouvrage[] = [
     emoji: "☀️",
     accroche: "Dalle en béton lissé",
     champs: [
-      { nom: "longueur", label: "Longueur", type: "nombre", unite: "m", min: 0.1, max: 200, exemple: "6" },
-      { nom: "largeur", label: "Largeur", type: "nombre", unite: "m", min: 0.1, max: 200, exemple: "4" },
-      { nom: "epaisseur", label: "Épaisseur", type: "nombre", unite: "cm", min: 5, max: 60, exemple: "10", aide: "En général 10 cm" },
+      { nom: "longueur", label: "Longueur", question: "Quelle longueur ?", type: "nombre", unite: "m", min: 0.1, max: 200, exemple: "6" },
+      { nom: "largeur", label: "Largeur", question: "Quelle largeur ?", type: "nombre", unite: "m", min: 0.1, max: 200, exemple: "4" },
+      { nom: "epaisseur", label: "Épaisseur", question: "Quelle épaisseur ?", type: "nombre", unite: "cm", min: 5, max: 60, exemple: "10", aide: "En général 10 cm" },
     ],
     parametres: { densiteBeton: 2.4, kgFerParM2: 5, tonnesGravierParM3: 0.8 },
   },
@@ -77,11 +77,11 @@ export const OUVRAGES: readonly Ouvrage[] = [
     emoji: "🔲",
     accroche: "Carreaux, colle, joints",
     champs: [
-      { nom: "longueur", label: "Longueur de la pièce", type: "nombre", unite: "m", min: 0.1, max: 200, exemple: "5" },
-      { nom: "largeur", label: "Largeur de la pièce", type: "nombre", unite: "m", min: 0.1, max: 200, exemple: "4" },
+      { nom: "longueur", label: "Longueur de la pièce", question: "Quelle longueur fait la pièce ?", type: "nombre", unite: "m", min: 0.1, max: 200, exemple: "5" },
+      { nom: "largeur", label: "Largeur de la pièce", question: "Quelle largeur fait la pièce ?", type: "nombre", unite: "m", min: 0.1, max: 200, exemple: "4" },
       {
         nom: "format",
-        label: "Taille des carreaux",
+        label: "Taille des carreaux", question: "Quelle taille de carreaux ?",
         type: "choix",
         defaut: "60x60",
         options: [
