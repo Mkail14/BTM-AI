@@ -55,6 +55,31 @@ const summary = (all: Cyclone[], zone: CycloneZone) => {
   return `${first.name} à ${km(first.distanceKm)} de Mayotte${more}`;
 };
 
+/** Au-delà, les données gardées sont trop vieilles pour être montrées, même en attendant. */
+const KEEP_MAX_MS = 3 * 60 * 60 * 1000;
+const keepKey = (zone: CycloneZone) => `tamilya:cyclones:${zone}`;
+
+function readKept(zone: CycloneZone): { cyclones: Cyclone[]; updatedAt: string } | null {
+  try {
+    const raw = localStorage.getItem(keepKey(zone));
+    if (!raw) return null;
+    const kept = JSON.parse(raw) as { cyclones?: unknown; updatedAt?: unknown };
+    if (!Array.isArray(kept.cyclones) || typeof kept.updatedAt !== "string") return null;
+    const age = Date.now() - Date.parse(kept.updatedAt);
+    return age >= 0 && age < KEEP_MAX_MS ? { cyclones: kept.cyclones as Cyclone[], updatedAt: kept.updatedAt } : null;
+  } catch {
+    return null;
+  }
+}
+
+function keep(zone: CycloneZone, cyclones: Cyclone[], updatedAt: string) {
+  try {
+    localStorage.setItem(keepKey(zone), JSON.stringify({ cyclones, updatedAt }));
+  } catch {
+    // Stockage refusé (navigation privée) : on recharge simplement la prochaine fois.
+  }
+}
+
 /**
  * Cyclones dans la conversation (bloc ```carte-cyclones```) : une carte
  * compacte (« Système n°2 à 960 km de Mayotte »), qui ouvre le panneau : la
@@ -67,23 +92,30 @@ export function CycloneCard({ zone = "ocean-indien" }: { zone?: CycloneZone }) {
 
   useEffect(() => {
     let alive = true;
+    const show = (cyclones: Cyclone[], updatedAt: string) => {
+      setState({ status: "ok", cyclones, updatedAt });
+      // Écrit à l'instant par Tamilya (pas relu dans l'historique) : le panneau s'ouvre de lui-même.
+      if (autoOpen.current === null) {
+        autoOpen.current = performance.now() > FRESH_AFTER_MS;
+        if (autoOpen.current) setOpen(true);
+      }
+    };
     // En même temps que les données : le moteur de la carte et son dessin (déjà dans l'app Android).
     loadMapLibre().catch(() => {});
     import("./CycloneMap").catch(() => {});
+    // Dernières données gardées dans le téléphone : affichées tout de suite, puis remplacées par les nouvelles.
+    const kept = readKept(zone);
+    if (kept) show(kept.cyclones, kept.updatedAt);
     fetch(zone === "monde" ? "/api/cyclones?zone=monde" : "/api/cyclones")
       .then(async (res) => ((await res.json().catch(() => null)) as CyclonesResponse | null) ?? { error: "Carte des cyclones indisponible." })
       .then((body) => {
         if (!alive) return;
         if ("cyclones" in body) {
-          setState({ status: "ok", cyclones: body.cyclones, updatedAt: body.updatedAt });
-          // Écrit à l'instant par Tamilya (pas relu dans l'historique) : le panneau s'ouvre de lui-même.
-          if (autoOpen.current === null) {
-            autoOpen.current = performance.now() > FRESH_AFTER_MS;
-            if (autoOpen.current) setOpen(true);
-          }
-        } else setState({ status: "error", message: body.error });
+          show(body.cyclones, body.updatedAt);
+          keep(zone, body.cyclones, body.updatedAt);
+        } else if (!kept) setState({ status: "error", message: body.error });
       })
-      .catch(() => alive && setState({ status: "error", message: "Carte des cyclones indisponible : vérifie ta connexion." }));
+      .catch(() => alive && !kept && setState({ status: "error", message: "Carte des cyclones indisponible : vérifie ta connexion." }));
     return () => {
       alive = false;
     };
