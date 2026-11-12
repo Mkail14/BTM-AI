@@ -319,25 +319,27 @@ function BoughtTickets({ purchases, onReorder }: { purchases: BargeTicketBought[
   const totalCents = purchases.reduce((n, p) => n + p.totalCents, 0);
   const demo = purchases.some((p) => p.demo);
   const several = passes.length > 1;
+  // Alignés à gauche comme le texte de Tamilya ; 3 tickets sur une ligne plutôt qu'un seul orphelin.
+  const columns = !several ? "" : passes.length === 3 ? "grid grid-cols-3 items-start gap-3" : "grid grid-cols-2 items-start gap-3";
 
   return (
-    <div className="booking-step p-4">
-      <ul className={`m-0 list-none p-0 ${several ? "grid grid-cols-2 gap-3" : ""}`}>
+    <div className="booking-step">
+      <ul className={`m-0 list-none p-0 ${columns}`}>
         {passes.map((pass) => (
-          <li key={pass.code} className="m-0 list-none p-0 text-center">
+          <li key={pass.code} className={`m-0 list-none p-0 text-left ${several ? "" : "max-w-[260px]"}`}>
             <button
               type="button"
               onClick={(e) => tap(pass.code, e.timeStamp)}
               aria-label={`Ticket ${pass.title}, ${scans[pass.code] ? "déjà utilisé" : "toucher pour l'agrandir, deux fois pour le scanner"}`}
               style={{ aspectRatio: scans[pass.code] ? "540 / 510" : "540 / 860" }}
-              className={`relative mx-auto block w-full cursor-zoom-in overflow-hidden drop-shadow-md transition select-none active:scale-[0.98] [container-type:inline-size] ${several ? "" : "max-w-[260px]"}`}
+              className="relative block w-full cursor-zoom-in overflow-hidden drop-shadow-md transition select-none active:scale-[0.98] [container-type:inline-size]"
             >
               {/* Ticket utilisé : le bas arraché ne garde pas sa place vide. */}
               <span className="absolute inset-x-0 top-0 block aspect-[540/860]">
                 <PassCard pass={pass} scannedAt={scans[pass.code] ?? null} />
               </span>
             </button>
-            <p className="mt-2 font-mono text-xs font-bold tracking-widest">{pass.code}</p>
+            <p className="mt-1.5 font-mono text-xs font-bold tracking-widest">{pass.code}</p>
           </li>
         ))}
       </ul>
@@ -354,12 +356,9 @@ function BoughtTickets({ purchases, onReorder }: { purchases: BargeTicketBought[
           }}
         />
       ) : null}
-      <p className="mt-2 text-center text-xs text-fg-muted">
+      <p className="mt-3 text-xs text-fg-muted">
         {passes.length} ticket{several ? "s" : ""} · <span className="tabular-nums">{formatEuros(totalCents)}</span>
-        {demo ? " · démo" : ""}
-      </p>
-      <p className="mt-2 text-center text-xs text-fg-muted">
-        Montre le QR code à l&apos;embarquement, à Mamoudzou. Une fois scanné, le ticket ne sert plus.
+        {demo ? " · démo" : ""} · Montre le QR code à l&apos;embarquement, à Mamoudzou. Une fois scanné, le ticket ne sert plus.
         {demo ? " Démo : touche deux fois un ticket pour le scanner." : ""}
       </p>
     </div>
@@ -497,14 +496,14 @@ export function BargeTickets({ query = "" }: { query?: string }) {
   if (!loaded || (bought.length && !reorder)) return shell(tickets, true);
   if (error) return shell(
     <>
-      {tickets}
+      {tickets ? <div className="border-b border-border p-4">{tickets}</div> : null}
       <p className="p-4 text-fg-muted">{error}</p>
     </>,
   );
   if (!data) {
     return shell(
       <>
-        {tickets}
+        {tickets ? <div className="border-b border-border p-4">{tickets}</div> : null}
         <div aria-label="Chargement des tickets" className="space-y-3 p-4">
           <div className="h-10 animate-pulse rounded-xl bg-bg-subtle" />
           <div className="h-14 animate-pulse rounded-xl bg-bg-subtle" />
@@ -516,7 +515,7 @@ export function BargeTickets({ query = "" }: { query?: string }) {
   const extra = data.tickets.filter((t) => !cart[t.id]);
   return shell(
     <>
-      {tickets ? <div className="border-b border-border">{tickets}</div> : null}
+      {tickets ? <div className="border-b border-border p-4">{tickets}</div> : null}
       {/* Trajet, en une ligne */}
       <div className="flex items-center gap-3 px-4 pt-4">
         <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-bg-subtle text-xl">
