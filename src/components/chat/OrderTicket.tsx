@@ -34,8 +34,8 @@ const isFinder = (row: number, col: number, size: number) =>
 const isAlignment = (row: number, col: number, size: number) => Math.abs(row - (size - 7)) <= 2 && Math.abs(col - (size - 7)) <= 2;
 
 /**
- * QR classique, noir et carré (comme sur les cartes imprimées), avec « BTM »
- * au centre. Même place laissée au logo que StyledQr : il reste lisible.
+ * QR classique, noir et carré (comme sur les cartes imprimées), avec le logo
+ * Groupe BTM (public/brand/groupe-btm-encre.png) au centre. Même place laissée au logo que StyledQr : il reste lisible.
  */
 export function PlainQr({ text, label }: { text: string; label: string }) {
   const matrix = useMemo(() => buildMatrix(text), [text]);
@@ -62,18 +62,14 @@ export function PlainQr({ text, label }: { text: string; label: string }) {
       <rect width={view} height={view} fill="#fff" />
       <path d={path} fill="#111" transform={`translate(${quiet} ${quiet})`} />
       <rect x={center - badge / 2} y={center - badge / 2} width={badge} height={badge} fill="#fff" stroke="#111" strokeWidth={0.7} />
-      <text
-        x={center}
-        y={center}
-        textAnchor="middle"
-        dominantBaseline="central"
-        fill="#111"
-        fontSize={badge * 0.4}
-        fontWeight={900}
-        fontFamily="var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif"
-      >
-        BTM
-      </text>
+      <image
+        href="/brand/groupe-btm-encre.png"
+        x={center - (badge * 0.84) / 2}
+        y={center - (badge * 0.84) / 2}
+        width={badge * 0.84}
+        height={badge * 0.84}
+        preserveAspectRatio="xMidYMid meet"
+      />
     </svg>
   );
 }

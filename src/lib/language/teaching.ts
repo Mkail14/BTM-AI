@@ -62,7 +62,9 @@ export function parseTeaching(message: string): WordList | null {
 }
 
 // « [[mot]] » : mot que Tamilya ne connaissait pas (mode maître), le message suivant en donne souvent la traduction.
-const TEACHING_HINT = /shimaor|maore|mahorais|se dit|on dit|veut dire|signifie|s[' ]?[ée]crit|tradui|\[\[/i;
+// « avec un accent », « corrige », « c'est faux » : il corrige un mot déjà retenu, souvent son français.
+const TEACHING_HINT =
+  /shimaor|maore|mahorais|se dit|on dit|veut dire|signifie|s[' ]?[ée]crit|tradui|accent|corrig|faux|erreur|tromp|orthograph|\[\[/i;
 
 /**
  * Leçon en conversation (« chez nous, bonjour se dit jéjé », « non, on dit
@@ -77,6 +79,7 @@ export const TEACHING_SYSTEM_PROMPT = [
   "Un locuteur du shimaoré (langue de Mayotte), membre de GROUPE BTM, apprend sa langue à Tamilya en parlant avec elle en français, souvent à la voix (la dictée peut écrire le shimaoré de façon approximative).",
   "À partir de son dernier message, et de la dernière réplique de Tamilya pour le contexte, relève chaque mot ou phrase qu'il enseigne ou corrige : son sens en français et sa forme en shimaoré, telle qu'il l'écrit.",
   "Exemples : « chez nous bonjour c'est jéjé » → bonjour / jéjé ; Tamilya demande « comment dit-on maison ? » et il répond « nyumba » → maison / nyumba ; « non, merci se dit marahaba » → merci / marahaba ; « ça s'écrit avec un y : nyumba » → reprends le mot dont il parle avec la bonne orthographe ; Tamilya redit « maison se dit nyumba, c'est bien ça ? » et il répond « oui » → maison / nyumba.",
+  "Il peut aussi corriger le français d'un mot déjà appris : Tamilya a retenu « ya havih » = « il est ou » et il dit « non, c'est où avec un accent » → il est où ? / ya havih. Rends alors la paire entière, français corrigé et shimaoré inchangé.",
   "Tamilya parle shimaoré avec lui et écrit en français entre doubles crochets les mots qu'elle ne connaît pas (ex. [[marché]]) : s'il en donne la traduction, même seule (« bazari »), relève-la pour ce mot.",
   "Ne relève rien que Tamilya a proposé sans qu'il le confirme, et rien qu'il ne donne pas lui-même. N'invente aucune traduction.",
   "Réponds UNIQUEMENT par un tableau JSON, sans texte autour : [{\"french\":\"…\",\"shimaore\":\"…\"}], 80 caractères maximum de chaque côté. Rien d'enseigné : [].",
@@ -112,6 +115,20 @@ export function parseTaughtWords(output: string): TaughtWord[] {
     })
     .filter((line) => !/[\n;]/.test(line));
   return parseWordList(lines.join("\n")).words.filter((w) => !isCopiedFrench(w.french, w.shimaore));
+}
+
+/**
+ * Forme de comparaison du shimaoré (« Ya havih ? » = « ya havih ») : une leçon
+ * en conversation remplace l'ancienne traduction du même shimaoré, pour qu'une
+ * correction du français (« ou » → « où ») ne laisse pas l'ancienne en place.
+ */
+export function shimaoreEntryKey(shimaore: string): string {
+  return shimaore
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
 }
 
 const wordsOf = (text: string) =>

@@ -4,7 +4,7 @@ import { describe, it } from "node:test";
 import { EMPTY_BRAIN, lexiconFor, readVariants } from "@/lib/ai/brain";
 import { selectKnowledge } from "@/lib/ai/knowledge";
 import { extractMemories, isMemoryAllowed, parseMemoryUpdates, shouldLearnFrom } from "@/lib/ai/memory";
-import { mayBeTeaching, parseTaughtWords, parseTeaching, parseWordList } from "@/lib/language/teaching";
+import { mayBeTeaching, parseTaughtWords, parseTeaching, parseWordList, shimaoreEntryKey } from "@/lib/language/teaching";
 import { speakableText } from "@/lib/chat/voice";
 import {
   enforceShimaore,
@@ -330,6 +330,16 @@ describe("traduction d'un [[mot]] par le maître", () => {
 describe("leçon de shimaoré à la voix", () => {
   it("un simple « oui » confirme le mot que Tamilya vient de répéter", () => {
     assert.equal(mayBeTeaching("oui", "Maison se dit nyumba, c'est bien ça ?"), true);
+  });
+
+  it("repère la correction du français d'un mot déjà retenu", () => {
+    assert.equal(mayBeTeaching("non c'est où avec un accent", "D'accord, je retiens : ya havih, il est ou."), true);
+    assert.equal(mayBeTeaching("corrige, c'est pas ça", null), true);
+  });
+
+  it("le même shimaoré se reconnaît malgré majuscules et ponctuation", () => {
+    assert.equal(shimaoreEntryKey("Ya havih ?"), shimaoreEntryKey("ya havih"));
+    assert.notEqual(shimaoreEntryKey("ya havih"), shimaoreEntryKey("havi"));
   });
 
   it("le mot le plus récent remplace l'ancien pour un même mot français", () => {
