@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `0eb1713` (2026-11-10)**
+**Dernier commit noté : `918021d` (2026-11-12)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -101,6 +101,9 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+### 2026-11-12
+- **Billet de barge : la carte bleue** (`918021d`). Demande de l'utilisateur, photo à l'appui : le billet payé doit ressembler exactement à la carte « Barge seule » du Département, seul changement : « BTM » au centre du QR. Maintenant : carte bleue à bord blanc, grands hippocampes, QR noir carré (`PlainQr`, même place au logo que `StyledQr`), cadre blanc « BARGE SEULE » (ou le véhicule, « X2 » si plusieurs), « DÉPARTEMENT », blason, « DE MAYOTTE », trait jaune. Code, prix et consigne sous la carte. Vérifié : types, lint, aperçu image. Pas encore vu sur le site ni le QR scanné. Nom et blason du Département : accord écrit à obtenir avant toute ouverture au public (démo admin seulement).
 
 ### 2026-11-10
 - **Hapandzo trouvé, et « en vocal » ouvre toujours le globe** (`0eb1713`). Essai de l'utilisateur sur la Pad 6 : « de Hapandzo à Trévani » répondait « Voici le trajet » puis « Je n'ai pas trouvé ce lieu ». Hapandzo (hameau entre Kahani et Coconi, absent d'OpenStreetMap et de la liste Insee) ajouté à la liste des villages à -12.8353, 45.1327 (code Google Maps de la mosquée, 547M+V2V) ; Iloni (nom Insee) mène à Ironi Bé. Comparé aux 72 villages Insee 2017 : tous déjà présents. Autre remarque : « fais-moi un journal en vocal » arrivait écrit, car seuls quelques verbes (dis, lis, raconte…) ouvraient le vocal ; maintenant toute demande avec « en vocal », « à voix haute », « un vocal », « message vocal » ouvre le globe, sauf une question sur le vocal lui-même (« comment marche le vocal ? »). Vérifié : types, 653 tests, recherche de Hapandzo et trajet (27 km, environ 40 min). Pas encore vu sur la tablette. Reste à corriger : Tamilya annonce « Voici le trajet » même quand la carte échoue.
