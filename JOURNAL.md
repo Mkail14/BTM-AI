@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `086e4b8` (2026-11-12, branche audit/2026-11-07)**
+**Dernier commit noté : `8819b97` (2026-11-12, branche audit/2026-11-07)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -104,6 +104,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-12
+- **Ticket de barge usé : toucher le flou le ferme** (`8819b97`). Remarque de l'utilisateur : sur téléphone, un ticket usé affiché en grand ne se fermait pas en touchant le flou. Cause : le bas arraché laissait une zone vide qui comptait encore comme le ticket. Maintenant le cadre du ticket usé est raccourci, et toucher le texte « Ticket utilisé » ferme aussi. Le commit inclut des retouches déjà en attente (tickets sans cadre, ticket usé raccourci dans la liste). Vérifié : types. Pas testé sur téléphone.
 - Tickets de barge : le logo Groupe BTM remplace le mot « BTM » au centre du QR code ; même carré blanc, donc le QR reste lisible (`086e4b8`).
 - **Devis BTM refait : une question à la fois, 3D, fournisseurs et code actif** (`54fc044`, branche `audit/2026-11-07`). Demande de l’utilisateur : poser les questions une par une, montrer l’ouvrage en 3D en temps réel, et après « Voir le devis » proposer la liste des fournisseurs ; toucher un fournisseur change le prix en direct et active le code de retrait. Maintenant : questions une par une (réponses en pastilles pour y revenir, mesures déjà dites dans le message sautées), rendu 3D qui suit les chiffres (`BtmScene3D.tsx`), puis devis + fournisseurs de btm.yt (route `/api/btm-devis/fournisseurs`, sans compte car ces prix sont déjà publics sur btm.yt) ; toucher un fournisseur : total animé à son prix, économie face au comptoir, code enregistré pour lui dans « Mes projets » de btm.yt ; changer de fournisseur garde le même code (PATCH). Côté btm.yt : actions `fournisseurs` et `choisir` ajoutées à la fonction `devis-tamilya` (commit à part dans le dépôt btm.yt), **à déployer** avant que ça marche en ligne. Vérifié : types, lint, 667 tests, captures dans Chrome avec fournisseurs simulés. Pas encore sur main.
 - **Tout mis en ligne : la branche de travail fusionnée dans main** (`74b14bb`). Remarque de l'utilisateur : l'APK (qui affiche tamilya.yt) ne montrait pas le nouveau ticket ni les autres nouveautés, restées sur `audit/2026-11-07`. Demande : « met tout sur main ». Fusion faite dans un dossier à part (git worktree) pour ne pas gêner les autres sessions. 3 conflits réglés en gardant les deux côtés : route du chat (interrupteur « cyclone » de main + carte du monde de la branche), menu (interrupteur « documents » de main + `prefetch={false}`), journal. Vérifié : 682 tests, types (seul `pdfjs-dist`, déjà dans main, manquait sur le poste). Images du ticket servies par tamilya.yt après la mise en ligne.
