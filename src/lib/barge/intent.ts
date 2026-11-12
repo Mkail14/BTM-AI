@@ -4,7 +4,7 @@
  * Une simple question (« la barge part à quelle heure ? ») n'ouvre rien.
  */
 
-const normalize = (text: string) =>
+export const normalize = (text: string) =>
   ` ${text
     .toLowerCase()
     .normalize("NFD")

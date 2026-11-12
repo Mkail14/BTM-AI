@@ -53,6 +53,22 @@ export function bargeDemoText(o: { what: string; totalCents: number; code: strin
   return `Billet de démonstration enregistré : rien n'est payé et aucun vrai billet n'est émis. ${o.what}, ${BARGE_ROUTE.from} → ${BARGE_ROUTE.to}, ${formatEuros(o.totalCents)}, sans date : valable jusqu'au scan. Code de démonstration : ${o.code}.`;
 }
 
+/**
+ * Confirmations recopiées par Tamilya depuis la conversation (« Billet de démonstration
+ * enregistré… Code… ») : seul le paiement avec le code les écrit, on les retire de sa réponse,
+ * ainsi que les lignes « • choix » ajoutées par le serveur et reprises telles quelles.
+ */
+const FAKE_RECEIPT = /d[ée]monstration enregistr|code de d[ée]monstration|rien n'est pay[ée]|aucun vrai billet|aucun restaurant ne la re[çc]oit|valable jusqu'au scan|\bBTM-[A-Z0-9]{4}/i;
+
+export function dropFakeReceipts(text: string): string {
+  return text
+    .split(/(?<=[.!?])\s+|\n+/)
+    .filter((part) => !FAKE_RECEIPT.test(part) && !/^\s*•/.test(part))
+    .join(" ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 /** Commande de démonstration : rien n'est débité, aucun restaurant ne la reçoit. */
 export function foodDemoText(o: { item: string; restaurant: string; totalCents: number; line: string; commune: string; code: string }): string {
   return `Commande de démonstration enregistrée : rien n'est payé et aucun restaurant ne la reçoit. ${o.item} chez ${o.restaurant}, ${formatEuros(o.totalCents)}, pour ${o.line}, ${o.commune}. Code de démonstration : ${o.code}.`;

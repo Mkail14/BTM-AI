@@ -4,6 +4,7 @@ import { describe, it } from "node:test";
 import { loadServerKey, MESH_INFO, openRequest, readDevicePublicKey, sealReply, signedText, testing, verifySignature } from "@/lib/mesh/crypto";
 import { isStale, MESH_MAX_AGE_MS, payloadSchema, requestEnvelopeSchema } from "@/lib/mesh/envelope";
 import { bargeOffer, foodOffers, MAX_FOOD_OFFERS } from "@/lib/mesh/offers";
+import { dropFakeReceipts } from "@/lib/mesh/pay";
 
 const spki = (key: KeyObject) => (key.export({ format: "der", type: "spki" }) as Buffer).toString("base64");
 
@@ -90,6 +91,27 @@ describe("Tamilya Connect : choix proposés sans internet", () => {
     assert.match(today!.label, /Dzaoudzi : 2× Piéton · 2\s€/);
     assert.match(bargeOffer("un ticket de barge pour demain avec ma voiture")!.label, /Dzaoudzi : 1× Voiture · 15\s€/);
     assert.equal(bargeOffer("La barge part à quelle heure ?"), null);
+  });
+
+  it("billet de barge : « un autre », « vas-y » rouvrent le tableau juste après une demande", () => {
+    const earlier = ["Yo je veux un ticket de barge"];
+    for (const again of ["Un zutre", "un autre", "Vas-y", "Je vois pas de payer", "encore"]) {
+      assert.match(bargeOffer(again, earlier)?.label ?? "", /Dzaoudzi : 1× Piéton/, again);
+    }
+    assert.match(bargeOffer("encore", ["vas-y", "un autre", "2 tickets de barge"])!.label, /2× Piéton/);
+    // Sans demande de barge juste avant, ou message long : rien.
+    assert.equal(bargeOffer("un autre", ["je veux une pizza"]), null);
+    assert.equal(bargeOffer("un autre", []), null);
+    assert.equal(bargeOffer("raconte-moi une autre histoire sur la mer et les baleines de Mayotte", earlier), null);
+    // Question sur la barge : jamais d'achat, même juste après.
+    assert.equal(bargeOffer("encore une question : la barge part à quelle heure ?", earlier), null);
+  });
+
+  it("Tamilya ne recopie pas une confirmation de paiement", () => {
+    const copied =
+      "Tu peux ajuster la quantité directement sur le bouton et toucher « Payer ».   • Barge Mamoudzou → Dzaoudzi : 1× Piéton · 1 €  Billet de démonstration enregistré : rien n'est payé et aucun vrai billet n'est émis. 1× Piéton, Mamoudzou → Dzaoudzi, 1 €, sans date : valable jusqu'au scan. Code de démonstration : BTM-P83V.";
+    assert.equal(dropFakeReceipts(copied), "Tu peux ajuster la quantité directement sur le bouton et toucher « Payer ».");
+    assert.equal(dropFakeReceipts("Salut ! La barge part toutes les 30 minutes."), "Salut ! La barge part toutes les 30 minutes.");
   });
 
   it("repas : quelques plats précis, rien pour une envie vague", () => {

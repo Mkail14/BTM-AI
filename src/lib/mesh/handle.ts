@@ -25,7 +25,7 @@ import { usesDemoWallet } from "@/lib/wallet/demo";
 import { describePinWait, verifyPin } from "@/lib/wallet/pin";
 import type { MeshAction, MeshCartLine, MeshPayload, MeshReplyBody } from "./envelope";
 import { bargeOffer, foodOffers, type Offer } from "./offers";
-import { ALREADY_USED, bargeDemoText, foodDemoText, settleAction, type PreparedAction } from "./pay";
+import { ALREADY_USED, bargeDemoText, dropFakeReceipts, foodDemoText, settleAction, type PreparedAction } from "./pay";
 import { createAction, readAction, spendAction, type MeshDevice, type StoredAction } from "./store";
 
 /** Ce que fait le serveur d'un message de Tamilya Connect, une fois vérifié et déchiffré. */
@@ -39,10 +39,13 @@ const INSTRUCTIONS = `Ta façon de répondre avec Tamilya Connect (prime sur les
 - Billet de barge : seulement si un tableau de barge figure dans les choix affichés plus bas, dis-lui d'ajuster le nombre de tickets si besoin, puis de toucher « Payer ». S'il n'y en a pas, n'annonce aucun tableau : demande-lui de redire sa demande avec le mot « ticket de barge ».
 - Repas : si des plats sont possibles, ils s'affichent en boutons sous ta réponse, avec leur prix. Dis-lui de toucher celui qui lui va.
 - N'invente aucun prix, horaire ni plat.
+- Ne dis jamais qu'un billet ou une commande est payé, enregistré ou validé, et ne donne jamais de code : seul le paiement avec le code à 4 chiffres le fait, et sa confirmation arrive toute seule.
 - Si elle demande quelque chose qui demande internet (vidéo, carte, page web), dis-lui que ce sera possible quand elle aura retrouvé internet.`;
 
 const FAILED = "Tamilya n'a pas pu répondre pour l'instant. Réessaie dans un moment.";
 const NO_ACCOUNT = "Ce compte n'existe plus.";
+/** Réponse vidée par dropFakeReceipts alors que des choix s'affichent. */
+const OFFERS_FALLBACK = "C'est juste en dessous : ajuste si besoin, puis touche « Payer ».";
 const reply = (text: string, extra: Partial<MeshReplyBody> = {}): MeshReplyBody => ({ status: "ok", text, actions: [], ...extra });
 const failure = (text: string): MeshReplyBody => ({ status: "error", text, actions: [] });
 
@@ -66,7 +69,7 @@ async function offersFor(admin: SupabaseClient, user: SessionUser, text: string,
   const offers: Offer[] = [];
   let note: string | null = null;
   if (await canBuyBargeTickets(user)) {
-    const barge = bargeOffer(text);
+    const barge = bargeOffer(text, earlier);
     if (barge) offers.push(barge);
   }
   if (await canOrderFood(user)) {
@@ -141,8 +144,9 @@ async function chat(admin: SupabaseClient, user: SessionUser, payload: ChatPaylo
     .replace(/\*\*(.+?)\*\*/g, "$1")
     .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")
     .replace(/^#+\s*/gm, "")
-    .trim()
-    .slice(0, 1500);
+    .trim();
+  text = dropFakeReceipts(text).slice(0, 1500);
+  if (!text && choices.offers.length) text = OFFERS_FALLBACK;
   if (!text) return failure(FAILED);
 
   const conversationId = known ?? (await createConversation(admin, user.id, quickTitle(payload.text))).id;

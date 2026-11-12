@@ -1,5 +1,5 @@
 import { BARGE_ROUTE, describeBargeLines, priceBargeOrder } from "@/lib/barge/catalog";
-import { detectBargeTicket, parseBargeRequest } from "@/lib/barge/intent";
+import { detectBargeTicket, normalize, parseBargeRequest } from "@/lib/barge/intent";
 import { FOOD_CATALOG, priceOrder, type FoodRestaurant } from "@/lib/food/catalog";
 import { detectFoodOrder } from "@/lib/food/intent";
 import { dishKindOf, matchFoodQuery } from "@/lib/food/match";
@@ -14,8 +14,35 @@ export type Offer = { kind: "barge" | "food"; label: string; data: Record<string
 
 export const MAX_FOOD_OFFERS = 3;
 
-/** Billet de barge demandé : sans date, valable jusqu'à son scan. */
-export function bargeOffer(message: string): Offer | null {
+/**
+ * Relance courte juste après une demande de barge (« un autre », « encore », « vas-y »,
+ * « je vois pas payer ») : le tableau revient sans redire « ticket de barge », comme sur le site.
+ */
+const FOLLOW_UP = /\b(?:autre|autres|zutre|otre|aute|encore|nouveau|nouvelle|pareil|meme chose|de plus|re|vas y|vasy|go|ok|oui|d accord|payer|paye|bouton|tableau)\b/;
+const FOLLOW_UP_WORDS = 8;
+/** Demandes précédentes regardées (les plus récentes d'abord). */
+const FOLLOW_UP_LOOKBACK = 3;
+
+function isFollowUp(message: string): boolean {
+  const text = normalize(message);
+  return FOLLOW_UP.test(text) && text.trim().split(" ").length <= FOLLOW_UP_WORDS;
+}
+
+/**
+ * Billet de barge demandé : sans date, valable jusqu'à son scan.
+ * earlier : messages précédents de la personne, du plus récent au plus ancien.
+ */
+export function bargeOffer(message: string, earlier: readonly string[] = []): Offer | null {
+  const direct = offerFor(message);
+  if (direct || detectBargeTicket(message) || !isFollowUp(message)) return direct;
+  for (const previous of earlier.slice(0, FOLLOW_UP_LOOKBACK)) {
+    const again = offerFor(previous);
+    if (again) return again;
+  }
+  return null;
+}
+
+function offerFor(message: string): Offer | null {
   if (detectBargeTicket(message) !== "buy") return null;
   const cart = Object.entries(parseBargeRequest(message)).map(([ticketId, quantity]) => ({ ticketId, quantity }));
   const order = priceBargeOrder(cart);
