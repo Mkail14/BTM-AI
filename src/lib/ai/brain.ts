@@ -11,7 +11,7 @@ import { translationTable } from "@/lib/language/unknown-words";
  * Indépendant du modèle d'IA : changer de fournisseur ne change pas Tamilya.
  * Sans clé secrète ou en cas d'erreur, les textes par défaut du code s'appliquent.
  */
-export type AwaBrain = {
+export type TamilyaBrain = {
   name: string | null;
   identity: string | null;
   rules: string | null;
@@ -25,7 +25,7 @@ export type AwaBrain = {
 
 export type GrammarRule = { title: string; rule: string; examples: string };
 
-export const EMPTY_BRAIN: AwaBrain = { name: null, identity: null, rules: null, knowledge: [], lexicon: [], words: [], grammar: [] };
+export const EMPTY_BRAIN: TamilyaBrain = { name: null, identity: null, rules: null, knowledge: [], lexicon: [], words: [], grammar: [] };
 
 /** Lu à part : une table absente ne prive pas Tamilya du reste de son cerveau. */
 async function loadWords(admin: NonNullable<ReturnType<typeof getSupabaseAdminClient>>): Promise<WordEntry[]> {
@@ -38,7 +38,7 @@ async function loadWords(admin: NonNullable<ReturnType<typeof getSupabaseAdminCl
     .order("created_at", { ascending: false })
     .limit(5000);
   if (error) {
-    console.error("[awa] Dictionnaire illisible (migration awa_words appliquée ?)", error);
+    console.error("[tamilya] Dictionnaire illisible (migration awa_words appliquée ?)", error);
     return [];
   }
   return (data ?? []).reverse().map((row) => ({ french: row.french, shimaore: row.shimaore, category: row.category ?? undefined }));
@@ -66,7 +66,7 @@ async function loadGrammar(admin: NonNullable<ReturnType<typeof getSupabaseAdmin
     .order("created_at")
     .limit(100);
   if (error) {
-    console.error("[awa] Grammaire illisible (migration 20261125000000_apprentissage_shimaore.sql appliquée ?)", error);
+    console.error("[tamilya] Grammaire illisible (migration 20261125000000_apprentissage_shimaore.sql appliquée ?)", error);
     return [];
   }
   return (data ?? []).map((row) => ({ title: row.title, rule: row.rule, examples: row.examples ?? "" }));
@@ -88,33 +88,33 @@ async function loadLexicon(admin: NonNullable<ReturnType<typeof getSupabaseAdmin
 
 type LexiconRow = { french: string; shimaore: string; context: string | null; validated_by: string; validated_at: string; variants?: unknown };
 
-// Court : invalidateAwaBrain() ne vide que le module qui l'appelle (les actions
+// Court : invalidateTamilyaBrain() ne vide que le module qui l'appelle (les actions
 // de l'admin), pas celui des routes du chat ni les autres instances. Une leçon
 // ou une correction doit servir dès le message suivant. Le dictionnaire n'a pas
 // de date de modification (awa_words) : impossible de savoir sans tout relire
 // s'il a changé, d'où la relecture toutes les 5 s. Quand rien n'a changé, le
 // même cerveau est gardé : ses mots déjà préparés (words.ts) resservent.
 const CACHE_MS = 5_000;
-let cache: { brain: AwaBrain; expiresAt: number; fingerprint: string } | null = null;
+let cache: { brain: TamilyaBrain; expiresAt: number; fingerprint: string } | null = null;
 /** Lecture en cours : les messages arrivés en même temps l'attendent au lieu de tout relire. */
-let loading: Promise<AwaBrain> | null = null;
-/** Change à chaque invalidateAwaBrain() : une lecture commencée avant n'est pas gardée. */
+let loading: Promise<TamilyaBrain> | null = null;
+/** Change à chaque invalidateTamilyaBrain() : une lecture commencée avant n'est pas gardée. */
 let generation = 0;
 
 /**
  * Cerveau lu il y a moins d'une minute : servi tout de suite, relu en même temps
  * pour le message suivant. La relecture complète (milliers de mots) retardait
  * chaque réponse, surtout à l'oral où deux messages sont espacés de plus de 5 s.
- * Après une leçon ou une correction, invalidateAwaBrain() vide le cache : la
+ * Après une leçon ou une correction, invalidateTamilyaBrain() vide le cache : la
  * relecture est alors attendue, la leçon sert dès le message suivant.
  */
 const STALE_MS = 60_000;
 
-export function loadAwaBrain(): Promise<AwaBrain> {
+export function loadTamilyaBrain(): Promise<TamilyaBrain> {
   const now = Date.now();
   if (cache && cache.expiresAt > now) return Promise.resolve(cache.brain);
   if (!loading) {
-    const task = readAwaBrain(generation).finally(() => {
+    const task = readTamilyaBrain(generation).finally(() => {
       if (loading === task) loading = null;
     });
     loading = task;
@@ -123,7 +123,7 @@ export function loadAwaBrain(): Promise<AwaBrain> {
   return loading;
 }
 
-async function readAwaBrain(started: number): Promise<AwaBrain> {
+async function readTamilyaBrain(started: number): Promise<TamilyaBrain> {
   const admin = getSupabaseAdminClient();
   if (!admin) return EMPTY_BRAIN;
 
@@ -140,7 +140,7 @@ async function readAwaBrain(started: number): Promise<AwaBrain> {
     if (knowledge.error) throw knowledge.error;
     if (lexicon.error) throw lexicon.error;
 
-    const brain: AwaBrain = {
+    const brain: TamilyaBrain = {
       name: settings.data?.name?.trim() || null,
       identity: settings.data?.identity?.trim() || null,
       rules: settings.data?.rules?.trim() || null,
@@ -162,7 +162,7 @@ async function readAwaBrain(started: number): Promise<AwaBrain> {
     if (started === generation) cache = { brain: kept, expiresAt: Date.now() + CACHE_MS, fingerprint };
     return kept;
   } catch (error) {
-    console.error("[awa] Cerveau indisponible (migration appliquée ?), textes par défaut utilisés", error);
+    console.error("[tamilya] Cerveau indisponible (migration appliquée ?), textes par défaut utilisés", error);
     // Évite de réessayer à chaque message quand les tables n'existent pas encore.
     if (started === generation) cache = { brain: EMPTY_BRAIN, expiresAt: Date.now() + CACHE_MS, fingerprint: "" };
     return EMPTY_BRAIN;
@@ -170,14 +170,14 @@ async function readAwaBrain(started: number): Promise<AwaBrain> {
 }
 
 /** Après une modification depuis /admin : relecture immédiate sur cette instance (les autres suivent sous 5 s). */
-export function invalidateAwaBrain() {
+export function invalidateTamilyaBrain() {
   cache = null;
   loading = null;
   generation++;
 }
 
 /** Fiches utiles pour ce message, dans la limite du budget de caractères. */
-export function knowledgeFor(brain: AwaBrain, message: string, maxChars = 6000): KnowledgeEntry[] {
+export function knowledgeFor(brain: TamilyaBrain, message: string, maxChars = 6000): KnowledgeEntry[] {
   return selectKnowledge(brain.knowledge, message, maxChars);
 }
 
@@ -198,7 +198,7 @@ const LEXICON_IN_PROMPT = 80;
  * Avec le message, et beaucoup d'expressions : celles qui y apparaissent
  * d'abord, puis les plus récemment validées (« C'est juste », corrections).
  */
-export function lexiconFor(brain: AwaBrain, personality: PersonalityId, message?: string): ValidatedExample[] | undefined {
+export function lexiconFor(brain: TamilyaBrain, personality: PersonalityId, message?: string): ValidatedExample[] | undefined {
   if (brain.lexicon.length === 0) return undefined;
   let chosen = brain.lexicon;
   if (message !== undefined && chosen.length > LEXICON_IN_PROMPT) {
@@ -209,12 +209,12 @@ export function lexiconFor(brain: AwaBrain, personality: PersonalityId, message?
 }
 
 /** Mots du dictionnaire utiles pour ce message ; avec son maître, Tamilya parle shimaoré et reçoit tout son vocabulaire. */
-export function wordsFor(brain: AwaBrain, message: string, speaksShimaore = false): WordEntry[] {
+export function wordsFor(brain: TamilyaBrain, message: string, speaksShimaore = false): WordEntry[] {
   return selectWords(brain.words, message, { topic: speaksShimaore });
 }
 
 /** Lecture du message mot à mot avec tout le vocabulaire (mots et expressions validés). */
-export function glossFor(brain: AwaBrain, message: string): Gloss {
+export function glossFor(brain: TamilyaBrain, message: string): Gloss {
   return glossMessage(vocabularyOf(brain), message);
 }
 
@@ -222,17 +222,17 @@ export function glossFor(brain: AwaBrain, message: string): Gloss {
  * Calculés une fois par cerveau (le cerveau en cache est le même objet d'un
  * message à l'autre) : le vocabulaire complet et la table des traductions.
  */
-const vocabularies = new WeakMap<AwaBrain, WordEntry[]>();
-const translations = new WeakMap<AwaBrain, Map<string, string>>();
+const vocabularies = new WeakMap<TamilyaBrain, WordEntry[]>();
+const translations = new WeakMap<TamilyaBrain, Map<string, string>>();
 
-function vocabularyOf(brain: AwaBrain): WordEntry[] {
+function vocabularyOf(brain: TamilyaBrain): WordEntry[] {
   let all = vocabularies.get(brain);
   if (!all) vocabularies.set(brain, (all = [...brain.lexicon, ...brain.words]));
   return all;
 }
 
 /** Tout ce que le maître a appris à Tamilya (mots et expressions), pour remplacer les [[mots]] déjà traduits. */
-export function knownTranslations(brain: AwaBrain): ReadonlyMap<string, string> {
+export function knownTranslations(brain: TamilyaBrain): ReadonlyMap<string, string> {
   let table = translations.get(brain);
   if (!table) translations.set(brain, (table = translationTable(vocabularyOf(brain))));
   return table;

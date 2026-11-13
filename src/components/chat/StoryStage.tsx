@@ -4,7 +4,7 @@ import { useEffect, useState, useSyncExternalStore, type CSSProperties } from "r
 import { createPortal } from "react-dom";
 import { IconClose } from "@/components/ui/icons";
 import { getServerStories, getStories, seekStory, stopStory, subscribeStories, toggleStory, type BookTimeline, type StoryView } from "@/lib/lecture/stage";
-import { AwaBlob } from "./AwaBlob";
+import { TamilyaBlob } from "./TamilyaBlob";
 import { useLeavingStage } from "./stage-fade";
 
 /**
@@ -35,7 +35,7 @@ export function StoryStage() {
       <span aria-hidden="true" className="voice-aurora" />
       <p className="text-sm font-medium tracking-[0.3em] text-white/50 uppercase">Tamilya</p>
       <div className="flex w-full flex-1 flex-col items-center justify-center gap-6">
-        <AwaBlob label={label} onActivate={toggleStory} immediate busy={!playing && active.status !== "paused"} calm={active.status === "paused"} size="min(60vw, 16rem)" goo={13} />
+        <TamilyaBlob label={label} onActivate={toggleStory} immediate busy={!playing && active.status !== "paused"} calm={active.status === "paused"} size="min(60vw, 16rem)" goo={13} />
         {/* Place gardée : le globe ne saute pas quand le message s'efface. */}
         <div className="h-6">
           {waiting ? (

@@ -6,7 +6,7 @@ import { speak } from "@/lib/chat/voice";
 import { IconCheck, IconCopy, IconRetry, IconSparkle, IconSpeaker, IconStop } from "@/components/ui/icons";
 import type { ChatRole } from "@/lib/chat/types";
 import { Correctable } from "./Correctable";
-import { AwaBlob } from "./AwaBlob";
+import { TamilyaBlob } from "./TamilyaBlob";
 import { globeFlightFrames, takeGlobeOrigin } from "./globe-origin";
 import { Markdown } from "./Markdown";
 import { AttestationAsk } from "./attestation-ask";
@@ -110,7 +110,7 @@ const noop = () => {};
  * globe de l'accueil rétrécit et glisse jusqu'ici avant d'écrire.
  * Mémorisé : la réponse se redessine à chaque lettre, le globe (qui s’anime seul) non.
  */
-const AwaAvatar = memo(function AwaAvatar({ writing }: { writing: boolean }) {
+const TamilyaAvatar = memo(function TamilyaAvatar({ writing }: { writing: boolean }) {
   const box = useRef<HTMLSpanElement>(null);
   useLayoutEffect(() => {
     if (!writing) return;
@@ -125,8 +125,8 @@ const AwaAvatar = memo(function AwaAvatar({ writing }: { writing: boolean }) {
   }, []);
   return (
     // inert : le globe se regarde, il ne prend ni le doigt ni le clavier.
-    <span ref={box} aria-hidden="true" inert className="awa-avatar relative z-10 grid size-8 shrink-0 place-items-center">
-      <AwaBlob label="Tamilya" onActivate={noop} size="2rem" goo={2} busy={writing} still={!writing} />
+    <span ref={box} aria-hidden="true" inert className="tamilya-avatar relative z-10 grid size-8 shrink-0 place-items-center">
+      <TamilyaBlob label="Tamilya" onActivate={noop} size="2rem" goo={2} busy={writing} still={!writing} />
     </span>
   );
 });
@@ -182,7 +182,7 @@ function AssistantMessage({ message, question }: { message: UiMessage; question?
     <AttestationAsk value={question ?? ""}>
     <article className="group flex min-w-0 gap-2.5 sm:gap-3" aria-busy={writing}>
       <h3 className="sr-only">Tamilya a répondu :</h3>
-      <AwaAvatar writing={writing} />
+      <TamilyaAvatar writing={writing} />
       <div className="relative min-w-0 flex-1 pt-1">
         {waiting ? (
           <div>
@@ -238,7 +238,7 @@ function AssistantMessage({ message, question }: { message: UiMessage; question?
                   <li key={item}>{item}</li>
                 ))}
               </ul>
-              <a href="/parametres?rubrique=awa" className="mt-2 inline-block font-medium text-fg-muted underline-offset-2 hover:text-fg hover:underline">
+              <a href="/parametres?rubrique=tamilya" className="mt-2 inline-block font-medium text-fg-muted underline-offset-2 hover:text-fg hover:underline">
                 Gérer la mémoire
               </a>
             </div>

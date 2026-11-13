@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { loadAwaBrain } from "@/lib/ai/brain";
+import { loadTamilyaBrain } from "@/lib/ai/brain";
 import { listKeyModels } from "@/lib/ai/providers/gemini";
 import { geminiKey } from "@/lib/ai/voice/gemini-tts";
 import { loadVoice } from "@/lib/ai/voice/settings";
@@ -15,7 +15,7 @@ export async function POST() {
   const { user } = await getAuthContext();
   if (!user) return new NextResponse(null, { status: 204 });
   await Promise.allSettled([
-    loadAwaBrain(),
+    loadTamilyaBrain(),
     loadVoice(),
     geminiKey().then((key) => listKeyModels(key, AbortSignal.timeout(5_000))),
   ]);

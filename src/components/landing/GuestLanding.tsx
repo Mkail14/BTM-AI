@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { BrandLogo } from "@/components/brand/BrandLogo";
-import { AwaBlob } from "@/components/chat/AwaBlob";
+import { TamilyaBlob } from "@/components/chat/TamilyaBlob";
 import { personaStyle } from "@/components/personality/PersonalityContext";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
 import { IconSend } from "@/components/ui/icons";
@@ -226,7 +226,7 @@ export function GuestLanding({
           <section className="relative mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-5 py-10 text-center">
             {/* Même globe qu'une fois connecté : taille, bords et couleur de Tamilya (aussi en mode sombre), sans halo. */}
             <div className="landing-rise" style={personaStyle(DEFAULT_PERSONALITY)}>
-              <AwaBlob label="Parler à Tamilya" onActivate={() => input.current?.focus()} />
+              <TamilyaBlob label="Parler à Tamilya" onActivate={() => input.current?.focus()} />
             </div>
 
             <h1 className="landing-rise landing-title mt-9 [animation-delay:120ms]">

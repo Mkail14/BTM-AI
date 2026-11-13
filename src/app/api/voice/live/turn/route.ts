@@ -2,7 +2,7 @@ import { after, NextResponse, type NextRequest } from "next/server";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { getAIProvider } from "@/lib/ai";
-import { loadAwaBrain } from "@/lib/ai/brain";
+import { loadTamilyaBrain } from "@/lib/ai/brain";
 import { VOICE_NODE } from "@/lib/ai/flow-events";
 import { startFlowTrace } from "@/lib/ai/flow-trace";
 import { extractMemories } from "@/lib/ai/memory";
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     }
     // Texte de la personne : les mots connus pour être mal entendus sont remis d'aplomb avant l'enregistrement.
     // Puis ce que Gemini a écrit à l'oreille est rapproché des mots validés de Tamilya.
-    const brain = parsed.data.user ? await loadAwaBrain().catch(() => null) : null;
+    const brain = parsed.data.user ? await loadTamilyaBrain().catch(() => null) : null;
     const lexicon = buildSnapLexicon(brain?.words.map((word) => word.shimaore) ?? []);
     const heard = parsed.data.user ? applyVoiceCorrections(parsed.data.user, await loadVoiceCorrections().catch(() => [])) : "";
     const spoken = heard ? snapToLexicon(heard, lexicon) : "";

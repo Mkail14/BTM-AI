@@ -1,7 +1,7 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { buildSystemPrompt, getAIProvider } from "@/lib/ai";
-import { glossFor, knownTranslations, lexiconFor, loadAwaBrain, wordsFor, type AwaBrain } from "@/lib/ai/brain";
+import { glossFor, knownTranslations, lexiconFor, loadTamilyaBrain, wordsFor, type TamilyaBrain } from "@/lib/ai/brain";
 import { completeText } from "@/lib/ai/complete";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
 import { enforceShimaore, fillKnownWords } from "@/lib/language/unknown-words";
@@ -26,7 +26,7 @@ let failedAt = 0;
 
 const french = (): DemoLine[] => DEMO_SCRIPT.map((line) => ({ ...line, shimaore: null }));
 
-function vocabularyKey(brain: AwaBrain): string {
+function vocabularyKey(brain: TamilyaBrain): string {
   const lexicon = lexiconFor(brain, DEFAULT_PERSONALITY) ?? [];
   const vocabulary = [...lexicon.map((e) => [e.french, e.shimaore]), ...brain.words.map((w) => [w.french, w.shimaore])];
   return createHash("sha256").update(JSON.stringify([DEMO_SCRIPT, vocabulary])).digest("hex");
@@ -49,7 +49,7 @@ function parseLines(raw: string): string[] | null {
   }
 }
 
-async function translate(brain: AwaBrain): Promise<string[] | null> {
+async function translate(brain: TamilyaBrain): Promise<string[] | null> {
   const ai = await getAIProvider();
   if (!ai.ok) return null;
   const text = DEMO_SCRIPT.map((line) => line.fr).join("\n");
@@ -79,7 +79,7 @@ async function load(): Promise<DemoLine[]> {
   const admin = getSupabaseAdminClient();
   if (!admin) return french();
   const [brain, stored] = await Promise.all([
-    loadAwaBrain(),
+    loadTamilyaBrain(),
     admin.from("site_settings").select("landing_demo, landing_demo_key").eq("id", 1).maybeSingle(),
   ]);
   if (stored.error) {

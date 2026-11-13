@@ -39,7 +39,7 @@ import {
 } from "@/lib/conversations/repository";
 import { libraryContextFor } from "@/lib/library/store";
 import { liveContextFor } from "@/lib/live";
-import { glossFor, invalidateAwaBrain, knownTranslations, knowledgeFor, lexiconFor, loadAwaBrain, wordsFor } from "@/lib/ai/brain";
+import { glossFor, invalidateTamilyaBrain, knownTranslations, knowledgeFor, lexiconFor, loadTamilyaBrain, wordsFor } from "@/lib/ai/brain";
 import { AI_ERROR_LABELS } from "@/lib/ai/flow-events";
 import { startFlowTrace } from "@/lib/ai/flow-trace";
 import { ALL_APIS_CUT, flowCutStop, loadFlowCutsForMessage } from "@/lib/ai/flow-cuts";
@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
   const aiTask = cutsTask.then((cuts) => getAIProvider(cuts));
   // Quotas en vigueur et cerveau de Tamilya (en cache) : lus pendant le reste.
   const policiesTask = loadRateLimitPolicies();
-  const brainTask = loadAwaBrain();
+  const brainTask = loadTamilyaBrain();
   // Attendues plus bas : pas de rejet non géré si on répond avant.
   authTask.catch(() => {});
   aiTask.catch(() => {});
@@ -366,7 +366,7 @@ export async function POST(request: NextRequest) {
       let reply: string;
       try {
         await teachWords(supabase, user.id, lesson.words);
-        invalidateAwaBrain();
+        invalidateTamilyaBrain();
         reply = lessonReply(lesson);
         flow.step("prompt", true, "leçon de shimaoré");
         flow.step("output", true);

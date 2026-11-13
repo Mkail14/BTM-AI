@@ -4,7 +4,7 @@ import type { AddressDraft } from "@/components/ui/AddressFields";
 import type { SavedAddress } from "@/lib/address";
 import type { MyReview } from "@/lib/reviews/rules";
 import { AddressBook } from "./AddressBook";
-import { AwaMemory } from "./AwaMemory";
+import { TamilyaMemory } from "./TamilyaMemory";
 import { DeleteAccount } from "./DeleteAccount";
 import { maskEmail } from "./mask-email";
 import { MaskedEmail } from "./MaskedEmail";
@@ -64,13 +64,13 @@ export function SettingsContent({ data }: { data: SettingsData }) {
         <DeleteAccount email={data.email} isAdmin={data.isAdmin} />
       </>
     ),
-    awa: (
+    tamilya: (
       <>
         {/* Le vocal n'est ouvert qu'aux administrateurs pour l'instant. */}
         {data.isAdmin ? <VoiceTalkMode /> : null}
         {data.isAdmin ? <PaymentPin /> : null}
         {data.isAdmin ? <VoicePrint /> : null}
-        <AwaMemory facts={data.memories} on={data.memoryOn} />
+        <TamilyaMemory facts={data.memories} on={data.memoryOn} />
       </>
     ),
     apparence: <ThemeChoice />,

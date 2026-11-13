@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ChatView } from "@/components/chat/ChatView";
 import type { UiMessage } from "@/components/chat/MessageItem";
-import { knownTranslations, loadAwaBrain } from "@/lib/ai/brain";
+import { knownTranslations, loadTamilyaBrain } from "@/lib/ai/brain";
 import { requireUser } from "@/lib/auth/session";
 import { fillKnownWords } from "@/lib/language/unknown-words";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
@@ -21,7 +21,7 @@ export default async function ConversationPage({ params }: PageProps<"/c/[id]">)
   const [conversation, stored, brain] = await Promise.all([
     getConversation(supabase, id),
     getRecentMessages(supabase, id, CHAT_LIMITS.conversationMaxMessages),
-    user.isAdmin ? loadAwaBrain() : null,
+    user.isAdmin ? loadTamilyaBrain() : null,
   ]);
   if (!conversation) notFound();
   // Maître de Tamilya : les [[mots]] qu'il a traduits depuis s'affichent en shimaoré.

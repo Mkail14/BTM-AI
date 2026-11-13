@@ -21,7 +21,7 @@ import { CHAT_LIMITS } from "@/lib/chat/limits";
 import { createStreamEventParser } from "@/lib/chat/stream-protocol";
 import type { ChatStreamEvent, ChatTurn } from "@/lib/chat/types";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
-import { AwaBlob } from "./AwaBlob";
+import { TamilyaBlob } from "./TamilyaBlob";
 import { fadeOutHome, noteGlobeOrigin, takeGlobeOrigin } from "./globe-origin";
 import { PlusMenu, type SentFile } from "./PlusMenu";
 import { SentFileChip } from "./SentFileChip";
@@ -333,7 +333,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       const assistantId = newId();
       // Début de conversation : le grand globe de l'accueil glisse jusqu'à la première réponse (MessageItem).
       if (base.length === 0 && !spoken) {
-        noteGlobeOrigin(takeGlobeOrigin() ?? scrollRef.current?.querySelector(".awa-blob-home")?.getBoundingClientRect() ?? null);
+        noteGlobeOrigin(takeGlobeOrigin() ?? scrollRef.current?.querySelector(".tamilya-blob-home")?.getBoundingClientRect() ?? null);
         // Le bonjour et les idées s'effacent en douceur pendant que le globe vole.
         fadeOutHome(contentRef.current?.firstElementChild);
       }
@@ -671,17 +671,17 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             {/* Le haut se resserre sur les petits écrans (le globe disparaît s'il manque de hauteur) au lieu de déborder. */}
             <div className="flex min-h-0 flex-1 flex-col items-center justify-center overflow-hidden py-3 text-center sm:py-8">
               {/* Tamilya vivante : un clic l'anime puis ouvre la voix (admin) ou la zone de saisie. */}
-              <AwaBlob
+              <TamilyaBlob
                 label={voiceEnabled ? "Parler à Tamilya" : "Écrire à Tamilya"}
                 onActivate={voiceEnabled && !blocked && online ? voice.start : () => composerRef.current?.focus()}
                 // Pendant le mode vocal, ce même globe est au centre de l'écran (morphose) : ici, il s'efface.
-                className={`awa-blob-home shrink-0 [@media(max-height:560px)]:hidden ${voice.state !== "off" || voice.choosing ? "is-away" : ""}`}
+                className={`tamilya-blob-home shrink-0 [@media(max-height:560px)]:hidden ${voice.state !== "off" || voice.choosing ? "is-away" : ""}`}
               />
-              <h1 suppressHydrationWarning className="awa-hello-rise mt-5 text-2xl font-semibold tracking-tight sm:mt-8 sm:text-4xl [@media(max-height:560px)]:mt-0">
+              <h1 suppressHydrationWarning className="tamilya-hello-rise mt-5 text-2xl font-semibold tracking-tight sm:mt-8 sm:text-4xl [@media(max-height:560px)]:mt-0">
                 {greeting()}
                 {user?.displayName ? `, ${user.displayName}` : ""}
               </h1>
-              <p className="awa-hello-rise mt-2 max-w-xs text-sm text-fg-muted [animation-delay:120ms] sm:max-w-none sm:text-base">
+              <p className="tamilya-hello-rise mt-2 max-w-xs text-sm text-fg-muted [animation-delay:120ms] sm:max-w-none sm:text-base">
                 Je suis Tamilya. Pose-moi ta question, en français ou en shimaoré.
               </p>
             </div>
@@ -692,7 +692,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             </div>
             <ul className="hidden shrink-0 grid-cols-2 gap-3 pb-3 sm:grid" aria-label="Idées pour commencer">
               {suggestions.map((s, i) => (
-                <li key={s.title} className="awa-hello-rise" style={{ animationDelay: `${200 + i * 70}ms` }}>
+                <li key={s.title} className="tamilya-hello-rise" style={{ animationDelay: `${200 + i * 70}ms` }}>
                   <button
                     type="button"
                     disabled={blocked || !online}

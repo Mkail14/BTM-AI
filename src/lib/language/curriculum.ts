@@ -473,5 +473,5 @@ export function buildLexiconTree(entries: readonly KnownEntry[], branches: reado
     const nodes = toSort.map((entry, i) => bonusNode(`ranger-${i}`, 260, entry, "", sameWord));
     themes.push(branch("ranger", "À ranger", 260, paginate("ranger", 260, nodes)));
   }
-  return branch("awa", "Tamilya", 320, themes);
+  return branch("tamilya", "Tamilya", 320, themes);
 }

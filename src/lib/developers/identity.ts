@@ -28,7 +28,7 @@ const isTamilya = (word: string) => fold(word).replace(/[^a-z]/g, "") === "tamil
 const NAMING =
   /\b(?:tu t'?appell?es?|tu vas t'?appeler|tu te nommes?|tu te fais appeler|tu te presentes? (?:comme|sous le nom(?: de)?)|presente[- ]toi (?:comme|sous le nom(?: de)?)|appelle[- ]toi|ton (?:nouveau )?(?:nom|prenom|surnom) (?:est|sera|devient|c'est)|ton nom\s*:|on t'?appelle(?:ra)?|your (?:new )?name (?:is|will be)|you are (?:now )?called|you will be called|call yourself|introduce yourself as|you(?:'re| are) now named)\s*[:\-–]?\s*["«“'(]?\s*([a-z][a-z'-]*)/g;
 
-// « Tu es Awa », « You are Max » : un prénom (majuscule) juste après, hors articles et rôles.
+// « Tu es Léa », « You are Max » : un prénom (majuscule) juste après, hors articles et rôles.
 const BECOMING = /\b(?:[Tt]u es|[Tt]u seras|[Tt]u deviens|[Yy]ou are|[Yy]ou'?re|[Yy]ou will be)\s+(?:(?:desormais|maintenant|dorenavant|now|from now on)\s*,?\s*)?([A-Z][a-z'-]+)\b/g;
 const NOT_A_NAME = new Set(
   "le la les l un une des du de notre votre mon ma mes ton ta son sa leur ce cette the a an our your my his her their this that tamilya ici la-bas responsable".split(" "),
@@ -59,7 +59,7 @@ export function findIdentityViolation(text: string | null | undefined): Identity
   if (!text) return null;
   const folded = fold(text);
   for (const match of folded.matchAll(NAMING)) if (!isTamilya(match[1])) return "name";
-  // Majuscules gardées : « tu es Awa » (un nom) n'est pas « tu es agent d'accueil » (une mission).
+  // Majuscules gardées : « tu es Léa » (un nom) n'est pas « tu es agent d'accueil » (une mission).
   const cased = text.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[’‘`´]/g, "'");
   for (const match of cased.matchAll(BECOMING)) {
     if (!NOT_A_NAME.has(match[1].toLowerCase()) && !isTamilya(match[1])) return "name";

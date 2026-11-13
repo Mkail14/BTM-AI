@@ -151,7 +151,7 @@ export function GuestHome({
 
   const start = (message: string | null, component: ChatViewComponent) => {
     // Le globe de l'accueil est celui qui glissera jusqu'à la première réponse (MessageItem).
-    if (message) noteGlobeOrigin(document.querySelector(".landing .awa-blob")?.getBoundingClientRect() ?? null);
+    if (message) noteGlobeOrigin(document.querySelector(".landing .tamilya-blob")?.getBoundingClientRect() ?? null);
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       setChat(() => component);
       setPrompt(message);

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/action-auth";
 import { getAIProvider } from "@/lib/ai";
-import { invalidateAwaBrain } from "@/lib/ai/brain";
+import { invalidateTamilyaBrain } from "@/lib/ai/brain";
 import { completeText } from "@/lib/ai/complete";
 import { tidy, type EntryTable } from "@/lib/language/cleanup";
 import { GRAMMAR_LIMITS } from "./limits";
@@ -14,7 +14,7 @@ const TABLES: Record<EntryTable, "awa_words" | "awa_lexicon"> = { words: "awa_wo
 const MAX_LENGTH: Record<EntryTable, number> = { words: 80, lexicon: 200 };
 
 function done(message: string): ActionResult {
-  invalidateAwaBrain();
+  invalidateTamilyaBrain();
   revalidatePath("/admin/apprentissage");
   revalidatePath("/admin/lexique");
   return { ok: true, message };

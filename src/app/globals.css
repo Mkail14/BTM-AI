@@ -1025,7 +1025,7 @@ input::-ms-clear {
  * que le mode vocal, aux couleurs de la personnalité. Il flotte doucement ;
  * au survol il grossit un peu, comme pour inviter à lui parler.
  */
-.awa-hello {
+.tamilya-hello {
   --orb: var(--persona, var(--accent));
   --orb-tech: color-mix(in srgb, var(--orb) 45%, #5ee7ff);
   position: relative;
@@ -1035,40 +1035,40 @@ input::-ms-clear {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   animation:
-    awa-hello-in 900ms cubic-bezier(0.34, 1.4, 0.64, 1) both,
-    awa-float 6s ease-in-out 900ms infinite;
+    tamilya-hello-in 900ms cubic-bezier(0.34, 1.4, 0.64, 1) both,
+    tamilya-float 6s ease-in-out 900ms infinite;
   transition: scale 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.awa-hello:hover {
+.tamilya-hello:hover {
   scale: 1.08;
 }
 
-.awa-hello:active {
+.tamilya-hello:active {
   scale: 0.96;
 }
 
-.awa-hello:focus-visible {
+.tamilya-hello:focus-visible {
   outline: 2px solid var(--orb-tech);
   outline-offset: 1.25rem;
 }
 
-.awa-hello .voice-orb__core {
+.tamilya-hello .voice-orb__core {
   box-shadow:
     0 0 40px 4px color-mix(in srgb, var(--orb) 55%, transparent),
     inset 0 -12px 26px color-mix(in srgb, var(--orb) 50%, #000),
     inset 0 8px 20px rgb(255 255 255 / 0.35);
 }
 
-.awa-hello .voice-orb__swirl {
+.tamilya-hello .voice-orb__swirl {
   filter: blur(12px);
 }
 
-.awa-hello-rise {
-  animation: awa-hello-rise 700ms cubic-bezier(0.2, 0.8, 0.2, 1) 250ms both;
+.tamilya-hello-rise {
+  animation: tamilya-hello-rise 700ms cubic-bezier(0.2, 0.8, 0.2, 1) 250ms both;
 }
 
-@keyframes awa-hello-in {
+@keyframes tamilya-hello-in {
   from {
     opacity: 0;
     transform: scale(0.4);
@@ -1076,7 +1076,7 @@ input::-ms-clear {
   }
 }
 
-@keyframes awa-float {
+@keyframes tamilya-float {
   0%,
   100% {
     transform: translateY(0);
@@ -1086,7 +1086,7 @@ input::-ms-clear {
   }
 }
 
-@keyframes awa-hello-rise {
+@keyframes tamilya-hello-rise {
   from {
     opacity: 0;
     transform: translateY(14px);
@@ -1095,9 +1095,9 @@ input::-ms-clear {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .awa-hello,
-  .awa-hello *,
-  .awa-hello-rise {
+  .tamilya-hello,
+  .tamilya-hello *,
+  .tamilya-hello-rise {
     animation: none !important;
   }
 }
@@ -2498,12 +2498,12 @@ html.chargement body {
 }
 
 /*
- * Tamilya vivante (écran d'accueil, AwaBlob) : goutte liquide aux couleurs de sa
+ * Tamilya vivante (écran d'accueil, TamilyaBlob) : goutte liquide aux couleurs de sa
  * personnalité. Le corps change de forme en continu, trois gouttelettes
  * tournent et fusionnent avec lui, le tout bat comme un cœur (« lub-dub »).
  * Au clic : écrasement, rebond et deux ondes, puis l'action s'ouvre.
  */
-.awa-blob {
+.tamilya-blob {
   --blob: var(--persona, var(--accent));
   --blob-light: color-mix(in srgb, var(--blob) 55%, #ffe3ef);
   --blob-deep: color-mix(in srgb, var(--blob) 70%, #2a0614);
@@ -2516,41 +2516,41 @@ html.chargement body {
   border-radius: 50%;
   -webkit-tap-highlight-color: transparent;
   animation:
-    awa-hello-in 900ms cubic-bezier(0.34, 1.4, 0.64, 1) both,
-    awa-float 6s ease-in-out 900ms infinite;
+    tamilya-hello-in 900ms cubic-bezier(0.34, 1.4, 0.64, 1) both,
+    tamilya-float 6s ease-in-out 900ms infinite;
 }
 
-.awa-blob:focus-visible {
+.tamilya-blob:focus-visible {
   outline: 2px solid var(--blob);
   outline-offset: 1rem;
 }
 
-.awa-blob__glow {
+.tamilya-blob__glow {
   position: absolute;
   inset: -18%;
   border-radius: 50%;
   background: radial-gradient(circle, color-mix(in srgb, var(--blob) 55%, transparent) 0%, transparent 65%);
   filter: blur(14px);
-  animation: awa-blob-glow 1.6s ease-in-out infinite;
+  animation: tamilya-blob-glow 1.6s ease-in-out infinite;
 }
 
-.awa-blob__beat {
+.tamilya-blob__beat {
   position: absolute;
   inset: 0;
-  animation: awa-blob-beat 1.6s ease-in-out infinite;
+  animation: tamilya-blob-beat 1.6s ease-in-out infinite;
   transition: scale 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.awa-blob:hover .awa-blob__beat {
+.tamilya-blob:hover .tamilya-blob__beat {
   scale: 1.06;
 }
 
-.awa-blob__goo {
+.tamilya-blob__goo {
   position: absolute;
   inset: -12%;
 }
 
-.awa-blob__body {
+.tamilya-blob__body {
   position: absolute;
   inset: 20%;
   background:
@@ -2559,11 +2559,11 @@ html.chargement body {
     var(--blob);
   border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%;
   animation:
-    awa-blob-morph 7s ease-in-out infinite,
-    awa-blob-spin 18s linear infinite;
+    tamilya-blob-morph 7s ease-in-out infinite,
+    tamilya-blob-spin 18s linear infinite;
 }
 
-.awa-blob__drop {
+.tamilya-blob__drop {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -2574,26 +2574,26 @@ html.chargement body {
   background: radial-gradient(circle at 35% 30%, var(--blob-light), var(--blob) 70%);
 }
 
-.awa-blob__drop--1 {
-  animation: awa-blob-orbit 5.5s ease-in-out infinite;
+.tamilya-blob__drop--1 {
+  animation: tamilya-blob-orbit 5.5s ease-in-out infinite;
 }
 
-.awa-blob__drop--2 {
+.tamilya-blob__drop--2 {
   width: 20%;
   margin: -10% 0 0 -10%;
-  animation: awa-blob-orbit 7.5s ease-in-out -2.5s infinite reverse;
+  animation: tamilya-blob-orbit 7.5s ease-in-out -2.5s infinite reverse;
 }
 
-.awa-blob__drop--3 {
+.tamilya-blob__drop--3 {
   width: 16%;
   margin: -8% 0 0 -8%;
-  animation: awa-blob-orbit 9s ease-in-out -5s infinite;
+  animation: tamilya-blob-orbit 9s ease-in-out -5s infinite;
 }
 
 /* Battement : les couleurs de « shimaoré », fondues par le filtre « goo », s'allument à chaque coup du cœur
-   et tournent (--rainbow et --rainbow-turn posés par AwaBlob). */
-.awa-blob__body::after,
-.awa-blob__drop::after {
+   et tournent (--rainbow et --rainbow-turn posés par TamilyaBlob). */
+.tamilya-blob__body::after,
+.tamilya-blob__drop::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -2604,7 +2604,7 @@ html.chargement body {
 }
 
 /* Reflet brillant, net (hors du filtre) : la goutte paraît mouillée. */
-.awa-blob__shine {
+.tamilya-blob__shine {
   position: absolute;
   top: 24%;
   left: 27%;
@@ -2614,11 +2614,11 @@ html.chargement body {
   background: radial-gradient(ellipse at center, rgb(255 255 255 / 0.85), rgb(255 255 255 / 0) 70%);
   filter: blur(1.5px);
   rotate: -30deg;
-  animation: awa-blob-shine 7s ease-in-out infinite;
+  animation: tamilya-blob-shine 7s ease-in-out infinite;
   pointer-events: none;
 }
 
-.awa-blob__ripple {
+.tamilya-blob__ripple {
   position: absolute;
   inset: 12%;
   border: 2px solid var(--blob);
@@ -2628,41 +2628,41 @@ html.chargement body {
 }
 
 /* Clic : écrasement puis rebond, ondes qui partent. */
-.awa-blob[data-popping] .awa-blob__beat {
-  animation: awa-blob-pop 520ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+.tamilya-blob[data-popping] .tamilya-blob__beat {
+  animation: tamilya-blob-pop 520ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
-.awa-blob[data-popping] .awa-blob__ripple {
-  animation: awa-blob-ripple 620ms ease-out both;
+.tamilya-blob[data-popping] .tamilya-blob__ripple {
+  animation: tamilya-blob-ripple 620ms ease-out both;
 }
 
-.awa-blob[data-popping] .awa-blob__ripple--late {
+.tamilya-blob[data-popping] .tamilya-blob__ripple--late {
   animation-delay: 120ms;
 }
 
-.awa-blob[data-popping] .awa-blob__glow {
-  animation: awa-blob-flash 520ms ease-out both;
+.tamilya-blob[data-popping] .tamilya-blob__glow {
+  animation: tamilya-blob-flash 520ms ease-out both;
 }
 
 /*
- * Goutte animée en direct (AwaBlob, data-live) : forme, dérive, gouttelettes
+ * Goutte animée en direct (TamilyaBlob, data-live) : forme, dérive, gouttelettes
  * et cœur sont calculés à chaque image, au hasard et selon la voix. Les
  * boucles ci-dessus ne servent plus que de secours (sans JavaScript) ; le clic
  * (data-popping) garde son animation.
  */
-.awa-blob[data-live] {
-  animation: awa-hello-in 900ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
+.tamilya-blob[data-live] {
+  animation: tamilya-hello-in 900ms cubic-bezier(0.34, 1.4, 0.64, 1) both;
 }
 
-.awa-blob[data-live] .awa-blob__body,
-.awa-blob[data-live] .awa-blob__drop,
-.awa-blob[data-live] .awa-blob__shine,
-.awa-blob[data-live]:not([data-popping]) .awa-blob__glow,
-.awa-blob[data-live]:not([data-popping]) .awa-blob__beat {
+.tamilya-blob[data-live] .tamilya-blob__body,
+.tamilya-blob[data-live] .tamilya-blob__drop,
+.tamilya-blob[data-live] .tamilya-blob__shine,
+.tamilya-blob[data-live]:not([data-popping]) .tamilya-blob__glow,
+.tamilya-blob[data-live]:not([data-popping]) .tamilya-blob__beat {
   animation: none;
 }
 
-@keyframes awa-blob-beat {
+@keyframes tamilya-blob-beat {
   0%,
   100% {
     scale: 1;
@@ -2681,7 +2681,7 @@ html.chargement body {
   }
 }
 
-@keyframes awa-blob-glow {
+@keyframes tamilya-blob-glow {
   0%,
   100% {
     opacity: 0.55;
@@ -2697,7 +2697,7 @@ html.chargement body {
   }
 }
 
-@keyframes awa-blob-morph {
+@keyframes tamilya-blob-morph {
   0%,
   100% {
     border-radius: 42% 58% 63% 37% / 41% 44% 56% 59%;
@@ -2713,14 +2713,14 @@ html.chargement body {
   }
 }
 
-@keyframes awa-blob-spin {
+@keyframes tamilya-blob-spin {
   to {
     rotate: 360deg;
   }
 }
 
 /* Gouttelettes : s'éloignent du corps puis s'y refondent. */
-@keyframes awa-blob-orbit {
+@keyframes tamilya-blob-orbit {
   0%,
   100% {
     transform: rotate(0deg) translateX(0) scale(0.6);
@@ -2736,7 +2736,7 @@ html.chargement body {
   }
 }
 
-@keyframes awa-blob-shine {
+@keyframes tamilya-blob-shine {
   0%,
   100% {
     translate: 0 0;
@@ -2748,7 +2748,7 @@ html.chargement body {
   }
 }
 
-@keyframes awa-blob-pop {
+@keyframes tamilya-blob-pop {
   0% {
     scale: 1;
   }
@@ -2767,7 +2767,7 @@ html.chargement body {
   }
 }
 
-@keyframes awa-blob-ripple {
+@keyframes tamilya-blob-ripple {
   from {
     opacity: 0.8;
     scale: 1;
@@ -2778,7 +2778,7 @@ html.chargement body {
   }
 }
 
-@keyframes awa-blob-flash {
+@keyframes tamilya-blob-flash {
   0% {
     opacity: 0.6;
   }
@@ -2793,12 +2793,12 @@ html.chargement body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .awa-blob,
-  .awa-blob__glow,
-  .awa-blob__beat,
-  .awa-blob__body,
-  .awa-blob__drop,
-  .awa-blob__shine {
+  .tamilya-blob,
+  .tamilya-blob__glow,
+  .tamilya-blob__beat,
+  .tamilya-blob__body,
+  .tamilya-blob__drop,
+  .tamilya-blob__shine {
     animation: none !important;
   }
 }
@@ -3419,7 +3419,7 @@ body:has([data-keyboard]) .help-bubble:not([aria-expanded="true"]) {
 }
 
 .landing-rise {
-  animation: awa-hello-rise 800ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: tamilya-hello-rise 800ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 .landing-reveal {
@@ -3487,21 +3487,21 @@ body:has([data-keyboard]) .help-bubble:not([aria-expanded="true"]) {
  */
 html[data-morph="depart"] .landing-input,
 html[data-morph="arrivee"] .composer {
-  view-transition-name: awa-saisie;
+  view-transition-name: tamilya-saisie;
 }
 
-html[data-morph]::view-transition-group(awa-saisie) {
+html[data-morph]::view-transition-group(tamilya-saisie) {
   animation-duration: 820ms;
   /* Ressort léger : file vite, dépasse à peine, se pose. */
   animation-timing-function: linear(0, 0.18 7%, 0.6 18%, 0.9 30%, 1.02 42%, 1.035 50%, 1.01 65%, 1);
   z-index: 2;
 }
 
-html[data-morph]::view-transition-old(awa-saisie) {
+html[data-morph]::view-transition-old(tamilya-saisie) {
   animation: morph-out 300ms ease-out both;
 }
 
-html[data-morph]::view-transition-new(awa-saisie) {
+html[data-morph]::view-transition-new(tamilya-saisie) {
   animation: morph-in 420ms ease-in 160ms both;
 }
 
@@ -3550,7 +3550,7 @@ html[data-morph]::view-transition-new(root) {
 
 /* Fin de l'essai sans compte (ChatView) : la carte arrive en douceur. */
 .trial-over {
-  animation: awa-hello-rise 600ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: tamilya-hello-rise 600ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3836,8 +3836,8 @@ body:has([data-voice-touch]) .voice-edge[data-on] {
 }
 
 /* Le globe arrive déjà formé : pas d'éclosion par-dessus la morphose. */
-.voice-overlay[data-morph] .awa-blob {
-  animation: awa-float 6s ease-in-out 820ms infinite;
+.voice-overlay[data-morph] .tamilya-blob {
+  animation: tamilya-float 6s ease-in-out 820ms infinite;
 }
 
 .voice-morph-in {
@@ -3853,11 +3853,11 @@ body:has([data-voice-touch]) .voice-edge[data-on] {
 }
 
 /* Globe de l'accueil : il s'efface pendant que son double est au centre, puis revient. */
-.awa-blob-home {
+.tamilya-blob-home {
   transition: opacity 300ms ease, scale 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-.awa-blob-home.is-away {
+.tamilya-blob-home.is-away {
   opacity: 0;
   scale: 0.6;
   transition-duration: 120ms;
@@ -3867,16 +3867,16 @@ body:has([data-voice-touch]) .voice-edge[data-on] {
  * Globe de Tamilya à côté de ses réponses (MessageItem) : il bouge pendant
  * qu'elle écrit, puis se fige (data-still) dans sa dernière forme.
  */
-.awa-blob[data-still],
-.awa-blob[data-still] * {
+.tamilya-blob[data-still],
+.tamilya-blob[data-still] * {
   animation: none;
 }
 
-.awa-avatar .awa-blob {
+.tamilya-avatar .tamilya-blob {
   cursor: default;
 }
 
-.awa-avatar .awa-blob__glow {
+.tamilya-avatar .tamilya-blob__glow {
   filter: blur(4px);
 }
 

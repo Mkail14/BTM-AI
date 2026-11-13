@@ -3,8 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/action-auth";
-import { AWA_NAME } from "@/lib/ai/awa-identity";
-import { invalidateAwaBrain } from "@/lib/ai/brain";
+import { TAMILYA_NAME } from "@/lib/ai/tamilya-identity";
+import { invalidateTamilyaBrain } from "@/lib/ai/brain";
 import { DEFAULT_IDENTITY, DEFAULT_RULES } from "@/lib/ai/system-prompt";
 import { CHARACTER_LIMITS } from "./limits";
 
@@ -27,7 +27,7 @@ export async function saveCharacterAction(input: unknown): Promise<ActionResult>
     .from("awa_settings")
     .update({
       // Nom fixe : remet « Tamilya » si une ancienne version l'avait changé.
-      name: AWA_NAME,
+      name: TAMILYA_NAME,
       identity: orNull(identity, DEFAULT_IDENTITY),
       rules: orNull(rules, DEFAULT_RULES),
       updated_by: auth.user.id,
@@ -39,7 +39,7 @@ export async function saveCharacterAction(input: unknown): Promise<ActionResult>
     return { ok: false, message: "L'enregistrement a échoué (migration awa_brain appliquée ?)." };
   }
 
-  invalidateAwaBrain();
+  invalidateTamilyaBrain();
   revalidatePath("/admin/caractere");
   revalidatePath("/admin/circuit");
   return { ok: true, message: "Enregistré. Tamilya l'applique dans la minute." };

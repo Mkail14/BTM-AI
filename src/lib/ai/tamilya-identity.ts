@@ -2,11 +2,11 @@
  * Identité de Tamilya fixée par GROUPE BTM : ni modifiable depuis l'administration,
  * ni remplaçable par le caractère enregistré dans la base.
  */
-export const AWA_NAME = "Tamilya";
+export const TAMILYA_NAME = "Tamilya";
 
 /** Date de naissance : 9 juillet 2026 (jour de sa mise en service). C'est son anniversaire. */
-export const AWA_BIRTH = { year: 2026, month: 7, day: 9 } as const;
-export const AWA_BIRTH_LABEL = "9 juillet 2026";
+export const TAMILYA_BIRTH = { year: 2026, month: 7, day: 9 } as const;
+export const TAMILYA_BIRTH_LABEL = "9 juillet 2026";
 
 /** Mois et jour à Mayotte : l'anniversaire tombe le 9 juillet là-bas, pas à l'heure du serveur. */
 function mayotteDate(now: Date) {
@@ -16,16 +16,16 @@ function mayotteDate(now: Date) {
 }
 
 /** Est-ce le jour de son anniversaire ? (pas le jour de sa naissance) */
-export function isAwaBirthday(now: Date): boolean {
+export function isTamilyaBirthday(now: Date): boolean {
   const today = mayotteDate(now);
-  return today.month === AWA_BIRTH.month && today.day === AWA_BIRTH.day && today.year > AWA_BIRTH.year;
+  return today.month === TAMILYA_BIRTH.month && today.day === TAMILYA_BIRTH.day && today.year > TAMILYA_BIRTH.year;
 }
 
 /** Âge réel de Tamilya à une date donnée (heure de Mayotte), ex. « 3 mois », « 1 an et 2 mois ». */
-export function awaAge(now: Date): string {
+export function tamilyaAge(now: Date): string {
   const parts = mayotteDate(now);
-  let months = (parts.year - AWA_BIRTH.year) * 12 + (parts.month - AWA_BIRTH.month);
-  if (parts.day < AWA_BIRTH.day) months--;
+  let months = (parts.year - TAMILYA_BIRTH.year) * 12 + (parts.month - TAMILYA_BIRTH.month);
+  if (parts.day < TAMILYA_BIRTH.day) months--;
   if (months < 1) return "moins d'un mois";
   const years = Math.floor(months / 12);
   const rest = months % 12;

@@ -4,7 +4,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import { IconClose } from "@/components/ui/icons";
 import { getServerSong, getSong, songProgress, stopSong, subscribeSong, toggleSong } from "@/lib/music/song-stage";
-import { AwaBlob } from "./AwaBlob";
+import { TamilyaBlob } from "./TamilyaBlob";
 import { useLeavingStage } from "./stage-fade";
 
 /**
@@ -32,7 +32,7 @@ export function SongStage() {
       <span aria-hidden="true" className="voice-aurora" />
       <p className="text-sm font-medium tracking-[0.3em] text-white/50 uppercase">Tamilya</p>
       <div className="flex w-full flex-1 flex-col items-center justify-center gap-6">
-        <AwaBlob label={label} onActivate={toggleSong} immediate busy={active.status === "preparing"} size="min(60vw, 16rem)" goo={13} />
+        <TamilyaBlob label={label} onActivate={toggleSong} immediate busy={active.status === "preparing"} size="min(60vw, 16rem)" goo={13} />
         {/* Place gardée : le globe ne saute pas quand le message s'efface. */}
         <div className="flex min-h-28 w-full max-w-sm flex-col items-center gap-3 text-center">
           {active.status === "preparing" ? (

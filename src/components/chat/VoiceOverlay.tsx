@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AwaBlob, takeLaunchOrigin } from "./AwaBlob";
+import { TamilyaBlob, takeLaunchOrigin } from "./TamilyaBlob";
 import { IconClose, IconMic } from "@/components/ui/icons";
 import { speakableText } from "@/lib/chat/voice";
 import { splitUnknownWords } from "@/lib/language/unknown-words";
@@ -165,7 +165,7 @@ export function VoiceOverlay({
         {/* La même Tamilya que sur l'accueil, en grand : elle suit sa voix quand elle parle, frémit quand on lui parle. */}
         <div ref={orb} className="voice-orb-slot" data-state={state}>
           <span aria-hidden="true" className="voice-orb-disc" />
-          <AwaBlob
+          <TamilyaBlob
             label={state === "speaking" ? "Couper Tamilya et parler" : "Parler"}
             onActivate={talk}
             immediate

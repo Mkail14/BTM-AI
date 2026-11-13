@@ -254,12 +254,12 @@ function ActivityChart({ daily }: { daily: AdminOverview["daily"] }) {
 /* -------------------------------------------------------------------------- */
 
 /** Objectif de vocabulaire : les mots essentiels d'une conversation courante. */
-const AWA_GOAL = 1000;
+const TAMILYA_GOAL = 1000;
 
-type AwaProgress = { known: number; week: number; toTranslate: number };
+type TamilyaProgress = { known: number; week: number; toTranslate: number };
 
 /** Mots et expressions que Tamilya connaît, appris cette semaine, et mots en attente de traduction. */
-async function getAwaProgress(admin: NonNullable<ReturnType<typeof getSupabaseAdminClient>>): Promise<AwaProgress | null> {
+async function getTamilyaProgress(admin: NonNullable<ReturnType<typeof getSupabaseAdminClient>>): Promise<TamilyaProgress | null> {
   const weekAgo = new Date(Date.now() - 7 * 86_400_000).toISOString();
   const active = (table: "awa_words" | "awa_lexicon", since?: string) => {
     const query = admin.from(table).select("id", { count: "exact", head: true }).eq("is_active", true);
@@ -322,7 +322,7 @@ function ProgressCard({
 
 const euros = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
 
-function AwaProgressCard({ progress }: { progress: AwaProgress | null }) {
+function TamilyaProgressCard({ progress }: { progress: TamilyaProgress | null }) {
   if (!progress) {
     return (
       <ProgressCard title="Tamilya apprend le shimaoré" value="—" ratio={0}>
@@ -335,10 +335,10 @@ function AwaProgressCard({ progress }: { progress: AwaProgress | null }) {
       title="Tamilya apprend le shimaoré"
       value={
         <>
-          {fmt(progress.known)} <span className="text-base font-normal text-fg-muted">/ {fmt(AWA_GOAL)} mots</span>
+          {fmt(progress.known)} <span className="text-base font-normal text-fg-muted">/ {fmt(TAMILYA_GOAL)} mots</span>
         </>
       }
-      ratio={progress.known / AWA_GOAL}
+      ratio={progress.known / TAMILYA_GOAL}
     >
       <span className={progress.week > 0 ? "font-medium text-success" : ""}>+{fmt(progress.week)} cette semaine</span>
       {" · "}
@@ -456,13 +456,13 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
     getCodeExamHealth({ waitMs: 1500 }),
     admin ? settle(getAdminOverview(admin)) : null,
     admin ? settle(listAdminUsers(admin, page)) : null,
-    admin ? settle(getAwaProgress(admin)) : null,
+    admin ? settle(getTamilyaProgress(admin)) : null,
     admin ? settle(getGeminiSpend(admin)) : null,
   ]);
 
   let overview: AdminOverview | null = null;
   let usersPage: Awaited<ReturnType<typeof listAdminUsers>> | null = null;
-  let progress: AwaProgress | null = null;
+  let progress: TamilyaProgress | null = null;
   let spend: GeminiSpend | null = null;
   if (progressResult?.status === "fulfilled") progress = progressResult.value;
   if (spendResult?.status === "fulfilled") spend = spendResult.value;
@@ -516,7 +516,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
         >
           {/* Les deux progressions à suivre : le vocabulaire de Tamilya et le crédit payé. */}
           <div className="grid shrink-0 grid-cols-2 gap-3 md:gap-4">
-            <AwaProgressCard progress={progress} />
+            <TamilyaProgressCard progress={progress} />
             <GoogleCreditCard spend={spend} />
           </div>
 

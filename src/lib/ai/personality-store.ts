@@ -53,7 +53,7 @@ async function loadRecords(): Promise<PersonalityRecords> {
   try {
     records = await readRecords(admin);
   } catch (error) {
-    console.error("[awa] Personnalités indisponibles (migration appliquée ?), valeurs par défaut utilisées", error);
+    console.error("[tamilya] Personnalités indisponibles (migration appliquée ?), valeurs par défaut utilisées", error);
   }
   cache = { records, expiresAt: Date.now() + CACHE_MS };
   return records;

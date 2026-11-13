@@ -1,7 +1,7 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { AIProviderError, buildSystemPrompt, getAIProvider } from "@/lib/ai";
-import { knowledgeFor, lexiconFor, loadAwaBrain, wordsFor } from "@/lib/ai/brain";
+import { knowledgeFor, lexiconFor, loadTamilyaBrain, wordsFor } from "@/lib/ai/brain";
 import { flowCutStop, loadFlowCuts } from "@/lib/ai/flow-cuts";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
 import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
     return fail(503, "unavailable", origin);
   }
 
-  const [brain, personalityInstructions] = await Promise.all([loadAwaBrain(), loadPersonalityInstructions(DEFAULT_PERSONALITY)]);
+  const [brain, personalityInstructions] = await Promise.all([loadTamilyaBrain(), loadPersonalityInstructions(DEFAULT_PERSONALITY)]);
   const system = buildSystemPrompt(DEFAULT_PERSONALITY, {
     personalityInstructions,
     identity: brain.identity,

@@ -22,7 +22,7 @@ export async function reportUnknownWords(words: readonly string[], example: stri
   for (const word of words) {
     const { error } = await admin.rpc("report_unknown_word", { p_shimaore: word, p_example: example.slice(0, 300) });
     if (error) {
-      console.error("[awa] Mot inconnu non signalé (migration awa_word_requests appliquée ?)", error);
+      console.error("[tamilya] Mot inconnu non signalé (migration awa_word_requests appliquée ?)", error);
       return;
     }
   }
@@ -45,7 +45,7 @@ export async function collectUnknownWords(
       content: input.message.slice(0, 2000),
       maxOutputTokens: 300,
     }).catch((error: unknown) => {
-      console.error("[awa] Relevé du shimaoré impossible", error);
+      console.error("[tamilya] Relevé du shimaoré impossible", error);
       return "";
     });
     candidates = [...candidates, ...parseSpottedWords(output)];
@@ -75,7 +75,7 @@ export async function reportWordConflicts(words: readonly WordEntry[], exchange:
       p_example: exchange.message.slice(0, 300),
     });
     if (error) {
-      console.error("[awa] Conflit de mots non signalé (migration conflits_de_mots appliquée ?)", error);
+      console.error("[tamilya] Conflit de mots non signalé (migration conflits_de_mots appliquée ?)", error);
       return;
     }
   }

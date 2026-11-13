@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { NOT_ADMIN, requireAdminRoleAction, type ActionResult } from "@/lib/admin/action-auth";
 import { getAIProvider } from "@/lib/ai";
-import { invalidateAwaBrain, loadAwaBrain, wordsFor } from "@/lib/ai/brain";
+import { invalidateTamilyaBrain, loadTamilyaBrain, wordsFor } from "@/lib/ai/brain";
 import { completeText } from "@/lib/ai/complete";
 import { teachWords } from "@/lib/ai/words-store";
 import { TAUGHT_WORD_MAX } from "@/lib/language/teaching";
@@ -42,7 +42,7 @@ export async function teachUnknownWordAction(input: unknown): Promise<ActionResu
     console.error("[chat] Traduction non enregistrée", error);
     return { ok: false, message: "Pas enregistré, réessaie." };
   }
-  invalidateAwaBrain();
+  invalidateTamilyaBrain();
   return { ok: true, message: `${french} → ${shimaore}` };
 }
 
@@ -84,7 +84,7 @@ export async function correctInContextAction(input: unknown): Promise<ActionResu
     console.error("[chat] Correction non enregistrée", error);
     return { ok: false, message: "Pas enregistré, réessaie." };
   }
-  invalidateAwaBrain();
+  invalidateTamilyaBrain();
   return { ok: true, message: context ? `Retenu : « ${shimaore} » ${context}.` : `Retenu : « ${shimaore} » = ${french}.` };
 }
 
@@ -121,7 +121,7 @@ export async function guessFrenchAction(
   if (!parsed.success) return { ok: false, message: "Écris d'abord la bonne façon de le dire." };
   const { shimaore, wrote, message, question } = parsed.data;
 
-  const brain = await loadAwaBrain();
+  const brain = await loadTamilyaBrain();
   const entries = [...brain.lexicon, ...brain.words];
   for (const candidate of [shimaore, wrote].map(normalize).filter(Boolean)) {
     const known = entries.find((entry) => normalize(entry.shimaore) === candidate);

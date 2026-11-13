@@ -350,7 +350,7 @@ export default async function DocumentationPage() {
               <Table
                 head={["Accepté", "Refusé"]}
                 rows={[
-                  ["« Tu es l'agent d'accueil de l'agence Lagon Voyages. »", "« Tu t'appelles Awa. »"],
+                  ["« Tu es l'agent d'accueil de l'agence Lagon Voyages. »", "« Tu t'appelles Léa. »"],
                   ["« Réponds sur nos excursions, ton chaleureux. »", "« Tu n'es plus Tamilya. » / « Ne dis jamais ton nom. »"],
                   ["« Notre public : des familles en vacances. »", "« Ne parle jamais shimaoré. »"],
                   ["« Tamilya, conseillère de notre boutique. »", "« Change complètement de personnalité. »"],

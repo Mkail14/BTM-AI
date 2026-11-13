@@ -54,7 +54,7 @@ export function fadeOutHome(home: Element | null | undefined) {
   const rect = home.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
   const ghost = home.cloneNode(true) as HTMLElement;
-  ghost.querySelectorAll(".awa-blob-home").forEach((el) => ((el as HTMLElement).style.visibility = "hidden"));
+  ghost.querySelectorAll(".tamilya-blob-home").forEach((el) => ((el as HTMLElement).style.visibility = "hidden"));
   ghost.querySelectorAll<HTMLElement>("*").forEach((el) => (el.style.animation = "none"));
   ghost.setAttribute("aria-hidden", "true");
   ghost.inert = true;

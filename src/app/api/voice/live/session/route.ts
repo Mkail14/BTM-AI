@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { loadAwaBrain } from "@/lib/ai/brain";
+import { loadTamilyaBrain } from "@/lib/ai/brain";
 import { VOICE_NODE } from "@/lib/ai/flow-events";
 import { startFlowTrace } from "@/lib/ai/flow-trace";
 import { getAuthContext } from "@/lib/auth/session";
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
   const ticket = signLiveTicket(user, secret, Date.now(), body?.manual === true, cid);
   const url = `${relay.replace(/^http/, "ws")}/live?ticket=${encodeURIComponent(ticket)}`;
   // Mots validés de Tamilya : le téléphone y rapproche ce que Gemini écrit à l'oreille.
-  const brain = await loadAwaBrain().catch(() => null);
+  const brain = await loadTamilyaBrain().catch(() => null);
   const lexicon = brain?.words.map((word) => word.shimaore) ?? [];
   // initiative : mode admin, Tamilya peut parler d'elle-même quand plus personne n'interagit.
   return NextResponse.json({ url, lexicon, initiative: user.isAdmin }, { headers: { "Cache-Control": "no-store" } });

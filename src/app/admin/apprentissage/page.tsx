@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { PageIntro } from "@/components/admin/form";
-import { knownTranslations, loadAwaBrain } from "@/lib/ai/brain";
+import { knownTranslations, loadTamilyaBrain } from "@/lib/ai/brain";
 import { listAllAuthUsers } from "@/lib/admin/stats";
 import { hasAdminRole } from "@/lib/auth/roles";
 import { requireAdmin } from "@/lib/auth/session";
@@ -55,7 +55,7 @@ export default async function AdminLearningPage() {
     supabase.from("awa_lexicon").select("id, french, shimaore, created_at").limit(5000),
     supabase.from("awa_cleanup_ignored").select("kind, ref").limit(5000),
     masterReplies(),
-    loadAwaBrain(),
+    loadTamilyaBrain(),
   ]);
   if (grammar.error) console.error("[admin] Grammaire illisible", grammar.error);
 

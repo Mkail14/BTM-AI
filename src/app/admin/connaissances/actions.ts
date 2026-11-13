@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/action-auth";
-import { invalidateAwaBrain } from "@/lib/ai/brain";
+import { invalidateTamilyaBrain } from "@/lib/ai/brain";
 import { KNOWLEDGE_LIMITS } from "./limits";
 
 const schema = z.object({
@@ -18,7 +18,7 @@ const schema = z.object({
 });
 
 function done(message: string): ActionResult {
-  invalidateAwaBrain();
+  invalidateTamilyaBrain();
   revalidatePath("/admin/connaissances");
   return { ok: true, message };
 }

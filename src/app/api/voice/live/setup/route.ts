@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { buildSystemPrompt } from "@/lib/ai";
-import { knowledgeFor, lexiconFor, loadAwaBrain, loadRecentWords, wordsFor } from "@/lib/ai/brain";
+import { knowledgeFor, lexiconFor, loadTamilyaBrain, loadRecentWords, wordsFor } from "@/lib/ai/brain";
 import { withRecentWords } from "@/lib/ai/words";
 import { buildDossier } from "@/lib/ai/dossier";
 import { getMemoriesFor } from "@/lib/ai/memory-store";
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
     ? getPastTalks(admin, ticket.uid, { excludeId: ticket.cid }).catch(() => null)
     : Promise.resolve(null);
   const [brain, recentWords, profile, voice, memories, dossier, news, food, barge, corrections] = await Promise.all([
-    loadAwaBrain(),
+    loadTamilyaBrain(),
     loadRecentWords().catch(() => []),
     admin ? readChatProfile(admin, ticket.uid).catch(() => null) : Promise.resolve(null),
     loadVoice(),

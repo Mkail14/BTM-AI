@@ -171,12 +171,12 @@ describe("Attestation : PDF", () => {
 });
 
 describe("Attestation : remplie avec le compte", () => {
-  const known = { civility: "Mme", firstName: "Awa", lastName: "Madi", birthDate: "1990-02-03", address: "12 rue du Lagon", postalCode: "97600", city: "Mamoudzou" };
+  const known = { civility: "Mme", firstName: "Amina", lastName: "Madi", birthDate: "1990-02-03", address: "12 rue du Lagon", postalCode: "97600", city: "Mamoudzou" };
 
   it("remplit le côté choisi, et lui seul", () => {
     const heberge = applyPrefill(EMPTY_FIELDS, "heberge", known);
     assert.equal(heberge.hebergeNom, "Madi");
-    assert.equal(heberge.hebergePrenom, "Awa");
+    assert.equal(heberge.hebergePrenom, "Amina");
     assert.equal(heberge.hebergeNaissanceDate, "1990-02-03");
     assert.equal(heberge.civilite, "Mme");
     assert.equal(heberge.hebergeantNom, "");
@@ -192,8 +192,8 @@ describe("Attestation : remplie avec le compte", () => {
   });
 
   it("sépare le nom affiché et l'adresse sans rien inventer", () => {
-    assert.deepEqual(splitDisplayName("Awa Madi Said"), { firstName: "Awa", lastName: "Madi Said" });
-    assert.deepEqual(splitDisplayName("Awa"), { firstName: "Awa", lastName: undefined });
+    assert.deepEqual(splitDisplayName("Amina Madi Said"), { firstName: "Amina", lastName: "Madi Said" });
+    assert.deepEqual(splitDisplayName("Amina"), { firstName: "Amina", lastName: undefined });
     assert.deepEqual(splitAddressLine("12 rue du Lagon, 97600 Mamoudzou"), { address: "12 rue du Lagon", postalCode: "97600" });
     assert.deepEqual(splitAddressLine("12 rue du Lagon"), { address: "12 rue du Lagon", postalCode: undefined });
   });

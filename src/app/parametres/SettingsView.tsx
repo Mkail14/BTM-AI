@@ -6,7 +6,7 @@ import { IconFolder, IconLock, IconMapPin, IconShield, IconSparkle, IconStar, Ic
 import { useAuth } from "@/components/auth/AuthProvider";
 import { SignOutButton } from "./SignOutButton";
 
-export type SettingsTab = "profil" | "adresse" | "sos" | "securite" | "awa" | "apparence" | "avis";
+export type SettingsTab = "profil" | "adresse" | "sos" | "securite" | "tamilya" | "apparence" | "avis";
 
 type Section = { id: SettingsTab; label: string; hint: string; icon: ComponentType<SVGProps<SVGSVGElement>> };
 
@@ -23,7 +23,7 @@ const GROUPS: { title: string; sections: Section[] }[] = [
   {
     title: "Préférences",
     sections: [
-      { id: "awa", label: "Tamilya", hint: "Ce qu'elle retient de toi et comment tu lui parles.", icon: IconSparkle },
+      { id: "tamilya", label: "Tamilya", hint: "Ce qu'elle retient de toi et comment tu lui parles.", icon: IconSparkle },
       { id: "apparence", label: "Apparence", hint: "Le thème du site sur cet appareil.", icon: IconSun },
       { id: "avis", label: "Mon avis", hint: "Ta note sur Tamilya, affichée sur la page d'accueil.", icon: IconStar },
     ],

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition, type ComponentType, type SVGProps } from "react";
 import { IconBook, IconLock, IconRetry, IconShield, IconSparkle } from "@/components/ui/icons";
 import type { ActionResult } from "@/lib/admin/action-auth";
-import { AWA_BIRTH_LABEL, AWA_NAME, awaAge } from "@/lib/ai/awa-identity";
+import { TAMILYA_BIRTH_LABEL, TAMILYA_NAME, tamilyaAge } from "@/lib/ai/tamilya-identity";
 import { lostOk } from "@/lib/safe-action";
 import { saveCharacterAction } from "./actions";
 import { CHARACTER_LIMITS, type CharacterDraft } from "./limits";
@@ -31,7 +31,7 @@ export const sameCharacter = (a: CharacterDraft, b: CharacterDraft) => a.identit
 
 /** Fiche d'identité de Tamilya : fixée par GROUPE BTM, en lecture seule. */
 function IdentityCard() {
-  const facts = ["Fille", `Née le ${AWA_BIRTH_LABEL}`, awaAge(new Date()), "Créée par GROUPE BTM"];
+  const facts = ["Fille", `Née le ${TAMILYA_BIRTH_LABEL}`, tamilyaAge(new Date()), "Créée par GROUPE BTM"];
   return (
     <section
       aria-label="Identité de Tamilya"
@@ -45,11 +45,11 @@ function IdentityCard() {
             aria-hidden="true"
             className="grid size-14 shrink-0 place-items-center rounded-2xl bg-gradient-to-br from-accent to-accent-hover text-2xl font-semibold text-accent-fg shadow-lg shadow-accent/25"
           >
-            {AWA_NAME[0]}
+            {TAMILYA_NAME[0]}
           </span>
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="text-2xl leading-none font-semibold tracking-tight">{AWA_NAME}</h2>
+              <h2 className="text-2xl leading-none font-semibold tracking-tight">{TAMILYA_NAME}</h2>
               <span className="inline-flex items-center gap-1 rounded-full bg-bg-muted px-2 py-0.5 text-[11px] font-medium text-fg-muted">
                 <IconLock width={11} height={11} /> Fixé par GROUPE BTM
               </span>

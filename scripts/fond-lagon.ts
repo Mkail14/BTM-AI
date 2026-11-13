@@ -3,7 +3,7 @@
  * comme une carte des profondeurs du lagon. Le motif se raccorde sur ses
  * quatre bords (relief périodique), on peut donc le répéter à l'infini.
  * Sert de masque (globals.css, .fond-lagon) : seule la forme compte, la
- * couleur vient de la personnalité d'Awa.
+ * couleur vient de la personnalité de Tamilya.
  *
  *   node --import tsx scripts/fond-lagon.ts
  */

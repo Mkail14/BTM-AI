@@ -15,7 +15,7 @@ export type AttestationRole = "hebergeant" | "heberge";
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-/** « Awa Madi Said » → prénom « Awa », nom « Madi Said ». Un seul mot reste un prénom. */
+/** « Amina Madi Said » → prénom « Amina », nom « Madi Said ». Un seul mot reste un prénom. */
 export function splitDisplayName(name: string): { firstName?: string; lastName?: string } {
   const [firstName, ...rest] = name.trim().split(/\s+/).filter(Boolean);
   return { firstName, lastName: rest.join(" ") || undefined };

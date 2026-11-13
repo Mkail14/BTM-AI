@@ -33,7 +33,7 @@ test("plusieurs mots n'en deviennent jamais un seul", () => {
 });
 
 test("un prénom n'est jamais remplacé", () => {
-  assert.equal(snapToLexicon("Awa wé", buildSnapLexicon(["Wa wé"])), "Awa wé");
+  assert.equal(snapToLexicon("Tamilya wé", buildSnapLexicon(["Tamila wé"])), "Tamilya wé");
 });
 
 test("un mot de deux lettres ne suffit pas à corriger", () => {

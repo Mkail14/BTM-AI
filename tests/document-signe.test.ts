@@ -81,22 +81,22 @@ describe("Document à signer : les cases", () => {
   });
 
   it("remplit les cases évidentes avec le compte, et rien d'inventé", () => {
-    const info = { firstName: "Awa", lastName: "Madi", birthDate: "1990-04-02", city: "Sada", postalCode: "97640", address: "12 rue du Lagon", email: "awa@example.com" };
+    const info = { firstName: "Amina", lastName: "Madi", birthDate: "1990-04-02", city: "Sada", postalCode: "97640", address: "12 rue du Lagon", email: "amina@example.com" };
     const today = "2026-11-12";
-    assert.equal(guessValue("Prénom", info, today), "Awa");
+    assert.equal(guessValue("Prénom", info, today), "Amina");
     assert.equal(guessValue("Nom", info, today), "Madi");
-    assert.equal(guessValue("Nom et prénom", info, today), "Madi Awa");
+    assert.equal(guessValue("Nom et prénom", info, today), "Madi Amina");
     assert.equal(guessValue("Né(e) le", info, today), "02/04/1990");
     assert.equal(guessValue("Fait à", info, today), "Sada");
     assert.equal(guessValue("Le", info, today), "12/11/2026");
     assert.equal(guessValue("Adresse", info, today), "12 rue du Lagon, 97640 Sada");
-    assert.equal(guessValue("Adresse e-mail", info, today), "awa@example.com");
+    assert.equal(guessValue("Adresse e-mail", info, today), "amina@example.com");
     assert.equal(guessValue("Nom de l'employeur", info, today), "");
     assert.equal(guessValue("Numéro de sécurité sociale", info, today), "");
   });
 
   it("lit la réponse de l'IA même entourée de texte", () => {
-    assert.deepEqual(parseFillValues('```json\n["Awa", "", 3]\n```', 4), ["Awa", "", "", ""]);
+    assert.deepEqual(parseFillValues('```json\n["Amina", "", 3]\n```', 4), ["Amina", "", "", ""]);
     assert.equal(parseFillValues("je ne sais pas", 2), null);
   });
 });
@@ -108,13 +108,13 @@ describe("Document à signer : Word", () => {
     assert.deepEqual(reading.blanks.map((b) => b.label), ["Nom", "Prénom", "Fait à", "le"]);
     assert.equal(reading.signatureParagraph, 3);
 
-    const values = ["Madi", "Awa", "Sada", "12/11/2026"];
+    const values = ["Madi", "Amina", "Sada", "12/11/2026"];
     const out = writeDocx(bytes, reading.blanks.map((b, i) => ({ paragraph: b.paragraph, start: b.start, end: b.end, value: values[i] })), undefined, tools);
     const texts = readDocx(out, tools);
     assert.deepEqual(texts.blanks, []);
     const xml = strFromU8(unzipSync(out)["word/document.xml"]);
     assert.match(xml, /Nom : <\/w:t><\/w:r><w:r><w:t xml:space="preserve">Madi</);
-    assert.match(xml, /Prénom : ?Awa/);
+    assert.match(xml, /Prénom : ?Amina/);
     assert.match(xml, />Sada</);
     assert.match(xml, />12\/11\/2026</);
   });
@@ -138,7 +138,7 @@ describe("Document à signer : PDF", () => {
     source.addPage([595, 842]);
     const out = await writePdf(
       await source.save(),
-      [{ spot: { page: 0, x: 100, y: 700, size: 10, room: 200 }, value: "Madi Awa" }],
+      [{ spot: { page: 0, x: 100, y: 700, size: 10, room: 200 }, value: "Madi Amina" }],
       { png: PNG, place: { page: 0, x: 300, top: 200, width: 150 }, ratio: 0.4 },
     );
     const pdf = await PDFDocument.load(out);

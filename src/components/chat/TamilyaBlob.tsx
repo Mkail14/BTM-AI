@@ -51,7 +51,7 @@ const rand = (min: number, max: number) => min + Math.random() * (max - min);
  * frémit (elle écoute) ; `busy` : elle réfléchit, plus vive et resserrée.
  * Au clic : écrasement, rebond et ondes, puis l'action (onActivate).
  */
-export function AwaBlob({
+export function TamilyaBlob({
   label,
   onActivate,
   className = "",
@@ -77,7 +77,7 @@ export function AwaBlob({
   /** Figée : la goutte garde sa forme et ne bouge plus (réponses finies de la conversation). */
   still?: boolean;
 }) {
-  const filterId = `awa-goo-${useId().replace(/:/g, "")}`;
+  const filterId = `tamilya-goo-${useId().replace(/:/g, "")}`;
   const [popping, setPopping] = useState(false);
   const timer = useRef<number | undefined>(undefined);
   const root = useRef<HTMLButtonElement>(null);
@@ -249,7 +249,7 @@ export function AwaBlob({
           if (!immediate) onActivate();
         }, POP_MS);
       }}
-      className={`awa-blob ${className}`}
+      className={`tamilya-blob ${className}`}
       style={size ? ({ width: size } as CSSProperties) : undefined}
     >
       <svg aria-hidden="true" className="absolute size-0">
@@ -258,25 +258,25 @@ export function AwaBlob({
           <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 24 -10" />
         </filter>
       </svg>
-      <span ref={glow} aria-hidden="true" className="awa-blob__glow" />
-      <span ref={beat} aria-hidden="true" className="awa-blob__beat">
-        <span className="awa-blob__goo" style={{ filter: `url(#${filterId})` }}>
-          <span ref={body} className="awa-blob__body" />
+      <span ref={glow} aria-hidden="true" className="tamilya-blob__glow" />
+      <span ref={beat} aria-hidden="true" className="tamilya-blob__beat">
+        <span className="tamilya-blob__goo" style={{ filter: `url(#${filterId})` }}>
+          <span ref={body} className="tamilya-blob__body" />
           {[1, 2, 3].map((n, i) => (
             <span
               key={n}
               ref={(el) => {
                 drops.current[i] = el;
               }}
-              className={`awa-blob__drop awa-blob__drop--${n}`}
+              className={`tamilya-blob__drop tamilya-blob__drop--${n}`}
             />
           ))}
         </span>
-        <span ref={shine} className="awa-blob__shine" />
+        <span ref={shine} className="tamilya-blob__shine" />
       </span>
       {/* Ondes du clic */}
-      <span aria-hidden="true" className="awa-blob__ripple" />
-      <span aria-hidden="true" className="awa-blob__ripple awa-blob__ripple--late" />
+      <span aria-hidden="true" className="tamilya-blob__ripple" />
+      <span aria-hidden="true" className="tamilya-blob__ripple tamilya-blob__ripple--late" />
     </button>
   );
 }

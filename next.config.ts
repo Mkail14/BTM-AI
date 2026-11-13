@@ -31,8 +31,12 @@ const nextConfig: NextConfig = {
     },
   },
   async redirects() {
-    // Ancienne adresse de la page « Circuit d'Awa ».
+    // Ancienne adresse de la page « Circuit de Tamilya ».
     return [{ source: "/admin/modele-ia", destination: "/admin/circuit", permanent: true }];
+  },
+  async rewrites() {
+    // Ancienne adresse de la route des sites partenaires : gardée tant que btm.yt et BTM Market l'appellent encore.
+    return [{ source: "/api/awa", destination: "/api/tamilya" }];
   },
   async headers() {
     return [

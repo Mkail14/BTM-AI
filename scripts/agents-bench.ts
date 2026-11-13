@@ -11,7 +11,7 @@ import { runTeam, teamBlock, teamSummary } from "../src/lib/ai/agents/team";
 import { mayotteClock } from "../src/lib/ai/clock";
 import { createRelayProvider } from "../src/lib/ai/relay";
 import { keysSecret } from "../src/lib/ai/secret-box";
-import { loadAwaBrain } from "../src/lib/ai/brain";
+import { loadTamilyaBrain } from "../src/lib/ai/brain";
 
 const url = process.env.AI_RELAY_URL?.trim().replace(/\/+$/, "");
 const secret = keysSecret();
@@ -44,7 +44,7 @@ async function answer(system: string, message: string, search: boolean) {
 }
 
 async function main() {
-const brain = await loadAwaBrain();
+const brain = await loadTamilyaBrain();
 const words = [...brain.lexicon, ...brain.words];
 console.log(`Dictionnaire validé : ${words.length} entrées`);
 for (const message of QUESTIONS) {

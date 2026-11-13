@@ -1,7 +1,7 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { AIProviderError, buildSystemPrompt, createProvider } from "@/lib/ai";
-import { knowledgeFor, lexiconFor, loadAwaBrain, wordsFor } from "@/lib/ai/brain";
+import { knowledgeFor, lexiconFor, loadTamilyaBrain, wordsFor } from "@/lib/ai/brain";
 import type { AIConfig } from "@/lib/ai/config";
 import { flowCutStop, loadFlowCuts } from "@/lib/ai/flow-cuts";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
   if (flowCutStop(await loadFlowCuts())) return fail(503, "unavailable");
 
   const [brain, personalityInstructions, model] = await Promise.all([
-    loadAwaBrain(),
+    loadTamilyaBrain(),
     loadPersonalityInstructions(DEFAULT_PERSONALITY),
     geminiModel(),
   ]);

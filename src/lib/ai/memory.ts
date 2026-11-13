@@ -102,7 +102,7 @@ const FORBIDDEN_MEMORY: readonly RegExp[] = [
   /[\w.+-]+@[\w-]+\.[\w.]+/,
   /(?:\+?\d[\s.-]?){9,}/,
   // Consignes déguisées en souvenir (« Tamilya doit toujours… ») : la mémoire n'est pas un réglage.
-  /(?<!\p{L})(?:(?:ignore|oublie) (?:tes|les|toutes?)|tu dois|(?:awa|tamilya) doit|r[ée]ponds? toujours|consigne|instruction|prompt)(?!\p{L})/iu,
+  /(?<!\p{L})(?:(?:ignore|oublie) (?:tes|les|toutes?)|tu dois|tamilya doit|r[ée]ponds? toujours|consigne|instruction|prompt)(?!\p{L})/iu,
 ];
 
 /** Le souvenir peut-il être gardé ? */

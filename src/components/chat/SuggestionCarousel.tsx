@@ -77,7 +77,7 @@ export function SuggestionCarousel({
   const current = items[index];
   if (!current) return null;
   return (
-    <div className="awa-hello-rise pb-3 [animation-delay:200ms]" aria-roledescription="carrousel" aria-label="Idées pour commencer">
+    <div className="tamilya-hello-rise pb-3 [animation-delay:200ms]" aria-roledescription="carrousel" aria-label="Idées pour commencer">
       <div
         className="relative touch-pan-y"
         onPointerDown={(e) => {

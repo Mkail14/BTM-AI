@@ -10,7 +10,7 @@ import { DANGER, Feedback, SECONDARY, SettingsGroup, useSave } from "./ui";
  * Mémoire de Tamilya, comme chez ChatGPT : une seule ligne (interrupteur + « Gérer ») ;
  * la liste des souvenirs s'ouvre dans une fenêtre, effaçables un par un ou d'un coup.
  */
-export function AwaMemory({ facts, on }: { facts: { kind: string; content: string }[]; on: boolean }) {
+export function TamilyaMemory({ facts, on }: { facts: { kind: string; content: string }[]; on: boolean }) {
   const { pending, state, run } = useSave();
   const dialog = useRef<HTMLDialogElement>(null);
 

@@ -76,3 +76,13 @@ describe("buildSystemPrompt avec un site", () => {
     assert.match(buildSystemPrompt(), /^Tu es Tamilya, l'assistante de BTM AI/);
   });
 });
+
+describe("site orchestr-ai", () => {
+  it("décrit les balises de validation et de passage de main", () => {
+    const instructions = siteInstructions("orchestr-ai");
+    assert.match(instructions, /<<demander_validation: nom_outil \|/);
+    assert.match(instructions, /<<je_te_laisse_gerer:/);
+    assert.match(instructions, /argent/);
+    assert.match(SITES["orchestr-ai"].intro, /Orchestr AI/);
+  });
+});

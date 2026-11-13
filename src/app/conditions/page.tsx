@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { SimplePage } from "@/components/layout/SimplePage";
-import { AWA_BIRTH_LABEL } from "@/lib/ai/awa-identity";
+import { TAMILYA_BIRTH_LABEL } from "@/lib/ai/tamilya-identity";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
 import { MAX_ACTIVE_KEYS } from "@/lib/developers/keys";
 import { CANCEL_LEAD_MS } from "@/lib/food/cancel";
@@ -140,7 +140,7 @@ export default function TermsPage() {
 
         <Section id="service" title="2. Le service">
           <p>
-            <span className={strong}>Tamilya</span> est l&apos;assistante conversationnelle de BTM AI. Née le {AWA_BIRTH_LABEL},
+            <span className={strong}>Tamilya</span> est l&apos;assistante conversationnelle de BTM AI. Née le {TAMILYA_BIRTH_LABEL},
             elle répond en français, apprend le shimaoré et est pensée d&apos;abord pour les habitants et les entreprises de
             Mayotte. Vous pouvez lui écrire ou lui parler à voix haute.
           </p>

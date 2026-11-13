@@ -1,27 +1,27 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { awaAge, isAwaBirthday } from "@/lib/ai/awa-identity";
+import { tamilyaAge, isTamilyaBirthday } from "@/lib/ai/tamilya-identity";
 import { isChallenge } from "@/lib/ai/depth";
 import { buildMemoryRequest, shouldLearnFrom } from "@/lib/ai/memory";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 
 describe("Âge de Tamilya", () => {
   it("compte depuis le 9 juillet 2026, à l'heure de Mayotte", () => {
-    assert.equal(awaAge(new Date("2026-11-06T09:00:00Z")), "3 mois");
-    assert.equal(awaAge(new Date("2026-11-08T21:30:00Z")), "4 mois");
-    assert.equal(awaAge(new Date("2027-07-09T09:00:00Z")), "1 an");
+    assert.equal(tamilyaAge(new Date("2026-11-06T09:00:00Z")), "3 mois");
+    assert.equal(tamilyaAge(new Date("2026-11-08T21:30:00Z")), "4 mois");
+    assert.equal(tamilyaAge(new Date("2027-07-09T09:00:00Z")), "1 an");
   });
 
   it("connaît son anniversaire, pas le jour de sa naissance", () => {
-    assert.equal(isAwaBirthday(new Date("2026-07-09T09:00:00Z")), false);
-    assert.equal(isAwaBirthday(new Date("2027-07-09T09:00:00Z")), true);
-    assert.equal(isAwaBirthday(new Date("2027-07-10T09:00:00Z")), false);
+    assert.equal(isTamilyaBirthday(new Date("2026-07-09T09:00:00Z")), false);
+    assert.equal(isTamilyaBirthday(new Date("2027-07-09T09:00:00Z")), true);
+    assert.equal(isTamilyaBirthday(new Date("2027-07-10T09:00:00Z")), false);
   });
 
   it("se rappelle sa date de naissance et son âge en toute fin de consignes", () => {
     const last = buildSystemPrompt().split("\n\n").at(-1) ?? "";
     assert.match(last, /née le 9 juillet 2026/);
-    assert.match(last, new RegExp(`tu as ${awaAge(new Date())}`));
+    assert.match(last, new RegExp(`tu as ${tamilyaAge(new Date())}`));
   });
 });
 

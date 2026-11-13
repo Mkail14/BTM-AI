@@ -68,7 +68,7 @@ export function PayPinHost() {
                 <button type="button" onClick={cancelPayPin} className="rounded-xl border border-border px-4 py-2.5 text-sm font-medium hover:bg-bg-muted">
                   Fermer
                 </button>
-                <a href="/parametres?rubrique=awa" className="rounded-xl bg-accent px-4 py-2.5 text-center text-sm font-medium text-accent-fg hover:bg-accent-hover">
+                <a href="/parametres?rubrique=tamilya" className="rounded-xl bg-accent px-4 py-2.5 text-center text-sm font-medium text-accent-fg hover:bg-accent-hover">
                   Créer mon code
                 </a>
               </div>

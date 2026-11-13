@@ -5,7 +5,7 @@
  *
  *   NODE_ENV=development node --conditions=react-server --env-file=.env.local --import tsx scripts/voice-comprehension.ts [essais]
  */
-import { knowledgeFor, lexiconFor, loadAwaBrain, wordsFor } from "@/lib/ai/brain";
+import { knowledgeFor, lexiconFor, loadTamilyaBrain, wordsFor } from "@/lib/ai/brain";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
 import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
 import { createRelayProvider, relayUrl } from "@/lib/ai/relay";
@@ -34,7 +34,7 @@ void (async () => {
   const secret = keysSecret();
   if (!url || !secret) throw new Error("Il faut AI_RELAY_URL, AI_KEYS_SECRET et NODE_ENV=development.");
   const provider = createRelayProvider(url, secret);
-  const brain = await loadAwaBrain();
+  const brain = await loadTamilyaBrain();
   const system = [
     buildSystemPrompt(DEFAULT_PERSONALITY, {
       personalityInstructions: await loadPersonalityInstructions(DEFAULT_PERSONALITY).catch(() => undefined),

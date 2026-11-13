@@ -199,7 +199,7 @@ export function glossMessage(entries: readonly WordEntry[], message: string): Gl
       ? []
       : [
           ...new Set(
-            raw.filter((w, i) => !covered.has(i) && w.length >= 3 && !/\d/.test(w) && !isFrenchWord(w) && !/^(?:awa|tamilya|btm|mayotte|ok|okay)$/i.test(w)),
+            raw.filter((w, i) => !covered.has(i) && w.length >= 3 && !/\d/.test(w) && !isFrenchWord(w) && !/^(?:tamilya|btm|mayotte|ok|okay)$/i.test(w)),
           ),
         ].slice(0, 8);
 

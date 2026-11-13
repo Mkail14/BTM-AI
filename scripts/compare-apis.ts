@@ -1,16 +1,16 @@
 /**
- * Compare les réponses d'Awa selon l'API : mêmes questions, mêmes consignes
+ * Compare les réponses de Tamilya selon l'API : mêmes questions, mêmes consignes
  * que le vrai chat, puis une note de ressemblance avec l'API de référence
  * (Gemini), donnée par Gemini lui-même.
  *
  *   node --conditions=react-server --env-file=.env.local --import tsx scripts/compare-apis.ts [--maitre] [--rapport fichier.md]
  *
- * --maitre : consignes du mode maître (administrateur : Awa parle shimaoré).
+ * --maitre : consignes du mode maître (administrateur : Tamilya parle shimaoré).
  * Les API viennent de la chaîne réelle (variables du serveur + /admin/circuit).
  */
 import { writeFileSync } from "node:fs";
 import { createProvider } from "@/lib/ai";
-import { knowledgeFor, lexiconFor, loadAwaBrain, wordsFor } from "@/lib/ai/brain";
+import { knowledgeFor, lexiconFor, loadTamilyaBrain, wordsFor } from "@/lib/ai/brain";
 import type { AIConfig } from "@/lib/ai/config";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
 import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
@@ -73,7 +73,7 @@ function traits(text: string) {
   };
 }
 
-const JUDGE = `Tu compares deux réponses d'une même assistante, Awa (IA de GROUPE BTM à Mayotte), à la même question.
+const JUDGE = `Tu compares deux réponses d'une même assistante, Tamilya (IA de GROUPE BTM à Mayotte), à la même question.
 A est la référence. Évalue à quel point B ressemble à A : ton et personnalité, longueur, structure (listes, titres), niveau de langue (tutoiement), langue utilisée (français/shimaoré), respect des consignes (féminin, ne pas citer de modèle d'IA, pas de formules de service client) et justesse.
 Réponds en JSON strict, sans rien autour : {"note": <0 à 10>, "ecart": "<la principale différence, en une phrase>"}`;
 
@@ -114,7 +114,7 @@ void (async () => {
     process.exit(1);
   }
 
-  const brain = await loadAwaBrain();
+  const brain = await loadTamilyaBrain();
   const personalityInstructions = await loadPersonalityInstructions(DEFAULT_PERSONALITY);
   const systemFor = (question: string) =>
     buildSystemPrompt(undefined, {
@@ -130,7 +130,7 @@ void (async () => {
 
   const refProvider = createProvider(reference.result.config);
   const lines: string[] = [
-    `# Comparaison des API d'Awa${master ? " (mode maître)" : ""}`,
+    `# Comparaison des API de Tamilya${master ? " (mode maître)" : ""}`,
     "",
     `Référence : **${reference.label}** (\`${reference.result.config.model}\`)`,
     "",

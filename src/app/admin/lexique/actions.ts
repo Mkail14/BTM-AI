@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/action-auth";
-import { invalidateAwaBrain } from "@/lib/ai/brain";
+import { invalidateTamilyaBrain } from "@/lib/ai/brain";
 import { teachWords } from "@/lib/ai/words-store";
 import { freeHue, listBranches, suggestBranch, type BranchSuggestion } from "@/lib/language/branches";
 import { parseWordList, shimaoreEntryKey } from "@/lib/language/teaching";
@@ -23,7 +23,7 @@ const schema = z.object({
 });
 
 function done(message: string): ActionResult {
-  invalidateAwaBrain();
+  invalidateTamilyaBrain();
   revalidatePath("/admin/lexique");
   return { ok: true, message };
 }

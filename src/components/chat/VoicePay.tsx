@@ -26,7 +26,7 @@ export function VoicePay() {
             Pour que Tamilya paie à ta place, crée d&apos;abord ton code à 4 chiffres dans les paramètres. Sinon, touche toi-même le bouton.
           </p>
           <div className="mt-3 flex gap-2">
-            <a href="/parametres?rubrique=awa" className="flex-1 rounded-full bg-neutral-900 px-4 py-2.5 text-center font-medium text-white">
+            <a href="/parametres?rubrique=tamilya" className="flex-1 rounded-full bg-neutral-900 px-4 py-2.5 text-center font-medium text-white">
               Créer mon code
             </a>
             <button type="button" onClick={cancelPayment} className="rounded-full px-4 py-2.5 font-medium hover:bg-neutral-100">

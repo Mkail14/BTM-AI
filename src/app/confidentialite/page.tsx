@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { SimplePage } from "@/components/layout/SimplePage";
-import { AWA_BIRTH_LABEL } from "@/lib/ai/awa-identity";
+import { TAMILYA_BIRTH_LABEL } from "@/lib/ai/tamilya-identity";
 import { ANONYMOUS_DRAFT_TTL_MS } from "@/lib/chat/anonymous-draft";
 import { formatEuros, WALLET_MAX_BALANCE } from "@/lib/wallet/limits";
 
@@ -26,7 +26,7 @@ const SUMMARY = [
 ];
 
 const SECTIONS = [
-  { id: "awa", label: "Tamilya et GROUPE BTM" },
+  { id: "tamilya", label: "Tamilya et GROUPE BTM" },
   { id: "messages", label: "Vos messages" },
   { id: "sans-compte", label: "Sans compte" },
   { id: "compte", label: "Avec un compte" },
@@ -101,9 +101,9 @@ export default function PrivacyPage() {
           </ul>
         </nav>
 
-        <Section id="awa" title="Tamilya et GROUPE BTM">
+        <Section id="tamilya" title="Tamilya et GROUPE BTM">
           <p>
-            <span className={strong}>Tamilya</span> est l&apos;assistante de BTM AI. Elle est née le {AWA_BIRTH_LABEL} et
+            <span className={strong}>Tamilya</span> est l&apos;assistante de BTM AI. Elle est née le {TAMILYA_BIRTH_LABEL} et
             apprend chaque jour à parler shimaoré : notre ambition est qu&apos;elle soit la première IA à vraiment le parler.
           </p>
           <p>

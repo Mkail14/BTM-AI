@@ -22,7 +22,7 @@ const MIN_FUZZY_LETTERS = 5;
 /** En dessous (« ah », « wa »), une correspondance ne prouve rien. */
 const MIN_LETTERS = 3;
 /** Prénoms qui ressemblent à des mots du lexique : à ne jamais remplacer. */
-const NAMES = new Set(["awa", "tamilya"]);
+const NAMES = new Set(["tamilya"]);
 
 const WORD = /[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu;
 

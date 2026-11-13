@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildSystemPrompt, getAIProvider } from "@/lib/ai";
-import { glossFor, knowledgeFor, lexiconFor, loadAwaBrain, wordsFor } from "@/lib/ai/brain";
+import { glossFor, knowledgeFor, lexiconFor, loadTamilyaBrain, wordsFor } from "@/lib/ai/brain";
 import { buildDossier } from "@/lib/ai/dossier";
 import { withRecentReplies } from "@/lib/ai/past-talks";
 import { getPastTalks } from "@/lib/ai/past-talks-store";
@@ -90,7 +90,7 @@ function readChatContext(admin: SupabaseClient, userId: string, payload: ChatPay
     ownConversation(admin, userId, payload.conversationId),
     payload.conversationId ? getRecentMessages(admin, payload.conversationId, 12).catch(() => []) : [],
     cuts.then((known) => getAIProvider(known)),
-    loadAwaBrain(),
+    loadTamilyaBrain(),
     loadPersonalityInstructions(DEFAULT_PERSONALITY).catch(() => undefined),
     getMemoriesFor(admin, userId).catch(() => []),
     // Comme dans le chat : ses anciennes discussions.

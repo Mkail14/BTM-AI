@@ -9,7 +9,7 @@ import {
   TEACHING_SYSTEM_PROMPT,
   type TaughtWord,
 } from "@/lib/language/teaching";
-import { invalidateAwaBrain } from "./brain";
+import { invalidateTamilyaBrain } from "./brain";
 import { completeText } from "./complete";
 import type { AIProvider } from "./types";
 
@@ -74,7 +74,7 @@ export async function learnWordsFromMessage(
   const phrases = taught.filter((w) => !short(w));
   if (words.length > 0) await teachWords(supabase, userId, words, null, { sameShimaore: true });
   if (phrases.length > 0) await teachPhrases(supabase, phrases);
-  if (taught.length > 0) invalidateAwaBrain();
+  if (taught.length > 0) invalidateTamilyaBrain();
   return taught;
 }
 

@@ -88,7 +88,7 @@ export const RATE_LIMIT_POLICIES = {
     { name: "dev-widget-ip-day", limit: 50, windowSeconds: 86_400 },
   ],
   developerWidgetAll: [{ name: "dev-widget-all-day", limit: 5_000, windowSeconds: 86_400 }],
-  // Sites partenaires (route /api/awa) : par site, leurs visiteurs sont déjà limités de leur côté.
+  // Sites partenaires (route /api/tamilya) : par site, leurs visiteurs sont déjà limités de leur côté.
   partnerSite: [
     { name: "site-min", limit: 60, windowSeconds: 60 },
     { name: "site-day", limit: 5_000, windowSeconds: 86_400 },

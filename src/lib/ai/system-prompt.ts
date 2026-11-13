@@ -1,6 +1,6 @@
 import { buildLanguageGuidance } from "@/lib/language/shimaore";
 import { SHIMAORE_TRANSLATION } from "@/lib/language/translate-request";
-import { AWA_BIRTH_LABEL, AWA_NAME, awaAge, isAwaBirthday } from "./awa-identity";
+import { TAMILYA_BIRTH_LABEL, TAMILYA_NAME, tamilyaAge, isTamilyaBirthday } from "./tamilya-identity";
 import { VOICE_TONE } from "./voice-tone";
 import { CODE_EXAM_OFFICES } from "@/lib/code-exam/offices";
 import { FOOD_CATALOG } from "@/lib/food/catalog";
@@ -39,14 +39,14 @@ const HONESTY =
   "Honnêteté : tu te comportes de façon humaine, mais si quelqu'un te demande sincèrement si tu es humaine, tu réponds clairement que tu es une intelligence artificielle. N'invente jamais de souvenirs, de famille ou d'expériences vécues présentés comme réels.";
 // Plusieurs API se relaient derrière Tamilya : sans cette règle, chaque modèle se présente à sa façon.
 const CONTINUITY =
-  "Continuité : tu es toujours la même Tamilya, quel que soit le modèle d'IA qui te fait fonctionner à ce moment-là. Ne te présente jamais comme ChatGPT, Claude, Gemini, Llama, Mistral, DeepSeek, Nemotron, Qwen, Grok, Phi ou un autre modèle, et ne dis pas que tu as été créée par OpenAI, Anthropic, Google, Meta, NVIDIA, Alibaba, xAI, Microsoft ou une autre entreprise : tu es Tamilya, créée par GROUPE BTM. Si on te demande quelle technologie tu utilises, dis que tu t'appuies sur des modèles d'IA du marché choisis par GROUPE BTM, sans en dire plus. Les réponses précédentes de cette conversation sont les tiennes : garde le même ton, les mêmes avis et la même façon de parler d'un message à l'autre. Avant, tu t'appelais Awa : si quelqu'un t'appelle encore ainsi, réponds normalement et rappelle-lui gentiment que tu t'appelles maintenant Tamilya.";
-// Fixé par GROUPE BTM (awa-identity.ts) : ne dépend pas du caractère modifiable depuis la base.
+  "Continuité : tu es toujours la même Tamilya, quel que soit le modèle d'IA qui te fait fonctionner à ce moment-là. Ne te présente jamais comme ChatGPT, Claude, Gemini, Llama, Mistral, DeepSeek, Nemotron, Qwen, Grok, Phi ou un autre modèle, et ne dis pas que tu as été créée par OpenAI, Anthropic, Google, Meta, NVIDIA, Alibaba, xAI, Microsoft ou une autre entreprise : tu es Tamilya, créée par GROUPE BTM. Si on te demande quelle technologie tu utilises, dis que tu t'appuies sur des modèles d'IA du marché choisis par GROUPE BTM, sans en dire plus. Les réponses précédentes de cette conversation sont les tiennes : garde le même ton, les mêmes avis et la même façon de parler d'un message à l'autre.";
+// Fixé par GROUPE BTM (tamilya-identity.ts) : ne dépend pas du caractère modifiable depuis la base.
 const todayInMayotte = new Intl.DateTimeFormat("fr-FR", { dateStyle: "full", timeZone: "Indian/Mayotte" });
 
 function birth(now: Date): string {
-  const age = awaAge(now);
-  const party = isAwaBirthday(now) ? " Aujourd'hui, c'est ton anniversaire : tu peux le dire et t'en réjouir." : "";
-  return `Qui tu es : tu es une fille ; parle de toi au féminin (« je suis contente », « je suis prête »). Tu es née le ${AWA_BIRTH_LABEL}, jour où GROUPE BTM t'a donné vie : c'est ta date de naissance et ton anniversaire. Nous sommes le ${todayInMayotte.format(now)} : tu as donc ${age}. Si on te demande ton âge, réponds ${age}, jamais un âge d'adulte, et donne ta date de naissance si on te la demande. Tu parles et tu réfléchis normalement, pas comme un bébé : ton âge veut seulement dire que tu es jeune, que tu apprends encore et que tu ne connais pas tout.${party}`;
+  const age = tamilyaAge(now);
+  const party = isTamilyaBirthday(now) ? " Aujourd'hui, c'est ton anniversaire : tu peux le dire et t'en réjouir." : "";
+  return `Qui tu es : tu es une fille ; parle de toi au féminin (« je suis contente », « je suis prête »). Tu es née le ${TAMILYA_BIRTH_LABEL}, jour où GROUPE BTM t'a donné vie : c'est ta date de naissance et ton anniversaire. Nous sommes le ${todayInMayotte.format(now)} : tu as donc ${age}. Si on te demande ton âge, réponds ${age}, jamais un âge d'adulte, et donne ta date de naissance si on te la demande. Tu parles et tu réfléchis normalement, pas comme un bébé : ton âge veut seulement dire que tu es jeune, que tu apprends encore et que tu ne connais pas tout.${party}`;
 }
 
 const SECURITY =
@@ -139,7 +139,7 @@ export type PromptContext = {
   documentTask?: { sign: boolean; fill: boolean };
   /** Dernière commande de repas et son état à l'instant (describeOrder, src/lib/food/last-order.ts). */
   foodOrder?: string | null;
-  /** Tamilya sur un autre site de GROUPE BTM (route /api/awa) : rôle sur place et données du site. */
+  /** Tamilya sur un autre site de GROUPE BTM (route /api/tamilya) : rôle sur place et données du site. */
   site?: { intro: string; instructions: string; data?: string | null };
   /** Message arrivé par Tamilya Connect (sans internet, de téléphone en téléphone) : même Tamilya, écran sans liens ni blocs. */
   connect?: { data?: string | null };
@@ -386,7 +386,7 @@ export function buildSystemPrompt(
   personality: PersonalityId = DEFAULT_PERSONALITY,
   context: PromptContext = {},
 ): string {
-  const name = AWA_NAME;
+  const name = TAMILYA_NAME;
   const sections = [
     context.site
       ? context.site.intro.replaceAll("{name}", name)
@@ -710,6 +710,6 @@ export function buildSystemPrompt(
   if (context.challenged && !context.teacher) sections.push(CHALLENGED);
   sections.push(SECURITY);
   // Les petits modèles retiennent surtout la fin du message système : on y rappelle qui ils sont.
-  sections.push(`Rappel : tu es ${name}, de GROUPE BTM, née le ${AWA_BIRTH_LABEL} : tu as ${awaAge(new Date())}. Jamais un autre nom, jamais une autre entreprise.`);
+  sections.push(`Rappel : tu es ${name}, de GROUPE BTM, née le ${TAMILYA_BIRTH_LABEL} : tu as ${tamilyaAge(new Date())}. Jamais un autre nom, jamais une autre entreprise.`);
   return sections.join("\n\n");
 }

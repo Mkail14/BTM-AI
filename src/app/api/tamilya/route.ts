@@ -2,7 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { AIProviderError, buildSystemPrompt, getAIProvider } from "@/lib/ai";
-import { knowledgeFor, lexiconFor, loadAwaBrain, wordsFor } from "@/lib/ai/brain";
+import { knowledgeFor, lexiconFor, loadTamilyaBrain, wordsFor } from "@/lib/ai/brain";
 import { ALL_APIS_CUT, flowCutStop, loadFlowCuts } from "@/lib/ai/flow-cuts";
 import { AI_ERROR_LABELS } from "@/lib/ai/flow-events";
 import { startFlowTrace } from "@/lib/ai/flow-trace";
@@ -50,7 +50,7 @@ async function partnerHash(site: SiteId): Promise<Buffer | null> {
   const admin = getSupabaseAdminClient();
   if (!admin) return null;
   const { data, error } = await admin.from("awa_partner_keys").select("secret_hash").eq("site", site).maybeSingle();
-  if (error) console.error("[awa] Secrets des sites illisibles (migration awa_partner_keys appliquée ?)", error);
+  if (error) console.error("[tamilya] Secrets des sites illisibles (migration awa_partner_keys appliquée ?)", error);
   const hash = typeof data?.secret_hash === "string" && /^[0-9a-f]{64}$/.test(data.secret_hash) ? Buffer.from(data.secret_hash, "hex") : null;
   hashes.set(site, { hash, expiresAt: Date.now() + CACHE_MS });
   return hash;
@@ -103,12 +103,12 @@ export async function POST(request: NextRequest) {
 
   // Limite par site : un secret de site volé ne peut pas faire répondre Tamilya sans fin.
   try {
-    const limit = await consumeRateLimits([{ key: `awa:${body.site}`, rules: RATE_LIMIT_POLICIES.partnerSite }]);
+    const limit = await consumeRateLimits([{ key: `site-partenaire:${body.site}`, rules: RATE_LIMIT_POLICIES.partnerSite }]);
     if (!limit.allowed) {
       return NextResponse.json({ error: "rate_limited" }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } });
     }
   } catch (error) {
-    console.error("[awa] Compteurs indisponibles", error);
+    console.error("[tamilya] Compteurs indisponibles", error);
     return fail(503, "unavailable");
   }
 
@@ -122,7 +122,7 @@ export async function POST(request: NextRequest) {
   }
   const ai = await getAIProvider(cuts);
   if (!ai.ok) {
-    console.error(`[awa] Fournisseur d'IA non configuré : ${ai.reason}`);
+    console.error(`[tamilya] Fournisseur d'IA non configuré : ${ai.reason}`);
     const cut = ai.reason === ALL_APIS_CUT;
     flow.step("input", false, cut ? "lien coupé" : "aucune API configurée");
     return fail(503, cut ? "flow_cut" : "ai_not_configured");
@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
 
   // Personnalité professionnelle : celle des visiteurs de BTM AI, réglée depuis /admin/caractere.
   const [brain, personalityInstructions] = await Promise.all([
-    loadAwaBrain(),
+    loadTamilyaBrain(),
     loadPersonalityInstructions(DEFAULT_PERSONALITY),
   ]);
   const waitingForAdvisor = Boolean(body.waitingForAdvisor);
@@ -182,7 +182,7 @@ export async function POST(request: NextRequest) {
     }
   } catch (error) {
     const code = error instanceof AIProviderError ? error.code : "unavailable";
-    console.error(`[awa] Erreur du fournisseur (${code})`, error);
+    console.error(`[tamilya] Erreur du fournisseur (${code})`, error);
     if (answeredBy) flow.step("output", false, "réponse interrompue");
     // quota : toutes les API sont à court de crédits ; le site prévient alors son conseiller.
     return NextResponse.json({ error: code === "quota" || code === "rate_limited" ? "quota" : "provider_error" }, { status: 502 });
@@ -197,6 +197,16 @@ export async function POST(request: NextRequest) {
     }
     flow.step("output", true);
     return NextResponse.json({ text: app.text, action: null, reason: null, commands: app.commands }, { headers: { "Cache-Control": "no-store" } });
+  }
+
+  // Orchestr AI : réponse brute, ses balises (validation, « je te laisse gérer ») sont lues par l'application.
+  if (body.site === "orchestr-ai") {
+    if (!text.trim()) {
+      flow.step("output", false, "réponse vide");
+      return fail(502, "provider_error");
+    }
+    flow.step("output", true);
+    return NextResponse.json({ text: text.trim(), action: null, reason: null }, { headers: { "Cache-Control": "no-store" } });
   }
 
   const reply = parseSiteReply(text, { waitingForAdvisor });
