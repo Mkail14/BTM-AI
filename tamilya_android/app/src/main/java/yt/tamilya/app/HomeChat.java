@@ -168,9 +168,10 @@ final class HomeChat implements HomeScreen.Actions {
      * à manger », micro, « + » des documents. L'accueil natif affiche les mêmes éléments.
      */
     private static final String SITE_SCRIPT = "(function(){var v=document.querySelector('[data-chat-view]');"
-            + "var l=document.querySelector('ul[aria-label=\"Idées pour commencer\"]');if(!v||!l)return '';"
+            + "var l=document.querySelector('[aria-label=\"Idées pour commencer\"]');if(!v)return '';"
             + "var b=document.querySelector('a.fixed[href^=\"/admin\"]');"
-            + "return JSON.stringify({badge:b?b.textContent.trim():'',food:l.textContent.indexOf('Commander à manger')>=0,"
+            // Une conversation est affichée sur le site : pas d'idées à lire, « food » reste comme avant.
+            + "return JSON.stringify({badge:b?b.textContent.trim():'',food:l?l.textContent.indexOf('Commander à manger')>=0:null,"
             + "voice:!!document.querySelector('#composer-form button[aria-label=\"Parler à Tamilya\"]'),"
             + "attach:!!document.querySelector('button[aria-label=\"Photo ou document\"]')});})()";
 
@@ -181,7 +182,8 @@ final class HomeChat implements HomeScreen.Actions {
                 Object text = value == null ? null : new org.json.JSONTokener(value).nextValue();
                 if (!(text instanceof String) || ((String) text).isEmpty()) return;
                 JSONObject site = new JSONObject((String) text);
-                store.saveSite(site.optString("badge"), site.optBoolean("food"), site.optBoolean("voice"), site.optBoolean("attach"));
+                boolean food = site.isNull("food") ? store.siteFood() : site.optBoolean("food");
+                store.saveSite(site.optString("badge"), food, site.optBoolean("voice"), site.optBoolean("attach"));
                 screen.setSite(store.siteBadge(), store.siteFood(), store.siteVoice(), store.siteAttach());
                 render();
             } catch (JSONException ignored) {
