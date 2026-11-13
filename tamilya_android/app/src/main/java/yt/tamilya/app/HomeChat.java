@@ -32,6 +32,10 @@ final class HomeChat implements HomeScreen.Actions {
         void openConnect();
         /** Fenêtre de connexion du site, par-dessus l'accueil web. */
         void signIn();
+        /** Lit quelque chose dans la page du site chargée derrière (ce que le site montre à ce compte). */
+        /** Le compte n'est plus connecté : l'accueil natif laisse la place à la page de présentation du site. */
+        void sessionEnded();
+        void siteScript(String script, android.webkit.ValueCallback<String> result);
     }
 
     private static final int GUEST_TRIAL = 5;
@@ -77,6 +81,7 @@ final class HomeChat implements HomeScreen.Actions {
         name = store.accountName();
         email = store.accountEmail();
         guestSent = store.guestSent();
+        screen.setSite(store.siteBadge(), store.siteFood(), store.siteVoice(), store.siteAttach());
         render();
         // Conversation de la dernière fois, lue hors du fil de l'écran.
         io.execute(() -> {
@@ -153,6 +158,36 @@ final class HomeChat implements HomeScreen.Actions {
     /** Le site vient de charger une page dans la WebView : la session a pu changer (connexion…). */
     void onSiteLoaded() {
         refreshAccount();
+        // La page s'anime après son arrivée (micro, idées) : lue un peu plus tard, deux fois.
+        main.postDelayed(this::readSite, 1500);
+        main.postDelayed(this::readSite, 5000);
+    }
+
+    /**
+     * Ce que l'accueil du site montre à ce compte : pastille des administrateurs, idée « Commander
+     * à manger », micro, « + » des documents. L'accueil natif affiche les mêmes éléments.
+     */
+    private static final String SITE_SCRIPT = "(function(){var v=document.querySelector('[data-chat-view]');"
+            + "var l=document.querySelector('ul[aria-label=\"Idées pour commencer\"]');if(!v||!l)return '';"
+            + "var b=document.querySelector('a.fixed[href^=\"/admin\"]');"
+            + "return JSON.stringify({badge:b?b.textContent.trim():'',food:l.textContent.indexOf('Commander à manger')>=0,"
+            + "voice:!!document.querySelector('#composer-form button[aria-label=\"Parler à Tamilya\"]'),"
+            + "attach:!!document.querySelector('button[aria-label=\"Photo ou document\"]')});})()";
+
+    private void readSite() {
+        if (!online) return;
+        host.siteScript(SITE_SCRIPT, value -> {
+            try {
+                Object text = value == null ? null : new org.json.JSONTokener(value).nextValue();
+                if (!(text instanceof String) || ((String) text).isEmpty()) return;
+                JSONObject site = new JSONObject((String) text);
+                store.saveSite(site.optString("badge"), site.optBoolean("food"), site.optBoolean("voice"), site.optBoolean("attach"));
+                screen.setSite(store.siteBadge(), store.siteFood(), store.siteVoice(), store.siteAttach());
+                render();
+            } catch (JSONException ignored) {
+                // Page inattendue : on garde ce qu'on savait.
+            }
+        });
     }
 
     void destroy() {
@@ -170,6 +205,7 @@ final class HomeChat implements HomeScreen.Actions {
                 email = "";
                 history = new JSONArray();
                 io.execute(store::clearAccount);
+                screen.setSite("", false, false, false);
             }
             // La conversation de l'autre état ne peut pas continuer : on en commence une neuve.
             if (!streaming) {
@@ -179,6 +215,10 @@ final class HomeChat implements HomeScreen.Actions {
                 save();
             }
             render();
+            if (!now) {
+                host.sessionEnded();
+                return;
+            }
         }
         if (signedIn && name.isEmpty() && email.isEmpty() && !accountLoading && online) {
             accountLoading = true;
@@ -202,6 +242,7 @@ final class HomeChat implements HomeScreen.Actions {
     }
 
     private void render() {
+        screen.setSignedIn(signedIn);
         screen.render(messages, streaming, firstName());
         if (trialOver) {
             screen.setBanner("Tu as utilisé tes " + GUEST_TRIAL + " messages d'essai",
@@ -496,6 +537,27 @@ final class HomeChat implements HomeScreen.Actions {
     @Override
     public void signIn() {
         host.signIn();
+    }
+
+    @Override
+    public void voice() {
+        host.openPage("/voix");
+    }
+
+    @Override
+    public void attach() {
+        host.openPage("/documents");
+    }
+
+    @Override
+    public void notifications() {
+        // Pas encore dans l'app : l'accueil du site, où la cloche ouvre les notifications.
+        host.openPage("/?notifications=1");
+    }
+
+    @Override
+    public void admin() {
+        host.openPage("/admin");
     }
 
     @Override

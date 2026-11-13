@@ -62,8 +62,19 @@ final class ChatStore {
         prefs.edit().putString("accountName", name == null ? "" : name).putString("accountEmail", email == null ? "" : email).apply();
     }
 
+    /** Ce que l'accueil du site montre à ce compte (lu dans la page, voir HomeChat.readSite). */
+    String siteBadge() { return prefs.getString("siteBadge", ""); }
+    boolean siteFood() { return prefs.getBoolean("siteFood", false); }
+    boolean siteVoice() { return prefs.getBoolean("siteVoice", false); }
+    boolean siteAttach() { return prefs.getBoolean("siteAttach", false); }
+
+    void saveSite(String badge, boolean food, boolean voice, boolean attach) {
+        prefs.edit().putString("siteBadge", badge == null ? "" : badge).putBoolean("siteFood", food)
+                .putBoolean("siteVoice", voice).putBoolean("siteAttach", attach).apply();
+    }
+
     void clearAccount() {
-        prefs.edit().remove("accountName").remove("accountEmail").apply();
+        prefs.edit().remove("accountName").remove("accountEmail").remove("siteBadge").remove("siteFood").remove("siteVoice").remove("siteAttach").apply();
         new File(dir, "historique.json").delete();
     }
 

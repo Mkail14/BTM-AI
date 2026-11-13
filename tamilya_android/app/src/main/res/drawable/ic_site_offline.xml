@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icône du site (src/components/ui/icons.tsx ou lucide) : trait de 1,8 sur une grille de 24, bouts ronds. Teintée par le code. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" android:pathData="M3 3l18 18M8.5 16.5a5 5 0 0 1 7 0M5 13a10 10 0 0 1 4,-2.3M19 13a10 10 0 0 0,-2.5,-1.8M2 9.5a15 15 0 0 1 4.5,-2.7M22 9.5A15 15 0 0 0 11 5.1" />
+    <path android:fillColor="#FFFFFFFF" android:pathData="M11.2,20a0.8,0.8 0 1 0 1.6,0a0.8,0.8 0 1 0 -1.6,0" />
+</vector>

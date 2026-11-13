@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Icône de l'accueil natif (trait de 2, comme lucide sur le site). Teintée par le code. -->
+<!-- Icône du site (src/components/ui/icons.tsx ou lucide) : trait de 1,8 sur une grille de 24, bouts ronds. Teintée par le code. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
-    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="2" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" android:pathData="M4,22h16a2,2 0 0 0 2,-2V4a2,2 0 0 0 -2,-2H8a2,2 0 0 0 -2,2v16a2,2 0 0 1 -4,0v-9a2,2 0 0 1 2,-2h2M18,14h-8M15,18h-5M10,6h8v4h-8V6Z" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" android:pathData="M4 22h16a2 2 0 0 0 2,-2V4a2 2 0 0 0,-2,-2H8a2 2 0 0 0,-2 2v16a2 2 0 0 1,-4 0v-9a2 2 0 0 1 2,-2h2" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" android:pathData="M15 18h-5" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" android:pathData="M18 14h-8" />
+    <path android:strokeColor="#FFFFFFFF" android:strokeWidth="1.8" android:strokeLineCap="round" android:strokeLineJoin="round" android:fillColor="#00000000" android:pathData="M11,6h6a1,1 0 0 1 1,1v2a1,1 0 0 1 -1,1h-6a1,1 0 0 1 -1,-1v-2a1,1 0 0 1 1,-1z" />
 </vector>

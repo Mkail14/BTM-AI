@@ -293,12 +293,25 @@ public class MainActivity extends Activity {
                 webAuthFlow = true;
                 openPage("/?auth=required&next=%2F");
             }
+
+            @Override
+            public void sessionEnded() {
+                // Déconnexion : retour à la page de présentation du site.
+                home.close();
+                web.loadUrl(HOME);
+            }
+
+            @Override
+            public void siteScript(String script, android.webkit.ValueCallback<String> result) {
+                web.evaluateJavascript(script, result);
+            }
         });
         content.addView(home.view(), match());
         content.addView(connect.view(), match());
         splash = buildSplashView();
         content.addView(splash, match());
-        if (nativeHome) {
+        // Sans compte, le site montre sa page de présentation : elle reste dans la WebView, comme avant.
+        if (nativeHome && ChatApi.signedIn()) {
             splash.setVisibility(View.GONE);
             home.open();
         }
@@ -707,6 +720,11 @@ public class MainActivity extends Activity {
         // suite ; on attend que le compte soit connecté pour revenir à l'accueil natif.
         if (webAuthFlow && !ChatApi.signedIn()) return;
         webAuthFlow = false;
+        if (!ChatApi.signedIn()) {
+            // Visiteur : la page de présentation du site, pas l'accueil natif.
+            home.close();
+            return;
+        }
         if (!home.isOpen() && !connect.isOpen()) home.open();
     }
 
@@ -1419,7 +1437,7 @@ public class MainActivity extends Activity {
         setIntent(intent);
         if (intent.getData() == null) return;
         String url = startUrl(intent);
-        if (HOME.equals(url)) {
+        if (HOME.equals(url) && ChatApi.signedIn()) {
             home.open();
         } else {
             home.close();
@@ -1437,7 +1455,8 @@ public class MainActivity extends Activity {
             else super.onBackPressed();
         }
         else if (web.canGoBack()) web.goBack();
-        else home.open();
+        else if (ChatApi.signedIn()) home.open();
+        else super.onBackPressed();
     }
 
     @Override

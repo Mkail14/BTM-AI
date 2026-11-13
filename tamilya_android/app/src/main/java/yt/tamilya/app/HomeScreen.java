@@ -2,23 +2,34 @@ package yt.tamilya.app;
 
 import android.animation.ObjectAnimator;
 import android.animation.ValueAnimator;
+import android.content.ClipData;
+import android.content.ClipboardManager;
 import android.content.Context;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.PorterDuff;
 import android.graphics.RectF;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
+import android.os.Handler;
+import android.os.Looper;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.InputType;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.TextUtils;
 import android.text.TextWatcher;
 import android.text.method.LinkMovementMethod;
+import android.text.style.ForegroundColorSpan;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.PathInterpolator;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
@@ -34,11 +45,14 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 
+import yt.tamilya.app.connect.GreyGlobe;
+
 /**
- * Accueil et conversation natifs : le même écran que ChatView.tsx du site (en-tête avec le
- * menu et le logo, Tamilya au centre avec « Bonjour » et des idées, puis les bulles et la barre
- * d'écriture avec le bouton rose plein). Les cartes du site (ticket de barge, commande…)
- * deviennent un bouton qui ouvre la conversation sur le site.
+ * Accueil et conversation natifs : le même écran que ChatView.tsx du site, aux mêmes mesures
+ * (les « px » du CSS sont des dp ici). En-tête avec le menu, le logo et la cloche, Tamilya au
+ * centre avec « Bonjour » et les idées, puis les bulles et la barre d'écriture avec le bouton
+ * rose plein. Les cartes du site (ticket de barge, commande…) deviennent un bouton qui ouvre
+ * la conversation sur le site.
  */
 final class HomeScreen extends FrameLayout {
     static final int MAX_TEXT = 4000;
@@ -58,9 +72,16 @@ final class HomeScreen extends FrameLayout {
         void retry();
         /** Menu ouvert : la liste des conversations est relue sur le serveur. */
         void menuOpened();
+        /** Micro de la barre d'écriture, ou globe quand la voix est disponible. */
+        void voice();
+        /** « + » à gauche de la barre : photo ou document. */
+        void attach();
+        void notifications();
+        /** Pastille des administrateurs (« Mode démo »…). */
+        void admin();
     }
 
-    /** Idées de l'accueil (SUGGESTIONS du site), avec une icône au lieu de l'emoji. */
+    /** Idées de l'accueil (SUGGESTIONS du site) : titre, précision, message envoyé. */
     private static final String[][] SUGGESTIONS = {
             {"Passer le code", "Le bureau le plus proche et ses créneaux", "Où passer le code près de chez moi ?"},
             {"Parler shimaoré", "Bonjour, merci, compter…", "Apprends-moi à dire bonjour en shimaoré"},
@@ -68,22 +89,44 @@ final class HomeScreen extends FrameLayout {
             {"L'actu de Mayotte", "Ce qui se passe aujourd'hui", "Quoi de neuf à Mayotte aujourd'hui ?"},
     };
     private static final int[] SUGGESTION_ICONS = {R.drawable.ic_idee_voiture, R.drawable.ic_idee_parole, R.drawable.ic_idee_emploi, R.drawable.ic_idee_actu};
+    /** Commande de repas : proposée aux comptes qui y ont accès (FOOD_SUGGESTION du site). */
+    private static final String[] FOOD_SUGGESTION = {"Commander à manger", "Tacos, pizza, plats mahorais…", "Je veux un tacos près de chez moi"};
+    private static final String PLACEHOLDER = "Demande-moi ce que tu veux…";
+    /** Exemples qui défilent dans le champ vide (EXAMPLES du site). */
+    private static final String[] EXAMPLES = {
+            "Comment dit-on « merci » en shimaoré ?",
+            "Où passer le code de la route à Mamoudzou ?",
+            "Aide-moi à écrire mon CV",
+            "Quelles offres d'emploi en ce moment ?",
+    };
+    private static final String FOOD_EXAMPLE = "Commande-moi un tacos";
+    private static final long EXAMPLE_MS = 3200;
+    private static final long CARD_MS = 5000;
 
     private final SiteTheme theme;
     private final Actions actions;
+    private final Handler handler = new Handler(Looper.getMainLooper());
+    private final PathInterpolator rise = new PathInterpolator(0.2f, 0.8f, 0.2f, 1f);
     private final LinearLayout column;
-    private final View plus;
+    private final TextView badge;
+    private final View bell;
+    private final FrameLayout body;
+    private final LinearLayout homeBox;
     private final ScrollView scroll;
     private final LinearLayout list;
+    private final LinearLayout dock;
     private final TextView notice;
-    private final TextView offline;
+    private final LinearLayout offline;
     private final LinearLayout banner;
     private final TextView bannerTitle;
     private final TextView bannerText;
     private final TextView bannerButton;
+    private final View plusButton;
+    private final View mic;
     private final EditText input;
+    private final TextView example;
     private final FrameLayout sendBox;
-    private final Glyph sendGlyph;
+    private final ImageView sendIcon;
     private final TextView hint;
     private final LinearLayout bar;
     private final FrameLayout menu;
@@ -94,145 +137,259 @@ final class HomeScreen extends FrameLayout {
     private float pull;
     private boolean streaming;
     private boolean canSend = true;
+    private boolean isOffline;
+    private boolean empty = true;
+    private String disabledReason;
+    // Ce que le site montre à ce compte (lu sur le site, gardé pour la prochaine ouverture).
+    private boolean food;
+    private boolean voice;
+    private boolean attach;
+    private boolean signedIn;
+    private int exampleIndex;
+    private View globeBox;
+    private TextView hello;
     /** Dernière réponse à l'écran : remplie au fil du flux sans tout redessiner. */
     private LinearLayout lastAnswer;
     private String lastAnswerText;
     private String shownKey;
+    private final Runnable nextExample = this::showNextExample;
 
     HomeScreen(Context context, Actions actions) {
         super(context);
         this.actions = actions;
         theme = SiteTheme.of(context);
-        setBackgroundColor(theme.bg);
+        setBackground(new HomeBackground(context, theme));
         setClickable(true);
+        setClipChildren(false);
         ringPaint.setStyle(Paint.Style.STROKE);
         ringPaint.setStrokeCap(Paint.Cap.ROUND);
         ringPaint.setStrokeWidth(dp(2));
         ringPaint.setColor(theme.fgMuted);
         hintPaint.setColor(theme.fgMuted);
         hintPaint.setTextAlign(Paint.Align.CENTER);
-        hintPaint.setTextSize(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_SP, 14, getResources().getDisplayMetrics()));
+        hintPaint.setTypeface(theme.sans);
+        hintPaint.setTextSize(dp(14));
 
         column = new LinearLayout(context);
         column.setOrientation(LinearLayout.VERTICAL);
+        column.setClipChildren(false);
         addView(column, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
-        // En-tête du site : menu, logo, « + » à droite dès qu'il y a des messages.
+        // En-tête du site : h 3.5rem, px-3, gap-2, filet dessous ; menu, logo, puis la cloche à droite.
         LinearLayout header = new LinearLayout(context);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
-        header.setPadding(dp(8), dp(6), dp(8), dp(6));
-        header.addView(iconButton(Glyph.MENU, "Ouvrir le menu", v -> openMenu()), new LinearLayout.LayoutParams(dp(44), dp(44)));
+        header.setPadding(dp(12), 0, dp(12), 0);
+        header.addView(iconButton(R.drawable.ic_site_menu, 18, 34, 8, "Ouvrir le menu", v -> openMenu()));
         LinearLayout.LayoutParams logoParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        logoParams.leftMargin = dp(4);
+        logoParams.leftMargin = dp(8);
         header.addView(brand(22), logoParams);
         header.addView(new View(context), new LinearLayout.LayoutParams(0, 1, 1f));
-        plus = iconButton(Glyph.PLUS, "Nouvelle conversation", v -> actions.newConversation());
-        plus.setVisibility(GONE);
-        header.addView(plus, new LinearLayout.LayoutParams(dp(44), dp(44)));
-        column.addView(header, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56)));
-        column.addView(rule(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1));
+        bell = iconButton(R.drawable.ic_site_bell, 22, 38, 19, "Notifications", v -> actions.notifications());
+        bell.setVisibility(GONE);
+        header.addView(bell);
+        FrameLayout headerBox = new FrameLayout(context);
+        headerBox.addView(header, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56)));
+        // Pastille des administrateurs : fixed top-2, centrée, rounded-full bg-warning px-3 py-1 text-[11px] font-semibold.
+        badge = text("", 11, 16.5f, theme.warningFg, theme.semibold);
+        pad(badge, 12, 4, 12, 4);
+        badge.setBackground(round(theme.warning, 999));
+        badge.setElevation(dp(3));
+        badge.setClickable(true);
+        badge.setOnClickListener(v -> actions.admin());
+        badge.setVisibility(GONE);
+        LayoutParams badgeParams = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.CENTER_HORIZONTAL);
+        badgeParams.topMargin = dp(8);
+        headerBox.addView(badge, badgeParams);
+        column.addView(headerBox, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56)));
+        View headerRule = new View(context);
+        headerRule.setBackgroundColor(theme.border);
+        column.addView(headerRule, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Math.max(1, dp(1))));
 
+        body = new FrameLayout(context);
+        body.setClipChildren(false);
+        // Accueil : mx-auto max-w-3xl px-4 sm:px-6, sans défilement (le haut se resserre).
+        homeBox = new LinearLayout(context);
+        homeBox.setOrientation(LinearLayout.VERTICAL);
+        homeBox.setClipChildren(false);
+        homeBox.setClipToPadding(false);
+        body.addView(homeBox, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         scroll = new ScrollView(context);
         scroll.setFillViewport(true);
         scroll.setOverScrollMode(OVER_SCROLL_NEVER);
         scroll.setVerticalScrollBarEnabled(false);
+        scroll.setVisibility(GONE);
+        // Conversation : px-3.5 pt-4 pb-10, sm:px-6 sm:pt-6 sm:pb-12.
         list = new LinearLayout(context);
         list.setOrientation(LinearLayout.VERTICAL);
-        list.setPadding(dp(16), dp(12), dp(16), dp(12));
+        list.setClipChildren(false);
+        list.setClipToPadding(false);
         scroll.addView(list, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        column.addView(scroll, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        body.addView(scroll, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        column.addView(body, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        // Bas de l'écran : message éventuel, bandeau (fin d'essai…), barre d'écriture, petite ligne.
-        LinearLayout bottom = new LinearLayout(context);
-        bottom.setOrientation(LinearLayout.VERTICAL);
-        bottom.setPadding(dp(12), 0, dp(12), 0);
-        offline = text("Tu es hors ligne. Tes messages pourront être envoyés au retour de la connexion.", 14, theme.fg);
-        offline.setBackground(round(theme.warningSoft, 10));
+        // Bas de l'écran (composer-dock) : px-2.5 sm:px-6, pb 0.5rem sm:0.75rem, blocs espacés de 0.5rem.
+        dock = new LinearLayout(context);
+        dock.setOrientation(LinearLayout.VERTICAL);
+        dock.setClipChildren(false);
+        dock.setClipToPadding(false);
+
+        // « Hors ligne » : flex items-center gap-2 rounded-lg bg-warning-soft px-3 py-2 text-sm.
+        offline = new LinearLayout(context);
+        offline.setOrientation(LinearLayout.HORIZONTAL);
+        offline.setGravity(Gravity.CENTER_VERTICAL);
+        offline.setBackground(round(theme.warningSoft, 8));
         offline.setPadding(dp(12), dp(8), dp(12), dp(8));
+        offline.addView(icon(R.drawable.ic_site_offline, theme.fg), new LinearLayout.LayoutParams(dp(16), dp(16)));
+        TextView offlineText = text("Tu es hors ligne. Tes messages pourront être envoyés au retour de la connexion.", 14, 20, theme.fg, theme.sans);
+        LinearLayout.LayoutParams offlineTextParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        offlineTextParams.leftMargin = dp(8);
+        offline.addView(offlineText, offlineTextParams);
         offline.setVisibility(GONE);
-        bottom.addView(offline, spaced(8));
-        notice = text("", 14, theme.danger);
-        notice.setBackground(round(theme.dangerSoft, 10));
-        notice.setPadding(dp(12), dp(8), dp(12), dp(8));
-        notice.setVisibility(GONE);
-        bottom.addView(notice, spaced(8));
+        dock.addView(offline, block());
 
+        // Erreur passagère : mb-2 text-center text-sm text-danger.
+        notice = text("", 14, 20, theme.danger, theme.sans);
+        notice.setGravity(Gravity.CENTER);
+        notice.setVisibility(GONE);
+        dock.addView(notice, block());
+
+        // Fin de l'essai ou conversation pleine : rounded-2xl border p-5, bouton rond de la couleur de Tamilya.
         banner = new LinearLayout(context);
         banner.setOrientation(LinearLayout.VERTICAL);
-        GradientDrawable bannerShape = round(theme.bgSubtle, 16);
-        bannerShape.setStroke(dp(1), theme.border);
+        banner.setGravity(Gravity.CENTER_HORIZONTAL);
+        GradientDrawable bannerShape = round(theme.personaSurface, 16);
+        bannerShape.setStroke(dp(1), theme.personaBorder);
         banner.setBackground(bannerShape);
-        banner.setPadding(dp(16), dp(14), dp(16), dp(14));
-        bannerTitle = text("", 15, theme.fg);
-        bannerTitle.setTypeface(Typeface.DEFAULT_BOLD);
+        banner.setPadding(dp(20), dp(20), dp(20), dp(20));
+        bannerTitle = text("", 16, 24, theme.fg, theme.semibold);
+        bannerTitle.setGravity(Gravity.CENTER);
         banner.addView(bannerTitle);
-        bannerText = text("", 13, theme.fgMuted);
-        bannerText.setPadding(0, dp(2), 0, 0);
-        banner.addView(bannerText);
-        bannerButton = pinkButton("Créer mon compte");
+        bannerText = text("", 14, 20, theme.fgMuted, theme.sans);
+        bannerText.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams bannerTextParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        bannerTextParams.topMargin = dp(2);
+        banner.addView(bannerText, bannerTextParams);
+        bannerButton = text("", 14, 20, Color.WHITE, theme.semibold);
+        pad(bannerButton, 16, 8, 16, 8);
+        bannerButton.setBackground(round(theme.persona, 999));
+        bannerButton.setClickable(true);
         LinearLayout.LayoutParams bannerButtonParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        bannerButtonParams.topMargin = dp(10);
+        bannerButtonParams.topMargin = dp(12);
         banner.addView(bannerButton, bannerButtonParams);
         banner.setVisibility(GONE);
-        bottom.addView(banner, spaced(8));
+        dock.addView(banner, block());
 
+        // Ligne de saisie : le « + » dans sa bulle, la barre, puis le bouton rond (flex items-end gap-2).
         bar = new LinearLayout(context);
         bar.setOrientation(LinearLayout.HORIZONTAL);
         bar.setGravity(Gravity.BOTTOM);
-        bar.setPadding(0, dp(8), 0, dp(4));
+        bar.setClipChildren(false);
+        int round = 54;
+
+        FrameLayout plusBox = new FrameLayout(context);
+        GradientDrawable plusShape = round(theme.bg, 999);
+        plusShape.setStroke(dp(1), theme.border);
+        plusBox.setBackground(plusShape);
+        plusBox.setContentDescription("Photo ou document");
+        plusBox.setClickable(true);
+        plusBox.setOnClickListener(v -> actions.attach());
+        plusBox.addView(icon(R.drawable.ic_site_plus, theme.fgMuted), new LayoutParams(dp(18), dp(18), Gravity.CENTER));
+        plusButton = plusBox;
+        plusButton.setVisibility(GONE);
+        LinearLayout.LayoutParams plusParams = new LinearLayout.LayoutParams(dp(round), dp(round));
+        plusParams.rightMargin = dp(8);
+        bar.addView(plusButton, plusParams);
+
+        // .composer : rounded-[1.6rem] border p-1.5 gap-1.5, bord de la couleur de Tamilya, fond du site.
         LinearLayout pill = new LinearLayout(context);
-        pill.setGravity(Gravity.CENTER_VERTICAL);
-        GradientDrawable pillShape = round(theme.bg, 26);
-        pillShape.setStroke(dp(1), theme.border);
+        pill.setOrientation(LinearLayout.HORIZONTAL);
+        pill.setGravity(Gravity.BOTTOM);
+        GradientDrawable pillShape = new GradientDrawable();
+        pillShape.setColor(theme.bg);
+        pillShape.setCornerRadius(dpf(25.6f));
+        pillShape.setStroke(dp(1), theme.personaBorder);
         pill.setBackground(pillShape);
-        pill.setMinimumHeight(dp(50));
-        pill.setPadding(dp(16), dp(6), dp(12), dp(6));
+        pill.setPadding(dp(7), dp(7), dp(7), dp(7));
+
+        // Champ : px-2, py-1.5, text-base leading-6 ; les exemples défilent par-dessus tant qu'il est vide.
+        FrameLayout field = new FrameLayout(context);
         input = new EditText(context);
-        input.setHint("Demande-moi ce que tu veux…");
-        input.setHintTextColor(theme.fgMuted);
         input.setTextColor(theme.fg);
-        input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 16);
-        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES | InputType.TYPE_TEXT_FLAG_MULTI_LINE);
-        input.setMaxLines(5);
+        input.setHintTextColor(theme.fgMuted);
+        input.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
+        input.setTypeface(theme.sans);
+        input.setIncludeFontPadding(false);
+        // Entrée envoie, comme sur le site ; le texte long passe quand même à la ligne.
+        input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_SENTENCES);
+        input.setHorizontallyScrolling(false);
+        input.setMaxLines(theme.wide ? 9 : 6);
         input.setFilters(new InputFilter[]{new InputFilter.LengthFilter(MAX_TEXT)});
         input.setImeOptions(EditorInfo.IME_ACTION_SEND);
         input.setBackground(null);
-        input.setPadding(0, dp(6), 0, dp(6));
+        lead(input, 24);
+        pad(input, 0, 6, 0, 6);
         input.setOnEditorActionListener((v, id, event) -> {
-            if (id != EditorInfo.IME_ACTION_SEND) return false;
+            boolean enter = event != null && event.getKeyCode() == android.view.KeyEvent.KEYCODE_ENTER;
+            if (enter && event.getAction() != android.view.KeyEvent.ACTION_DOWN) return true;
+            if (id != EditorInfo.IME_ACTION_SEND && !enter) return false;
             submit();
             return true;
         });
-        pill.addView(input, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        field.addView(input, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        example = text("", 16, 24, theme.fgMuted, theme.sans);
+        example.setMaxLines(1);
+        example.setEllipsize(TextUtils.TruncateAt.END);
+        pad(example, 0, 6, 0, 6);
+        example.setVisibility(GONE);
+        field.addView(example, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP));
+        LinearLayout.LayoutParams fieldParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        // gap-1.5 de chaque côté (la place du bloc de gauche, vide, compte aussi) + px-2 du champ.
+        fieldParams.leftMargin = dp(14);
+        fieldParams.rightMargin = dp(14);
+        fieldParams.gravity = Gravity.CENTER_VERTICAL;
+        pill.addView(field, fieldParams);
+
+        // Micro : rond de 2.5rem dans la barre, gris, quand la voix est disponible pour ce compte.
+        FrameLayout micBox = new FrameLayout(context);
+        micBox.setContentDescription("Parler à Tamilya");
+        micBox.setClickable(true);
+        micBox.setOnClickListener(v -> actions.voice());
+        micBox.addView(icon(R.drawable.ic_site_mic, theme.fgMuted), new LayoutParams(dp(18), dp(18), Gravity.CENTER));
+        mic = micBox;
+        mic.setVisibility(GONE);
+        LinearLayout.LayoutParams micParams = new LinearLayout.LayoutParams(dp(40), dp(40));
+        pill.addView(mic, micParams);
         bar.addView(pill, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
 
-        // Bouton rose plein du site : flèche quand on écrit, carré d'arrêt pendant la réponse.
-        sendGlyph = new Glyph(context, Glyph.ARROW, Color.WHITE);
+        // Bouton rose plein du site : flèche quand on écrit, carré d'arrêt (rond clair) pendant la réponse.
+        sendIcon = icon(R.drawable.ic_site_send, Color.WHITE);
         sendBox = new FrameLayout(context);
-        sendBox.setBackground(round(theme.accent, 27));
-        sendBox.setContentDescription("Envoyer");
+        sendBox.setContentDescription("Envoyer le message");
         sendBox.setClickable(true);
         sendBox.setOnClickListener(v -> {
             if (streaming) actions.stop();
             else submit();
         });
-        sendBox.addView(sendGlyph, new LayoutParams(dp(22), dp(22), Gravity.CENTER));
-        LinearLayout.LayoutParams sendParams = new LinearLayout.LayoutParams(dp(50), dp(50));
+        sendBox.addView(sendIcon, new LayoutParams(dp(18), dp(18), Gravity.CENTER));
+        LinearLayout.LayoutParams sendParams = new LinearLayout.LayoutParams(dp(round), dp(round));
         sendParams.leftMargin = dp(8);
         bar.addView(sendBox, sendParams);
         input.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int a, int b, int c) { }
             @Override public void onTextChanged(CharSequence s, int a, int b, int c) { }
-            @Override public void afterTextChanged(Editable s) { updateSendButton(); }
+            @Override public void afterTextChanged(Editable s) {
+                updateSendButton();
+                updateExample();
+            }
         });
-        bottom.addView(bar);
+        dock.addView(bar, block());
 
-        hint = text("Tamilya peut se tromper. Vérifie les informations importantes.", 11, theme.fgMuted);
+        // Petite ligne : text-center text-[11px] text-fg-muted.
+        hint = text("Tamilya peut se tromper. Vérifie les informations importantes.", 11, 16.5f, theme.fgMuted, theme.sans);
         hint.setGravity(Gravity.CENTER);
-        hint.setPadding(0, 0, 0, dp(8));
-        bottom.addView(hint);
-        column.addView(bottom);
+        dock.addView(hint, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        column.addView(dock);
 
         // Menu (barre latérale du site), par-dessus tout, fermé au départ.
         menu = new FrameLayout(context);
@@ -244,32 +401,171 @@ final class HomeScreen extends FrameLayout {
         menuPanel.setOrientation(LinearLayout.VERTICAL);
         menuPanel.setBackgroundColor(theme.bgSubtle);
         menuPanel.setClickable(true);
-        int panelWidth = Math.min(dp(320), Math.round(getResources().getDisplayMetrics().widthPixels * 0.86f));
+        int panelWidth = Math.min(dp(288), Math.round(getResources().getDisplayMetrics().widthPixels * 0.85f));
         menu.addView(menuPanel, new LayoutParams(panelWidth, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.START));
         addView(menu, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        layoutFor(true);
         updateSendButton();
+        updateExample();
+    }
+
+    /** Marges qui changent entre l'accueil et la conversation (pt-1 puis pt-4 et fondu vers la teinte). */
+    private void layoutFor(boolean home) {
+        int side = sidePadding(theme.wide ? 24 : 10);
+        dock.setPadding(side, dp(home ? 4 : 16), side, dp(theme.wide ? 12 : 8));
+        if (home) {
+            dock.setBackground(null);
+        } else {
+            GradientDrawable fade = new GradientDrawable(GradientDrawable.Orientation.BOTTOM_TOP,
+                    new int[]{theme.personaSurface, theme.personaSurface, SiteTheme.alpha(theme.personaSurface, 0f)});
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) fade.setColors(
+                    new int[]{theme.personaSurface, theme.personaSurface, SiteTheme.alpha(theme.personaSurface, 0f)}, new float[]{0f, 0.8f, 1f});
+            dock.setBackground(fade);
+        }
+        homeBox.setVisibility(home ? VISIBLE : GONE);
+        scroll.setVisibility(home ? GONE : VISIBLE);
+    }
+
+    /** Colonne centrée de 48rem au plus (max-w-3xl), avec la marge du site de chaque côté. */
+    private int sidePadding(int gutterDp) {
+        int width = getWidth() > 0 ? getWidth() : getResources().getDisplayMetrics().widthPixels;
+        return Math.max(dp(gutterDp), (width - dp(768)) / 2 + dp(gutterDp));
+    }
+
+    @Override
+    protected void onSizeChanged(int w, int h, int oldw, int oldh) {
+        super.onSizeChanged(w, h, oldw, oldh);
+        post(() -> {
+            int home = sidePadding(theme.wide ? 24 : 16);
+            homeBox.setPadding(home, 0, home, 0);
+            int talk = sidePadding(theme.wide ? 24 : 14);
+            list.setPadding(talk, dp(theme.wide ? 24 : 16), talk, dp(theme.wide ? 48 : 40));
+            int low = sidePadding(theme.wide ? 24 : 10);
+            dock.setPadding(low, dock.getPaddingTop(), low, dock.getPaddingBottom());
+            // Écran bas (clavier ouvert) : le globe disparaît, comme @media (max-height: 560px) du site.
+            boolean low560 = h < dp(560);
+            if (globeBox != null) globeBox.setVisibility(low560 ? GONE : VISIBLE);
+            if (hello != null) ((LinearLayout.LayoutParams) hello.getLayoutParams()).topMargin = low560 ? 0 : dp(theme.wide ? 32 : 20);
+            if (hello != null) hello.requestLayout();
+        });
     }
 
     private void submit() {
         String text = input.getText().toString().trim();
-        if (text.isEmpty() || streaming || !canSend) return;
+        if (text.isEmpty() || streaming || !canSend || isOffline) return;
         input.setText("");
         actions.send(text);
     }
 
+    private boolean enabled() {
+        return canSend && !isOffline;
+    }
+
     private void updateSendButton() {
         boolean filled = !input.getText().toString().trim().isEmpty();
-        sendBox.setAlpha(streaming || (filled && canSend) ? 1f : 0.45f);
-        sendGlyph.setKind(streaming ? Glyph.STOP : Glyph.ARROW);
-        sendBox.setContentDescription(streaming ? "Arrêter" : "Envoyer");
+        boolean ready = filled && enabled();
+        sendBox.setBackground(round(streaming ? theme.fg : theme.persona, 999));
+        sendIcon.setImageResource(streaming ? R.drawable.ic_site_stop : R.drawable.ic_site_send);
+        sendIcon.setColorFilter(streaming ? theme.bg : Color.WHITE, PorterDuff.Mode.SRC_IN);
+        sendBox.setAlpha(streaming || ready ? 1f : 0.45f);
+        sendBox.setContentDescription(streaming ? "Arrêter la génération" : "Envoyer le message");
+        float off = enabled() && !streaming ? 1f : 0.45f;
+        mic.setAlpha(off);
+        plusButton.setAlpha(off);
+    }
+
+    /** Champ vide sur l'accueil : le texte d'invitation, puis les exemples, l'un après l'autre. */
+    private void updateExample() {
+        boolean rotating = enabled() && input.getText().length() == 0 && empty;
+        input.setEnabled(canSend && !isOffline);
+        input.setHint(rotating ? "" : enabled() ? PLACEHOLDER : isOffline ? "Hors ligne" : disabledReason == null ? "Conversation terminée" : disabledReason);
+        handler.removeCallbacks(nextExample);
+        if (!rotating) {
+            example.animate().cancel();
+            example.setVisibility(GONE);
+            return;
+        }
+        if (example.getVisibility() != VISIBLE) {
+            example.setVisibility(VISIBLE);
+            exampleIndex = 0;
+            playExample();
+        } else {
+            handler.postDelayed(nextExample, EXAMPLE_MS);
+        }
+    }
+
+    private String[] examples() {
+        List<String> all = new ArrayList<>();
+        all.add(PLACEHOLDER);
+        if (food) all.add(FOOD_EXAMPLE);
+        for (String e : EXAMPLES) all.add(e);
+        return all.toArray(new String[0]);
+    }
+
+    private void showNextExample() {
+        exampleIndex++;
+        playExample();
+    }
+
+    /** @keyframes composer-hint : monte et apparaît (12 %), reste, puis s'efface vers le haut (85 % → 100 %). */
+    private void playExample() {
+        String[] all = examples();
+        example.setText(all[exampleIndex % all.length]);
+        float shift = dp(24) * 0.7f;
+        example.animate().cancel();
+        if (!ValueAnimator.areAnimatorsEnabled()) {
+            example.setAlpha(1f);
+            example.setTranslationY(0f);
+        } else {
+            example.setAlpha(0f);
+            example.setTranslationY(shift);
+            example.animate().alpha(1f).translationY(0f).setStartDelay(0).setDuration(384).setInterpolator(rise).withEndAction(() ->
+                    example.animate().alpha(0f).translationY(-shift).setStartDelay(2336).setDuration(480).setInterpolator(rise).start()).start();
+        }
+        handler.removeCallbacks(nextExample);
+        handler.postDelayed(nextExample, EXAMPLE_MS);
+    }
+
+    @Override
+    protected void onDetachedFromWindow() {
+        super.onDetachedFromWindow();
+        handler.removeCallbacksAndMessages(null);
+    }
+
+    @Override
+    protected void onAttachedToWindow() {
+        super.onAttachedToWindow();
+        updateExample();
     }
 
     /** Barre d'écriture coupée (fin d'essai, conversation pleine) ou rendue. */
     void setCanSend(boolean value, String reason) {
         canSend = value;
-        input.setEnabled(value);
-        input.setHint(value ? "Demande-moi ce que tu veux…" : reason);
+        disabledReason = reason;
         updateSendButton();
+        updateExample();
+    }
+
+    /**
+     * Ce que le site montre à ce compte : la pastille des administrateurs, l'idée « Commander à
+     * manger », le micro, le « + » des documents. Lu sur le site, redonné ici à chaque ouverture.
+     */
+    void setSite(String badgeText, boolean food, boolean voice, boolean attach) {
+        badge.setText(badgeText == null ? "" : badgeText);
+        badge.setVisibility(badgeText == null || badgeText.isEmpty() ? GONE : VISIBLE);
+        mic.setVisibility(voice ? VISIBLE : GONE);
+        plusButton.setVisibility(attach ? VISIBLE : GONE);
+        boolean changed = this.food != food || this.voice != voice;
+        this.food = food;
+        this.voice = voice;
+        this.attach = attach;
+        if (changed) shownKey = null;
+    }
+
+    /** Compte connecté : la cloche des notifications est à droite de l'en-tête. */
+    void setSignedIn(boolean value) {
+        signedIn = value;
+        bell.setVisibility(value ? VISIBLE : GONE);
     }
 
     void focusInput() {
@@ -302,16 +598,27 @@ final class HomeScreen extends FrameLayout {
         banner.setVisibility(VISIBLE);
     }
 
-    /** Petite ligne sous la barre ; cliquable pour un visiteur (créer son compte). */
+    /** Petite ligne sous la barre ; pour un visiteur, la fin (après « · ») est le lien rose vers le compte. */
     void setHint(String value, OnClickListener click) {
-        hint.setText(value);
+        int cut = click == null ? -1 : value.indexOf(" · ");
+        if (cut < 0) {
+            hint.setText(value);
+        } else {
+            SpannableString styled = new SpannableString(value);
+            styled.setSpan(new ForegroundColorSpan(theme.persona), cut + 3, value.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) styled.setSpan(new android.text.style.TypefaceSpan(theme.semibold), cut + 3, value.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            hint.setText(styled);
+        }
         hint.setClickable(click != null);
         hint.setOnClickListener(click);
-        hint.setTextColor(click != null ? theme.accent : theme.fgMuted);
     }
 
     void setOffline(boolean value) {
+        isOffline = value;
         offline.setVisibility(value ? VISIBLE : GONE);
+        shownKey = shownKey == null ? null : shownKey + "!";
+        updateSendButton();
+        updateExample();
     }
 
     /**
@@ -320,30 +627,50 @@ final class HomeScreen extends FrameLayout {
      */
     void render(List<ChatMessage> messages, boolean streaming, String name) {
         this.streaming = streaming;
+        boolean wasEmpty = empty;
+        empty = messages.isEmpty();
         updateSendButton();
-        StringBuilder key = new StringBuilder(name == null ? "" : name).append('|');
+        if (wasEmpty != empty) updateExample();
+        StringBuilder key = new StringBuilder(name == null ? "" : name).append('|').append(food).append(voice).append(isOffline).append('|');
         for (ChatMessage m : messages) key.append(m.role.charAt(0)).append(m.status.charAt(0)).append(m.notice == null ? 0 : m.notice.hashCode()).append(';');
         String wanted = key.toString();
         if (wanted.equals(shownKey)) {
             if (streaming) updateLastAnswer(messages);
             return;
         }
+        boolean first = shownKey == null || wasEmpty != empty;
         shownKey = wanted;
         boolean wasAtBottom = atBottom();
-        list.removeAllViews();
         lastAnswer = null;
         lastAnswerText = null;
-        plus.setVisibility(messages.isEmpty() ? GONE : VISIBLE);
+        layoutFor(messages.isEmpty());
         if (messages.isEmpty()) {
-            fillHome(name);
+            list.removeAllViews();
+            fillHome(name, first);
             return;
         }
-        list.setGravity(Gravity.TOP);
+        homeBox.removeAllViews();
+        globeBox = null;
+        hello = null;
+        list.removeAllViews();
+        // Relance : à côté de la question qui précède une réponse en erreur ou interrompue.
+        ChatMessage lastMessage = messages.get(messages.size() - 1);
+        boolean retryable = !lastMessage.mine() && !streaming && enabled()
+                && (ChatMessage.ERROR.equals(lastMessage.status) || ChatMessage.INTERRUPTED.equals(lastMessage.status));
+        int lastMine = -1;
+        for (int i = 0; i < messages.size(); i++) if (messages.get(i).mine()) lastMine = i;
+        boolean actionsAbove = false;
         for (int i = 0; i < messages.size(); i++) {
             ChatMessage message = messages.get(i);
             boolean last = i == messages.size() - 1;
-            list.addView(message.mine() ? bubble(message) : answer(message, last));
+            View row = message.mine() ? bubble(message, retryable && i == lastMine) : answer(message, last);
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            // space-y-10 : 2.5rem entre deux messages ; les boutons sous un message (copier…) sont dans cet espace.
+            if (i > 0) params.topMargin = actionsAbove ? -dp(2) : dp(40);
+            actionsAbove = row.getTag() == Boolean.TRUE;
+            list.addView(row, params);
         }
+        list.setPadding(list.getPaddingLeft(), list.getPaddingTop(), list.getPaddingRight(), dp(theme.wide ? 48 : 40) - (actionsAbove ? dp(42) : 0));
         if (wasAtBottom || streaming) scrollDown();
     }
 
@@ -364,83 +691,272 @@ final class HomeScreen extends FrameLayout {
         scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
     }
 
-    /** Accueil du site : Tamilya au centre, « Bonjour », la phrase, puis quatre idées. Tout tient dans l'écran. */
-    private void fillHome(String name) {
-        list.setGravity(Gravity.CENTER);
+    /** .awa-hello-rise : monte de 14 px en apparaissant (700 ms, après un délai). */
+    private void riseIn(View view, long delayMs) {
+        if (!ValueAnimator.areAnimatorsEnabled()) return;
+        view.setAlpha(0f);
+        view.setTranslationY(dp(14));
+        view.animate().alpha(1f).translationY(0f).setStartDelay(delayMs).setDuration(700).setInterpolator(rise).start();
+    }
+
+    /**
+     * Accueil du site : Tamilya (globe animé) au centre, « Bonjour », la phrase, puis les idées
+     * juste au-dessus de la barre d'écriture. Tout tient dans l'écran.
+     */
+    private void fillHome(String name, boolean animate) {
+        homeBox.removeAllViews();
+        // Haut : flex-1, centré, py-3 sm:py-8.
         LinearLayout middle = new LinearLayout(getContext());
         middle.setOrientation(LinearLayout.VERTICAL);
         middle.setGravity(Gravity.CENTER);
-        Orb orb = new Orb(getContext(), theme);
-        orb.setOnClickListener(v -> focusInput());
-        orb.setContentDescription("Écrire à Tamilya");
-        LinearLayout.LayoutParams orbParams = new LinearLayout.LayoutParams(dp(112), dp(112));
-        orbParams.gravity = Gravity.CENTER_HORIZONTAL;
-        middle.addView(orb, orbParams);
-        TextView hello = text(greeting() + (name == null || name.isEmpty() ? "" : ", " + name), 26, theme.fg);
-        hello.setTypeface(Typeface.create("sans-serif-medium", Typeface.BOLD));
-        hello.setGravity(Gravity.CENTER);
-        hello.setPadding(0, dp(20), 0, 0);
-        middle.addView(hello, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        TextView intro = text("Je suis Tamilya. Pose-moi ta question, en français ou en shimaoré.", 15, theme.fgMuted);
-        intro.setGravity(Gravity.CENTER);
-        intro.setPadding(dp(24), dp(8), dp(24), 0);
-        middle.addView(intro, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        list.addView(middle, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        middle.setClipChildren(false);
+        middle.setClipToPadding(false);
+        middle.setPadding(0, dp(theme.wide ? 32 : 12), 0, dp(theme.wide ? 32 : 12));
 
-        // Idées, deux par ligne, juste au-dessus de la barre d'écriture.
+        // Globe : .awa-blob, large de min(34vw, 8.5rem) ; le halo et les gouttelettes dépassent de sa boîte.
+        float widthDp = getResources().getDisplayMetrics().widthPixels / getResources().getDisplayMetrics().density;
+        float blob = Math.min(widthDp * 0.34f, 136f);
+        FrameLayout box = new FrameLayout(getContext());
+        box.setClipChildren(false);
+        box.setClipToPadding(false);
+        GreyGlobe globe = new GreyGlobe(getContext(), theme.persona, blob);
+        globe.setContentDescription(voice ? "Parler à Tamilya" : "Écrire à Tamilya");
+        globe.setOnClickListener(v -> {
+            globe.pop();
+            if (voice && enabled()) actions.voice();
+            else focusInput();
+        });
+        int globeView = Math.round(dpf(blob) * 1.8f);
+        box.addView(globe, new LayoutParams(globeView, globeView, Gravity.CENTER));
+        globeBox = box;
+        LinearLayout.LayoutParams boxParams = new LinearLayout.LayoutParams(Math.round(dpf(blob)), Math.round(dpf(blob)));
+        boxParams.gravity = Gravity.CENTER_HORIZONTAL;
+        middle.addView(box, boxParams);
+
+        // h1 : text-2xl sm:text-4xl font-semibold tracking-tight, mt-5 sm:mt-8.
+        hello = theme.wide ? text("", 36, 40, theme.fg, theme.semibold) : text("", 24, 32, theme.fg, theme.semibold);
+        hello.setText(greeting() + (name == null || name.isEmpty() ? "" : ", " + name));
+        hello.setLetterSpacing(-0.025f);
+        hello.setGravity(Gravity.CENTER);
+        LinearLayout.LayoutParams helloParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        helloParams.topMargin = dp(theme.wide ? 32 : 20);
+        middle.addView(hello, helloParams);
+
+        // Phrase : mt-2 text-sm sm:text-base text-fg-muted, max-w-xs sur téléphone.
+        TextView intro = theme.wide ? text("", 16, 24, theme.fgMuted, theme.sans) : text("", 14, 20, theme.fgMuted, theme.sans);
+        intro.setText("Je suis Tamilya. Pose-moi ta question, en français ou en shimaoré.");
+        intro.setGravity(Gravity.CENTER);
+        if (!theme.wide) intro.setMaxWidth(dp(320));
+        LinearLayout.LayoutParams introParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        introParams.topMargin = dp(8);
+        introParams.gravity = Gravity.CENTER_HORIZONTAL;
+        middle.addView(intro, introParams);
+        homeBox.addView(middle, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+        if (animate) {
+            riseIn(hello, 250);
+            riseIn(intro, 370);
+        }
+
+        List<String[]> ideas = new ArrayList<>();
+        List<Integer> icons = new ArrayList<>();
+        if (food) {
+            ideas.add(FOOD_SUGGESTION);
+            icons.add(R.drawable.ic_idee_repas);
+        }
+        for (int i = 0; i < SUGGESTIONS.length && ideas.size() < 4; i++) {
+            ideas.add(SUGGESTIONS[i]);
+            icons.add(SUGGESTION_ICONS[i]);
+        }
+
+        if (!theme.wide) {
+            homeBox.addView(new Carousel(ideas, icons), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            return;
+        }
+        // Tablette : grille de deux colonnes, gap-3 pb-3.
         LinearLayout grid = new LinearLayout(getContext());
         grid.setOrientation(LinearLayout.VERTICAL);
+        grid.setPadding(0, 0, 0, dp(12));
         for (int row = 0; row < 2; row++) {
             LinearLayout line = new LinearLayout(getContext());
             line.setOrientation(LinearLayout.HORIZONTAL);
             for (int col = 0; col < 2; col++) {
                 int index = row * 2 + col;
                 LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.MATCH_PARENT, 1f);
-                if (col == 1) params.leftMargin = dp(10);
-                line.addView(suggestion(index), params);
+                if (col == 1) params.leftMargin = dp(12);
+                View card = suggestion(ideas.get(index), icons.get(index), true);
+                line.addView(card, params);
+                if (animate) riseIn(card, 450 + index * 70L);
             }
             LinearLayout.LayoutParams lineParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            if (row == 1) lineParams.topMargin = dp(10);
+            if (row == 1) lineParams.topMargin = dp(12);
             grid.addView(line, lineParams);
         }
-        list.addView(grid, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        homeBox.addView(grid, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
     }
 
-    private View suggestion(int index) {
-        String[] s = SUGGESTIONS[index];
+    /**
+     * Carte d'une idée. Tablette : rounded-2xl border bg-bg/60 p-4 gap-3, icône dans un carré de
+     * 2.5rem. Téléphone (carrousel) : bg-bg/70 p-3, carré de 2.75rem, titre en demi-gras, « › ».
+     */
+    private View suggestion(String[] s, int iconId, boolean grid) {
         LinearLayout card = new LinearLayout(getContext());
         card.setOrientation(LinearLayout.HORIZONTAL);
         card.setGravity(Gravity.CENTER_VERTICAL);
-        GradientDrawable shape = round(theme.bg, 16);
+        GradientDrawable shape = round(SiteTheme.alpha(theme.bg, grid ? 0.6f : 0.7f), 16);
         shape.setStroke(dp(1), theme.border);
         card.setBackground(shape);
-        card.setPadding(dp(10), dp(10), dp(10), dp(10));
-        card.setClickable(true);
-        card.setContentDescription(s[0] + ". " + s[1]);
-        card.setOnClickListener(v -> {
-            if (!streaming && canSend) actions.send(s[2]);
-        });
-        ImageView icon = new ImageView(getContext());
-        icon.setImageResource(SUGGESTION_ICONS[index]);
-        icon.setColorFilter(theme.fg);
-        icon.setBackground(round(SiteTheme.mix(theme.accent, theme.dark ? 0.22f : 0.11f, theme.bg), 12));
-        icon.setPadding(dp(8), dp(8), dp(8), dp(8));
-        card.addView(icon, new LinearLayout.LayoutParams(dp(38), dp(38)));
+        int inner = grid ? 17 : 13;
+        card.setPadding(dp(inner), dp(inner), dp(inner), dp(inner));
+        card.setContentDescription(s[0] + " : " + s[1]);
+        card.setAlpha(enabled() ? 1f : 0.5f);
+        if (grid) {
+            card.setClickable(true);
+            card.setOnClickListener(v -> {
+                if (!streaming && enabled()) actions.send(s[2]);
+            });
+        }
+        FrameLayout square = new FrameLayout(getContext());
+        square.setBackground(round(theme.personaSoft, 12));
+        int iconSize = grid ? 20 : 24;
+        square.addView(icon(iconId, theme.fg), new LayoutParams(dp(iconSize), dp(iconSize), Gravity.CENTER));
+        int squareSize = grid ? 40 : 44;
+        card.addView(square, new LinearLayout.LayoutParams(dp(squareSize), dp(squareSize)));
         LinearLayout words = new LinearLayout(getContext());
         words.setOrientation(LinearLayout.VERTICAL);
-        TextView title = text(s[0], 14, theme.fg);
-        title.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        TextView title = text(s[0], 14, 20, theme.fg, grid ? theme.medium : theme.semibold);
         title.setMaxLines(1);
-        title.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        title.setEllipsize(TextUtils.TruncateAt.END);
         words.addView(title);
-        TextView sub = text(s[1], 12, theme.fgMuted);
+        TextView sub = text(s[1], 12, 16, theme.fgMuted, theme.sans);
         sub.setMaxLines(1);
-        sub.setEllipsize(android.text.TextUtils.TruncateAt.END);
+        sub.setEllipsize(TextUtils.TruncateAt.END);
         words.addView(sub);
         LinearLayout.LayoutParams wordsParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        wordsParams.leftMargin = dp(10);
+        wordsParams.leftMargin = dp(12);
         card.addView(words, wordsParams);
+        if (!grid) {
+            TextView chevron = text("›", 16, 24, theme.fgMuted, theme.sans);
+            LinearLayout.LayoutParams chevronParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            chevronParams.leftMargin = dp(12);
+            card.addView(chevron, chevronParams);
+        }
         return card;
+    }
+
+    /**
+     * Téléphone : les idées une carte à la fois (SuggestionCarousel.tsx). Elles changent seules le
+     * temps d'un tour, puis s'arrêtent sur la première ; un glissement ou un point en montre une autre.
+     */
+    private final class Carousel extends LinearLayout {
+        private final List<String[]> ideas;
+        private final List<Integer> icons;
+        private final FrameLayout stage;
+        private final LinearLayout dots;
+        private int index;
+        private boolean auto = true;
+        private float downX;
+        private final Runnable advance = () -> {
+            if (index == Carousel.this.ideas.size() - 1) auto = false;
+            show((index + 1) % Carousel.this.ideas.size(), 1);
+        };
+
+        Carousel(List<String[]> ideas, List<Integer> icons) {
+            super(HomeScreen.this.getContext());
+            this.ideas = ideas;
+            this.icons = icons;
+            setOrientation(VERTICAL);
+            setPadding(0, 0, 0, dp(12));
+            stage = new FrameLayout(getContext());
+            addView(stage, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            // Points : 6 px dans une zone d'appui de 24 × 40 px ; marges négatives (-mt-1 -mb-3.5).
+            dots = new LinearLayout(getContext());
+            dots.setGravity(Gravity.CENTER);
+            LayoutParams dotsParams = new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(40));
+            dotsParams.topMargin = -dp(4);
+            dotsParams.bottomMargin = -dp(14);
+            addView(dots, dotsParams);
+            stage.addView(suggestion(ideas.get(0), icons.get(0), false));
+            drawDots();
+            plan();
+        }
+
+        private void plan() {
+            handler.removeCallbacks(advance);
+            if (auto && ideas.size() > 1) handler.postDelayed(advance, CARD_MS);
+        }
+
+        private void drawDots() {
+            dots.removeAllViews();
+            for (int i = 0; i < ideas.size(); i++) {
+                int target = i;
+                FrameLayout zone = new FrameLayout(getContext());
+                zone.setContentDescription("Idée " + (i + 1) + " : " + ideas.get(i)[0]);
+                View dot = new View(getContext());
+                dot.setBackground(round(i == index ? theme.persona : SiteTheme.alpha(theme.fgMuted, 0.4f), 999));
+                zone.addView(dot, new FrameLayout.LayoutParams(dp(i == index ? 20 : 6), dp(6), Gravity.CENTER));
+                zone.setOnClickListener(v -> {
+                    auto = false;
+                    handler.removeCallbacks(advance);
+                    if (target != index) show(target, target > index ? 1 : -1);
+                });
+                dots.addView(zone, new LayoutParams(dp(i == index ? 38 : 24), dp(40)));
+            }
+        }
+
+        private void show(int next, int dir) {
+            View old = stage.getChildAt(stage.getChildCount() - 1);
+            index = next;
+            View card = suggestion(ideas.get(next), icons.get(next), false);
+            stage.addView(card);
+            if (ValueAnimator.areAnimatorsEnabled()) {
+                card.setAlpha(0f);
+                card.setTranslationX(dp(28) * dir);
+                card.animate().alpha(1f).translationX(0f).setDuration(260).setInterpolator(rise).start();
+                old.animate().alpha(0f).translationX(-dp(28) * dir).setDuration(260).withEndAction(() -> stage.removeView(old)).start();
+            } else {
+                stage.removeView(old);
+            }
+            drawDots();
+            plan();
+        }
+
+        @Override
+        public boolean onInterceptTouchEvent(MotionEvent event) {
+            return event.getY() < stage.getBottom();
+        }
+
+        @Override
+        public boolean onTouchEvent(MotionEvent event) {
+            switch (event.getActionMasked()) {
+                case MotionEvent.ACTION_DOWN:
+                    downX = event.getX();
+                    handler.removeCallbacks(advance);
+                    return true;
+                case MotionEvent.ACTION_UP:
+                    float dx = event.getX() - downX;
+                    if (Math.abs(dx) > dp(40)) {
+                        auto = false;
+                        int step = dx < 0 ? 1 : -1;
+                        show((index + step + ideas.size()) % ideas.size(), step);
+                    } else {
+                        // Un appui (pas un glissement) envoie l'idée à Tamilya.
+                        if (!streaming && enabled()) actions.send(ideas.get(index)[2]);
+                        plan();
+                    }
+                    return true;
+                case MotionEvent.ACTION_CANCEL:
+                    plan();
+                    return true;
+                default:
+                    return true;
+            }
+        }
+
+        @Override
+        protected void onDetachedFromWindow() {
+            super.onDetachedFromWindow();
+            handler.removeCallbacks(advance);
+        }
     }
 
     /** « Bonjour » ou « Bonsoir » à l'heure de Mayotte, comme greeting() du site. */
@@ -450,46 +966,94 @@ final class HomeScreen extends FrameLayout {
         return hour >= 18 || hour < 4 ? "Bonsoir" : "Bonjour";
     }
 
-    /** Bulle de la personne : bg-muted, coins arrondis sauf en bas à droite, 88 % de large au plus. */
-    private View bubble(ChatMessage message) {
+    /**
+     * Bulle de la personne : max-w-[88%] sm:max-w-[75%] rounded-3xl rounded-br-lg, fond --persona-soft,
+     * px-4 py-2.5 leading-relaxed. Dessous, à droite : relancer et copier quand la réponse a échoué.
+     */
+    private View bubble(ChatMessage message, boolean retry) {
         LinearLayout box = new LinearLayout(getContext());
         box.setOrientation(LinearLayout.VERTICAL);
+        box.setClipChildren(false);
         box.setGravity(Gravity.END);
-        box.setPadding(0, dp(10), 0, dp(10));
-        TextView body = text(message.text(), 16, theme.fg);
-        body.setLineSpacing(0, 1.3f);
-        body.setMaxWidth(Math.round(getResources().getDisplayMetrics().widthPixels * 0.88f) - dp(32));
+        TextView body = text(message.text(), 16, 26, theme.fg, theme.sans);
+        int inside = list.getWidth() > 0 ? list.getWidth() - list.getPaddingLeft() - list.getPaddingRight()
+                : getResources().getDisplayMetrics().widthPixels - 2 * sidePadding(theme.wide ? 24 : 14);
+        body.setMaxWidth(Math.round(inside * (theme.wide ? 0.75f : 0.88f)));
         GradientDrawable shape = new GradientDrawable();
-        shape.setColor(theme.bgMuted);
+        shape.setColor(theme.personaSoft);
         float big = dp(24), small = dp(8);
         shape.setCornerRadii(new float[]{big, big, big, big, small, small, big, big});
         body.setBackground(shape);
-        body.setPadding(dp(16), dp(10), dp(16), dp(10));
+        pad(body, 16, 10, 16, 10);
         body.setTextIsSelectable(true);
         LinearLayout.LayoutParams bodyParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
         bodyParams.gravity = Gravity.END;
         box.addView(body, bodyParams);
+        if (retry) {
+            LinearLayout tools = new LinearLayout(getContext());
+            tools.setOrientation(LinearLayout.HORIZONTAL);
+            tools.addView(action(R.drawable.ic_site_retry, "Relancer ce message", v -> actions.retry()));
+            tools.addView(copyAction(message.text()));
+            LinearLayout.LayoutParams toolsParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, dp(40));
+            toolsParams.topMargin = dp(2);
+            box.addView(tools, toolsParams);
+            box.setTag(Boolean.TRUE);
+        }
         return box;
     }
 
-    /** Réponse de Tamilya : le globe à gauche, le texte à droite, sans bulle (comme le site). */
+    /** Petit bouton d'action sous un message (Action du site) : carré de 2.5rem au doigt, icône de 16. */
+    private View action(int iconId, String label, OnClickListener click) {
+        FrameLayout button = new FrameLayout(getContext());
+        button.setContentDescription(label);
+        button.setClickable(true);
+        button.setOnClickListener(click);
+        button.addView(icon(iconId, theme.fgMuted), new LayoutParams(dp(16), dp(16), Gravity.CENTER));
+        button.setLayoutParams(new LinearLayout.LayoutParams(dp(40), dp(40)));
+        return button;
+    }
+
+    private View copyAction(String value) {
+        FrameLayout button = (FrameLayout) action(R.drawable.ic_site_copy, "Copier", null);
+        ImageView image = (ImageView) button.getChildAt(0);
+        button.setOnClickListener(v -> {
+            ClipboardManager clipboard = getContext().getSystemService(ClipboardManager.class);
+            if (clipboard == null) return;
+            clipboard.setPrimaryClip(ClipData.newPlainText("Tamilya", value));
+            image.setImageResource(R.drawable.ic_site_check);
+            image.setColorFilter(theme.success, PorterDuff.Mode.SRC_IN);
+            handler.postDelayed(() -> {
+                image.setImageResource(R.drawable.ic_site_copy);
+                image.setColorFilter(theme.fgMuted, PorterDuff.Mode.SRC_IN);
+            }, 1500);
+        });
+        return button;
+    }
+
+    /** Réponse de Tamilya : son globe à gauche (2rem), le texte à droite sans bulle (gap-2.5 sm:gap-3, pt-1). */
     private View answer(ChatMessage message, boolean last) {
         LinearLayout row = new LinearLayout(getContext());
         row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setPadding(0, dp(10), 0, dp(10));
-        View avatar = new View(getContext());
-        avatar.setBackground(Orb.ball(theme, dp(26)));
-        avatar.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+        row.setClipChildren(false);
+        boolean inProgress = ChatMessage.STREAMING.equals(message.status);
+        FrameLayout avatar = new FrameLayout(getContext());
+        avatar.setClipChildren(false);
+        GreyGlobe globe = new GreyGlobe(getContext(), theme.persona, 32f);
+        globe.setBusy(inProgress);
+        globe.setStill(!inProgress);
+        globe.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+        int globeView = Math.round(dp(32) * 1.8f);
+        avatar.addView(globe, new LayoutParams(globeView, globeView, Gravity.CENTER));
         row.addView(avatar, new LinearLayout.LayoutParams(dp(32), dp(32)));
 
         LinearLayout content = new LinearLayout(getContext());
         content.setOrientation(LinearLayout.VERTICAL);
+        content.setClipChildren(false);
+        content.setPadding(0, dp(4), 0, 0);
         LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
-        params.leftMargin = dp(10);
-        params.topMargin = dp(4);
+        params.leftMargin = dp(theme.wide ? 12 : 10);
         row.addView(content, params);
 
-        boolean inProgress = ChatMessage.STREAMING.equals(message.status);
         LinearLayout body = new LinearLayout(getContext());
         body.setOrientation(LinearLayout.VERTICAL);
         content.addView(body, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
@@ -498,24 +1062,33 @@ final class HomeScreen extends FrameLayout {
             lastAnswer = body;
             lastAnswerText = message.text();
         }
-        if (message.notice != null && !message.notice.isEmpty()) {
-            boolean error = ChatMessage.ERROR.equals(message.status);
-            TextView note = text(message.notice, 13, error ? theme.danger : theme.fgMuted);
+        boolean error = ChatMessage.ERROR.equals(message.status);
+        if (!inProgress && (error || ChatMessage.INTERRUPTED.equals(message.status))) {
+            String words = message.notice != null && !message.notice.isEmpty() ? message.notice
+                    : error ? "La réponse n'a pas pu être générée." : "Réponse interrompue.";
+            // Erreur : mt-2 rounded-xl bg-danger-soft px-3 py-2 text-sm ; interruption : mt-2 text-xs gris.
+            TextView note = error ? text(words, 14, 20, theme.danger, theme.sans) : text(words, 12, 16, theme.fgMuted, theme.sans);
             if (error) {
-                note.setBackground(round(theme.dangerSoft, 10));
-                note.setPadding(dp(12), dp(8), dp(12), dp(8));
+                note.setBackground(round(theme.dangerSoft, 12));
+                pad(note, 12, 8, 12, 8);
             }
-            content.addView(note, spaced(6));
+            LinearLayout.LayoutParams noteParams = new LinearLayout.LayoutParams(error ? ViewGroup.LayoutParams.MATCH_PARENT : ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            noteParams.topMargin = dp(8);
+            content.addView(note, noteParams);
         }
-        if (last && !inProgress && (ChatMessage.ERROR.equals(message.status) || ChatMessage.INTERRUPTED.equals(message.status))) {
-            TextView retry = outlinedButton("Réessayer");
-            retry.setOnClickListener(v -> actions.retry());
-            content.addView(retry, spaced(8));
+        // Copier, une fois la réponse terminée : sous le texte, dans l'espace entre deux messages.
+        if (!inProgress && !error && !message.text().trim().isEmpty()) {
+            View copy = copyAction(message.text());
+            LinearLayout.LayoutParams copyParams = new LinearLayout.LayoutParams(dp(40), dp(40));
+            copyParams.topMargin = dp(2);
+            copyParams.leftMargin = -dp(6);
+            content.addView(copy, copyParams);
+            row.setTag(Boolean.TRUE);
         }
         return row;
     }
 
-    /** Remplit le texte d'une réponse : morceaux de texte mis en forme, cartes en bouton. */
+    /** Remplit le texte d'une réponse : morceaux de texte mis en forme (.markdown, interligne 1,7), cartes en bouton. */
     private void bindAnswer(LinearLayout body, String markdown, boolean inProgress) {
         body.removeAllViews();
         List<ChatMarkdown.Part> parts = ChatMarkdown.split(markdown);
@@ -530,8 +1103,7 @@ final class HomeScreen extends FrameLayout {
                 body.addView(card, spaced(6));
                 continue;
             }
-            TextView view = text("", 16, theme.fg);
-            view.setLineSpacing(0, 1.3f);
+            TextView view = text("", 16, 27.2f, theme.fg, theme.sans);
             view.setText(MarkdownSpans.render(part.text, theme, dp(1), actions::openLink));
             view.setMovementMethod(LinkMovementMethod.getInstance());
             view.setTextIsSelectable(!inProgress);
@@ -539,7 +1111,7 @@ final class HomeScreen extends FrameLayout {
         }
     }
 
-    /** Trois points qui sautillent jusqu'au premier mot. */
+    /** Trois points de la couleur de Tamilya qui sautillent jusqu'au premier mot (h-6, gap-1, animate-bounce). */
     private View thinking() {
         LinearLayout dots = new LinearLayout(getContext());
         dots.setOrientation(LinearLayout.HORIZONTAL);
@@ -549,12 +1121,13 @@ final class HomeScreen extends FrameLayout {
         List<ObjectAnimator> moves = new ArrayList<>();
         for (int i = 0; i < 3; i++) {
             View dot = new View(getContext());
-            dot.setBackground(round(theme.fgMuted, 3));
+            dot.setBackground(round(theme.persona, 999));
             LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(dp(6), dp(6));
             if (i > 0) params.leftMargin = dp(4);
             dots.addView(dot, params);
-            ObjectAnimator move = ObjectAnimator.ofFloat(dot, View.TRANSLATION_Y, 0f, -dp(4), 0f);
-            move.setDuration(600);
+            // animate-bounce de Tailwind : part de -25 %, retombe, remonte, en 1 s.
+            ObjectAnimator move = ObjectAnimator.ofFloat(dot, View.TRANSLATION_Y, -dpf(1.5f), 0f, -dpf(1.5f));
+            move.setDuration(1000);
             move.setStartDelay(i * 120L);
             move.setRepeatCount(ValueAnimator.INFINITE);
             moves.add(move);
@@ -731,7 +1304,7 @@ final class HomeScreen extends FrameLayout {
     /** Le doigt monte : les messages suivent, le rond se remplit au-dessus de la barre. */
     void setPull(float progress) {
         pull = progress;
-        scroll.setTranslationY(-dp(112) * progress);
+        body.setTranslationY(-dp(112) * progress);
         invalidate();
     }
 
@@ -761,26 +1334,37 @@ final class HomeScreen extends FrameLayout {
 
     // ----- Petits éléments -----
 
-    /** Logo du site (BrandLogo.tsx) en texte : « BTM » puis le badge rose « AI ». */
+    /** Logo du site (BrandLogo.tsx) : la forme BTM teintée comme le texte, puis le badge « AI ». */
     private View brand(int heightDp) {
+        int height = dp(heightDp);
         LinearLayout row = new LinearLayout(getContext());
         row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setContentDescription("BTM AI — Tamilya");
-        TextView btm = text("BTM", heightDp - 2, theme.fg);
-        btm.setTypeface(Typeface.create("sans-serif-black", Typeface.BOLD));
-        btm.setLetterSpacing(-0.02f);
-        btm.setIncludeFontPadding(false);
-        row.addView(btm);
-        TextView badge = text("AI", Math.round(heightDp * 0.5f), theme.accentFg);
-        badge.setTypeface(Typeface.DEFAULT_BOLD);
-        badge.setLetterSpacing(0.05f);
-        badge.setIncludeFontPadding(false);
-        badge.setPadding(dp(5), dp(2), dp(5), dp(2));
-        badge.setBackground(round(theme.accent, 4));
-        LinearLayout.LayoutParams badgeParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-        badgeParams.leftMargin = dp(6);
-        row.addView(badge, badgeParams);
+        row.setGravity(Gravity.BOTTOM);
+        row.setContentDescription("BTM AI — GROUPE BTM");
+        ImageView mark = new ImageView(getContext());
+        mark.setImageResource(R.drawable.connect_logo);
+        mark.setColorFilter(theme.fg, PorterDuff.Mode.SRC_IN);
+        mark.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        row.addView(mark, new LinearLayout.LayoutParams(Math.round(height * 1039f / 483f), height));
+        TextView ai = new TextView(getContext());
+        ai.setText("AI");
+        ai.setTextColor(theme.accentFg);
+        ai.setTextSize(TypedValue.COMPLEX_UNIT_PX, height * 0.36f);
+        ai.setTypeface(theme.bold);
+        ai.setLetterSpacing(0.025f);
+        ai.setIncludeFontPadding(false);
+        Paint.FontMetrics metrics = ai.getPaint().getFontMetrics();
+        // leading-none : la boîte fait la hauteur du corps, pas celle de la police.
+        float extra = height * 0.36f - (metrics.descent - metrics.ascent);
+        int padX = Math.round(height * 0.36f * 0.22f), padY = Math.round(height * 0.36f * 0.06f);
+        ai.setPadding(padX, padY + Math.round(extra / 2f), padX, padY + Math.round(extra / 2f));
+        GradientDrawable shape = new GradientDrawable();
+        shape.setColor(theme.accent);
+        shape.setCornerRadius(height * 0.36f * 0.18f);
+        ai.setBackground(shape);
+        LinearLayout.LayoutParams aiParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        aiParams.leftMargin = Math.round(height * 0.35f);
+        row.addView(ai, aiParams);
         return row;
     }
 
@@ -788,6 +1372,26 @@ final class HomeScreen extends FrameLayout {
         View rule = new View(getContext());
         rule.setBackgroundColor(theme.border);
         return rule;
+    }
+
+    /** Icône du site (vecteur blanc) teintée. */
+    private ImageView icon(int id, int color) {
+        ImageView view = new ImageView(getContext());
+        view.setImageResource(id);
+        view.setColorFilter(color, PorterDuff.Mode.SRC_IN);
+        view.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+        return view;
+    }
+
+    /** Bouton d'icône de l'en-tête : icône grise dans une boîte (p-2), coins arrondis. */
+    private View iconButton(int iconId, int iconDp, int boxDp, int radiusDp, String description, OnClickListener click) {
+        FrameLayout button = new FrameLayout(getContext());
+        button.setContentDescription(description);
+        button.setClickable(true);
+        button.setOnClickListener(click);
+        button.addView(icon(iconId, theme.fgMuted), new LayoutParams(dp(iconDp), dp(iconDp), Gravity.CENTER));
+        button.setLayoutParams(new LinearLayout.LayoutParams(dp(boxDp), dp(boxDp)));
+        return button;
     }
 
     private View iconButton(int glyph, String description, OnClickListener click) {
@@ -809,7 +1413,7 @@ final class HomeScreen extends FrameLayout {
     /** Bouton rose plein du site (btn-rose) : rond, texte blanc en gras. */
     private TextView pinkButton(String label) {
         TextView button = text(label, 15, Color.WHITE);
-        button.setTypeface(Typeface.DEFAULT_BOLD);
+        button.setTypeface(theme.bold);
         button.setGravity(Gravity.CENTER);
         button.setPadding(dp(20), dp(11), dp(20), dp(11));
         button.setBackground(round(theme.accent, 24));
@@ -818,10 +1422,9 @@ final class HomeScreen extends FrameLayout {
     }
 
     private TextView outlinedButton(String label) {
-        TextView button = text(label, 14, theme.fg);
-        button.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
+        TextView button = text(label, 14, 20, theme.fg, theme.medium);
         button.setGravity(Gravity.CENTER_VERTICAL);
-        button.setPadding(dp(14), dp(9), dp(14), dp(9));
+        pad(button, 14, 9, 14, 9);
         GradientDrawable shape = round(theme.bg, 12);
         shape.setStroke(dp(1), theme.border);
         button.setBackground(shape);
@@ -829,12 +1432,46 @@ final class HomeScreen extends FrameLayout {
         return button;
     }
 
-    private TextView text(String value, int sp, int color) {
+    /** Texte du menu : police du site, taille en dp (les « px » du CSS). */
+    private TextView text(String value, int size, int color) {
         TextView view = new TextView(getContext());
         view.setText(value);
-        view.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
+        view.setTextSize(TypedValue.COMPLEX_UNIT_DIP, size);
         view.setTextColor(color);
+        view.setTypeface(theme.sans);
         return view;
+    }
+
+    /**
+     * Texte aux mesures du CSS : corps et interligne en dp. La boîte fait exactement
+     * lignes × interligne, comme dans le navigateur (demi-interligne au-dessus et au-dessous).
+     */
+    private TextView text(String value, float sizeDp, float lineDp, int color, Typeface face) {
+        TextView view = new TextView(getContext());
+        view.setText(value);
+        view.setTextSize(TypedValue.COMPLEX_UNIT_DIP, sizeDp);
+        view.setTextColor(color);
+        view.setTypeface(face);
+        view.setIncludeFontPadding(false);
+        lead(view, lineDp);
+        pad(view, 0, 0, 0, 0);
+        return view;
+    }
+
+    /** Interligne du CSS : l'écart est réparti entre les lignes, et gardé en marge pour pad(). */
+    private void lead(TextView view, float lineDp) {
+        Paint.FontMetrics metrics = view.getPaint().getFontMetrics();
+        float extra = dpf(lineDp) - (metrics.descent - metrics.ascent);
+        view.setLineSpacing(extra, 1f);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) view.setFallbackLineSpacing(false);
+        view.setTag(extra);
+    }
+
+    /** Marges intérieures du CSS (en dp), plus le demi-interligne de la première et de la dernière ligne. */
+    private void pad(TextView view, int left, int top, int right, int bottom) {
+        float extra = view.getTag() instanceof Float ? (Float) view.getTag() : 0f;
+        int above = Math.round(extra / 2f);
+        view.setPadding(dp(left), dp(top) + above, dp(right), dp(bottom) + Math.round(extra) - above);
     }
 
     private GradientDrawable round(int color, int radiusDp) {
@@ -850,37 +1487,19 @@ final class HomeScreen extends FrameLayout {
         return params;
     }
 
+    /** Bloc du bas de l'écran : pleine largeur, 0.5rem avant le suivant (space-y-2). */
+    private LinearLayout.LayoutParams block() {
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        params.bottomMargin = dp(8);
+        return params;
+    }
+
     private int dp(int value) {
         return Math.round(TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, getResources().getDisplayMetrics()));
     }
 
-    /** Globe de Tamilya (awa-blob du site) : boule rose dégradée qui respire doucement. */
-    static final class Orb extends View {
-        Orb(Context context, SiteTheme theme) {
-            super(context);
-            setBackground(ball(theme, Math.round(56 * context.getResources().getDisplayMetrics().density)));
-            setClickable(true);
-            ObjectAnimator breathe = ObjectAnimator.ofPropertyValuesHolder(this,
-                    android.animation.PropertyValuesHolder.ofFloat(View.SCALE_X, 1f, 1.04f, 1f),
-                    android.animation.PropertyValuesHolder.ofFloat(View.SCALE_Y, 1f, 1.04f, 1f));
-            breathe.setDuration(3600);
-            breathe.setRepeatCount(ValueAnimator.INFINITE);
-            addOnAttachStateChangeListener(new OnAttachStateChangeListener() {
-                @Override public void onViewAttachedToWindow(View v) { breathe.start(); }
-                @Override public void onViewDetachedFromWindow(View v) { breathe.cancel(); }
-            });
-        }
-
-        static GradientDrawable ball(SiteTheme theme, int radiusPx) {
-            GradientDrawable ball = new GradientDrawable();
-            ball.setShape(GradientDrawable.OVAL);
-            ball.setGradientType(GradientDrawable.RADIAL_GRADIENT);
-            ball.setGradientCenter(0.32f, 0.28f);
-            ball.setGradientRadius(radiusPx);
-            ball.setColors(new int[]{SiteTheme.mix(theme.accent, 0.55f, 0xFFFFE3EF), theme.accent,
-                    SiteTheme.mix(theme.accent, 0.70f, 0xFF2A0614)});
-            return ball;
-        }
+    private float dpf(float value) {
+        return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, getResources().getDisplayMetrics());
     }
 
     /** Icônes du site (trait de 2, bouts ronds, grille de 24), dessinées à la main. */

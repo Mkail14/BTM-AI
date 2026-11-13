@@ -30,14 +30,20 @@ import java.util.Random;
  * dessinée ici parce que Tamilya Connect s'affiche sans internet. Forme, gouttelettes, cœur et
  * sursauts suivent un bruit calculé à chaque image, comme sur le site.
  */
-final class GreyGlobe extends View {
+public final class GreyGlobe extends View {
     // Couleurs du globe du site : --blob = accent, éclat et ombre en color-mix (globals.css, .awa-blob).
     // Champs d'instance : getContext() est prêt quand ils sont calculés (juste après super()).
-    private final int BLOB = ConnectTheme.of(getContext()).accent;
-    private final int LIGHT = ConnectTheme.mix(BLOB, 0.55f, 0xFFFFE3EF);
-    private final int DEEP = ConnectTheme.mix(BLOB, 0.70f, 0xFF2A0614);
+    private final int BLOB;
+    private final int LIGHT;
+    private final int DEEP;
     /** Battement du site : l'arc-en-ciel de .awa-blob (conic-gradient). */
-    private final int[] SHIMMER = {BLOB, 0xFF9B72CB, 0xFF4285F4, 0xFF34A853, 0xFFFBBC05, 0xFFEA4335, BLOB};
+    private final int[] SHIMMER;
+    /** Largeur du globe du site (.awa-blob), en dp ; 0 : la taille de Tamilya Connect. */
+    private final float sizeDp;
+    /** Figé (réponse finie) : la goutte garde sa forme et ne bouge plus. */
+    private boolean still;
+    /** Tamilya réfléchit : plus vive et resserrée (busy du site). */
+    private boolean busy;
 
     private static final int FPS_ACTIVE = 30;
     private static final int FPS_IDLE = 20;
@@ -96,7 +102,21 @@ final class GreyGlobe extends View {
     private boolean running;
 
     GreyGlobe(Context context) {
+        this(context, ConnectTheme.of(context).accent, 0f);
+    }
+
+    /**
+     * Le globe du site à une taille donnée : blob est la couleur de --persona, sizeDp la largeur
+     * CSS de .awa-blob (136 sur l'accueil, 32 à côté des réponses) ; la vue fait 1,8 fois plus,
+     * pour le halo et les gouttelettes qui dépassent.
+     */
+    public GreyGlobe(Context context, int blob, float sizeDp) {
         super(context);
+        this.sizeDp = sizeDp;
+        BLOB = blob;
+        LIGHT = ConnectTheme.mix(BLOB, 0.55f, 0xFFFFE3EF);
+        DEEP = ConnectTheme.mix(BLOB, 0.70f, 0xFF2A0614);
+        SHIMMER = new int[]{BLOB, 0xFF9B72CB, 0xFF4285F4, 0xFF34A853, 0xFFFBBC05, 0xFFEA4335, BLOB};
         for (int i = 0; i < lattice.length; i++) lattice[i] = random.nextFloat() * 2f - 1f;
         for (int i = 0; i < drops.length; i++) {
             drops[i] = new float[]{range(25, 70) * (random.nextBoolean() ? -1 : 1), range(0, 1000)};
@@ -126,8 +146,21 @@ final class GreyGlobe extends View {
     }
 
     /** Écrasement, rebond et ondes au toucher. */
-    void pop() {
+    public void pop() {
         popAt = SystemClock.uptimeMillis();
+    }
+
+    /** Figée (data-still du site) : plus aucun mouvement, la forme du moment reste. */
+    public void setStill(boolean value) {
+        if (still == value) return;
+        still = value;
+        if (still) stop();
+        else if (isShown()) start();
+    }
+
+    /** Elle réfléchit (busy du site) : cœur plus rapide, forme plus vive, gouttelettes resserrées. */
+    public void setBusy(boolean value) {
+        busy = value;
     }
 
     private static boolean motionAllowed() {
@@ -137,6 +170,12 @@ final class GreyGlobe extends View {
     @Override
     protected void onMeasure(int widthSpec, int heightSpec) {
         // Le globe fait 56 % de la vue : le reste laisse la place au halo et aux gouttelettes.
+        if (sizeDp > 0f) {
+            // Taille fixe, même si le parent est plus petit : le halo déborde comme sur le site.
+            int size = Math.round(sizeDp * 1.8f * getResources().getDisplayMetrics().density);
+            setMeasuredDimension(size, size);
+            return;
+        }
         int size = dp(216);
         setMeasuredDimension(resolveSize(size, widthSpec), resolveSize(size, heightSpec));
     }
@@ -176,7 +215,7 @@ final class GreyGlobe extends View {
     }
 
     private void start() {
-        if (running || !motionAllowed()) return;
+        if (running || still || !motionAllowed()) return;
         running = true;
         long now = SystemClock.uptimeMillis();
         last = now;
@@ -204,14 +243,16 @@ final class GreyGlobe extends View {
 
     /** Une image de la goutte : la suite exacte des calculs d'AwaBlob, sans la voix. */
     private void step(long now, float dt) {
-        time += dt;
+        // Vitesse du site : 2,4 quand elle réfléchit, 1 sinon (la voix n'est pas ici).
+        float speed = busy ? 2.4f : 1f;
+        time += dt * speed;
 
         if (nextBeat != 0L && now >= nextBeat) {
             float strength = range(0.85f, 1f);
             beats.add(new float[]{now, strength});
             colorTurn += range(70, 150);
             beats.add(new float[]{now + range(230, 270), strength * range(0.6f, 0.75f)});
-            nextBeat = now + (long) range(1050, 1250);
+            nextBeat = now + (long) (busy ? range(650, 750) : range(1050, 1250));
         }
         float pulse = 0f;
         for (int i = beats.size() - 1; i >= 0; i--) {
@@ -237,34 +278,33 @@ final class GreyGlobe extends View {
 
         tx = noise(time * 0.22f + 11f) * 5f + joltX * jolt * 6f;
         ty = noise(time * 0.19f + 47f) * 5f + joltY * jolt * 6f;
-        rotation += noise(time * 0.12f + 300f) * 55f * dt;
+        rotation += noise(time * 0.12f + 300f) * 55f * dt * speed;
         tilt = noise(time * 0.3f + 700f) * 8f;
 
-        float grow = 1f + heart * 0.07f;
+        float grow = 1f + heart * 0.07f + (busy ? noise(time * 3f) * 0.03f : 0f);
         sx = grow * (1f + jolt * 0.08f * Math.abs(joltX));
         sy = grow * (1f + jolt * 0.08f * Math.abs(joltY));
 
-        colorTurn += 120f * dt;
+        colorTurn += 120f * dt * speed;
         shimmerAlpha = clamp(heart * 1.2f, 0f, 1f);
 
         float size = box.width();
         for (int i = 0; i < 8; i++) {
-            float percent = clamp(50f + noise(time * (0.35f + i * 0.04f) + i * 37.3f) * 14f, 28f, 72f);
+            float percent = clamp(50f + noise(time * (0.35f + i * 0.04f) + i * 37.3f) * (busy ? 18f : 14f), 28f, 72f);
             // Ordre du site : 4 largeurs puis 4 hauteurs ; ordre d'Android : largeur, hauteur, coin par coin.
             radii[i < 4 ? i * 2 : (i - 4) * 2 + 1] = percent * size / 100f;
         }
 
         for (int i = 0; i < drops.length; i++) {
-            float speed = drops[i][0];
             float seed = drops[i][1];
-            dropAngle[i] += (speed + noise(time * 0.4f + seed) * 60f) * dt;
-            dropDistance[i] = clamp(55f + noise(time * 0.33f + seed + 50f) * 75f, 0f, 150f);
+            dropAngle[i] += (drops[i][0] + noise(time * 0.4f + seed) * 60f) * dt * speed;
+            dropDistance[i] = clamp(55f + noise(time * 0.33f + seed + 50f) * 75f + (busy ? -25f : 0f), 0f, 150f);
             dropScale[i] = clamp(0.75f + noise(time * 0.5f + seed + 90f) * 0.3f, 0.4f, 1.2f);
         }
 
         shineX = noise(time * 0.25f + 900f) * 8f;
         shineY = noise(time * 0.25f + 950f) * 6f;
-        lively = heart > 0.01f || jolt > 0.01f || nextBeat - now < 120L || !beats.isEmpty();
+        lively = busy || heart > 0.01f || jolt > 0.01f || nextBeat - now < 120L || !beats.isEmpty();
     }
 
     @Override
