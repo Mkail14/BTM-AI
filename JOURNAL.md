@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `7b00287` (2026-11-13, develop, envoyé sur develop et main)**
+**Dernier commit noté : `dc38287` (2026-11-13, develop, envoyé sur develop et main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -104,6 +104,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-13
+- **14 fonctionnalités à allumer ou éteindre, et conflits de mots** (`dc38287`, envoyé sur develop et main). Demande de l'utilisateur : la page Fonctionnalités n'en montrait que 5. Ajoutées : Devis BTM, Trajets, Code de la route, Chansons, Vidéos YouTube (pour tous par défaut), Commande de repas, Tickets de barge, Portefeuille, Vocal en direct (admins par défaut). Les valeurs par défaut gardent exactement ce qui existait : rien ne change tant qu'on ne touche pas aux interrupteurs. Éteinte, Tamilya ne la propose plus et le serveur refuse aussi l'appel direct (devis, trajet, chanson, réservation du code, vignette YouTube, portefeuille, vocal en direct). Repas et barge éteints : admins seulement en mode démo, comme avant ; FOOD_ORDERING, BARGE_TICKETS et WALLET=all marchent toujours. Le même commit envoie le travail en cours sur les conflits de mots (un mot français avec plusieurs traductions part à l'admin, liste « À traduire » de /admin/lexique), les mots de l'imagier, du manuel CASNAV et du dictionnaire, et la valeur sur chaque bâton du tableau de bord. Migrations 20261210 à 20261214 appliquées à la main sur le bon projet Supabase (etkjfcywjuhlabgxhqel) ; appliquées d'abord par erreur sur BTM Mayotte (seule la colonne features avait pris, retirée). Vérifié : lint, 715 tests sur 716 (document-signe : fflate et @xmldom absents sur ce PC). Pas vu à l'écran.
 - **Admin : barre du haut allégée** (`7b00287`). Demande de l'utilisateur : trop de boutons dans la barre de l'admin (13 onglets sur une ligne, 3 boutons à droite). Maintenant, sur grand écran, 5 onglets en haut (Tableau de bord, Tamilya, Savoir, Shimaoré, Plateforme) et, en dessous, seulement les pages du groupe ouvert (5 au plus). Groupes refaits : Tamilya = Caractère, Voix, Sons, Mémoire, Circuit ; Savoir = Connaissances, Bibliothèque ; Shimaoré = Lexique, Apprentissage ; Plateforme = Utilisateurs, Bandeau, Fonctionnalités. Le micro « Parler à Tamilya » passe dans le menu du compte. Menu ☰ du téléphone inchangé, avec les nouveaux groupes. Vérifié : types, lint. Pas vu à l'écran.
 
 ### 2026-11-12
