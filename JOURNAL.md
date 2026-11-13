@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `52e30fb` (2026-11-12, audit/2026-11-07, pas encore envoyé)**
+**Dernier commit noté : `7b00287` (2026-11-13, develop, envoyé sur develop et main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -102,6 +102,9 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+### 2026-11-13
+- **Admin : barre du haut allégée** (`7b00287`). Demande de l'utilisateur : trop de boutons dans la barre de l'admin (13 onglets sur une ligne, 3 boutons à droite). Maintenant, sur grand écran, 5 onglets en haut (Tableau de bord, Tamilya, Savoir, Shimaoré, Plateforme) et, en dessous, seulement les pages du groupe ouvert (5 au plus). Groupes refaits : Tamilya = Caractère, Voix, Sons, Mémoire, Circuit ; Savoir = Connaissances, Bibliothèque ; Shimaoré = Lexique, Apprentissage ; Plateforme = Utilisateurs, Bandeau, Fonctionnalités. Le micro « Parler à Tamilya » passe dans le menu du compte. Menu ☰ du téléphone inchangé, avec les nouveaux groupes. Vérifié : types, lint. Pas vu à l'écran.
 
 ### 2026-11-12
 - **Corriger les mots à vérifier depuis la tablette, et plus de resto pendant une traduction** (`52e30fb`). Vu sur la Pad 6 : pour une traduction en shimaoré, la carte « Le Goût des Îles » s'ouvrait (« l'île » pris pour le nom du resto) et les mots à vérifier n'étaient qu'en italique, sans moyen de les corriger (les boutons Corriger n'apparaissaient qu'au survol de la souris). Maintenant : pas de détection de repas pendant une traduction ; « île », « Mayotte », « Maore » ne désignent plus un resto ; les mots en italique sont surlignés et, touchés, ouvrent la correction sur ce mot ; boutons Corriger toujours visibles sur écran tactile. Vérifié : types, lint, tests repas. Pas encore vu sur la tablette (il faut l'envoyer en ligne).
