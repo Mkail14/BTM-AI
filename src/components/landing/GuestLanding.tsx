@@ -409,6 +409,7 @@ export function GuestLanding({
             <ul className="mt-2 text-sm">
               {[
                 { href: "/aide", label: "Aide" },
+                { href: "/conditions", label: "Conditions d'utilisation" },
                 { href: "/confidentialite", label: "Données et confidentialité" },
                 { href: "/partenaires", label: "Nos partenaires" },
                 { href: "/developpeurs", label: "Développeurs" },

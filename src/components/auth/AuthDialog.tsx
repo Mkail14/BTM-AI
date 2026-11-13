@@ -273,6 +273,10 @@ function AuthPanel({
         <div className="mt-[clamp(12px,2.4vh,22px)]">{switchLine}</div>
         <p className="mt-2.5 max-w-[320px] text-xs leading-normal text-fg-muted">
           En continuant, tu acceptes les{" "}
+          <Link href="/conditions" target="_blank" className="underline underline-offset-2">
+            conditions d&apos;utilisation
+          </Link>{" "}
+          et les{" "}
           <Link href="/confidentialite" target="_blank" className="underline underline-offset-2">
             règles de confidentialité
           </Link>{" "}
@@ -491,11 +495,13 @@ function GoogleButton({ next, isSignup, onSignedIn }: { next: string; isSignup: 
 
   return (
     <>
-      {/* Bouton de Google (dessiné par lui), à la place du nôtre dès qu'il est prêt. */}
+      {/* Bouton de Google (dessiné par lui), à la place du nôtre dès qu'il est prêt.
+          rounded-full : la version « Continuer en tant que … » (compte déjà connu) ignore thème et forme
+          et reste un rectangle blanc ; on en coupe les coins. */}
       <div
         ref={slot}
         aria-hidden={!ready || pending}
-        className={ready && !pending ? "mt-2.5 flex h-11 w-full justify-center overflow-hidden" : "pointer-events-none h-0 w-full overflow-hidden opacity-0"}
+        className={ready && !pending ? "mt-2.5 flex h-11 w-full justify-center overflow-hidden rounded-full" : "pointer-events-none h-0 w-full overflow-hidden opacity-0"}
       />
       <button
         type="button"
@@ -932,6 +938,15 @@ function SignUpForm({
         />
         <span className="text-fg-muted">
           J&apos;ai lu et j&apos;accepte les{" "}
+          <Link
+            href="/conditions"
+            target="_blank"
+            className="text-fg underline underline-offset-2"
+            onClick={(e) => e.stopPropagation()}
+          >
+            conditions d&apos;utilisation
+          </Link>{" "}
+          et les{" "}
           <Link
             href="/confidentialite"
             target="_blank"

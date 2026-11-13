@@ -96,6 +96,10 @@ export default async function MaintenancePage() {
       <p className="pt-1 text-center text-xs text-fg-muted">
         {BRAND.parent} · Mayotte
         <span aria-hidden="true"> · </span>
+        <Link href="/conditions" prefetch={false} className="hover:underline">
+          Conditions
+        </Link>
+        <span aria-hidden="true"> · </span>
         <Link href="/confidentialite" prefetch={false} className="hover:underline">
           Confidentialité
         </Link>

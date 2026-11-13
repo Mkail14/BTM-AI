@@ -282,7 +282,10 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
               >
                 Se connecter
               </button>
-              <Link prefetch={false} href="/confidentialite" onClick={onClose} className="mt-2 block px-2 text-xs text-fg-muted hover:underline">
+              <Link prefetch={false} href="/conditions" onClick={onClose} className="mt-2 block px-2 text-xs text-fg-muted hover:underline">
+                Conditions d&apos;utilisation
+              </Link>
+              <Link prefetch={false} href="/confidentialite" onClick={onClose} className="mt-1 block px-2 text-xs text-fg-muted hover:underline">
                 Données et confidentialité
               </Link>
             </div>

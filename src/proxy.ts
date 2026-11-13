@@ -77,7 +77,7 @@ function adminGate(request: NextRequest, response: NextResponse, userId: string)
  * (/api/mesh/key) aussi : sans elle, un téléphone neuf ne pouvait pas activer Connect.
  * Les règles de confidentialité restent toujours lisibles (exigé par Google pour la connexion avec Google).
  */
-const OPEN_WHEN_CLOSED = ["/maintenance", "/confidentialite","/auth/", "/api/auth/", "/api/cron/", "/api/ai/relay", "/api/voice/live/setup", "/api/wallet/webhook", "/api/mesh/relay", "/api/mesh/key", "/manifest.webmanifest", "/brand/"];
+const OPEN_WHEN_CLOSED = ["/maintenance", "/confidentialite", "/conditions", "/auth/", "/api/auth/", "/api/cron/", "/api/ai/relay", "/api/voice/live/setup", "/api/wallet/webhook", "/api/mesh/relay", "/api/mesh/key", "/manifest.webmanifest", "/brand/"];
 
 export const config = {
   matcher: [

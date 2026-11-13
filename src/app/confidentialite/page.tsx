@@ -68,7 +68,12 @@ export default function PrivacyPage() {
         <p className="text-fg-muted">
           Tamilya est une intelligence artificielle faite à Mayotte, pour Mayotte. Une IA à qui l&apos;on parle mérite qu&apos;on
           sache exactement ce qu&apos;elle garde. Cette page le dit simplement, sans jargon, et décrit le fonctionnement réel
-          de BTM AI aujourd&apos;hui.
+          de BTM AI aujourd&apos;hui. Les règles d&apos;usage du service (compte, limites, paiements, partenaires, API) sont
+          dans les{" "}
+          <Link href="/conditions" className="font-medium text-accent hover:underline">
+            conditions d&apos;utilisation
+          </Link>
+          .
         </p>
 
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

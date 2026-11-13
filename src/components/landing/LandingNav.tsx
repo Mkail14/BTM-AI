@@ -19,6 +19,7 @@ const NAV_LINKS = [
 /** Sur le site, ces liens sont dans le pied de page ; l'application n'en a pas. */
 const APP_LINKS = [
   { href: "/aide", label: "Aide" },
+  { href: "/conditions", label: "Conditions" },
   { href: "/confidentialite", label: "Confidentialité" },
 ] as const;
 

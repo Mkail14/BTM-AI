@@ -42,6 +42,9 @@ export function DevShell({ children }: { children: ReactNode }) {
             <Link href="/aide" className="zone-appui relative transition hover:text-fg">
               Aide
             </Link>
+            <Link href="/conditions" className="zone-appui relative transition hover:text-fg">
+              Conditions d&apos;utilisation
+            </Link>
             <Link href="/confidentialite" className="zone-appui relative transition hover:text-fg">
               Données et confidentialité
             </Link>

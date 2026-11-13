@@ -134,6 +134,11 @@ export const FAQ: FaqTopic[] = [
         a: "Tout est expliqué simplement dans la page Données et confidentialité.",
         link: { href: "/confidentialite", label: "Données et confidentialité" },
       },
+      {
+        q: "Quelles sont les règles d'utilisation ?",
+        a: "Les conditions d'utilisation expliquent ce qui est permis, les limites, le portefeuille, les services partenaires et l'API, en français simple.",
+        link: { href: "/conditions", label: "Conditions d'utilisation" },
+      },
     ],
   },
 ];
