@@ -10,11 +10,15 @@ const FIELDS: [string, string][] = [
   ["Authorization", "Bearer suivi de votre code d'accès (tml_…)."],
   ["X-Gemini-Key", "Votre clé Gemini."],
   ["messages", "La conversation : jusqu'à 40 messages, rôle « user » ou « assistant »."],
+  ["mission", "Facultatif. Le rôle confié à Tamilya. Jamais un autre nom : la requête serait bloquée et l'accès suspendu."],
   ["context", "Facultatif. Ce que fait votre application, pour situer Tamilya."],
 ];
 
 const ERRORS: [string, string][] = [
   ["401 invalid_access_code", "Code absent, faux ou supprimé."],
+  ["403 terms_not_accepted", "Engagement pas encore pris sur l'espace développeurs."],
+  ["403 identity_violation", "Tentative de renommer Tamilya : bloqué, accès suspendu."],
+  ["403 account_suspended", "Accès suspendu : contactez BTM."],
   ["400 missing_gemini_key", "L'en-tête X-Gemini-Key manque."],
   ["401 invalid_gemini_key", "Google refuse votre clé."],
   ["429 gemini_quota", "Votre clé Gemini n'a plus de quota."],

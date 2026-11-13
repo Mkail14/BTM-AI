@@ -69,6 +69,7 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
     title: "Plateforme",
     items: [
       { label: "Utilisateurs", icon: IconUsers, href: "/admin/utilisateurs" },
+      { label: "Développeurs", tab: "Dév.", icon: IconShield, href: "/admin/developpeurs" },
       { label: "Bandeau d'accueil", tab: "Bandeau", icon: IconMegaphone, href: "/admin/bandeau" },
       { label: "Fonctionnalités", icon: IconSparkle, href: "/admin/fonctionnalites" },
     ],

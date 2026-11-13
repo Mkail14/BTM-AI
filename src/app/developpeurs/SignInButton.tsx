@@ -8,7 +8,7 @@ export function SignInButton({ className }: { className: string }) {
   return (
     <button
       type="button"
-      onClick={() => openAuthDialog({ mode: "signup", next: "/developpeurs", reason: "Un compte gratuit suffit pour obtenir votre code d'accès." })}
+      onClick={() => openAuthDialog({ mode: "signup", next: "/developpeurs", reason: "Un compte gratuit suffit pour créer votre widget ou votre code d'accès." })}
       className={className}
     >
       Créer mon compte gratuit

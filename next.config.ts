@@ -48,6 +48,8 @@ const nextConfig: NextConfig = {
       // Moteur onnxruntime (≈ 15 Mo) : sa version est dans l'adresse (scripts/copy-vad.mjs), il ne change jamais à la même adresse.
       { source: "/vad/ort/:path*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
       { source: "/voiceprint/:file*", headers: [{ key: "Cache-Control", value: modelCache }] },
+      // Widget de Tamilya collé sur d'autres sites : adresse fixe, donc une heure seulement (une correction arrive vite partout).
+      { source: "/tamilya.js", headers: [{ key: "Cache-Control", value: "public, max-age=3600, stale-while-revalidate=86400" }] },
       // Logos, fonds et photos de plats : un jour sans redemander, puis une semaine servis pendant la vérification.
       { source: "/brand/:file*", headers: [{ key: "Cache-Control", value: imageCache }] },
       { source: "/fond/:file*", headers: [{ key: "Cache-Control", value: imageCache }] },

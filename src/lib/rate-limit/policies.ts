@@ -76,6 +76,18 @@ export const RATE_LIMIT_POLICIES = {
   developerAccount: [{ name: "dev-account-day", limit: 2_000, windowSeconds: 86_400 }],
   // Création de codes d'accès : assez pour se tromper, pas pour en fabriquer à la chaîne.
   developerKeyCreate: [{ name: "dev-key-create-day", limit: 10, windowSeconds: 86_400 }],
+  // Widget à coller sur un site : c'est BTM qui paie, donc limites basses. L'identifiant du widget
+  // est public : chaque visiteur (IP), chaque widget, chaque compte et tous les widgets ensemble ont un plafond.
+  developerWidget: [
+    { name: "dev-widget-min", limit: 10, windowSeconds: 60 },
+    { name: "dev-widget-day", limit: 300, windowSeconds: 86_400 },
+  ],
+  developerWidgetAccount: [{ name: "dev-widget-account-day", limit: 500, windowSeconds: 86_400 }],
+  developerWidgetVisitor: [
+    { name: "dev-widget-ip-min", limit: 6, windowSeconds: 60 },
+    { name: "dev-widget-ip-day", limit: 50, windowSeconds: 86_400 },
+  ],
+  developerWidgetAll: [{ name: "dev-widget-all-day", limit: 5_000, windowSeconds: 86_400 }],
   // Sites partenaires (route /api/awa) : par site, leurs visiteurs sont déjà limités de leur côté.
   partnerSite: [
     { name: "site-min", limit: 60, windowSeconds: 60 },
