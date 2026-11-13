@@ -32,6 +32,13 @@ describe("demande de repas reconnue par le serveur", () => {
     assert.equal(detect("le goût des îles"), "LE GOÛT DES ÎLES");
   });
 
+  it("« jéjé » seul est un bonjour, pas Jéjé kebab", () => {
+    assert.equal(detect("jeje"), null);
+    assert.equal(detect("Jéjé, habari ?"), null);
+    assert.notEqual(detect("jéjé kebab"), null);
+    assert.notEqual(detect("je veux commander chez jéjé"), null);
+  });
+
   it("ne confond pas avec d'autres demandes", () => {
     assert.equal(detect("je veux passer mon code"), null);
     assert.equal(detect("je veux passer le code", ["je veux une pizza"]), null);

@@ -27,6 +27,9 @@ const TRACKING = /\b(?:ma commande|ma livraison|mon livreur|le livreur|mon code|
 /** Renvoi à ce qui vient d'être dit (« je veux commander ça », « celui-là »). */
 const REFERS_BACK = /\b(?:ca|sa|ça|celui la|celle la|ceux la|le meme|la meme|pareil|chez eux|chez lui|la bas|ce resto|ce restaurant|ce plat)\b/;
 
+/** Mots de tous les jours aussi dans le nom d'un restaurant (« jéjé », bonjour en shimaoré) : seuls, ils ne le désignent pas. */
+const EVERYDAY = /\bjeje\b/g;
+
 function describe(match: { kind: string | null; restaurantId: string | null }, restaurants: readonly Restaurant[]): string | null {
   const restaurant = match.restaurantId ? restaurants.find((r) => r.id === match.restaurantId) : null;
   const kind = match.kind ? DISH_KINDS.find((k) => k.id === match.kind) : null;
@@ -45,7 +48,10 @@ export function detectFoodOrder(message: string, earlier: readonly string[], res
   const here = matchFoodQuery(message, restaurants);
 
   // Un restaurant cité suffit (« crousty palm », « c'est quoi le menu de Jéjé kebab ») ; un plat seul, il faut l'envie (« j'aime la pizza » n'est pas une commande).
-  if (here.restaurantId || (here.kind && wants)) return describe(here, restaurants);
+  // « Jéjé » seul est un bonjour : il faut un plat, l'envie ou un autre mot du nom.
+  const named =
+    here.restaurantId && (here.kind || wants || matchFoodQuery(text.replace(EVERYDAY, " "), restaurants).restaurantId);
+  if (named || (here.kind && wants)) return describe(here, restaurants);
   const hungry = HUNGRY.test(text);
   // « Je veux ça » sans envie nette de manger : seulement s'il renvoie à un plat dont on vient de parler.
   if (!hungry && !(wants && REFERS_BACK.test(text))) return null;
