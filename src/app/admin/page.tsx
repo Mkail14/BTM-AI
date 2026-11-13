@@ -180,7 +180,7 @@ function ActivityChart({ daily }: { daily: AdminOverview["daily"] }) {
   const longLabel = (day: string) => weekdayFormat.format(new Date(`${day}T00:00:00Z`));
 
   return (
-    <div className="flex min-h-24 flex-1 flex-col md:min-h-0">
+    <div className="flex min-h-40 flex-1 flex-col">
       <div className="flex min-h-0 flex-1 gap-2">
         {/* Graduations : valeurs rondes, quadrillage discret */}
         <div className="flex flex-col justify-between text-right text-[11px] text-fg-muted tabular-nums" aria-hidden="true">
@@ -195,17 +195,17 @@ function ActivityChart({ daily }: { daily: AdminOverview["daily"] }) {
             <div className="border-t border-border" />
           </div>
           <ol className="relative flex h-full items-end justify-between gap-0.5" aria-hidden="true">
-            {daily.map((d, index) => {
-              const isToday = index === daily.length - 1;
+            {daily.map((d) => {
               const height = d.questions === 0 ? 0 : Math.max((d.questions / scaleMax) * 100, 2);
               return (
                 <li key={d.day} className="group relative flex h-full flex-1 items-end justify-center">
                   {/* Zone de survol plus large que la barre */}
                   <span className="absolute inset-0 rounded-md group-hover:bg-bg-muted/60" />
                   <span className="relative w-full max-w-6 rounded-t-[4px] bg-chart-1" style={{ height: `${height}%` }} />
-                  {isToday && d.questions > 0 ? (
+                  {/* Valeur au-dessus de chaque bâton */}
+                  {d.questions > 0 ? (
                     <span
-                      className="absolute text-[11px] font-medium text-fg tabular-nums"
+                      className="absolute text-[10px] font-medium text-fg tabular-nums md:text-[11px]"
                       style={{ bottom: `calc(${height}% + 4px)` }}
                     >
                       {fmt(d.questions)}
@@ -548,7 +548,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
             id="activite"
             title="Questions des comptes connectés · 14 jours"
             aside={overview ? `${fmt(overview.questions7d)} sur 7 j · ${fmt(overview.questions30d)} sur 30 j` : undefined}
-            className="min-h-0 flex-1 [@media(max-height:599px)]:min-h-64"
+            className="min-h-64! flex-1"
           >
             {overview ? <ActivityChart daily={overview.daily} /> : <Unavailable>{statsMissing}</Unavailable>}
           </Card>
