@@ -691,7 +691,7 @@ final class HomeScreen extends FrameLayout {
         scroll.post(() -> scroll.fullScroll(View.FOCUS_DOWN));
     }
 
-    /** .awa-hello-rise : monte de 14 px en apparaissant (700 ms, après un délai). */
+    /** .tamilya-hello-rise : monte de 14 px en apparaissant (700 ms, après un délai). */
     private void riseIn(View view, long delayMs) {
         if (!ValueAnimator.areAnimatorsEnabled()) return;
         view.setAlpha(0f);
@@ -713,7 +713,7 @@ final class HomeScreen extends FrameLayout {
         middle.setClipToPadding(false);
         middle.setPadding(0, dp(theme.wide ? 32 : 12), 0, dp(theme.wide ? 32 : 12));
 
-        // Globe : .awa-blob, large de min(34vw, 8.5rem) ; le halo et les gouttelettes dépassent de sa boîte.
+        // Globe : .tamilya-blob, large de min(34vw, 8.5rem) ; le halo et les gouttelettes dépassent de sa boîte.
         float widthDp = getResources().getDisplayMetrics().widthPixels / getResources().getDisplayMetrics().density;
         float blob = Math.min(widthDp * 0.34f, 136f);
         FrameLayout box = new FrameLayout(getContext());

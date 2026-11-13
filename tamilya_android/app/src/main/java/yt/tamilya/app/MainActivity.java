@@ -827,7 +827,7 @@ public class MainActivity extends Activity {
                 // Vibrations du site (écriture de Tamilya, réponse prête) : celles du téléphone, sans la limite du navigateur.
                 + "navigator.vibrate=function(p){TamilyaNative.feedback(token,Array.isArray(p)?'ready':'tick');return true;};"
                 + "document.addEventListener('click',function(e){var t=e.target;"
-                + "if(!t||!t.closest)return;if(t.closest('.awa-blob,.voice-orb-slot'))TamilyaNative.feedback(token,'tap');"
+                + "if(!t||!t.closest)return;if(t.closest('.tamilya-blob,.voice-orb-slot'))TamilyaNative.feedback(token,'tap');"
                 // Tous les boutons du site : petite vibration, sans son.
                 + "else if(t.closest('button,a,summary,label,select,[role=button],[role=tab],[role=menuitem],[role=switch],[role=option],input[type=checkbox],input[type=radio]'))TamilyaNative.feedback(token,'key');},true);"
                 + "var voiceOn=false;function watchVoice(){var o=document.querySelector('.voice-overlay'),s=document.querySelector('.voice-orb-slot');"

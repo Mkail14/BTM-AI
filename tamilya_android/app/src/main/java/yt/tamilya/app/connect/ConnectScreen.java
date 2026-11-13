@@ -413,7 +413,7 @@ final class ConnectScreen extends LinearLayout {
     /** Statuts d'un message parti mais pas encore répondu. */
     private static final java.util.Set<String> WAITING = new java.util.HashSet<>(java.util.Arrays.asList("searching", "relayed", "retry"));
 
-    /** Petit globe de Tamilya devant ses réponses (awa-avatar du site, 32 px). */
+    /** Petit globe de Tamilya devant ses réponses (tamilya-avatar du site, 32 px). */
     private View avatar() {
         View dot = new View(getContext());
         GradientDrawable ball = new GradientDrawable();

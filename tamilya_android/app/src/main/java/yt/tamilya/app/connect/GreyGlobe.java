@@ -26,19 +26,19 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * Le globe de Tamilya : même goutte vivante que sur le site (AwaBlob.tsx), aux mêmes couleurs,
+ * Le globe de Tamilya : même goutte vivante que sur le site (TamilyaBlob.tsx), aux mêmes couleurs,
  * dessinée ici parce que Tamilya Connect s'affiche sans internet. Forme, gouttelettes, cœur et
  * sursauts suivent un bruit calculé à chaque image, comme sur le site.
  */
 public final class GreyGlobe extends View {
-    // Couleurs du globe du site : --blob = accent, éclat et ombre en color-mix (globals.css, .awa-blob).
+    // Couleurs du globe du site : --blob = accent, éclat et ombre en color-mix (globals.css, .tamilya-blob).
     // Champs d'instance : getContext() est prêt quand ils sont calculés (juste après super()).
     private final int BLOB;
     private final int LIGHT;
     private final int DEEP;
-    /** Battement du site : l'arc-en-ciel de .awa-blob (conic-gradient). */
+    /** Battement du site : l'arc-en-ciel de .tamilya-blob (conic-gradient). */
     private final int[] SHIMMER;
-    /** Largeur du globe du site (.awa-blob), en dp ; 0 : la taille de Tamilya Connect. */
+    /** Largeur du globe du site (.tamilya-blob), en dp ; 0 : la taille de Tamilya Connect. */
     private final float sizeDp;
     /** Figé (réponse finie) : la goutte garde sa forme et ne bouge plus. */
     private boolean still;
@@ -107,7 +107,7 @@ public final class GreyGlobe extends View {
 
     /**
      * Le globe du site à une taille donnée : blob est la couleur de --persona, sizeDp la largeur
-     * CSS de .awa-blob (136 sur l'accueil, 32 à côté des réponses) ; la vue fait 1,8 fois plus,
+     * CSS de .tamilya-blob (136 sur l'accueil, 32 à côté des réponses) ; la vue fait 1,8 fois plus,
      * pour le halo et les gouttelettes qui dépassent.
      */
     public GreyGlobe(Context context, int blob, float sizeDp) {
@@ -241,7 +241,7 @@ public final class GreyGlobe extends View {
         invalidate();
     }
 
-    /** Une image de la goutte : la suite exacte des calculs d'AwaBlob, sans la voix. */
+    /** Une image de la goutte : la suite exacte des calculs d'TamilyaBlob, sans la voix. */
     private void step(long now, float dt) {
         // Vitesse du site : 2,4 quand elle réfléchit, 1 sinon (la voix n'est pas ici).
         float speed = busy ? 2.4f : 1f;
