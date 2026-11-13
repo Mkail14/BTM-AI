@@ -6,13 +6,25 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { IconPlus } from "@/components/ui/icons";
 import { guessDriveFolder } from "@/lib/drive/folders";
 import { DRIVE_UPLOAD_MESSAGES, uploadToDrive } from "@/lib/drive/upload";
+import { CHAT_ATTACHMENT_MAX_BYTES, isChatAttachmentType } from "@/lib/chat/attachment";
+import type { ChatAttachment } from "@/lib/chat/types";
 
 /**
  * Le « + » à gauche de la barre de conversation : prendre une photo, ou envoyer un document
  * (une image aussi). Rien d'autre (demande de l'utilisateur, 2026-11-10 : cyclones, attestation
  * et livres en sont sortis). Le fichier est rangé dans le Google Drive de la personne, dans le
- * dossier deviné d'après son nom (Mes documents).
+ * dossier deviné d'après son nom (Mes documents). Une copie reste jointe à la conversation
+ * (onFile) : Tamilya la lit avec la question suivante.
  */
+
+/** Fichier envoyé par le « + » : rangé dans le Drive, et joint à la prochaine question si Tamilya sait le lire. */
+export type SentFile = {
+  name: string;
+  /** null : format ou poids que Tamilya ne sait pas lire (`unreadable` dit pourquoi). */
+  attachment: ChatAttachment | null;
+  unreadable: string | null;
+  drive: "sending" | "done" | "not-connected" | string;
+};
 
 const ITEM = "flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm font-medium hover:bg-bg-muted disabled:cursor-progress";
 
@@ -34,7 +46,49 @@ function datedPhoto(file: File, now = new Date()): File {
   return new File([file], name, { type: file.type });
 }
 
-export function PlusMenu({ disabled = false }: { disabled?: boolean }) {
+const toBase64 = (blob: Blob) =>
+  new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+
+/** Photo trop lourde ou dans un format que l'IA ne lit pas (HEIC…) : réduite en JPEG (2048 px au plus). */
+async function shrinkPhoto(file: File): Promise<Blob | null> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, 2048 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    return await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
+  } catch {
+    return null;
+  }
+}
+
+/** Copie lisible par Tamilya (image ou PDF de 4 Mo au plus), ou la raison pour laquelle elle ne la lira pas. */
+async function readForChat(file: File): Promise<Pick<SentFile, "attachment" | "unreadable">> {
+  const tooBig = "Trop lourd pour que Tamilya le lise (4 Mo au plus).";
+  if (file.type.startsWith("image/") && (!isChatAttachmentType(file.type) || file.size > CHAT_ATTACHMENT_MAX_BYTES)) {
+    const photo = await shrinkPhoto(file);
+    if (!photo) return { attachment: null, unreadable: "Tamilya ne sait pas lire ce format d'image." };
+    if (photo.size > CHAT_ATTACHMENT_MAX_BYTES) return { attachment: null, unreadable: tooBig };
+    return { attachment: { name: file.name, mimeType: "image/jpeg", data: await toBase64(photo) }, unreadable: null };
+  }
+  if (!isChatAttachmentType(file.type)) return { attachment: null, unreadable: "Tamilya lit les photos et les PDF, pas ce type de fichier." };
+  if (file.size > CHAT_ATTACHMENT_MAX_BYTES) return { attachment: null, unreadable: tooBig };
+  try {
+    return { attachment: { name: file.name, mimeType: file.type, data: await toBase64(file) }, unreadable: null };
+  } catch {
+    return { attachment: null, unreadable: "Fichier illisible." };
+  }
+}
+
+export function PlusMenu({ disabled = false, onFile }: { disabled?: boolean; onFile?: (file: SentFile) => void }) {
   const [open, setOpen] = useState(false);
   const [problem, setProblem] = useState<ReactNode>(null);
   const [sending, setSending] = useState<string | null>(null);
@@ -60,7 +114,7 @@ export function PlusMenu({ disabled = false }: { disabled?: boolean }) {
     };
   }, [open]);
 
-  /** Photo, scan, image ou PDF : rangé dans le Google Drive de la personne. */
+  /** Photo, scan, image ou PDF : rangé dans le Google Drive de la personne, et joint à la conversation. */
   const send = async (input: HTMLInputElement, photo = false) => {
     const picked = input.files?.[0];
     input.value = "";
@@ -68,6 +122,15 @@ export function PlusMenu({ disabled = false }: { disabled?: boolean }) {
     const file = photo ? datedPhoto(picked) : picked;
     setProblem(null);
     setSent(null);
+    if (onFile) {
+      // Le menu se ferme : l'étiquette au-dessus de la barre montre que le fichier est dans la conversation.
+      const readable = await readForChat(file);
+      onFile({ name: file.name, ...readable, drive: "sending" });
+      setOpen(false);
+      const failure = await uploadToDrive(file, guessDriveFolder(file.name));
+      onFile({ name: file.name, ...readable, drive: failure ? (failure === "not-connected" ? failure : DRIVE_UPLOAD_MESSAGES[failure]) : "done" });
+      return;
+    }
     setSending(`Envoi de ${file.name}…`);
     const failure = await uploadToDrive(file, guessDriveFolder(file.name));
     setSending(null);

@@ -23,7 +23,9 @@ import type { ChatStreamEvent, ChatTurn } from "@/lib/chat/types";
 import { useOnlineStatus } from "@/lib/hooks/useOnlineStatus";
 import { AwaBlob } from "./AwaBlob";
 import { fadeOutHome, noteGlobeOrigin, takeGlobeOrigin } from "./globe-origin";
-import { PlusMenu } from "./PlusMenu";
+import { PlusMenu, type SentFile } from "./PlusMenu";
+import { SentFileChip } from "./SentFileChip";
+import { withAttachmentLabel } from "@/lib/chat/attachment";
 import { Composer, type ComposerHandle } from "./Composer";
 import { MessageItem, type UiMessage } from "./MessageItem";
 import { wantsSpokenReply } from "@/lib/voice-live/spoken-request";
@@ -147,6 +149,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
 
   // Mode vocal du maître de Tamilya (administrateur) : il lui parle, elle répond à voix haute.
   const sendRef = useRef<(text: string, spoken?: boolean) => void>(() => {});
+  // Photo ou document envoyé par le « + » : affiché au-dessus de la barre, joint à la prochaine question.
+  const [sentFile, setSentFile] = useState<SentFile | null>(null);
   // Message dicté : le serveur le sait, Tamilya répond court, pour être écoutée.
   const legacyVoice = useVoiceConversation((text) => sendRef.current(text, true));
   // Vocal en direct (Gemini Live, comme ChatGPT Voice) : chaque échange s'ajoute à la conversation.
@@ -308,7 +312,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   }, []);
 
   const send = useCallback(
-    async (text: string, base: UiMessage[] = messages, spoken = false) => {
+    async (text: string, base: UiMessage[] = messages, spoken = false, file?: SentFile) => {
+      const attachment = file?.attachment ?? null;
       if (isStreaming) return;
       const generation = chatGeneration.current;
       const stale = () => chatGeneration.current !== generation;
@@ -323,7 +328,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
         } catch {}
         setGuestSent(sent);
       };
-      const userMessage: UiMessage = { id: newId(), role: "user", content: text, status: "complete" };
+      // Même étiquette « 📎 nom » que celle enregistrée par le serveur.
+      const userMessage: UiMessage = { id: newId(), role: "user", content: withAttachmentLabel(text, attachment?.name), status: "complete" };
       const assistantId = newId();
       // Début de conversation : le grand globe de l'accueil glisse jusqu'à la première réponse (MessageItem).
       if (base.length === 0 && !spoken) {
@@ -421,6 +427,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             ? { message: text, ...(conversationId ? { conversationId } : {}) }
             : { message: text, history: buildModelHistory(settledTurns(base), CHAT_LIMITS.anonymousMaxHistoryChars) }),
           ...(spoken ? { voice: true } : {}),
+          ...(attachment ? { attachment } : {}),
         };
 
         if (spoken) markVoice("sent");
@@ -834,8 +841,19 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             </p>
           ) : null}
           {/* Le + (photo ou document, si « documents » est allumé : /admin/fonctionnalites) flotte à gauche de la barre, dans sa propre bulle. */}
+          {sentFile ? <SentFileChip file={sentFile} onRemove={() => setSentFile(null)} /> : null}
           <div className="flex items-end gap-2">
-            {user?.features?.includes("documents") ? <PlusMenu disabled={blocked || !online || isStreaming} /> : null}
+            {user?.features?.includes("documents") ? (
+              <PlusMenu
+                disabled={blocked || !online || isStreaming}
+                onFile={(file) => {
+                  // Fin du rangement dans le Drive : seulement si l'étiquette est toujours là (pas déjà envoyée ou retirée).
+                  setSentFile((current) => (file.drive === "sending" || current?.name === file.name ? file : current));
+                  // Le fichier est là : on peut taper la question tout de suite.
+                  if (file.drive === "sending") composerRef.current?.focus();
+                }}
+              />
+            ) : null}
             <div className="min-w-0 flex-1">
               <Composer
                 ref={composerRef}
@@ -849,7 +867,11 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
                   // « Lis-moi une histoire » aussi : Tamilya l'invente et la joue en 3D, plutôt que de la dire en vocal simple.
                   const reading = Boolean(user?.isAdmin) && readingMode(text, asked) !== null;
                   if (!reading && voiceEnabled && online && voice.startWith && wantsSpokenReply(text)) voice.startWith(text, () => sendRef.current(text));
-                  else void send(text);
+                  else {
+                    // Le fichier joint part avec cette question, puis l'étiquette disparaît.
+                    void send(text, undefined, false, sentFile?.attachment ? sentFile : undefined);
+                    if (sentFile?.attachment) setSentFile(null);
+                  }
                 }}
                 onStop={() => abortRef.current?.abort()}
                 placeholder="Demande-moi ce que tu veux…"

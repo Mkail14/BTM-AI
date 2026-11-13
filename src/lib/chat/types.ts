@@ -1,8 +1,17 @@
 export type ChatRole = "user" | "assistant";
 
+/** Photo ou document envoyé avec la question (« + » de la barre) : lu par Tamilya pour ce message seulement. */
+export type ChatAttachment = {
+  name: string;
+  mimeType: string;
+  /** Contenu en base64. */
+  data: string;
+};
+
 export type ChatTurn = {
   role: ChatRole;
   content: string;
+  attachment?: ChatAttachment;
 };
 
 /** Statut d'un message tel qu'il est stocké. */

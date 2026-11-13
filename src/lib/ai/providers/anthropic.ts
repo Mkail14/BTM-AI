@@ -1,6 +1,6 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
-import type { FinishReason } from "@/lib/chat/types";
+import type { ChatTurn, FinishReason } from "@/lib/chat/types";
 import type { AIConfig } from "../config";
 import { AIProviderError, type AIProvider, type AIStreamChunk, type AIStreamInput } from "../types";
 
@@ -52,6 +52,19 @@ function normalizeError(error: unknown): AIProviderError {
   return new AIProviderError("unavailable", "Erreur inconnue du fournisseur", { cause: error });
 }
 
+/** Photo ou PDF joint : un bloc image ou document avant la question. */
+function toAnthropicMessage({ role, content, attachment }: ChatTurn) {
+  if (!attachment) return { role, content };
+  const block =
+    attachment.mimeType === "application/pdf"
+      ? { type: "document" as const, source: { type: "base64" as const, media_type: "application/pdf" as const, data: attachment.data } }
+      : {
+          type: "image" as const,
+          source: { type: "base64" as const, media_type: attachment.mimeType as "image/jpeg" | "image/png" | "image/webp", data: attachment.data },
+        };
+  return { role, content: [block, { type: "text" as const, text: content }] };
+}
+
 export function createAnthropicProvider(config: AIConfig): AIProvider {
   const client = new Anthropic({
     apiKey: config.apiKey,
@@ -70,7 +83,7 @@ export function createAnthropicProvider(config: AIConfig): AIProvider {
             model: config.model,
             max_tokens: maxOutputTokens,
             system,
-            messages,
+            messages: messages.map(toAnthropicMessage),
             // L'effort règle la profondeur de réflexion et donc le coût.
             output_config: { effort: config.effort },
             // Met en cache le préfixe de la conversation d'un tour à l'autre.

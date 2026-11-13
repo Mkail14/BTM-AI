@@ -1,5 +1,5 @@
 import "server-only";
-import type { FinishReason } from "@/lib/chat/types";
+import type { ChatTurn, FinishReason } from "@/lib/chat/types";
 import type { AIConfig } from "../config";
 import { harmonyFor } from "../harmonize";
 import { createSseDataParser } from "../sse";
@@ -47,6 +47,24 @@ export function errorFromStatus(status: number, body = ""): AIProviderError {
   return new AIProviderError("unavailable", `Réponse inattendue du fournisseur (${status})`);
 }
 
+/**
+ * Photo jointe : envoyée en image. Un PDF n'est pas lu par ces API : le modèle
+ * est prévenu, pour dire qu'il ne le voit pas plutôt que d'inventer.
+ */
+function toOpenAIMessage({ role, content, attachment }: ChatTurn) {
+  if (!attachment) return { role, content };
+  if (attachment.mimeType === "application/pdf") {
+    return { role, content: `[Document joint « ${attachment.name} » : illisible par ce modèle.]\n${content}` };
+  }
+  return {
+    role,
+    content: [
+      { type: "image_url", image_url: { url: `data:${attachment.mimeType};base64,${attachment.data}` } },
+      { type: "text", text: content },
+    ],
+  };
+}
+
 export function createOpenAICompatibleProvider(config: AIConfig): AIProvider {
   const endpoint = `${(config.baseUrl ?? "").replace(/\/+$/, "")}/chat/completions`;
   // L'API OpenAI officielle attend max_completion_tokens ; la plupart des
@@ -75,7 +93,7 @@ export function createOpenAICompatibleProvider(config: AIConfig): AIProvider {
             [maxTokensField]: maxOutputTokens,
             ...(reasoning && { reasoning }),
             ...(tuned && { temperature: tuned.temperature }),
-            messages: [{ role: "system", content: tuned ? `${system}\n\n${tuned.reminder}` : system }, ...messages],
+            messages: [{ role: "system", content: tuned ? `${system}\n\n${tuned.reminder}` : system }, ...messages.map(toOpenAIMessage)],
           }),
           signal: combined,
         });

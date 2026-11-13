@@ -28,6 +28,7 @@ import { CHAT_LIMITS } from "@/lib/chat/limits";
 import { createSentenceSplitter } from "@/lib/chat/sentences";
 import { encodeStreamEvent } from "@/lib/chat/stream-protocol";
 import type { ChatErrorCode, ChatStreamEvent, ChatTurn, FinishReason, MessageStatus } from "@/lib/chat/types";
+import { CHAT_ATTACHMENT_MAX_BYTES, withAttachmentLabel } from "@/lib/chat/attachment";
 import { chatRequestSchema } from "@/lib/chat/validation";
 import {
   countMessages,
@@ -67,7 +68,8 @@ import { mayotteClock } from "@/lib/ai/clock";
 export const maxDuration = 120;
 
 const DEVICE_COOKIE = "btm_device";
-const MAX_BODY_BYTES = 128 * 1024;
+/** Texte et historique (128 Ko), plus une photo ou un PDF joint, en base64. */
+const MAX_BODY_BYTES = 128 * 1024 + Math.ceil(CHAT_ATTACHMENT_MAX_BYTES / 3) * 4;
 /** Messages d'essai d'un visiteur sans compte (même compteur pour toutes ses conversations). */
 const GUEST_TRIAL = [{ name: "anon-trial-30d", limit: CHAT_LIMITS.guestTrialMessages, windowSeconds: 30 * 86_400 }];
 /**
@@ -348,7 +350,8 @@ export async function POST(request: NextRequest) {
         conversationId,
         userId: user.id,
         role: "user",
-        content: body.message,
+        // Photo ou PDF joint : son nom reste dans la conversation, pas son contenu.
+        content: withAttachmentLabel(body.message, body.attachment?.name),
       }).catch((error: unknown) => console.error("[chat] Message de la personne non enregistré", error));
     } catch (error) {
       console.error("[chat] Erreur base de données", error);
@@ -431,7 +434,8 @@ export async function POST(request: NextRequest) {
       master ? history.map((turn) => (turn.role === "assistant" ? { ...turn, content: toShimaore(turn.content) } : turn)) : history,
       CHAT_LIMITS.modelContextMaxChars,
     ),
-    { role: "user", content: body.message },
+    // Photo ou PDF joint par le « + » (compte connecté) : lu par le modèle avec la question.
+    { role: "user", content: body.message, ...(user && body.attachment ? { attachment: body.attachment } : {}) },
   ];
   // Traduction en shimaoré demandée par un administrateur : Tamilya essaie tout le texte, sans équipe d'agents.
   const shimaoreTranslation = Boolean(user?.isAdmin) && !master && !body.voice && isShimaoreTranslationRequest(body.message);
@@ -450,6 +454,9 @@ export async function POST(request: NextRequest) {
       : null;
   // Fonctionnalités éteintes dans /admin/fonctionnalites : seulement pour les administrateurs.
   const features = await userFeatures(user);
+  // Envoi de documents éteint pour ce compte : le fichier joint est ignoré.
+  if (!features.includes("documents")) delete messages[messages.length - 1].attachment;
+  const attached = Boolean(messages[messages.length - 1].attachment);
   // Demande de ticket de barge reconnue ici : l'achat s'ouvre à coup sûr.
   const bargeIntent = bargeTickets && !body.voice ? detectBargeTicket(body.message) : null;
   // Demande de devis BTM (mur, dalle…) reconnue ici : le devis s'ouvre à coup sûr.
@@ -531,8 +538,9 @@ export async function POST(request: NextRequest) {
   const agentsMode = process.env.AI_AGENTS?.trim() || "admin";
   const agentsAllowed = agentsMode === "all" || (agentsMode === "admin" && Boolean(user?.isAdmin));
   const dedicatedFlow = Boolean(foodQuery || foodGroup || bargeIntent || btmDevis || trip || cyclone || song || reading || attestation || documentTask || shimaoreTranslation);
+  // Fichier joint : seule Tamilya le reçoit, l'équipe d'agents ne le verrait pas.
   const teamPlan =
-    !agentsAllowed
+    !agentsAllowed || attached
       ? null
       : planTeam(body.message, { voice: Boolean(body.voice), master, dedicatedFlow, challenged, signedIn: Boolean(user) });
   // Mesures de vitesse, écrites dans les journaux du serveur en fin de réponse.

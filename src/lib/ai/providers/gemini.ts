@@ -130,7 +130,11 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
           headers: geminiHeaders(config.apiKey),
           body: JSON.stringify({
             systemInstruction: { parts: [{ text: system }] },
-            contents: messages.map((m) => ({ role: m.role === "assistant" ? "model" : "user", parts: [{ text: m.content }] })),
+            contents: messages.map((m) => ({
+              role: m.role === "assistant" ? "model" : "user",
+              // Photo ou PDF joint : donné au modèle avant la question.
+              parts: [...(m.attachment ? [{ inlineData: { mimeType: m.attachment.mimeType, data: m.attachment.data } }] : []), { text: m.content }],
+            })),
             generationConfig: { maxOutputTokens, ...(thinkingConfig && { thinkingConfig }) },
             ...(search ? { tools: [{ googleSearch: {} }] } : {}),
           }),

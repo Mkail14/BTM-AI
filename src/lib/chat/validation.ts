@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CHAT_ATTACHMENT_MAX_BYTES, CHAT_ATTACHMENT_TYPES } from "./attachment";
 import { CHAT_LIMITS } from "./limits";
 
 const turnSchema = z.strictObject({
@@ -27,6 +28,17 @@ export const chatRequestSchema = z.strictObject({
   voice: z.boolean().optional(),
   /** Administrateur : leçon de shimaoré allumée (mode maître, Tamilya ne parle que shimaoré). */
   shimaoreLesson: z.boolean().optional(),
+  /** Photo ou PDF envoyé par le « + » : Tamilya le lit pour répondre à la question. */
+  attachment: z
+    .strictObject({
+      name: z.string().trim().min(1).max(200),
+      mimeType: z.enum(CHAT_ATTACHMENT_TYPES),
+      data: z
+        .string()
+        .max(Math.ceil(CHAT_ATTACHMENT_MAX_BYTES / 3) * 4, "Fichier trop lourd pour que Tamilya le lise.")
+        .regex(/^[A-Za-z0-9+/]+={0,2}$/, "Fichier illisible."),
+    })
+    .optional(),
   history: z
     .array(turnSchema)
     .max(CHAT_LIMITS.anonymousMaxMessages)
