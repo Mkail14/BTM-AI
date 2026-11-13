@@ -141,7 +141,8 @@ export function selectWords<T extends WordEntry>(
       findSequence(words.length, keys.length, (at, j) => near[at].has(keys[j])) >= 0;
     (inFrench || inShimaore ? matched : rest).push(entry);
   });
-  const kept = matched.slice(0, maxMatched);
+  // Trop de mots trouvés (long texte à traduire) : les plus récents restent, ce sont les leçons et corrections.
+  const kept = matched.slice(Math.max(0, matched.length - maxMatched));
   if (topic || SHIMAORE_TOPIC.test(normalize(message))) kept.push(...rest.reverse().slice(0, Math.max(0, maxTopic - kept.length)));
   return kept;
 }

@@ -5,6 +5,7 @@ import {
   mayBeTeaching,
   parseTaughtWords,
   shimaoreEntryKey,
+  TAUGHT_WORD_MAX,
   TEACHING_SYSTEM_PROMPT,
   type TaughtWord,
 } from "@/lib/language/teaching";
@@ -67,10 +68,31 @@ export async function learnWordsFromMessage(
     system: TEACHING_SYSTEM_PROMPT,
     content: buildTeachingRequest(input.previousReply, input.message),
   });
-  const words = parseTaughtWords(output);
-  if (words.length > 0) {
-    await teachWords(supabase, userId, words, null, { sameShimaore: true });
-    invalidateAwaBrain();
+  const taught = parseTaughtWords(output);
+  const short = (w: TaughtWord) => w.french.length <= TAUGHT_WORD_MAX && w.shimaore.length <= TAUGHT_WORD_MAX;
+  const words = taught.filter(short);
+  const phrases = taught.filter((w) => !short(w));
+  if (words.length > 0) await teachWords(supabase, userId, words, null, { sameShimaore: true });
+  if (phrases.length > 0) await teachPhrases(supabase, phrases);
+  if (taught.length > 0) invalidateAwaBrain();
+  return taught;
+}
+
+/**
+ * Phrase trop longue pour le dictionnaire (correction d'une phrase traduite) :
+ * gardée dans les expressions, à la place de l'ancienne version de la même phrase.
+ */
+async function teachPhrases(supabase: SupabaseClient, phrases: readonly TaughtWord[]): Promise<void> {
+  const taught = new Set(phrases.map((p) => key(p.french)));
+  const { data: existing, error: readError } = await supabase.from("awa_lexicon").select("id, french").limit(5000);
+  if (readError) throw readError;
+  const replaced = (existing ?? []).filter((row) => taught.has(key(String(row.french ?? "")))).map((row) => row.id as string);
+  if (replaced.length > 0) {
+    const { error } = await supabase.from("awa_lexicon").delete().in("id", replaced);
+    if (error) throw error;
   }
-  return words;
+  const { error } = await supabase
+    .from("awa_lexicon")
+    .insert(phrases.map((p) => ({ french: p.french, shimaore: p.shimaore, validated_by: "Maître de Tamilya (conversation)" })));
+  if (error) throw error;
 }

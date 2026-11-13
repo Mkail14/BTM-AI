@@ -33,13 +33,15 @@ async function loadWords(admin: NonNullable<ReturnType<typeof getSupabaseAdminCl
     .from("awa_words")
     .select("french, shimaore, category")
     .eq("is_active", true)
-    .order("created_at")
+    // Les plus récents d'abord pour la limite (les corrections du maître ne doivent pas
+    // tomber derrière les dictionnaires importés), remis ensuite du plus ancien au plus récent.
+    .order("created_at", { ascending: false })
     .limit(5000);
   if (error) {
     console.error("[awa] Dictionnaire illisible (migration awa_words appliquée ?)", error);
     return [];
   }
-  return (data ?? []).map((row) => ({ french: row.french, shimaore: row.shimaore, category: row.category ?? undefined }));
+  return (data ?? []).reverse().map((row) => ({ french: row.french, shimaore: row.shimaore, category: row.category ?? undefined }));
 }
 
 /**

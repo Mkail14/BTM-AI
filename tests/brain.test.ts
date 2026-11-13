@@ -115,6 +115,15 @@ describe("selectWords", () => {
     assert.deepEqual(selectWords(words, "beaucoup").length, 0);
   });
 
+  it("garde les mots les plus récents quand un long texte en trouve trop", () => {
+    // Dictionnaire importé d'abord, correction du maître en dernier : elle doit rester.
+    const many = [...Array.from({ length: 100 }, (_, i) => ({ french: `mot${i}`, shimaore: `x${i}` })), { french: "marché", shimaore: "bazari" }];
+    const message = `Traduis en shimaoré : ${many.map((w) => w.french).join(" ")}`;
+    const kept = selectWords(many, message, { maxMatched: 80 }).map((w) => w.shimaore);
+    assert.ok(kept.includes("bazari"));
+    assert.ok(!kept.includes("x0"));
+  });
+
   it("donne plus de vocabulaire quand on parle shimaoré", () => {
     assert.equal(selectWords(words, "Réponds-moi en shimaoré stp").length, 3);
     assert.equal(selectWords(words, "Réponds-moi en shimaoré", { maxTopic: 2 }).length, 2);
@@ -239,6 +248,13 @@ describe("leçon à la voix avec le maître de Tamilya", () => {
       { french: "maison", shimaore: "nyumba" },
     ]);
     assert.deepEqual(parseTaughtWords("[]"), []);
+  });
+
+  it("garde une phrase entière corrigée, plus longue qu'un mot du dictionnaire", () => {
+    const french = "je vais au marché avec ma mère demain matin pour acheter du poisson et des bananes";
+    const shimaore = "nisi ndzendra bazarini na mama meso asubuhi ha nunuwa fi na ndrovi za kutru";
+    assert.ok(french.length > 80);
+    assert.deepEqual(parseTaughtWords(JSON.stringify([{ french, shimaore }])), [{ french, shimaore }]);
   });
 
   it("n'apprend pas du français recopié comme du shimaoré", () => {
