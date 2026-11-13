@@ -32,7 +32,10 @@ export async function proxy(request: NextRequest) {
       return NextResponse.json({ error: closure.apiError }, { status: 503, headers });
     }
     // Même adresse (réécriture, pas redirection) : recharger la page suffit quand le site rouvre.
-    const page = NextResponse.rewrite(new URL("/maintenance", request.url), { status: 503, headers });
+    const page = NextResponse.rewrite(new URL("/maintenance", request.url), {
+      status: closure.pageStatus,
+      headers: closure.pageStatus === 503 ? headers : { "Cache-Control": "no-store" },
+    });
     for (const cookie of response.cookies.getAll()) page.cookies.set(cookie);
     return page;
   }
@@ -72,8 +75,9 @@ function adminGate(request: NextRequest, response: NextResponse, userId: string)
  * et Tamilya Connect : le message arrive par le téléphone d'un autre, sans session ; c'est le
  * compte signataire qui décide ensuite (src/lib/mesh/closure.ts). La clé publique du serveur
  * (/api/mesh/key) aussi : sans elle, un téléphone neuf ne pouvait pas activer Connect.
+ * Les règles de confidentialité restent toujours lisibles (exigé par Google pour la connexion avec Google).
  */
-const OPEN_WHEN_CLOSED = ["/maintenance", "/auth/", "/api/auth/", "/api/cron/", "/api/ai/relay", "/api/voice/live/setup", "/api/wallet/webhook", "/api/mesh/relay", "/api/mesh/key", "/manifest.webmanifest", "/brand/"];
+const OPEN_WHEN_CLOSED = ["/maintenance", "/confidentialite","/auth/", "/api/auth/", "/api/cron/", "/api/ai/relay", "/api/voice/live/setup", "/api/wallet/webhook", "/api/mesh/relay", "/api/mesh/key", "/manifest.webmanifest", "/brand/"];
 
 export const config = {
   matcher: [

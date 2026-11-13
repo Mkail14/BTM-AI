@@ -22,7 +22,8 @@ const COPY: Record<SiteStatus, { tabTitle: string; badge: string | null; title: 
     tabTitle: "Bientôt disponible",
     badge: "Ouverture en préparation",
     title: "Tamilya arrive bientôt.",
-    lead: "Le site ouvrira dès que notre premier partenaire à Mayotte sera validé.",
+    // Dit à quoi sert Tamilya : c'est la page d'accueil du moment, que Google lit pour valider la connexion avec Google.
+    lead: "Tamilya, l'assistante IA de GROUPE BTM, répond à tes questions en français et en shimaoré et t'aide au quotidien à Mayotte : démarches, documents, trajets. Le site ouvrira dès que notre premier partenaire sera validé.",
     steps: ["Tamilya se prépare", "Derniers réglages", "En attente du premier partenaire"],
   },
   online: { tabTitle: "Tamilya", badge: null, title: "Tamilya est de retour.", lead: "Les travaux sont finis, tu peux reprendre.", steps: [] },
@@ -94,6 +95,10 @@ export default async function MaintenancePage() {
 
       <p className="pt-1 text-center text-xs text-fg-muted">
         {BRAND.parent} · Mayotte
+        <span aria-hidden="true"> · </span>
+        <Link href="/confidentialite" prefetch={false} className="hover:underline">
+          Confidentialité
+        </Link>
         <span aria-hidden="true"> · </span>
         <AdminSignIn signupClosed={status === "maintenance"} />
       </p>

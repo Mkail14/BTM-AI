@@ -151,6 +151,11 @@ export default function PrivacyPage() {
             items={[
               <>Votre adresse e-mail et le nom que vous choisissez.</>,
               <>
+                Avec <span className={strong}>« Continuer avec Google »</span>, Google nous transmet seulement votre nom, votre
+                adresse e-mail et votre photo de profil, pour créer et ouvrir votre compte. Rien d&apos;autre de votre compte
+                Google n&apos;est lu.
+              </>,
+              <>
                 Vos conversations (vos messages et les réponses de Tamilya), pour les retrouver sur tous vos appareils.
                 Elles ne sont lisibles que par votre compte.
               </>,
@@ -278,6 +283,22 @@ export default function PrivacyPage() {
           <p>
             Vous pouvez couper l&apos;accès à tout moment dans Mes documents ou depuis votre compte Google. Vos fichiers
             restent alors dans votre Drive.
+          </p>
+          <p>
+            Une photo ou un document joint à une question dans la conversation est aussi envoyé à Gemini (Google) pour
+            que Tamilya puisse le lire et répondre ; nous n&apos;en gardons que le nom.
+          </p>
+          <p>
+            L&apos;utilisation et le transfert des informations reçues des API Google respectent les{" "}
+            <a
+              href="https://developers.google.com/terms/api-services-user-data-policy"
+              className="font-medium text-accent hover:underline"
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              Règles relatives aux données utilisateur des services d&apos;API Google
+            </a>
+            , y compris les exigences d&apos;utilisation limitée.
           </p>
         </Section>
 

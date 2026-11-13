@@ -11,6 +11,11 @@ describe("États du site", () => {
     assert.match(siteClosure("waiting_partner")?.apiError ?? "", /bientôt/);
   });
 
+  it("page d'attente lisible (200) en attente d'un partenaire, 503 en maintenance", () => {
+    assert.equal(siteClosure("waiting_partner")?.pageStatus, 200);
+    assert.equal(siteClosure("maintenance")?.pageStatus, 503);
+  });
+
   it("ne ferme jamais le site de la branche develop", () => {
     assert.equal(siteClosure("maintenance", { VERCEL_GIT_COMMIT_REF: "develop" }), null);
     assert.equal(siteClosure("waiting_partner", { VERCEL_GIT_COMMIT_REF: "develop" }), null);
