@@ -9,7 +9,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { alertDialog } from "@/components/ui/ConfirmDialog";
 import { useChatShell } from "@/components/layout/ChatShell";
-import { IconArrowDown, IconMenu, IconMic, IconOffline, IconPlus, IconSave } from "@/components/ui/icons";
+import { IconArrowDown, IconMenu, IconMic, IconOffline, IconPlus } from "@/components/ui/icons";
 import {
   clearAnonymousDraft,
   loadAnonymousDraft,
@@ -648,22 +648,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
           <BrandLogo size="sm" />
         </span>
         <div className="ml-auto flex items-center gap-2">
-          {!userId && settledTurns(messages).length > 0 ? (
-            <button
-              type="button"
-              onClick={() =>
-                openAuthDialog({
-                  mode: "signup",
-                  reason:
-                    "Crée un compte ou connecte-toi pour enregistrer cette conversation. On te demandera confirmation avant de l'enregistrer.",
-                })
-              }
-              className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-bg-muted"
-            >
-              <IconSave width={16} height={16} />
-              Enregistrer
-            </button>
-          ) : null}
           {/* Téléphone : nouvelle conversation sans ouvrir le menu (sur ordinateur, le « + » est dans la barre latérale). */}
           {messages.length > 0 ? (
             <button
