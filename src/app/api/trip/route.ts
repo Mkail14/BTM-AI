@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { isInMayotte } from "@/lib/address";
 import { getAuthContext } from "@/lib/auth/session";
+import { canUse } from "@/lib/site/features";
 import { getProfileContact } from "@/lib/profile-contact";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { planTrip, type TripChoice, type TripFailure, type TripPlan } from "@/lib/trip/plan";
@@ -26,6 +27,7 @@ const fail = (error: TripFailure | "unavailable", status: number) =>
 export async function GET(request: NextRequest) {
   const { supabase, user } = await getAuthContext();
   if (!supabase || !user) return NextResponse.json({ error: "unavailable", message: "Connecte-toi pour voir le trajet." }, { status: 401 });
+  if (!(await canUse(user, "trajet"))) return NextResponse.json({ error: "unavailable", message: "Les trajets ne sont pas ouverts pour l'instant." }, { status: 403 });
   const params = request.nextUrl.searchParams;
   const to = (params.get("to") ?? "").trim().slice(0, 120);
   const from = (params.get("from") ?? "").trim().slice(0, 120) || null;

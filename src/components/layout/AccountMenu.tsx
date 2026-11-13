@@ -54,8 +54,8 @@ export function AccountMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const menuId = useId();
-  // Portefeuille réservé aux admins tant qu'aucun partenariat n'est signé (le serveur refuse aussi).
-  const walletOn = Boolean(user.isAdmin);
+  // Portefeuille réservé aux admins tant qu'il n'est pas allumé dans /admin/fonctionnalites (le serveur refuse aussi).
+  const walletOn = Boolean(user.isAdmin || user.features?.includes("portefeuille"));
   const balance = useBalance(walletOn);
 
   const name = user.displayName || user.email || "Mon compte";

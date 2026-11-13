@@ -19,7 +19,7 @@ export async function GET() {
   }
   let balanceCents: number | null = null;
   let demo = false;
-  if (!canUseWallet(user)) {
+  if (!(await canUseWallet(user))) {
     // Portefeuille réservé aux admins pour l'instant : pas de solde affiché.
   } else if (await usesDemoWallet(user)) {
     balanceCents = (await readDemoWallet(user.id)).balanceCents;

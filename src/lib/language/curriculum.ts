@@ -265,7 +265,15 @@ export type MapNode = {
   /** Branche proposée par Tamilya (bouton « + ») : son emoji. */
   emoji?: string;
   /** Seulement pour un mot : sa traduction (null = à apprendre) et la catégorie où l'enregistrer. */
-  word?: { french: string; shimaore: string | null; category: string; bonus?: boolean; source?: KnownEntry };
+  word?: {
+    french: string;
+    shimaore: string | null;
+    category: string;
+    bonus?: boolean;
+    source?: KnownEntry;
+    /** Conflit : le mot a plusieurs traductions dans le dictionnaire (au moins deux). */
+    translations?: string[];
+  };
 };
 
 function branch(id: string, label: string, hue: number, children: MapNode[]): MapNode {
@@ -325,13 +333,29 @@ function paginate(id: string, hue: number, nodes: MapNode[]): MapNode[] {
   return chunks;
 }
 
-const bonusNode = (id: string, hue: number, entry: KnownEntry, category: string): MapNode => ({
+/**
+ * Entrées d'un même mot français (ses traductions). Un conflit (deux
+ * traductions) donne une seule bulle, qui les montre toutes.
+ */
+type SameWord = ReadonlyMap<string, KnownEntry[]>;
+
+function translationsOf(sameWord: SameWord, entry: KnownEntry | undefined): string[] | undefined {
+  if (!entry) return undefined;
+  const seen = new Map<string, string>();
+  for (const e of sameWord.get(normalizeFrench(entry.french)) ?? []) {
+    const key = normalizeFrench(e.shimaore);
+    if (key && !seen.has(key)) seen.set(key, e.shimaore.trim());
+  }
+  return seen.size > 1 ? [...seen.values()] : undefined;
+}
+
+const bonusNode = (id: string, hue: number, entry: KnownEntry, category: string, sameWord: SameWord): MapNode => ({
   id,
   label: entry.french,
   hue,
   learned: 0,
   total: 0,
-  word: { french: entry.french, shimaore: entry.shimaore, category, bonus: true, source: entry },
+  word: { french: entry.french, shimaore: entry.shimaore, category, bonus: true, source: entry, translations: translationsOf(sameWord, entry) },
 });
 
 /**
@@ -348,19 +372,26 @@ export type BranchDef = { id: string; label: string; emoji: string; hue: number;
 export function buildLexiconTree(entries: readonly KnownEntry[], branches: readonly BranchDef[] = []): MapNode {
   const byFrench = new Map<string, KnownEntry>();
   const keysOf = (french: string) => french.split(/[,/;]| ou /).map(normalizeFrench).filter(Boolean);
+  const sameWord = new Map<string, KnownEntry[]>();
   for (const entry of entries) {
     for (const key of keysOf(entry.french)) if (!byFrench.has(key)) byFrench.set(key, entry);
+    const key = normalizeFrench(entry.french);
+    sameWord.set(key, [...(sameWord.get(key) ?? []), entry]);
   }
 
-  // Cibles du programme reconnues ; les entrées utilisées ne sont pas rangées une deuxième fois.
+  // Cibles du programme reconnues ; les entrées utilisées ne sont pas rangées une
+  // deuxième fois, ni les autres traductions du même mot (une seule bulle par mot).
   const used = new Set<KnownEntry>();
+  const markUsed = (entry: KnownEntry) => {
+    for (const e of sameWord.get(normalizeFrench(entry.french)) ?? [entry]) used.add(e);
+  };
   const targets = THEMES.map((theme) =>
     theme.groups.map((group) =>
       group.words.map((target) => {
         const options = target.split("|");
         const hit = options.map(normalizeFrench).find((key) => byFrench.has(key));
         const source = hit ? byFrench.get(hit) : undefined;
-        if (source) used.add(source);
+        if (source) markUsed(source);
         return { french: options[0], source };
       }),
     ),
@@ -371,7 +402,7 @@ export function buildLexiconTree(entries: readonly KnownEntry[], branches: reado
     b.words.map((french) => {
       const key = normalizeFrench(french);
       const source = byFrench.get(key);
-      if (source && !used.has(source)) used.add(source);
+      if (source && !used.has(source)) markUsed(source);
       return { french, source };
     }),
   );
@@ -384,6 +415,7 @@ export function buildLexiconTree(entries: readonly KnownEntry[], branches: reado
   const spoken: KnownEntry[] = [];
   for (const entry of entries) {
     if (used.has(entry) || !entry.shimaore) continue;
+    markUsed(entry);
     const inBranch = branchByCategory.get(normalizeFrench(entry.category ?? ""));
     if (inBranch !== undefined) {
       branchExtra[inBranch].push(entry);
@@ -407,15 +439,15 @@ export function buildLexiconTree(entries: readonly KnownEntry[], branches: reado
           hue: theme.hue,
           learned: source ? 1 : 0,
           total: 1,
-          word: { french, shimaore: source?.shimaore ?? null, category: groupCategory(theme, group), source },
+          word: { french, shimaore: source?.shimaore ?? null, category: groupCategory(theme, group), source, translations: translationsOf(sameWord, source) },
         }),
       );
-      const more = (extra.get(`${theme.id}:${g}`) ?? []).map((entry, i) => bonusNode(`${id}-plus-${i}`, theme.hue, entry, groupCategory(theme, group)));
+      const more = (extra.get(`${theme.id}:${g}`) ?? []).map((entry, i) => bonusNode(`${id}-plus-${i}`, theme.hue, entry, groupCategory(theme, group), sameWord));
       return branch(id, group.label, theme.hue, paginate(id, theme.hue, [...words, ...more]));
     });
-    const loose = (extra.get(`${theme.id}:-1`) ?? []).map((entry, i) => bonusNode(`${theme.id}-plus-${i}`, theme.hue, entry, theme.label));
+    const loose = (extra.get(`${theme.id}:-1`) ?? []).map((entry, i) => bonusNode(`${theme.id}-plus-${i}`, theme.hue, entry, theme.label, sameWord));
     if (theme.id === "phrases" && spoken.length) {
-      loose.push(...spoken.map((entry, i) => bonusNode(`phrases-parle-${i}`, theme.hue, entry, theme.label)));
+      loose.push(...spoken.map((entry, i) => bonusNode(`phrases-parle-${i}`, theme.hue, entry, theme.label, sameWord)));
     }
     if (loose.length) groups.push(branch(`${theme.id}-plus`, theme.id === "phrases" ? "Apprises en parlant" : "En plus", theme.hue, paginate(`${theme.id}-plus`, theme.hue, loose)));
     return branch(theme.id, theme.label, theme.hue, groups);
@@ -430,15 +462,15 @@ export function buildLexiconTree(entries: readonly KnownEntry[], branches: reado
         hue: b.hue,
         learned: source ? 1 : 0,
         total: 1,
-        word: { french, shimaore: source?.shimaore ?? null, category: b.label, source },
+        word: { french, shimaore: source?.shimaore ?? null, category: b.label, source, translations: translationsOf(sameWord, source) },
       }),
     );
-    const more = branchExtra[i].map((entry, k) => bonusNode(`${id}-plus-${k}`, b.hue, entry, b.label));
+    const more = branchExtra[i].map((entry, k) => bonusNode(`${id}-plus-${k}`, b.hue, entry, b.label, sameWord));
     themes.push({ ...branch(id, b.label, b.hue, paginate(id, b.hue, [...words, ...more])), emoji: b.emoji });
   });
 
   if (toSort.length) {
-    const nodes = toSort.map((entry, i) => bonusNode(`ranger-${i}`, 260, entry, ""));
+    const nodes = toSort.map((entry, i) => bonusNode(`ranger-${i}`, 260, entry, "", sameWord));
     themes.push(branch("ranger", "À ranger", 260, paginate("ranger", 260, nodes)));
   }
   return branch("awa", "Tamilya", 320, themes);

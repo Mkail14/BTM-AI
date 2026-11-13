@@ -35,6 +35,60 @@ export const FEATURES = [
     description: "Un PDF lu en entier, en 3D. Sorti du + le 2026-11-10 : plus d'entrée dans le site pour l'instant. Coûte des appels Gemini à chaque morceau (~4 min d'écoute).",
     default: false,
   },
+  {
+    id: "devis",
+    label: "Devis BTM",
+    description: "Le devis de matériaux (mur, dalle…), le choix du fournisseur et le code de retrait, quand on le demande à Tamilya.",
+    default: true,
+  },
+  {
+    id: "trajet",
+    label: "Trajets",
+    description: "La carte du trajet (« combien de temps de chez moi à la CSSM ») avec les temps en voiture, en taxi et à pied.",
+    default: true,
+  },
+  {
+    id: "code",
+    label: "Code de la route",
+    description: "Les créneaux de l'examen du code et la réservation d'une place, depuis la conversation.",
+    default: true,
+  },
+  {
+    id: "chanson",
+    label: "Chansons",
+    description: "« Chante-moi quelque chose » : Tamilya écrit une chanson, chantée avec des instruments sous son message.",
+    default: true,
+  },
+  {
+    id: "youtube",
+    label: "Vidéos YouTube",
+    description: "Tamilya propose des recherches YouTube (recette, tutoriel, musique) quand une vidéo aiderait.",
+    default: true,
+  },
+  {
+    id: "repas",
+    label: "Commande de repas",
+    description: "Commander à manger depuis la conversation, seul ou en panier groupé. Éteinte : les administrateurs l'ont seulement en mode démo.",
+    default: false,
+  },
+  {
+    id: "barge",
+    label: "Tickets de barge",
+    description: "Acheter un ticket de barge pour Petite-Terre depuis la conversation. Éteinte : les administrateurs l'ont seulement en mode démo.",
+    default: false,
+  },
+  {
+    id: "portefeuille",
+    label: "Portefeuille",
+    description: "Le solde, la recharge et le code de paiement (Paramètres → Portefeuille).",
+    default: false,
+  },
+  {
+    id: "vocal",
+    label: "Vocal en direct",
+    description: "Parler à Tamilya à voix haute dans la conversation, comme au téléphone. Coûte des appels Gemini Live à chaque minute.",
+    default: false,
+  },
 ] as const;
 
 export type FeatureId = (typeof FEATURES)[number]["id"];

@@ -47,7 +47,7 @@ import { extractMemories, type MemoryFact } from "@/lib/ai/memory";
 import { describeMemoryUpdates, getMemories, isMemoryOn, learnFromMessage, newMemoryUpdates, saveMemories } from "@/lib/ai/memory-store";
 import { getPastTalks } from "@/lib/ai/past-talks-store";
 import { withRecentReplies } from "@/lib/ai/past-talks";
-import { collectUnknownWords } from "@/lib/ai/word-requests";
+import { collectUnknownWords, reportWordConflicts } from "@/lib/ai/word-requests";
 import { learnWordsFromMessage, teachWords } from "@/lib/ai/words-store";
 import { createUnknownTagFilter } from "@/lib/language/unknown-tag";
 import { parseTeaching, type TaughtWord, type WordList } from "@/lib/language/teaching";
@@ -448,18 +448,18 @@ export async function POST(request: NextRequest) {
           FOOD_CATALOG,
         )
       : null;
+  // Fonctionnalités éteintes dans /admin/fonctionnalites : seulement pour les administrateurs.
+  const features = await userFeatures(user);
   // Demande de ticket de barge reconnue ici : l'achat s'ouvre à coup sûr.
   const bargeIntent = bargeTickets && !body.voice ? detectBargeTicket(body.message) : null;
   // Demande de devis BTM (mur, dalle…) reconnue ici : le devis s'ouvre à coup sûr.
-  const btmDevis = !body.voice && detectBtmDevis(body.message) ? btmDevisSpec(body.message) : null;
+  const btmDevis = !body.voice && features.includes("devis") && detectBtmDevis(body.message) ? btmDevisSpec(body.message) : null;
   // Trajet demandé (« combien de temps de chez moi à la CSSM ») : la carte du trajet s'ouvre à coup sûr (compte requis).
-  const trip = user && !body.voice && !foodQuery && !foodGroup && !btmDevis ? detectTrip(body.message) : null;
+  const trip = user && !body.voice && features.includes("trajet") && !foodQuery && !foodGroup && !btmDevis ? detectTrip(body.message) : null;
   // Cyclones demandés (« il y a un cyclone ? ») : la carte des cyclones s'ouvre à coup sûr, sur le monde si la personne parle des autres.
-  // Éteint dans /admin/fonctionnalites : seulement pour les administrateurs.
-  const features = await userFeatures(user);
   const cyclone = !body.voice && features.includes("cyclone") && detectCyclone(body.message) ? cycloneZoneFor(body.message) : null;
   // Chanson demandée (« chante-moi quelque chose ») : Tamilya écrit une chanson, chantée sous son message.
-  const song = !body.voice && detectSong(body.message);
+  const song = !body.voice && features.includes("chanson") && detectSong(body.message);
   // Lecture en 3D demandée (« lis-moi cette page », ou demandée juste avant et le texte arrive) :
   // essai réservé aux administrateurs.
   // Ses deux derniers messages : « en vocal » peut suivre une histoire collée un peu plus haut.
@@ -494,7 +494,7 @@ export async function POST(request: NextRequest) {
     dossier,
     teacher: master,
     voice: body.voice,
-    voiceCall: Boolean(user?.isAdmin),
+    voiceCall: features.includes("vocal"),
     // Elle réfléchit plus, mais répond court : pas de longue réponse structurée à « c'est faux ».
     deep: deep && !challenged,
     challenged,
@@ -507,7 +507,7 @@ export async function POST(request: NextRequest) {
     bargeTickets,
     bargeIntent,
     bargeSpec: bargeIntent === "buy" ? bargeSpec(body.message) : undefined,
-    btmDevisOffer: true,
+    btmDevisOffer: features.includes("devis"),
     btmDevis,
     trip,
     cyclone,
@@ -519,7 +519,9 @@ export async function POST(request: NextRequest) {
     documentOffer: features.includes("signature"),
     documentTask: documentTask ?? undefined,
     shimaoreTranslation,
-    codeExamDay: codeWhen.day ? formatWhenDay(codeWhen.day) : null,
+    codeExamOffer: features.includes("code"),
+    codeExamDay: codeWhen.day && features.includes("code") ? formatWhenDay(codeWhen.day) : null,
+    youtubeOffer: features.includes("youtube"),
     foodOrder,
   });
   flow.step("prompt", true);
@@ -619,9 +621,16 @@ export async function POST(request: NextRequest) {
         }
         text = shown.trimEnd();
         const known = [...brain.lexicon, ...brain.words].map((entry) => entry.shimaore);
+        const reply = text;
         after(() =>
           collectUnknownWords(ai.provider, { message: body.message, tagged: words, known }).catch((error: unknown) =>
             console.error("[chat] Mots inconnus non signalés", error),
+          ),
+        );
+        // Mot à deux traductions employé ici : Tamilya en fait la demande, l'administrateur tranchera.
+        after(() =>
+          reportWordConflicts(brain.words, { message: body.message, reply }).catch((error: unknown) =>
+            console.error("[chat] Conflits de mots non signalés", error),
           ),
         );
       };

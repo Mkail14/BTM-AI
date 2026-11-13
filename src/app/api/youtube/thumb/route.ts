@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getAuthContext } from "@/lib/auth/session";
+import { canUse } from "@/lib/site/features";
 
 /**
  * Miniature d'une vidéo proposée par Tamilya. Passe par notre serveur : l'appareil
@@ -24,6 +25,7 @@ async function firstVideoId(query: string): Promise<string | null> {
 export async function GET(request: NextRequest) {
   const { user } = await getAuthContext();
   if (!user) return new NextResponse(null, { status: 401 });
+  if (!(await canUse(user, "youtube"))) return new NextResponse(null, { status: 403 });
 
   const params = request.nextUrl.searchParams;
   const query = params.get("q")?.trim().slice(0, 200);

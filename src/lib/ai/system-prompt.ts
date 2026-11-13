@@ -9,6 +9,7 @@ import type { CycloneZone } from "@/lib/cyclone/intent";
 import { READING_BLOCK } from "@/lib/lecture/intent";
 import { SONGWRITING } from "@/lib/music/songwriting";
 import type { ValidatedExample } from "@/lib/language/types";
+import { hasConflictingEntries } from "@/lib/language/word-conflicts";
 import { mayotteClock } from "./clock";
 import type { KnowledgeEntry } from "./knowledge";
 import type { MemoryFact } from "./memory";
@@ -92,8 +93,12 @@ export type PromptContext = {
   home?: { commune: string; nearestOffices: string | null } | null;
   /** Commande de repas ouverte à ce compte (prototype : administrateurs, voir src/lib/food/access.ts). */
   foodOrdering?: boolean;
+  /** false : le code de la route est éteint pour ce compte (/admin/fonctionnalites), pas de bloc creneaux-code. */
+  codeExamOffer?: boolean;
   /** Jour cité dans le message (« demain » → « mardi 3 novembre »), calculé par le serveur. */
   codeExamDay?: string | null;
+  /** false : les vidéos YouTube sont éteintes pour ce compte (/admin/fonctionnalites). */
+  youtubeOffer?: boolean;
   /** Ce message demande à manger (detectFoodOrder) : contenu du bloc commande-repas à ouvrir. */
   foodQuery?: string | null;
   /** Ce message demande plusieurs articles (detectGroupOrder) : contenu du bloc commande-groupee, un article par ligne. */
@@ -432,6 +437,12 @@ export function buildSystemPrompt(
       [
         "Vocabulaire shimaoré validé par GROUPE BTM (fiable : utilise-le quand tu écris en shimaoré ou qu'on te demande un mot, plutôt que de deviner) :",
         ...context.words.map((w) => `- ${oneLine(w.french, 80)} → ${oneLine(w.shimaore, 80)}${w.category ? ` (${oneLine(w.category, 40)})` : ""}`),
+        // Conflit de mots : la demande part toute seule à l'administrateur (reportWordConflicts).
+        ...(hasConflictingEntries(context.words)
+          ? [
+              "Un mot français qui a plusieurs traductions dans cette liste n'est pas encore départagé : GROUPE BTM a reçu ta demande et choisira la bonne. En attendant, prends la première sans hésiter et sans en parler à la personne.",
+            ]
+          : []),
       ].join("\n"),
     );
   }
@@ -518,7 +529,7 @@ export function buildSystemPrompt(
   // Le mode maître a ses propres règles : très court, en shimaoré.
   if (!context.site && !context.teacher) sections.push(SELF_CHECK, CLOSENESS);
   // Écrit seulement : à l'oral, un lien ne se lit pas.
-  if (!context.site && !context.voice && !context.connect) sections.push(YOUTUBE);
+  if (!context.site && !context.voice && !context.connect && context.youtubeOffer !== false) sections.push(YOUTUBE);
   // À l'écrit : comment on l'entend.
   if (!context.site && !context.voice && !context.connect) sections.push(context.voiceCall ? `${OWN_VOICE}\n${OWN_VOICE_CALL}` : OWN_VOICE);
   // Le maître apprend directement à Tamilya : rien à lui demander.
@@ -526,7 +537,7 @@ export function buildSystemPrompt(
   if (context.teacher) sections.push(TEACHER);
   // Le tableau ne s'affiche que dans la conversation écrite de BTM AI. Après
   // le mode maître, qui interdit le français : le bloc reste permis avec lui.
-  if (!context.site && !context.voice && !context.connect) sections.push(context.teacher ? `${CODE_EXAM}\n${CODE_EXAM_MASTER}` : CODE_EXAM);
+  if (!context.site && !context.voice && !context.connect && context.codeExamOffer !== false) sections.push(context.teacher ? `${CODE_EXAM}\n${CODE_EXAM_MASTER}` : CODE_EXAM);
   // Jour demandé, déjà calculé : Tamilya ne refait pas le calcul (et ne se trompe pas de date).
   if (context.codeExamDay && !context.site && !context.voice && !context.connect) {
     sections.push(

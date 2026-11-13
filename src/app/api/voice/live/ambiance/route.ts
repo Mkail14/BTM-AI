@@ -3,6 +3,7 @@ import { z } from "zod";
 import { geminiHeaders, geminiRoot, listKeyModels, thinkingSettings } from "@/lib/ai/providers/gemini";
 import { geminiKey } from "@/lib/ai/voice/gemini-tts";
 import { getAuthContext } from "@/lib/auth/session";
+import { canUse } from "@/lib/site/features";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
 
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Requête refusée." }, { status: 403 });
   const { user } = await getAuthContext();
   if (!user) return NextResponse.json({ error: "Connexion requise." }, { status: 401 });
-  if (!user.isAdmin) return NextResponse.json({ error: "Réservé aux administrateurs." }, { status: 403 });
+  if (!(await canUse(user, "vocal"))) return NextResponse.json({ error: "Le vocal en direct n'est pas ouvert pour l'instant." }, { status: 403 });
   const limit = await consumeRateLimits([{ key: `voice-live-ambiance:${user.id}`, rules: RATE_LIMIT_POLICIES.voiceLiveAmbiance }]).catch(() => null);
   if (limit && !limit.allowed) return NextResponse.json({ error: "Trop de demandes, réessaie dans un instant." }, { status: 429 });
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));

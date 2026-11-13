@@ -6,7 +6,7 @@ import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/ac
 import { invalidateAwaBrain } from "@/lib/ai/brain";
 import { teachWords } from "@/lib/ai/words-store";
 import { freeHue, listBranches, suggestBranch, type BranchSuggestion } from "@/lib/language/branches";
-import { parseWordList } from "@/lib/language/teaching";
+import { parseWordList, shimaoreEntryKey } from "@/lib/language/teaching";
 import { LEXICON_LIMITS, WORD_LIMITS } from "./limits";
 
 const variant = z.string().trim().max(LEXICON_LIMITS.phrase);
@@ -237,4 +237,96 @@ export async function deleteBranchAction(id: unknown): Promise<ActionResult> {
   }
   revalidatePath("/admin/lexique");
   return { ok: true, message: "Branche retirée." };
+}
+
+
+/** Même mot français, sans tenir compte des majuscules (ilike, jokers échappés). */
+const likePattern = (french: string) => french.trim().replace(/[\\%_]/g, (c) => `\\${c}`);
+
+/**
+ * Le mot français n'a plus que cette traduction : les autres sont retirées du
+ * dictionnaire, la gardée reste (avec sa catégorie) ou est créée. La dernière
+ * correction fait foi, comme une leçon en conversation. Les demandes de
+ * conflit sur ce mot sont closes.
+ */
+async function keepOnlyTranslation(
+  supabase: AdminSupabase,
+  userId: string,
+  input: { french: string; shimaore: string; category: string | null },
+): Promise<string | null> {
+  const pattern = likePattern(input.french);
+  const { data: rows, error: readError } = await supabase.from("awa_words").select("id, shimaore").ilike("french", pattern);
+  if (readError) {
+    console.error("[admin] Traductions illisibles", readError);
+    return "L'opération a échoué.";
+  }
+  const kept = (rows ?? []).find((row) => shimaoreEntryKey(String(row.shimaore ?? "")) === shimaoreEntryKey(input.shimaore));
+  const others = (rows ?? []).filter((row) => row !== kept).map((row) => row.id as string);
+  if (others.length) {
+    const { error } = await supabase.from("awa_words").delete().in("id", others);
+    if (error) {
+      console.error("[admin] Traductions non retirées", error);
+      return "L'opération a échoué.";
+    }
+  }
+  const { error } = kept
+    ? await supabase.from("awa_words").update({ shimaore: input.shimaore, is_active: true }).eq("id", kept.id)
+    : await supabase
+        .from("awa_words")
+        .insert({ french: input.french, shimaore: input.shimaore, category: input.category, is_active: true, created_by: userId });
+  if (error) {
+    console.error("[admin] Traduction non enregistrée", error);
+    return "L'enregistrement a échoué.";
+  }
+  // Colonnes kind et french absentes avant la migration conflits_de_mots : sans gravité.
+  await supabase.from("awa_word_requests").update({ status: "done" }).eq("kind", "conflit").ilike("french", pattern);
+  return null;
+}
+
+type AdminSupabase = NonNullable<Awaited<ReturnType<typeof requireAdminAction>>>["supabase"];
+
+const translationSchema = z.object({
+  french: z.string().trim().min(1, "Écrivez le mot en français.").max(WORD_LIMITS.word),
+  shimaore: z.string().trim().min(1, "Écrivez le mot en shimaoré.").max(WORD_LIMITS.word),
+  category: z.string().trim().max(WORD_LIMITS.category),
+});
+
+/** Carte et onglet Conflits : donne, corrige ou choisit la traduction d'un mot (elle remplace les autres). */
+export async function setTranslationAction(input: unknown): Promise<ActionResult> {
+  const auth = await requireAdminAction();
+  if (!auth) return NOT_ADMIN;
+  const parsed = translationSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Données invalides." };
+  const { french, shimaore, category } = parsed.data;
+  const failed = await keepOnlyTranslation(auth.supabase, auth.user.id, { french, shimaore, category: category || null });
+  if (failed) return { ok: false, message: failed };
+  return done(`« ${french} » = « ${shimaore} » : Tamilya n'emploie plus que celle-ci.`);
+}
+
+const bothSchema = z.object({
+  french: z.string().trim().min(1).max(WORD_LIMITS.word),
+  translations: z.array(z.string().trim().min(1).max(WORD_LIMITS.word)).min(2).max(20),
+});
+
+/** Toutes les traductions se disent : rien n'est retiré, le conflit n'est plus montré ni signalé. */
+export async function keepBothAction(input: unknown): Promise<ActionResult> {
+  const auth = await requireAdminAction();
+  if (!auth) return NOT_ADMIN;
+  const parsed = bothSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: "Données invalides." };
+  const { french, translations } = parsed.data;
+  const pattern = likePattern(french);
+
+  // Une demande « conflit » marquée ignorée retient le choix (la même que celles de Tamilya).
+  const { data: existing } = await auth.supabase.from("awa_word_requests").select("id").eq("kind", "conflit").ilike("french", pattern);
+  const shimaore = translations.join(" / ").slice(0, 300);
+  const { error } = existing?.length
+    ? await auth.supabase.from("awa_word_requests").update({ status: "ignored", shimaore }).in("id", existing.map((r) => r.id as string))
+    : await auth.supabase.from("awa_word_requests").insert({ kind: "conflit", french, shimaore, status: "ignored" });
+  if (error) {
+    console.error("[admin] Conflit non retiré", error);
+    return { ok: false, message: "L'opération a échoué (migration 20261214000000_conflits_de_mots.sql appliquée ?)." };
+  }
+  revalidatePath("/admin/lexique");
+  return { ok: true, message: `« ${french} » : toutes les traductions sont gardées.` };
 }

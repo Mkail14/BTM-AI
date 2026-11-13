@@ -95,10 +95,12 @@ export async function suggestBranch(supabase: SupabaseClient, avoid: readonly st
   const reader = getSupabaseAdminClient() ?? supabase;
   const [words, requests, branches, messages] = await Promise.all([
     supabase.from("awa_words").select("french").eq("is_active", true).limit(3000),
-    supabase.from("awa_word_requests").select("shimaore, example").eq("status", "pending").order("occurrences", { ascending: false }).limit(30),
+    // « * » : la colonne kind peut manquer (migration conflits_de_mots) ; les conflits sont écartés plus bas.
+    supabase.from("awa_word_requests").select("*").eq("status", "pending").order("occurrences", { ascending: false }).limit(30),
     listBranches(supabase),
     reader.from("messages").select("content").eq("role", "user").order("created_at", { ascending: false }).limit(MESSAGES_LIMIT),
   ]);
+  const unknown = (requests.data ?? []).filter((r) => r.kind !== "conflit");
   const said = conversationExcerpt((messages.data ?? []).map((m) => String(m.content ?? "")));
   if (!said) return null;
   const knownFrench = [...(words.data ?? []).map((w) => w.french as string), ...THEMES.flatMap((t) => t.groups.flatMap((g) => g.words.map((w) => w.split("|")[0])))];
@@ -112,8 +114,8 @@ export async function suggestBranch(supabase: SupabaseClient, avoid: readonly st
     `Thèmes déjà sur la carte : ${[...THEMES.map((t) => t.label), ...(branches ?? []).map((b) => b.label)].join(", ")}.`,
     avoid.length ? `Ne propose pas : ${avoid.join(", ")}.` : "",
     `Mots que tu sais déjà dire (extrait) : ${[...known].slice(0, 400).join(", ")}.`,
-    requests.data?.length
-      ? `Mots shimaoré qu'on t'a dits sans que tu les comprennes :\n${requests.data.map((r) => `- ${r.shimaore}${r.example ? ` (« ${String(r.example).slice(0, 120)} »)` : ""}`).join("\n")}`
+    unknown.length
+      ? `Mots shimaoré qu'on t'a dits sans que tu les comprennes :\n${unknown.map((r) => `- ${r.shimaore}${r.example ? ` (« ${String(r.example).slice(0, 120)} »)` : ""}`).join("\n")}`
       : "",
   ]
     .filter(Boolean)

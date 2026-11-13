@@ -64,7 +64,7 @@ export async function GET() {
   const { user } = await getAuthContext();
   const admin = getSupabaseAdminClient();
   if (!user || !admin) return fail(401, "Connexion requise.");
-  if (!canUseWallet(user)) return fail(403, "Le portefeuille arrive bientôt.");
+  if (!(await canUseWallet(user))) return fail(403, "Le portefeuille arrive bientôt.");
   const [status, voiceInfo] = await Promise.all([payStatus(admin, user.id), voiceStatus(admin, user.id)]);
   return NextResponse.json({ ...status, voice: voiceInfo.enrolled }, { headers: { "Cache-Control": "no-store" } });
 }
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
   const { user } = await getAuthContext();
   const admin = getSupabaseAdminClient();
   if (!user || !admin) return fail(401, "Connexion requise.");
-  if (!canUseWallet(user)) return fail(403, "Le portefeuille arrive bientôt.");
+  if (!(await canUseWallet(user))) return fail(403, "Le portefeuille arrive bientôt.");
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail(400, "Le code fait 4 chiffres.");
 

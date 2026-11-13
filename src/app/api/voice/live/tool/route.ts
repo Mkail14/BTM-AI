@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { mayotteClock } from "@/lib/ai/clock";
 import { getAuthContext } from "@/lib/auth/session";
+import { canUse } from "@/lib/site/features";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { canBuyBargeTickets } from "@/lib/barge/access";
 import { cycloneBlock } from "@/lib/cyclone/intent";
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Requête refusée." }, { status: 403 });
   const { supabase, user } = await getAuthContext();
   if (!user) return NextResponse.json({ error: "Connexion requise." }, { status: 401 });
-  if (!user.isAdmin) return NextResponse.json({ error: "Réservé aux administrateurs." }, { status: 403 });
+  if (!(await canUse(user, "vocal"))) return NextResponse.json({ error: "Le vocal en direct n'est pas ouvert pour l'instant." }, { status: 403 });
   const limit = await consumeRateLimits([{ key: `voice-live-tool:${user.id}`, rules: RATE_LIMIT_POLICIES.voiceLiveTool }]).catch(() => null);
   if (limit && !limit.allowed) return NextResponse.json({ error: "Trop de demandes, réessaie dans un instant." }, { status: 429 });
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));

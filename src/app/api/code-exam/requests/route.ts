@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 import { getAuthContext, type SessionUser } from "@/lib/auth/session";
+import { canUse } from "@/lib/site/features";
 import { requestSchema } from "@/lib/code-exam/candidate";
 import { hasActiveBooking } from "@/lib/code-exam/duplicate";
 import { loadCodeExam } from "@/lib/code-exam/laposte";
@@ -82,6 +83,7 @@ export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return fail(403, "Requête refusée.");
   const { supabase, user } = await getAuthContext();
   if (!supabase || !user) return fail(401, "Connecte-toi pour réserver.");
+  if (!(await canUse(user, "code"))) return fail(403, "La réservation du code n'est pas ouverte pour l'instant.");
   // Les demandes ne s'écrivent qu'avec la clé secrète du serveur (jamais avec les droits du compte).
   const admin = getSupabaseAdminClient();
   if (!admin) return fail(503, "La réservation du code n'est pas disponible pour le moment.");

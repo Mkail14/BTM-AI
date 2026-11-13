@@ -7,7 +7,7 @@ import { forgetDemoWallet, readDemoWallet, usesDemoWallet } from "@/lib/wallet/d
 export async function GET() {
   const { supabase, user } = await getAuthContext();
   if (!supabase || !user) return NextResponse.json({ error: "Non connecté." }, { status: 401 });
-  if (!canUseWallet(user)) return NextResponse.json({ error: "Le portefeuille arrive bientôt." }, { status: 403 });
+  if (!(await canUseWallet(user))) return NextResponse.json({ error: "Le portefeuille arrive bientôt." }, { status: 403 });
   if (await usesDemoWallet(user)) {
     const demo = await readDemoWallet(user.id);
     return NextResponse.json({ balanceCents: demo.balanceCents, demo: true }, { headers: { "Cache-Control": "no-store" } });

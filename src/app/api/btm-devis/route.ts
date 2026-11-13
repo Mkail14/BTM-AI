@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getAuthContext } from "@/lib/auth/session";
+import { canUse } from "@/lib/site/features";
 import { calculerDevis, isOuvrageId, nomDevis, OUVRAGES, trouverOuvrage, validerValeurs, type Ouvrage, type PrixBtm } from "@/lib/btm/ouvrages";
 import { btmPartnerConfigured, chooseBtmFournisseur, loadBtmPrices, saveBtmDevis } from "@/lib/btm/partner";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
@@ -59,6 +60,7 @@ export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return fail(403, "Requête refusée.");
   const { user } = await getAuthContext();
   if (!user) return fail(401, "Connecte-toi pour enregistrer ton devis.");
+  if (!(await canUse(user, "devis"))) return fail(403, "Le devis BTM n'est pas ouvert pour l'instant.");
   if (!btmPartnerConfigured()) return fail(503, "L'enregistrement sur btm.yt n'est pas encore branché.", { reason: "unavailable" });
 
   const parsed = saveSchema.safeParse(await request.json().catch(() => null));
@@ -103,6 +105,7 @@ export async function PATCH(request: NextRequest) {
   if (!isSameOrigin(request)) return fail(403, "Requête refusée.");
   const { user } = await getAuthContext();
   if (!user) return fail(401, "Connecte-toi pour choisir ton fournisseur.");
+  if (!(await canUse(user, "devis"))) return fail(403, "Le devis BTM n'est pas ouvert pour l'instant.");
   if (!btmPartnerConfigured()) return fail(503, "Le lien avec btm.yt n'est pas encore branché.", { reason: "unavailable" });
   const parsed = chooseSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return fail(400, "Demande invalide.");

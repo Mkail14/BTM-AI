@@ -20,4 +20,7 @@ export type LexiconRow = {
 /** Mot shimaoré que Tamilya n'a pas compris, en attente de traduction. */
 export type WordRequestRow = { id: string; shimaore: string; example: string; occurrences: number; lastSeenAt: string };
 
+/** Mot français à plusieurs traductions dans le dictionnaire (onglet Conflits). `asked` : demandes de Tamilya. */
+export type ConflictRow = { french: string; translations: string[]; category: string; asked: number };
+
 export type WordRow ={ id: string; french: string; shimaore: string; category: string; isActive: boolean };

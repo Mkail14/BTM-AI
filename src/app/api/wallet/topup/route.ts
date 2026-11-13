@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return fail(403, "Requête refusée.");
   const { supabase, user } = await getAuthContext();
   if (!supabase || !user) return fail(401, "Connecte-toi pour recharger ton portefeuille.");
-  if (!canUseWallet(user)) return fail(403, "Le portefeuille arrive bientôt.");
+  if (!(await canUseWallet(user))) return fail(403, "Le portefeuille arrive bientôt.");
 
   // Mode démo : recharge fictive, sans carte ni Stripe.
   if (await usesDemoWallet(user)) {

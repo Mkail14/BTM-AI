@@ -22,7 +22,7 @@ export default async function SettingsPage() {
   const { supabase, user } = await requireUser("/parametres");
   // Le solde est lu en même temps que le reste (démo ou vrai portefeuille), pas après.
   // Portefeuille réservé aux admins tant qu'aucun partenariat n'est signé : rien à lire pour les autres.
-  const walletOn = canUseWallet(user);
+  const walletOn = await canUseWallet(user);
   const balanceTask = walletOn
     ? usesDemoWallet(user).then(async (demo) => ({
         demo,

@@ -10,7 +10,9 @@ import { listBranches } from "@/lib/language/branches";
 import { sortNewWords } from "@/lib/language/sort-words";
 import { readVariants } from "@/lib/ai/brain";
 import { PERSONALITY_IDS } from "@/lib/ai/personalities";
-import type { LexiconRow, LexiconVariants, WordRequestRow, WordRow } from "./limits";
+import { findConflicts } from "@/lib/language/word-conflicts";
+import { ConflictsPanel } from "./ConflictsPanel";
+import type { ConflictRow, LexiconRow, LexiconVariants, WordRequestRow, WordRow } from "./limits";
 import { WordRequests } from "./WordRequests";
 import { WordsPanel } from "./WordsPanel";
 
@@ -26,7 +28,7 @@ function toVariants(shimaore: string, stored: unknown): LexiconVariants {
 
 export default async function AdminLexiconPage() {
   const { supabase, user } = await requireAdmin("/admin/lexique");
-  const [lexicon, words, requests, branches] = await Promise.all([
+  const [lexicon, words, requests, branches, ignored] = await Promise.all([
     supabase
       .from("awa_lexicon")
       // « * » : la colonne variants peut ne pas exister encore (migration lexicon_variants).
@@ -40,11 +42,14 @@ export default async function AdminLexiconPage() {
       .limit(5000),
     supabase
       .from("awa_word_requests")
-      .select("id, shimaore, example, occurrences, last_seen_at")
+      // « * » : les colonnes kind et french peuvent ne pas exister encore (migration conflits_de_mots).
+      .select("*")
       .eq("status", "pending")
       .order("last_seen_at", { ascending: false })
       .limit(200),
     listBranches(supabase),
+    // Conflits dont toutes les traductions se disent (« Toutes se disent ») : plus montrés.
+    supabase.from("awa_word_requests").select("*").eq("status", "ignored").limit(2000),
   ]);
   if (lexicon.error) console.error("[admin] Lexique illisible", lexicon.error);
   if (words.error) console.error("[admin] Dictionnaire illisible", words.error);
@@ -80,7 +85,24 @@ export default async function AdminLexiconPage() {
     branches ?? [],
   );
 
-  const requestRows: WordRequestRow[] = (requests.data ?? []).map((r) => ({
+  // Conflits : tout le dictionnaire, pas seulement ceux que Tamilya a croisés en conversation.
+  const conflictKey = (french: string) => french.replace(/\s+/g, " ").trim().toLowerCase();
+  const asked = new Map<string, number>();
+  const settled = new Map<string, string>();
+  for (const r of requests.data ?? []) if (r.kind === "conflit" && r.french) asked.set(conflictKey(r.french), r.occurrences ?? 1);
+  for (const r of ignored.data ?? []) if (r.kind === "conflit" && r.french) settled.set(conflictKey(r.french), String(r.shimaore ?? "").toLowerCase());
+  const conflictRows: ConflictRow[] = findConflicts(activeWords)
+    // « Toutes se disent » tient tant qu'aucune nouvelle traduction n'arrive.
+    .filter((c) => settled.get(conflictKey(c.french)) !== c.translations.join(" / ").toLowerCase())
+    .map((c) => ({
+      french: c.french,
+      translations: c.translations,
+      category: activeWords.find((w) => conflictKey(w.french) === conflictKey(c.french))?.category ?? "",
+      asked: asked.get(conflictKey(c.french)) ?? 0,
+    }))
+    .sort((a, b) => b.asked - a.asked || a.french.localeCompare(b.french, "fr"));
+
+  const requestRows: WordRequestRow[] = (requests.data ?? []).filter((r) => r.kind !== "conflit").map((r) => ({
     id: r.id,
     shimaore: r.shimaore,
     example: r.example ?? "",
@@ -101,6 +123,17 @@ export default async function AdminLexiconPage() {
           {lexicon.error ? <MigrationWarning file="20261029000000_awa_brain.sql" /> : null}
           <LexiconTabs
             tabs={[
+              ...(conflictRows.length
+                ? [
+                    {
+                      id: "conflits",
+                      label: "Conflits",
+                      count: conflictRows.length,
+                      highlight: true,
+                      content: <ConflictsPanel rows={conflictRows} />,
+                    },
+                  ]
+                : []),
               ...(requestRows.length || requests.error
                 ? [
                     {

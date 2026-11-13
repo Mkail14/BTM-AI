@@ -3,6 +3,7 @@ import { loadAwaBrain } from "@/lib/ai/brain";
 import { VOICE_NODE } from "@/lib/ai/flow-events";
 import { startFlowTrace } from "@/lib/ai/flow-trace";
 import { getAuthContext } from "@/lib/auth/session";
+import { canUse } from "@/lib/site/features";
 import { getConversation } from "@/lib/conversations/repository";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
 import { isSameOrigin } from "@/lib/security/request";
@@ -10,13 +11,13 @@ import { liveRelayUrl, liveTicketSecret, signLiveTicket } from "@/lib/voice-live
 
 /**
  * Ouvre une conversation vocale en direct : renvoie l'adresse du relais
- * Cloudflare avec un ticket signé (60 s). Administrateurs seulement, comme le
- * mode vocal actuel.
+ * Cloudflare avec un ticket signé (60 s). Administrateurs, et tout le monde quand le
+ * vocal est allumé dans /admin/fonctionnalites.
  */
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Requête refusée." }, { status: 403 });
   const { supabase, user } = await getAuthContext();
-  if (!user?.isAdmin) return NextResponse.json({ error: "Réservé aux administrateurs." }, { status: 403 });
+  if (!user || !(await canUse(user, "vocal"))) return NextResponse.json({ error: "Le vocal en direct n'est pas ouvert pour l'instant." }, { status: 403 });
   const relay = liveRelayUrl();
   const secret = liveTicketSecret();
   // Circuit : un appel refusé s'arrête en rouge sur le bloc qui l'a bloqué.

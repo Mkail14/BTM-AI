@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition, type CSSProperties } from "react";
 import { nodeRatio, type BranchDef, type KnownEntry, type MapNode } from "@/lib/language/curriculum";
 import { lostOk } from "@/lib/safe-action";
-import { deleteBranchAction, saveWordAction } from "./actions";
+import { deleteBranchAction, setTranslationAction } from "./actions";
 import { BranchCreator } from "./BranchCreator";
 
 /** Bulle « + » de la carte : demande à Tamilya une nouvelle branche. */
@@ -141,11 +141,14 @@ function AddWord({
   french,
   category,
   source,
+  conflict = false,
   onDone,
 }: {
   french: string;
   category: string;
   source?: KnownEntry;
+  /** Le mot a plusieurs traductions : garder celle affichée est aussi une correction. */
+  conflict?: boolean;
   onDone?: () => void;
 }) {
   const router = useRouter();
@@ -158,11 +161,12 @@ function AddWord({
       onSubmit={(e) => {
         e.preventDefault();
         startTransition(async () => {
-          const result = await saveWordAction(
-            source?.id
-              ? { id: source.id, french: source.french, shimaore, category: source.category || category, isActive: true }
-              : { id: null, french, shimaore, category, isActive: true },
-          ).catch(lostOk);
+          // La traduction donnée remplace toutes les autres du même mot (conflit compris).
+          const result = await setTranslationAction({
+            french: source?.french ?? french,
+            shimaore,
+            category: source?.category || category,
+          }).catch(lostOk);
           if (!result.ok) return setError(result.message);
           router.refresh();
           onDone?.();
@@ -183,7 +187,7 @@ function AddWord({
         />
         <button
           type="submit"
-          disabled={pending || !shimaore.trim() || shimaore.trim() === source?.shimaore}
+          disabled={pending || !shimaore.trim() || (!conflict && shimaore.trim() === source?.shimaore)}
           className="rounded-xl bg-white px-3.5 py-1.5 text-sm font-semibold text-black transition active:scale-95 disabled:opacity-30"
         >
           {pending ? "…" : source ? "Corriger" : "Apprendre"}
@@ -195,6 +199,52 @@ function AddWord({
         </p>
       ) : null}
     </form>
+  );
+}
+
+/** Conflit : le mot a plusieurs traductions ; on garde la bonne (les autres sont retirées) ou on en écrit une autre. */
+function ConflictChoice({ word, hue, onEdit }: { word: NonNullable<MapNode["word"]>; hue: number; onEdit: () => void }) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const keep = (shimaore: string) =>
+    startTransition(async () => {
+      const result = await setTranslationAction({
+        french: word.source?.french ?? word.french,
+        shimaore,
+        category: word.source?.category || word.category,
+      }).catch(lostOk);
+      if (!result.ok) return setError(result.message);
+      router.refresh();
+    });
+  return (
+    <div className="carte-apparait mt-5">
+      <p className="mb-2.5 text-[13px] text-white/60">Plusieurs traductions : Tamilya ne sait pas laquelle prendre. Garde la bonne :</p>
+      <div className="flex flex-col gap-2">
+        {(word.translations ?? []).map((t) => (
+          <button
+            key={t}
+            type="button"
+            disabled={pending}
+            onClick={() => keep(t)}
+            className="flex items-center justify-between rounded-2xl bg-white/[0.06] p-4 text-left transition hover:bg-white/[0.1] active:scale-[0.99] disabled:opacity-50"
+          >
+            <span className="text-2xl font-semibold" style={{ color: tint(hue) }}>
+              {t}
+            </span>
+            <span className="text-[13px] font-medium text-white/60">Garder</span>
+          </button>
+        ))}
+      </div>
+      <button type="button" onClick={onEdit} disabled={pending} className="mt-2 px-1 text-[13px] text-white/60 hover:text-white">
+        Aucune : écrire la bonne
+      </button>
+      {error ? (
+        <p role="alert" className="mt-2 text-xs text-red-300">
+          {error}
+        </p>
+      ) : null}
+    </div>
   );
 }
 
@@ -217,10 +267,12 @@ function WordSheet({ node, trail, onClose }: { node: MapNode; trail: string; onC
         </button>
       </div>
       <h3 className="mt-1 text-3xl font-semibold tracking-tight text-white">{word.french}</h3>
-      {word.shimaore && editing ? (
+      {word.translations && !editing ? (
+        <ConflictChoice word={word} hue={node.hue} onEdit={() => setEditing(true)} />
+      ) : word.shimaore && editing ? (
         <div className="mt-5">
           <p className="mb-2.5 text-[13px] text-white/50">Corrige la traduction :</p>
-          <AddWord key={`${node.id}-edit`} french={word.french} category={word.category} source={word.source} onDone={() => setEditing(false)} />
+          <AddWord key={`${node.id}-edit`} french={word.french} category={word.category} source={word.source} conflict={Boolean(word.translations)} onDone={() => setEditing(false)} />
           <button type="button" onClick={() => setEditing(false)} className="mt-2 px-1 text-[13px] text-white/60 hover:text-white">
             Annuler
           </button>

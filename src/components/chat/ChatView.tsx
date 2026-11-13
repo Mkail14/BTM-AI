@@ -157,7 +157,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     conversationId,
   );
   const voice = liveVoice.supported ? liveVoice : legacyVoice;
-  const voiceEnabled = Boolean(user?.isAdmin) && voice.supported;
+  // Éteint dans /admin/fonctionnalites : seulement pour les administrateurs.
+  const voiceEnabled = Boolean(user?.features?.includes("vocal")) && voice.supported;
   // Ancien mode (dictée + réponse écrite lue) : appelé depuis l'envoi d'un message dicté.
   const { replied: voiceReplied, say: voiceSay, stop: stopVoice } = legacyVoice;
 

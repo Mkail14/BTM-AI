@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "Portefeuille" };
 export default async function WalletPage({ searchParams }: PageProps<"/portefeuille">) {
   const { supabase, user } = await requireUser("/portefeuille");
   // Réservé aux admins tant qu'aucun partenariat n'est signé.
-  if (!canUseWallet(user)) redirect("/parametres");
+  if (!(await canUseWallet(user))) redirect("/parametres");
   const params = await searchParams;
   const sessionId = typeof params.recharge === "string" ? params.recharge : null;
 

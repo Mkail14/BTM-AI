@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { getAuthContext } from "@/lib/auth/session";
+import { canUse } from "@/lib/site/features";
 import { lyriaPrompt, parseSongSpec, SONG_RETRY_STYLES } from "@/lib/music/intent";
 import { bestLyrics } from "@/lib/music/lyricist";
 import { generateSong, LyriaError } from "@/lib/music/lyria";
@@ -22,6 +23,7 @@ export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Requête refusée." }, { status: 403 });
   const { user } = await getAuthContext();
   if (!user) return NextResponse.json({ error: "Connecte-toi pour m'entendre chanter.", reason: "login" }, { status: 401 });
+  if (!(await canUse(user, "chanson"))) return NextResponse.json({ error: "Les chansons ne sont pas ouvertes pour l'instant." }, { status: 403 });
   const parsed = bodySchema.safeParse(await request.json().catch(() => null));
   const written = parsed.success ? parseSongSpec(parsed.data.spec) : null;
   if (!written) return NextResponse.json({ error: "Ces paroles ne peuvent pas être chantées." }, { status: 400 });
