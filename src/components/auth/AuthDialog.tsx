@@ -19,6 +19,7 @@ import {
   suggestEmailCorrection,
 } from "@/lib/auth/signup";
 import { hasNativeGoogle, nativeGoogleSignIn, renderGoogleButton, subscribeNativeGoogle, watchGoogleButton } from "@/lib/auth/google-identity";
+import { PASSWORD_RESET_DELAY_SECONDS, PASSWORD_RESET_ERRORS, requestPasswordReset } from "@/lib/auth/password-reset";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { AuthUser } from "./AuthProvider";
 
@@ -33,7 +34,7 @@ export type AuthDialogOptions = {
   signupClosed?: boolean;
 };
 
-type View = "signin" | "signup" | "confirm";
+type View = "signin" | "signup" | "confirm" | "forgot";
 type SignedInHandler = (user: AuthUser, next?: string) => void;
 
 const RESEND_COOLDOWN_SECONDS = 60;
@@ -183,11 +184,21 @@ function AuthPanel({
       : formRef.current?.querySelector<HTMLElement>("[data-active] [data-autofocus]");
     target?.focus();
   }, [welcome]);
+  // Même chose d'un écran du formulaire à l'autre (« Mot de passe oublié ? » disparaît avec la connexion).
+  // Souris et clavier seulement : sur écran tactile, le clavier surgirait.
+  const shownView = useRef(view);
+  useEffect(() => {
+    if (shownView.current === view) return;
+    shownView.current = view;
+    if (!window.matchMedia("(pointer: fine)").matches) return;
+    formRef.current?.querySelector<HTMLElement>("[data-active] [data-autofocus]")?.focus();
+  }, [view]);
 
   const titles: Record<View, string> = {
     signin: "Connexion",
     signup: "Créer un compte",
     confirm: "Confirme ton adresse e-mail",
+    forgot: "Mot de passe oublié",
   };
 
   const closeButton = (
@@ -282,10 +293,11 @@ function AuthPanel({
       {authAvailable && view !== "confirm" ? (
         <button
           type="button"
-          onClick={() => setWelcome(true)}
+          onClick={() => (view === "forgot" ? setView("signin") : setWelcome(true))}
           className="absolute top-4 left-4 z-10 inline-flex h-10 items-center gap-1.5 rounded-full bg-black/[0.05] pr-4 pl-3 text-sm font-semibold transition hover:bg-black/[0.09] dark:bg-white/[0.08] dark:hover:bg-white/[0.13]"
         >
-          <span aria-hidden="true" className="text-base leading-none">‹</span> Autres options
+          <span aria-hidden="true" className="text-base leading-none">‹</span>{" "}
+          {view === "forgot" ? "Connexion" : "Autres options"}
         </button>
       ) : null}
       {closeButton}
@@ -293,7 +305,7 @@ function AuthPanel({
       <h2 id={titleId} className="text-[1.9rem] leading-tight font-bold tracking-tight">
         {titles[view]}
       </h2>
-      {view !== "confirm" ? (
+      {view !== "confirm" && view !== "forgot" ? (
         <p className="mt-1 text-sm leading-snug text-fg-muted">
           {options.reason ??
             (isSignup ? "Gratuit. Retrouve tes conversations sur tous tes appareils." : "Retrouve tes conversations avec Tamilya.")}
@@ -311,6 +323,10 @@ function AuthPanel({
           onChangeEmail={() => setView("signup")}
           onGoToSignIn={() => setView("signin")}
         />
+      ) : view === "forgot" ? (
+        <div data-active="">
+          <ForgotPassword email={email} onEmailChange={setEmail} onGoToSignIn={() => setView("signin")} />
+        </div>
       ) : (
         <>
           {/*
@@ -328,16 +344,22 @@ function AuthPanel({
                   className={active ? "flex flex-col" : "hidden"}
                 >
                   {value === "signin" ? (
-                    <SignInForm email={email} onEmailChange={setEmail} next={next} onClose={onClose} onSignedIn={onSignedIn} />
+                    <SignInForm
+                      email={email}
+                      onEmailChange={setEmail}
+                      next={next}
+                      onSignedIn={onSignedIn}
+                      onForgotPassword={() => setView("forgot")}
+                    />
                   ) : (
                     <SignUpForm
                       email={email}
                       onEmailChange={setEmail}
                       next={next}
-                      onClose={onClose}
                       onSignedIn={onSignedIn}
                       onConfirmationSent={() => setView("confirm")}
                       onGoToSignIn={() => setView("signin")}
+                      onForgotPassword={() => setView("forgot")}
                     />
                   )}
                 </div>
@@ -602,14 +624,14 @@ function SignInForm({
   email,
   onEmailChange,
   next,
-  onClose,
   onSignedIn,
+  onForgotPassword,
 }: {
   email: string;
   onEmailChange: (value: string) => void;
   next: string;
-  onClose: () => void;
   onSignedIn: SignedInHandler;
+  onForgotPassword: () => void;
 }) {
   const [password, setPassword] = useState("");
   const [pending, setPending] = useState(false);
@@ -663,13 +685,13 @@ function SignInForm({
           <label htmlFor="signin-password" className={LABEL_CLASS}>
             Mot de passe
           </label>
-          <Link
-            href="/auth/mot-de-passe-oublie"
-            onClick={onClose}
+          <button
+            type="button"
+            onClick={onForgotPassword}
             className="-my-2 py-2 pr-1 text-xs font-medium text-accent underline-offset-2 hover:underline"
           >
             Mot de passe oublié ?
-          </Link>
+          </button>
         </div>
         <PasswordInput
           id="signin-password"
@@ -709,18 +731,18 @@ function SignUpForm({
   email,
   onEmailChange,
   next,
-  onClose,
   onSignedIn,
   onConfirmationSent,
   onGoToSignIn,
+  onForgotPassword,
 }: {
   email: string;
   onEmailChange: (value: string) => void;
   next: string;
-  onClose: () => void;
   onSignedIn: SignedInHandler;
   onConfirmationSent: () => void;
   onGoToSignIn: () => void;
+  onForgotPassword: () => void;
 }) {
   const [displayName, setDisplayName] = useState("");
   const [address, setAddress] = useState<AddressDraft>(EMPTY_ADDRESS);
@@ -931,9 +953,9 @@ function SignUpForm({
                 <button type="button" onClick={onGoToSignIn} className="underline underline-offset-2">
                   Se connecter
                 </button>
-                <Link href="/auth/mot-de-passe-oublie" onClick={onClose} className="underline underline-offset-2">
+                <button type="button" onClick={onForgotPassword} className="underline underline-offset-2">
                   Mot de passe oublié
-                </Link>
+                </button>
               </div>
             ) : null}
           </ErrorMessage>
@@ -942,6 +964,119 @@ function SignUpForm({
 
       <div className="sm:col-span-2">
         <SubmitButton pending={pending} label="Créer mon compte" />
+      </div>
+    </form>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Mot de passe oublié                                                        */
+/* -------------------------------------------------------------------------- */
+
+/** Demande du lien de réinitialisation sans quitter la fenêtre ; l'adresse vient de la connexion. */
+function ForgotPassword({
+  email,
+  onEmailChange,
+  onGoToSignIn,
+}: {
+  email: string;
+  onEmailChange: (value: string) => void;
+  onGoToSignIn: () => void;
+}) {
+  const [pending, setPending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = window.setTimeout(() => setCooldown((s) => s - 1), 1000);
+    return () => window.clearTimeout(timer);
+  }, [cooldown]);
+
+  async function sendLink() {
+    setPending(true);
+    setError(null);
+    const result = await requestPasswordReset(email);
+    setPending(false);
+    if (result === "sent") setSent(true);
+    else setError(PASSWORD_RESET_ERRORS[result]);
+    if (result !== "network") setCooldown(PASSWORD_RESET_DELAY_SECONDS);
+  }
+
+  if (sent) {
+    return (
+      <div className="mt-3 text-sm" role="status">
+        <p>
+          Si un compte existe pour <strong className="break-all">{normalizeEmail(email)}</strong>, un lien pour choisir un
+          nouveau mot de passe vient de partir.
+        </p>
+        <p className="mt-1 text-fg-muted">Pense à regarder dans tes spams. Le lien ne sert qu&apos;une fois.</p>
+        {error ? (
+          <div className="mt-3">
+            <ErrorMessage>{error}</ErrorMessage>
+          </div>
+        ) : null}
+        <div className="mt-6 flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-border pt-4">
+          <button
+            type="button"
+            onClick={() => void sendLink()}
+            disabled={pending || cooldown > 0}
+            className="font-medium text-fg-muted hover:text-fg disabled:cursor-default disabled:hover:text-fg-muted"
+          >
+            {pending ? "Envoi…" : cooldown > 0 ? `Renvoyer (${cooldown} s)` : "Renvoyer l'e-mail"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setSent(false);
+              setError(null);
+            }}
+            className="font-medium text-fg-muted hover:text-fg"
+          >
+            Changer d&apos;adresse
+          </button>
+          <button type="button" onClick={onGoToSignIn} className="ml-auto font-medium text-accent hover:underline">
+            Se connecter
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={(event) => {
+        event.preventDefault();
+        void sendLink();
+      }}
+      className="mt-1 flex flex-col gap-3"
+    >
+      <p className="text-sm leading-snug text-fg-muted">
+        Donne l&apos;adresse de ton compte : on t&apos;envoie un lien pour choisir un nouveau mot de passe.
+      </p>
+      <Field id="forgot-email" label="Adresse e-mail" className="mt-1">
+        <input
+          id="forgot-email"
+          data-autofocus
+          type="email"
+          required
+          autoComplete="email"
+          inputMode="email"
+          value={email}
+          onChange={(e) => onEmailChange(e.target.value)}
+          className={INPUT_CLASS}
+        />
+      </Field>
+      {error ? <ErrorMessage>{error}</ErrorMessage> : null}
+      <div className="pt-1">
+        <button
+          type="submit"
+          disabled={pending || cooldown > 0}
+          className="btn-rose mt-1 h-12 w-full rounded-full px-5 text-sm font-semibold"
+        >
+          {pending ? "Patiente…" : cooldown > 0 ? `Patiente ${cooldown} s` : "Recevoir le lien"}
+        </button>
       </div>
     </form>
   );

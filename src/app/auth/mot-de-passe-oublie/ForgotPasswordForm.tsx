@@ -3,16 +3,13 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { IconLock, IconMail } from "@/components/ui/icons";
-import { getSupabaseBrowserClient } from "@/lib/supabase/client";
+import { PASSWORD_RESET_DELAY_SECONDS, PASSWORD_RESET_ERRORS, requestPasswordReset } from "@/lib/auth/password-reset";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
 
 const INPUT_CLASS =
   "h-11 w-full rounded-xl border border-black/10 bg-white px-3 text-base outline-none transition-[border-color,box-shadow] placeholder:text-fg-muted/70 focus:border-accent/60 focus:ring-3 focus:ring-accent/15 dark:border-white/10 dark:bg-white/[0.06] sm:text-sm";
 const CARD_CLASS = "mx-auto max-w-md rounded-2xl border border-border bg-bg p-6 shadow-sm sm:p-8";
 const LINK_CLASS = "font-medium text-accent underline-offset-2 hover:underline";
-
-/** Supabase n'accepte qu'un e-mail par minute pour une même adresse. */
-const RESEND_DELAY_SECONDS = 60;
 
 export function ForgotPasswordForm() {
   const { user, openAuthDialog } = useAuth();
@@ -29,28 +26,13 @@ export function ForgotPasswordForm() {
   }, [cooldown]);
 
   async function sendLink() {
-    const supabase = getSupabaseBrowserClient();
-    if (!supabase) return;
     setPending(true);
     setError(null);
-    try {
-      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-        // « origine=oubli » : l’e-mail de confirmation dira « nouveau mot de passe créé ».
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/auth/nouveau-mot-de-passe?origine=oubli")}`,
-      });
-      if (resetError?.code === "over_email_send_rate_limit" || resetError?.code === "over_request_rate_limit") {
-        setError("Un e-mail vient déjà de partir. Patiente une minute avant d'en redemander un.");
-        setCooldown(RESEND_DELAY_SECONDS);
-      } else {
-        // Même message que l'adresse existe ou non (pas d'énumération des comptes).
-        setSent(true);
-        setCooldown(RESEND_DELAY_SECONDS);
-      }
-    } catch {
-      setError("Connexion au service impossible. Vérifie ta connexion internet.");
-    } finally {
-      setPending(false);
-    }
+    const result = await requestPasswordReset(email);
+    setPending(false);
+    if (result === "sent") setSent(true);
+    else setError(PASSWORD_RESET_ERRORS[result]);
+    if (result !== "network") setCooldown(PASSWORD_RESET_DELAY_SECONDS);
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
