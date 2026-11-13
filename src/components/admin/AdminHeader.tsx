@@ -4,7 +4,9 @@ import { IconMessage } from "@/components/ui/icons";
 import { getAuthContext } from "@/lib/auth/session";
 import { getSiteFlags } from "@/lib/site/settings";
 import { SITE_STATUS_LABELS } from "@/lib/site/status";
+import { ADMIN_IDLE_MINUTES } from "@/lib/admin/gate";
 import { AdminAccountMenu } from "./AdminAccountMenu";
+import { AdminIdleLock } from "./AdminIdleLock";
 import { AdminGroupTabs, AdminMenu, AdminTabs } from "./AdminMenu";
 
 /**
@@ -25,6 +27,7 @@ export async function AdminHeader({ section }: { section?: string; email?: strin
 
   return (
     <header className="sticky top-0 z-30 shrink-0 border-b border-border bg-bg/90 pt-[env(safe-area-inset-top)] backdrop-blur">
+      <AdminIdleLock minutes={ADMIN_IDLE_MINUTES} />
       <div className="mx-auto max-w-[1600px] px-3 md:px-6">
         <div className="flex h-14 items-center gap-2 sm:gap-3">
           <AdminMenu principal={principal} />

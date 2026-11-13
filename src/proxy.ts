@@ -1,4 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  ADMIN_GATE_COOKIE,
+  adminGateCookieOptions,
+  adminGateValue,
+  adminLockPath,
+  isAdminGatedPath,
+  isAdminGateOpen,
+} from "@/lib/admin/gate";
 import { authRequiredPath, isProtectedPath } from "@/lib/auth/redirect";
 import { getSiteFlags } from "@/lib/site/flags";
 import { siteClosure } from "@/lib/site/status";
@@ -34,6 +42,26 @@ export async function proxy(request: NextRequest) {
     return redirectWithCookies(url, response);
   }
 
+  if (userId && isAdmin && isAdminGatedPath(pathname)) return adminGate(request, response, userId);
+
+  return response;
+}
+
+/**
+ * Espace d'administration : sans code d'authentification tapé depuis moins de
+ * 15 minutes d'inactivité, une page renvoie vers le verrou. Les actions
+ * (POST) passent et se refusent elles-mêmes (requireAdminAction). Chaque
+ * visite prolonge le verrou, sauf le préchargement des liens, qui n'est pas
+ * une utilisation.
+ */
+function adminGate(request: NextRequest, response: NextResponse, userId: string) {
+  const { pathname, search } = request.nextUrl;
+  if (!isAdminGateOpen(request.cookies.get(ADMIN_GATE_COOKIE)?.value, userId)) {
+    if (request.method !== "GET" && request.method !== "HEAD") return response;
+    return redirectWithCookies(new URL(adminLockPath(`${pathname}${search}`), request.url), response);
+  }
+  const value = request.headers.has("next-router-prefetch") ? null : adminGateValue(userId);
+  if (value) response.cookies.set(ADMIN_GATE_COOKIE, value, adminGateCookieOptions);
   return response;
 }
 

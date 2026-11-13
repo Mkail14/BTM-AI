@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { notFound, redirect } from "next/navigation";
 import { cache } from "react";
+import { adminGateOpen, adminLockPath, isAdminGatedPath } from "@/lib/admin/gate";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { authRequiredPath } from "./redirect";
 import { hasAdminRole, hasPrincipalAdminRole } from "./roles";
@@ -53,10 +54,20 @@ export async function requireUser(currentPath: string) {
   return { supabase, user };
 }
 
-/** Pages d'administration : 404 pour les non-administrateurs (l'existence de la page n'est pas révélée). */
+/** Espace /admin seulement (pas /voix) : code d'authentification si le verrou est fermé (src/lib/admin/gate.ts). */
+async function requireAdminGate(userId: string, currentPath: string) {
+  if (!isAdminGatedPath(currentPath.split("?")[0])) return;
+  if (!(await adminGateOpen(userId))) redirect(adminLockPath(currentPath));
+}
+
+/**
+ * Pages d'administration : 404 pour les non-administrateurs (l'existence de la page n'est pas révélée),
+ * puis le code d'authentification si le verrou est fermé.
+ */
 export async function requireAdmin(currentPath: string) {
   const context = await requireUser(currentPath);
   if (!context.user.isAdmin) notFound();
+  await requireAdminGate(context.user.id, currentPath);
   return context;
 }
 
@@ -64,5 +75,6 @@ export async function requireAdmin(currentPath: string) {
 export async function requirePrincipalAdmin(currentPath: string) {
   const context = await requireUser(currentPath);
   if (!context.user.isPrincipalAdmin) notFound();
+  await requireAdminGate(context.user.id, currentPath);
   return context;
 }

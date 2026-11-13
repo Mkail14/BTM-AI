@@ -1,7 +1,7 @@
 "use server";
 
 import { z } from "zod";
-import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/action-auth";
+import { NOT_ADMIN, requireAdminRoleAction, type ActionResult } from "@/lib/admin/action-auth";
 import { getAIProvider } from "@/lib/ai";
 import { invalidateAwaBrain, loadAwaBrain, wordsFor } from "@/lib/ai/brain";
 import { completeText } from "@/lib/ai/complete";
@@ -21,7 +21,7 @@ const schema = z.object({
  * traduction remplace l'ancienne) ; phrase plus longue → expressions.
  */
 export async function teachUnknownWordAction(input: unknown): Promise<ActionResult> {
-  const auth = await requireAdminAction();
+  const auth = await requireAdminRoleAction();
   if (!auth) return NOT_ADMIN;
   const parsed = schema.safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Données invalides." };
@@ -62,7 +62,7 @@ const correctionSchema = z.object({
  * la traduction du mot partout.
  */
 export async function correctInContextAction(input: unknown): Promise<ActionResult> {
-  const auth = await requireAdminAction();
+  const auth = await requireAdminRoleAction();
   if (!auth) return NOT_ADMIN;
   const parsed = correctionSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Données invalides." };
@@ -115,7 +115,7 @@ const normalize = (text: string) => text.toLowerCase().replace(/[«»"“”.,!?
 export async function guessFrenchAction(
   input: unknown,
 ): Promise<{ ok: true; french: string; fromLexicon: boolean } | { ok: false; message: string }> {
-  const auth = await requireAdminAction();
+  const auth = await requireAdminRoleAction();
   if (!auth) return { ok: false, message: NOT_ADMIN.message };
   const parsed = guessSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Écris d'abord la bonne façon de le dire." };

@@ -40,6 +40,8 @@ export const RATE_LIMIT_POLICIES = {
   btmFournisseurs: [{ name: "btm-fournisseurs-hour", limit: 60, windowSeconds: 3_600 }],
   // Mot de passe redemandé avant de modifier le Profil de l'entreprise : quelques essais, pas plus.
   profileUnlock: [{ name: "profile-unlock-15min", limit: 5, windowSeconds: 900 }],
+  // Code de l'application d'authentification, pour entrer dans l'espace admin : 6 chiffres, pas de quoi deviner.
+  adminGate: [{ name: "admin-gate-15min", limit: 5, windowSeconds: 900 }],
   // Code de paiement (paiement à la voix) : de quoi se tromper deux ou trois fois, pas de quoi deviner.
   // Compte aussi les codes justes (chaque paiement au doigt en demande un) : 10 laisse payer
   // plusieurs fois de suite. Les erreurs, elles, bloquent dès 5 (src/lib/wallet/pin.ts, blocage progressif).
