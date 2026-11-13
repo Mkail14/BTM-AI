@@ -33,7 +33,8 @@ type MenuItem = {
 
 /*
  * Rubriques de l'administration, groupées par sujet. Pour en ajouter une,
- * ajoutez une ligne ici.
+ * ajoutez une ligne ici. Les groupes titrés deviennent les onglets de la barre
+ * du haut ; leurs pages, la ligne d'onglets du dessous.
  */
 const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
   {
@@ -41,14 +42,13 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
     items: [{ label: "Tableau de bord", icon: IconDashboard, href: "/admin" }],
   },
   {
-    title: "Caractère",
+    title: "Tamilya",
     items: [
-      {
-        label: "Caractère et règles",
-        tab: "Caractère",
-        icon: IconSettings,
-        href: "/admin/caractere",
-      },
+      { label: "Caractère et règles", tab: "Caractère", icon: IconSettings, href: "/admin/caractere" },
+      { label: "Voix de Tamilya", tab: "Voix", icon: IconSpeaker, href: "/admin/voix" },
+      { label: "Sons des histoires", tab: "Sons", icon: IconSpeaker, href: "/admin/sons" },
+      { label: "Mémoire", icon: IconDatabase, href: "/admin/memoire" },
+      { label: "Circuit de Tamilya", tab: "Circuit", icon: IconChip, href: "/admin/circuit" },
     ],
   },
   {
@@ -56,18 +56,19 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
     items: [
       { label: "Connaissances", icon: IconBook, href: "/admin/connaissances" },
       { label: "Bibliothèque Mayotte", tab: "Bibliothèque", icon: IconBook, href: "/admin/bibliotheque" },
+    ],
+  },
+  {
+    title: "Shimaoré",
+    items: [
       { label: "Lexique shimaoré", tab: "Lexique", icon: IconLanguage, href: "/admin/lexique" },
       { label: "Apprentissage du shimaoré", tab: "Apprentissage", icon: IconGauge, href: "/admin/apprentissage" },
-      { label: "Voix de Tamilya", tab: "Voix", icon: IconSpeaker, href: "/admin/voix" },
-      { label: "Sons des histoires", tab: "Sons", icon: IconSpeaker, href: "/admin/sons" },
-      { label: "Mémoire", icon: IconDatabase, href: "/admin/memoire" },
     ],
   },
   {
     title: "Plateforme",
     items: [
       { label: "Utilisateurs", icon: IconUsers, href: "/admin/utilisateurs" },
-      { label: "Circuit de Tamilya", tab: "Circuit", icon: IconChip, href: "/admin/circuit" },
       { label: "Bandeau d'accueil", tab: "Bandeau", icon: IconMegaphone, href: "/admin/bandeau" },
       { label: "Fonctionnalités", icon: IconSparkle, href: "/admin/fonctionnalites" },
     ],
@@ -89,37 +90,59 @@ const PRINCIPAL_SECTION = {
 
 const isActive = (pathname: string, href: string) => (href === "/admin" ? pathname === href : pathname.startsWith(href));
 
+const tabClass = (active: boolean) =>
+  `relative px-2.5 text-sm whitespace-nowrap transition-colors ${
+    active
+      ? "font-medium text-fg after:absolute after:inset-x-2.5 after:bottom-0 after:h-0.5 after:rounded-full after:bg-accent"
+      : "text-fg-muted hover:text-fg"
+  }`;
+
+/** Groupe de la page ouverte (aucun sur le tableau de bord ni sur le Profil). */
+function activeGroup(pathname: string) {
+  return SECTIONS.find((s) => s.title && s.items.some((item) => isActive(pathname, item.href))) ?? null;
+}
+
 /**
- * Onglets de la barre du haut, sur grand écran : les mêmes rubriques que le
- * menu ☰, groupes séparés par un trait, la rubrique ouverte soulignée. Le
- * Profil de l'entreprise n'y figure pas : il s'ouvre depuis le menu du compte.
+ * Onglets des groupes, dans la barre du haut sur grand écran : Tableau de bord
+ * puis un onglet par groupe, qui mène à sa première page. Le Profil de
+ * l'entreprise n'y figure pas : il s'ouvre depuis le menu du compte.
  */
+export function AdminGroupTabs() {
+  const pathname = usePathname();
+  const current = activeGroup(pathname);
+  return (
+    <nav aria-label="Rubriques" className="flex h-14 items-stretch gap-1">
+      {SECTIONS.map((section) => {
+        const href = section.items[0].href;
+        const active = section.title ? section === current : pathname === href;
+        return (
+          <Link key={href} href={href} aria-current={active ? "page" : undefined} className={`flex items-center ${tabClass(active)}`}>
+            {section.title ?? section.items[0].label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+/** Pages du groupe ouvert, sous la barre du haut sur grand écran (rien hors d'un groupe). */
 export function AdminTabs() {
   const pathname = usePathname();
+  const current = activeGroup(pathname);
+  if (!current) return null;
   return (
-    <nav aria-label="Rubriques" className="scrollbar-none -mb-px flex items-center gap-1 overflow-x-auto">
-      {SECTIONS.map((section, i) => (
-        <div key={section.title ?? i} className="flex items-center gap-1">
-          {i > 0 ? <span aria-hidden="true" className="mx-1.5 h-4 w-px bg-border" /> : null}
-          {section.items.map(({ label, tab, href }) => {
-            const active = isActive(pathname, href);
-            return (
-              <Link
-                key={href}
-                href={href}
-                aria-current={active ? "page" : undefined}
-                className={`relative px-2.5 py-3 text-sm whitespace-nowrap transition-colors ${
-                  active
-                    ? "font-medium text-fg after:absolute after:inset-x-2.5 after:bottom-0 after:h-0.5 after:rounded-full after:bg-accent"
-                    : "text-fg-muted hover:text-fg"
-                }`}
-              >
-                {tab ?? label}
-              </Link>
-            );
-          })}
-        </div>
-      ))}
+    <nav
+      aria-label={current.title ?? undefined}
+      className="scrollbar-none -mb-px flex items-center gap-1 overflow-x-auto border-t border-border"
+    >
+      {current.items.map(({ label, tab, href }) => {
+        const active = isActive(pathname, href);
+        return (
+          <Link key={href} href={href} aria-current={active ? "page" : undefined} className={`py-2.5 ${tabClass(active)}`}>
+            {tab ?? label}
+          </Link>
+        );
+      })}
     </nav>
   );
 }

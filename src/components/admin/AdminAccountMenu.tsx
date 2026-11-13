@@ -4,12 +4,12 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { IconLogout, IconSettings, IconShield } from "@/components/ui/icons";
+import { IconLogout, IconMic, IconSettings, IconShield } from "@/components/ui/icons";
 
 /**
  * Bouton du compte, à droite de la barre d'administration : avatar (initiale
  * de l'e-mail) qui ouvre un menu avec le rôle, le Profil de l'entreprise
- * (administrateur principal), le compte et la déconnexion. Ouvert, le reste de
+ * (administrateur principal), la conversation vocale, le compte et la déconnexion. Ouvert, le reste de
  * l'écran est flouté : le menu est rendu dans <body> (la barre floutée, qui le
  * contient, enfermerait sinon le voile dans sa hauteur).
  */
@@ -80,6 +80,9 @@ export function AdminAccountMenu({ email, principal }: { email: string | null; p
                     <IconShield width={16} height={16} /> Profil de l&apos;entreprise
                   </Link>
                 ) : null}
+                <Link href="/voix" role="menuitem" onClick={close} className={item}>
+                  <IconMic width={16} height={16} /> Parler à Tamilya
+                </Link>
                 <Link href="/parametres" role="menuitem" onClick={close} className={item}>
                   <IconSettings width={16} height={16} /> Mon compte
                 </Link>

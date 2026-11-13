@@ -1,17 +1,18 @@
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand/BrandLogo";
-import { IconMessage, IconMic } from "@/components/ui/icons";
+import { IconMessage } from "@/components/ui/icons";
 import { getAuthContext } from "@/lib/auth/session";
 import { getSiteFlags } from "@/lib/site/settings";
 import { SITE_STATUS_LABELS } from "@/lib/site/status";
 import { AdminAccountMenu } from "./AdminAccountMenu";
-import { AdminMenu, AdminTabs } from "./AdminMenu";
+import { AdminGroupTabs, AdminMenu, AdminTabs } from "./AdminMenu";
 
 /**
  * Barre du haut de toutes les pages d'administration, sur deux étages.
- * En haut : marque, état du site (fermé au public, mode démo), accès à Tamilya et
- * compte. En dessous, sur grand écran : les rubriques en onglets. Sur petit
- * écran, les onglets laissent place au menu ☰ et au nom de la rubrique.
+ * En haut : marque, groupes de rubriques (grand écran), état du site (fermé au
+ * public, mode démo), accès à Tamilya et compte. En dessous, sur grand écran :
+ * les pages du groupe ouvert. Sur petit écran, les onglets laissent place au
+ * menu ☰ et au nom de la rubrique.
  */
 export async function AdminHeader({ section }: { section?: string; email?: string | null }) {
   const [{ user }, flags] = await Promise.all([getAuthContext(), getSiteFlags()]);
@@ -39,6 +40,9 @@ export async function AdminHeader({ section }: { section?: string; email?: strin
               {section}
             </span>
           ) : null}
+          <div className="ml-4 hidden lg:block">
+            <AdminGroupTabs />
+          </div>
 
           <div className="ml-auto flex shrink-0 items-center gap-1">
             {/* État du site : un clic mène au Profil pour l'éteindre. */}
@@ -64,10 +68,7 @@ export async function AdminHeader({ section }: { section?: string; email?: strin
             })}
 
             <Link href="/" className={ghost} aria-label="Écrire à Tamilya">
-              <IconMessage width={16} height={16} /> <span className="hidden md:inline">Ouvrir Tamilya</span>
-            </Link>
-            <Link href="/voix" className={ghost} aria-label="Parler à Tamilya" title="Parler à Tamilya">
-              <IconMic width={16} height={16} />
+              <IconMessage width={16} height={16} /> <span className="hidden xl:inline">Ouvrir Tamilya</span>
             </Link>
             <span aria-hidden="true" className="mx-1.5 h-5 w-px bg-border max-sm:hidden" />
             <AdminAccountMenu email={user?.email ?? null} principal={principal} />
