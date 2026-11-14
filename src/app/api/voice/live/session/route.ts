@@ -22,6 +22,8 @@ import { GUEST_VOICE_USER, liveRelayUrl, liveTicketSecret, signLiveTicket } from
 
 /** Même cookie d'appareil que la conversation d'essai (route /api/chat). */
 const DEVICE_COOKIE = "btm_device";
+/** Le site en ligne, à qui l'ordinateur de développement emprunte le ticket de la carte. */
+const ONLINE_SITE = "https://tamilya.yt";
 
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Requête refusée." }, { status: 403 });
@@ -37,6 +39,21 @@ export async function POST(request: NextRequest) {
   const flow = startFlowTrace();
   flow.step("input", true);
   if (!relay || !secret) {
+    // Sur l'ordinateur de développement, le secret du relais n'existe pas (il n'est lisible nulle
+    // part). Pour la carte de Mayotte seulement, le ticket est emprunté au site en ligne, comme un
+    // visiteur sans compte : chaque essai compte dans la limite des visiteurs. Jamais en production.
+    if (process.env.NODE_ENV !== "production" && body?.map === true) {
+      const borrowed = await fetch(`${ONLINE_SITE}/api/voice/live/session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Origin: ONLINE_SITE },
+        body: JSON.stringify({ map: true }),
+        signal: AbortSignal.timeout(10_000),
+      })
+        .then(async (r) => ({ status: r.status, data: (await r.json()) as Record<string, unknown> }))
+        .catch(() => null);
+      if (borrowed) return NextResponse.json({ ...borrowed.data, initiative: false }, { status: borrowed.status, headers: { "Cache-Control": "no-store" } });
+      return NextResponse.json({ error: "Le site en ligne ne répond pas : le vocal de la carte ne peut pas démarrer en local." }, { status: 502 });
+    }
     flow.step(VOICE_NODE, false, "vocal non configuré");
     return NextResponse.json({ error: "Vocal en direct pas encore configuré (LIVE_RELAY_URL, LIVE_TICKET_SECRET)." }, { status: 503 });
   }
