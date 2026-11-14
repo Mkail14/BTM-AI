@@ -1,4 +1,3 @@
-import { createHash, timingSafeEqual } from "node:crypto";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { AIProviderError, buildSystemPrompt, getAIProvider } from "@/lib/ai";
@@ -7,12 +6,12 @@ import { ALL_APIS_CUT, flowCutStop, loadFlowCuts } from "@/lib/ai/flow-cuts";
 import { AI_ERROR_LABELS } from "@/lib/ai/flow-events";
 import { startFlowTrace } from "@/lib/ai/flow-trace";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
+import { isPartnerRequest } from "@/lib/ai/partner-key";
 import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
-import { parseAppReply, parseSiteReply, SITE_IDS, SITES, siteInstructions, type SiteId } from "@/lib/ai/sites";
+import { parseAppReply, parseSiteReply, SITE_IDS, SITES, siteInstructions } from "@/lib/ai/sites";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
 import type { ChatTurn } from "@/lib/chat/types";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 /**
  * Tamilya pour les autres sites de GROUPE BTM (appel de serveur à serveur, par
@@ -37,32 +36,6 @@ const requestSchema = z.strictObject({
   /** Un conseiller humain a déjà été prévenu : Tamilya peut seulement annuler la demande. */
   waitingForAdvisor: z.boolean().optional(),
 });
-
-const digest = (value: string) => createHash("sha256").update(value).digest();
-
-const CACHE_MS = 60_000;
-const hashes = new Map<SiteId, { hash: Buffer | null; expiresAt: number }>();
-
-/** Empreinte SHA-256 du secret du site (table awa_partner_keys, lisible par le serveur seulement). */
-async function partnerHash(site: SiteId): Promise<Buffer | null> {
-  const cached = hashes.get(site);
-  if (cached && cached.expiresAt > Date.now()) return cached.hash;
-  const admin = getSupabaseAdminClient();
-  if (!admin) return null;
-  const { data, error } = await admin.from("awa_partner_keys").select("secret_hash").eq("site", site).maybeSingle();
-  if (error) console.error("[tamilya] Secrets des sites illisibles (migration awa_partner_keys appliquée ?)", error);
-  const hash = typeof data?.secret_hash === "string" && /^[0-9a-f]{64}$/.test(data.secret_hash) ? Buffer.from(data.secret_hash, "hex") : null;
-  hashes.set(site, { hash, expiresAt: Date.now() + CACHE_MS });
-  return hash;
-}
-
-/** Secret partagé avec le site appelant ; sans secret enregistré pour ce site, la route lui est fermée. */
-async function authorized(request: NextRequest, site: SiteId): Promise<boolean> {
-  const expected = await partnerHash(site);
-  if (!expected) return false;
-  const given = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim() ?? "";
-  return timingSafeEqual(digest(given), expected);
-}
 
 const fail = (status: number, error: string) => NextResponse.json({ error }, { status });
 
@@ -99,7 +72,7 @@ export async function POST(request: NextRequest) {
   const parsed = requestSchema.safeParse(json);
   if (!parsed.success) return fail(400, "invalid_request");
   const body = parsed.data;
-  if (!(await authorized(request, body.site))) return fail(401, "unauthorized");
+  if (!(await isPartnerRequest(request, body.site))) return fail(401, "unauthorized");
 
   // Limite par site : un secret de site volé ne peut pas faire répondre Tamilya sans fin.
   try {
