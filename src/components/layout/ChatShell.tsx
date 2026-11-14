@@ -29,6 +29,9 @@ type ChatShellValue = {
   openSidebar: () => void;
   /** Accueil des visiteurs (GuestHome) posé par-dessus : la barre latérale, cachée dessous, devient inerte. */
   setChatCovered: (covered: boolean) => void;
+  /** Visiteur dans la conversation d'essai : revient à la page d'accueil (logo). Sinon `null`. */
+  goToLanding: (() => void) | null;
+  setGoToLanding: (go: (() => void) | null) => void;
 };
 
 const ChatShellContext = createContext<ChatShellValue | null>(null);
@@ -50,6 +53,9 @@ export function ChatShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   // Visiteur sur « / » : l'accueil (GuestHome) recouvre la conversation dès le premier affichage.
   const [chatCovered, setChatCovered] = useState(() => !user && pathname === "/");
+  const [goToLanding, setGoToLandingState] = useState<(() => void) | null>(null);
+  // Une fonction rangée dans un état : il faut l'envelopper, sinon React l'appelle.
+  const setGoToLanding = useCallback((go: (() => void) | null) => setGoToLandingState(() => go), []);
   const userId = user?.id ?? null;
   const frameRef = useRef<HTMLDivElement>(null);
   useKeyboardViewport(frameRef);
@@ -107,8 +113,10 @@ export function ChatShell({ children }: { children: ReactNode }) {
       startNewChat,
       openSidebar: () => setSidebarOpen(true),
       setChatCovered,
+      goToLanding,
+      setGoToLanding,
     }),
-    [userId, conversations, conversationsLoading, refreshConversations, newChatSignal, startNewChat],
+    [userId, conversations, conversationsLoading, refreshConversations, newChatSignal, startNewChat, goToLanding, setGoToLanding],
   );
 
   return (

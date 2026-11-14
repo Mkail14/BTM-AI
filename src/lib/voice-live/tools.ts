@@ -123,6 +123,20 @@ export function liveToolDeclarations(access: LiveAccess) {
       },
     },
     {
+      name: "entreprises_mayotte",
+      description:
+        "Cherche une entreprise de Mayotte dans l'annuaire officiel de l'État, qu'elle soit en activité ou fermée : son activité, son adresse, sa date de création, si elle existe encore, qui la dirige. Sert aussi à lister les entreprises d'un métier ou d'une commune (« les plombiers de Sada »). À utiliser avant de parler d'une entreprise, sans rien inventer.",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          nom: text("Le nom de l'entreprise, ou son numéro SIREN ou SIRET, comme la personne l'a dit (ex. « Sodifram »). Vide pour une liste."),
+          metier: text("Le métier cherché, en un mot (ex. « plomberie », « restaurant », « taxi »), sinon vide."),
+          commune: text("La commune ou le village si la personne l'a dit (ex. « Sada »), sinon vide."),
+          fermees: { type: "BOOLEAN", description: "Vrai seulement si elle veut les entreprises qui ont fermé." },
+        },
+      },
+    },
+    {
       name: "itineraire",
       description:
         "Ouvre la carte du trajet à l'écran : le chemin jusqu'à un lieu de Mayotte, le temps en voiture, en taxi et à pied, et les boutons Google Maps et Waze. À utiliser dès que la personne demande comment aller quelque part, si c'est loin, ou combien de temps il faut (« de chez moi à la CSSM »). Sans départ dit, le trajet part de son adresse enregistrée.",

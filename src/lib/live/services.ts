@@ -57,6 +57,9 @@ const PLACES: [RegExp, string[]][] = [
   [/\bpetite[- ]terre\b/, ["97608", "97615"]],
 ];
 
+/** Lieux de Mayotte cités dans un texte déjà normalisé, avec leurs codes INSEE. */
+export const placesIn = (text: string) => PLACES.filter(([re]) => re.test(text));
+
 /**
  * Ce que la personne cherche (message normalisé) → services de l'annuaire qui y
  * répondent (nom normalisé).

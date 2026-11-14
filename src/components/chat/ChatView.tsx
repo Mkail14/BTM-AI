@@ -7,9 +7,8 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { BrandLogo } from "@/components/brand/BrandLogo";
-import { alertDialog } from "@/components/ui/ConfirmDialog";
 import { useChatShell } from "@/components/layout/ChatShell";
-import { IconArrowDown, IconMenu, IconMic, IconOffline, IconPlus } from "@/components/ui/icons";
+import { IconArrowDown, IconArrowLeft, IconMenu, IconMic, IconOffline, IconPlus } from "@/components/ui/icons";
 import {
   clearAnonymousDraft,
   loadAnonymousDraft,
@@ -122,7 +121,7 @@ async function readErrorMessage(res: Response): Promise<{ code: string; message:
 export function ChatView({ conversationId: initialConversationId, initialMessages, authPrompt, startWith = null }: ChatViewProps) {
   const router = useRouter();
   const { user, openAuthDialog } = useAuth();
-  const { refreshConversations, newChatSignal, openSidebar, startNewChat } = useChatShell();
+  const { refreshConversations, newChatSignal, openSidebar, startNewChat, goToLanding } = useChatShell();
   const online = useOnlineStatus();
 
   const [messages, setMessages] = useState<UiMessage[]>(initialMessages);
@@ -132,7 +131,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   // Visiteur sans compte : messages d'essai déjà utilisés (toutes conversations confondues).
   const [guestSent, setGuestSent] = useState(0);
   const [trialOver, setTrialOver] = useState(false);
-  const [importCandidate, setImportCandidate] = useState<ChatTurn[] | null>(null);
+  // Conversation de visiteur en cours d'enregistrement dans le compte (juste après la connexion).
   const [importing, setImporting] = useState(false);
   const [liveStatus, setLiveStatus] = useState("");
 
@@ -193,15 +192,38 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   }, []);
 
   // Accueil : reprise de la conversation anonyme conservée dans le navigateur,
-  // ou proposition d'enregistrement après connexion.
+  // ou, après connexion, enregistrement direct dans le compte (sans rien demander).
+  const importStarted = useRef(false);
   useEffect(() => {
     if (!isHome) return;
     const draft = loadAnonymousDraft();
-    if (!draft) return;
+    if (!draft || draft.length === 0) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- lecture de localStorage, indisponible au rendu serveur
     setMessages(turnsToUi(draft));
-    setImportCandidate(userId ? draft : null);
-  }, [isHome, userId]);
+    // Une seule fois : en développement, React relance les effets.
+    if (!userId || importStarted.current) return;
+    importStarted.current = true;
+    setImporting(true);
+    void (async () => {
+      try {
+        const res = await fetch("/api/conversations", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ messages: draft.slice(-CHAT_LIMITS.anonymousMaxMessages) }),
+        });
+        if (!res.ok) throw new Error("import");
+        const data = (await res.json()) as { conversation: { id: string } };
+        clearAnonymousDraft();
+        refreshConversations();
+        router.push(`/c/${data.conversation.id}`);
+      } catch {
+        // Échec (réseau…) : la conversation reste sur l'appareil, nouvel essai à la prochaine visite.
+        importStarted.current = false;
+      } finally {
+        setImporting(false);
+      }
+    })();
+  }, [isHome, userId, refreshConversations, router]);
 
   // Déconnexion : la conversation du compte (commandes, livraisons…) disparaît de l'écran,
   // et n'est jamais gardée comme conversation de visiteur sur l'appareil.
@@ -217,7 +239,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     clearAnonymousDraft();
     setMessages([]);
     setConversationId(null);
-    setImportCandidate(null);
   }, [userId]);
 
   // Visiteur : sauvegarde locale de l'échange.
@@ -243,7 +264,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     setMessages([]);
     setConversationId(initialConversationId);
     setLimitReached(false);
-    setImportCandidate(null);
     composerRef.current?.focus();
   }, [newChatSignal, initialConversationId]);
 
@@ -556,7 +576,12 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
   // Message tapé sur la page d'accueil des visiteurs : envoyé une seule fois, à son arrivée.
   const startedWith = useRef<string | null>(null);
   useEffect(() => {
-    if (!startWith || startedWith.current === startWith) return;
+    // Retour à l'accueil : le même texte pourra être renvoyé.
+    if (!startWith) {
+      startedWith.current = null;
+      return;
+    }
+    if (startedWith.current === startWith) return;
     startedWith.current = startWith;
     sendRef.current(startWith);
   }, [startWith]);
@@ -567,41 +592,10 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     void send(messages[lastUserIndex].content, messages.slice(0, lastUserIndex));
   }, [messages, send]);
 
-  async function acceptImport() {
-    if (!importCandidate) return;
-    setImporting(true);
-    try {
-      const res = await fetch("/api/conversations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messages: importCandidate.slice(-CHAT_LIMITS.anonymousMaxMessages) }),
-      });
-      if (!res.ok) {
-        void alertDialog({ title: "Enregistrement impossible", message: (await readErrorMessage(res)).message });
-        return;
-      }
-      const data = (await res.json()) as { conversation: { id: string } };
-      clearAnonymousDraft();
-      setImportCandidate(null);
-      refreshConversations();
-      router.push(`/c/${data.conversation.id}`);
-    } catch {
-      void alertDialog({ title: "L'enregistrement a échoué", message: "Vérifie ta connexion." });
-    } finally {
-      setImporting(false);
-    }
-  }
-
-  function declineImport() {
-    clearAnonymousDraft();
-    setImportCandidate(null);
-    setMessages([]);
-  }
-
   // Sans compte : 5 messages d'essai en tout, puis compte obligatoire (le serveur le vérifie aussi).
   const guestLeft = Math.max(0, CHAT_LIMITS.guestTrialMessages - guestSent);
   const anonymousLimitReached = !userId && !isStreaming && (trialOver || guestLeft === 0);
-  const blocked = limitReached || anonymousLimitReached || importCandidate !== null;
+  const blocked = limitReached || anonymousLimitReached || importing;
   const suggestions = user?.isAdmin ? [FOOD_SUGGESTION, ...SUGGESTIONS.slice(0, 3)] : SUGGESTIONS;
   const lastMessage = messages.at(-1);
   // Réponse interrompue ou en erreur : le bouton de relance s'affiche à côté
@@ -636,6 +630,18 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
     >
       {/* z-20 : au-dessus des boutons des messages (copier, écouter : z-10) qui défilent dessous. */}
       <header className="sticky top-0 z-20 flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-2 persona-backdrop border-b border-border px-3 pt-[env(safe-area-inset-top)] md:border-transparent md:px-5">
+        {/* Visiteur : flèche pour revenir à la page d'accueil (la conversation est gardée). */}
+        {goToLanding ? (
+          <button
+            type="button"
+            onClick={goToLanding}
+            aria-label="Revenir à l'accueil"
+            title="Revenir à l'accueil"
+            className="zone-appui relative rounded-lg p-2 text-fg-muted hover:bg-bg-muted hover:text-fg"
+          >
+            <IconArrowLeft />
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={openSidebar}
@@ -644,9 +650,16 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
         >
           <IconMenu />
         </button>
-        <span className="md:hidden">
-          <BrandLogo size="sm" />
-        </span>
+        {/* Visiteur : le logo ramène à la page d'accueil. */}
+        {goToLanding ? (
+          <button type="button" onClick={goToLanding} aria-label="Revenir à l'accueil" className="rounded md:hidden">
+            <BrandLogo size="sm" />
+          </button>
+        ) : (
+          <span className="md:hidden">
+            <BrandLogo size="sm" />
+          </span>
+        )}
         <div className="ml-auto flex items-center gap-2">
           {/* Téléphone : nouvelle conversation sans ouvrir le menu (sur ordinateur, le « + » est dans la barre latérale). */}
           {messages.length > 0 ? (
@@ -757,34 +770,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             </p>
           ) : null}
 
-          {importCandidate ? (
-            <div role="region" aria-label="Enregistrer la conversation" className="rounded-xl border border-border bg-accent-soft p-4 text-sm">
-              <p className="font-medium">Enregistrer la conversation commencée avant ta connexion ?</p>
-              <p className="mt-1 text-fg-muted">
-                Elle sera ajoutée à ton compte et tu pourras la poursuivre. Si tu refuses, elle sera effacée de
-                cet appareil.
-              </p>
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={acceptImport}
-                  disabled={importing}
-                  className="rounded-lg bg-accent px-3 py-1.5 font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-60"
-                >
-                  {importing ? "Enregistrement…" : "Enregistrer dans mon compte"}
-                </button>
-                <button
-                  type="button"
-                  onClick={declineImport}
-                  disabled={importing}
-                  className="rounded-lg border border-border bg-bg px-3 py-1.5 font-medium hover:bg-bg-muted"
-                >
-                  Ne pas enregistrer
-                </button>
-              </div>
-            </div>
-          ) : null}
-
           {anonymousLimitReached ? (
             // Fin de l'essai : seul un compte permet de continuer (une nouvelle conversation ne remet pas le compteur à zéro).
             <div role="status" className="trial-over flex flex-col items-center gap-3 rounded-2xl border border-[var(--persona-border,var(--border))] bg-[var(--persona-surface,var(--bg-subtle))] p-5 text-center sm:flex-row sm:text-left">
@@ -826,7 +811,8 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
           ) : null}
           {/* Le + (photo ou document, si « documents » est allumé : /admin/fonctionnalites) flotte à gauche de la barre, dans sa propre bulle. */}
           {sentFile ? <SentFileChip file={sentFile} onRemove={() => setSentFile(null)} /> : null}
-          <div className="flex items-end gap-2">
+          {/* Au repos, la ligne s'aligne sur les cartes et les messages ; dès qu'on écrit, elle s'étire en douceur sur toute la largeur. */}
+          <div className="flex items-end gap-2 transition-[padding] duration-300 ease-out motion-reduce:transition-none sm:px-6 sm:focus-within:px-0">
             {user?.features?.includes("documents") ? (
               <PlusMenu
                 disabled={blocked || !online || isStreaming}
@@ -843,7 +829,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
                 ref={composerRef}
                 isStreaming={isStreaming}
                 disabled={blocked || !online}
-                disabledReason={!online ? "Hors ligne" : importCandidate ? "Choisis d'abord ci-dessus" : "Conversation terminée"}
+                disabledReason={!online ? "Hors ligne" : importing ? "Enregistrement…" : "Conversation terminée"}
                 onSend={(text) => {
                   // « Chante », « dis-le à voix haute » : le vocal s'ouvre tout seul et elle répond à voix haute.
                   // Sauf juste après une histoire collée : « dis-le à voix haute » lance la lecture en 3D (voix et bruits).

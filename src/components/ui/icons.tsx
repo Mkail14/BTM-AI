@@ -330,7 +330,13 @@ export const IconArrowDown = (p: IconProps) => (
   </Icon>
 );
 
-export const IconSpeaker = (p: IconProps) => (
+export const IconArrowLeft = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M19 12H5M11 6l-6 6 6 6" />
+  </Icon>
+);
+
+export const IconSpeaker =(p: IconProps) => (
   <Icon {...p}>
     <path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z" />
     <path d="M16 9a4 4 0 0 1 0 6M18.5 6.5a7.5 7.5 0 0 1 0 11" />

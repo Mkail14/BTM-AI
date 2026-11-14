@@ -577,6 +577,18 @@ export default function TermsPage() {
             Les contenus de tiers (offres France Travail, articles de presse, cartes OpenStreetMap, documents de nos
             partenaires) restent la propriété de leurs auteurs et sont soumis à leurs propres licences.
           </p>
+          <p>
+            <span className={strong}>Crédits des cartes.</span> Les cartes du site (page Mayotte, suivi de commande,
+            itinéraires, cyclones) sont fournies par{" "}
+            <a href="https://openfreemap.org" target="_blank" rel="noreferrer" className={link}>
+              OpenFreeMap
+            </a>{" "}
+            © OpenMapTiles, avec les données ©{" "}
+            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer" className={link}>
+              les contributeurs d&apos;OpenStreetMap
+            </a>
+            , sous licence ODbL.
+          </p>
         </Section>
 
         <Section id="disponibilite" title="14. Disponibilité et évolution du service">

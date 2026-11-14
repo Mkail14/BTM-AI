@@ -1306,6 +1306,77 @@ input::-ms-clear {
   }
 }
 
+/* Repère de la ville que Tamilya montre sur la carte de Mayotte : un point rose, deux ondes, son nom dessous. Il apparaît quand la carte arrive. */
+.town-pin {
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: #ff4dd8;
+  box-shadow: 0 0 1.25rem 0.35rem rgb(255 77 216 / 0.55);
+  pointer-events: none;
+}
+
+.town-pin::before,
+.town-pin::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 50%;
+  border: 2px solid #ff4dd8;
+  animation: town-pin-wave 2.4s ease-out 1.6s infinite backwards;
+}
+
+.town-pin::after {
+  animation-delay: 2.8s;
+}
+
+.town-pin__name {
+  position: absolute;
+  top: calc(100% + 0.6rem);
+  left: 50%;
+  translate: -50% 0;
+  padding: 0.3rem 0.75rem;
+  border-radius: 999px;
+  background: rgb(0 0 0 / 0.72);
+  color: #fff;
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+  animation: town-pin-name 600ms cubic-bezier(0.22, 1, 0.36, 1) 2.6s backwards;
+}
+
+@keyframes town-pin-wave {
+  from {
+    opacity: 0.9;
+    scale: 1;
+  }
+  to {
+    opacity: 0;
+    scale: 5;
+  }
+}
+
+@keyframes town-pin-name {
+  from {
+    opacity: 0;
+    translate: -50% 0.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .town-pin::before,
+  .town-pin::after,
+  .town-pin__name {
+    animation: none;
+  }
+
+  .town-pin::before,
+  .town-pin::after {
+    display: none;
+  }
+}
+
 /* Crédits de la carte : un petit « i » discret, le texte seulement quand on le touche. */
 .maplibregl-ctrl-attrib {
   font-size: 10px;

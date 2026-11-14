@@ -10,6 +10,8 @@ import { canOrderFood } from "@/lib/food/access";
 import { getRecentMessages } from "@/lib/conversations/repository";
 import { readingSpec, readingText, READING_BLOCK, type ReadingMode } from "@/lib/lecture/intent";
 import { liveContextFor } from "@/lib/live";
+import { communePopulation } from "@/lib/live/communes";
+import { companiesBlockFor, companyAskFromVoice } from "@/lib/live/companies";
 import { getProfileContact } from "@/lib/profile-contact";
 import { tripBlock } from "@/lib/trip/intent";
 import { describeTrip, planTrip } from "@/lib/trip/plan";
@@ -45,6 +47,12 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: "Demande invalide." }, { status: 400 });
   // Pas un tableau : juste une réponse pour Tamilya, lue sur l'horloge du serveur.
   if (parsed.data.name === "heure_mayotte") return NextResponse.json({ time: mayotteClock() });
+  // Carte de la page « Mayotte » : les habitants de la commune montrée (le reste est su par le navigateur).
+  if (parsed.data.name === "montrer_ville") {
+    const commune = String(parsed.data.args.commune ?? "").slice(0, 60);
+    const wait = new Promise<null>((resolve) => setTimeout(() => resolve(null), VOICE_INFO_WAIT_MS));
+    return NextResponse.json({ population: await Promise.race([communePopulation(commune), wait]).catch(() => null) });
+  }
   // Pas un tableau : des informations à jour (météo, services publics, communes…) que Tamilya dit à voix haute.
   if (parsed.data.name === "infos_mayotte") {
     const question = String(parsed.data.args.question ?? "").slice(0, 300);
@@ -53,6 +61,18 @@ export async function POST(request: NextRequest) {
       info: info
         ? `${info}\n\nRéponds en une ou deux phrases, avec seulement ce qui répond à la question ; ne lis pas les liens.`
         : "Rien trouvé dans les sources officielles : dis-le simplement, sans inventer.",
+    });
+  }
+  // Pas un tableau : les fiches de l'annuaire officiel des entreprises, que Tamilya résume à voix haute.
+  if (parsed.data.name === "entreprises_mayotte") {
+    const said = (key: string) => String(parsed.data.args[key] ?? "").trim().slice(0, 120);
+    const ask = companyAskFromVoice({ name: said("nom"), trade: said("metier"), commune: said("commune"), closed: parsed.data.args.fermees === true });
+    const wait = new Promise<null>((resolve) => setTimeout(() => resolve(null), VOICE_INFO_WAIT_MS + 1_500));
+    const info = await Promise.race([companiesBlockFor(ask), wait]).catch(() => null);
+    return NextResponse.json({
+      info: info
+        ? `${info}\n\nRéponds en une ou deux phrases, avec seulement ce qui répond à la question ; ne lis ni les liens ni les numéros SIREN, sauf si on te les demande.`
+        : "L'annuaire des entreprises ne répond pas pour l'instant : dis-le simplement, sans inventer.",
     });
   }
   // Carte du trajet : le bloc s'affiche dans la conversation, et Tamilya dit les temps à voix haute.

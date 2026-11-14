@@ -48,7 +48,9 @@ function pauseForReading(pending: { current: ReadingPause }, stop: { current: ()
 export function useLiveVoiceConversation(
   onTurn: (user: string, tamilya: string, board?: boolean) => void,
   conversationId?: string | null,
-): VoiceConversation {
+  /** Carte de la page « Mayotte » : `map` limite Tamilya aux villes de l'île, `onTool` exécute ses boutons sur la carte (null : pas un bouton de la page). */
+  options?: { map?: boolean; onTool?: (name: string, args: Record<string, unknown>) => Promise<string | null> },
+): VoiceConversation & { listen: () => void } {
   const supported = useSyncExternalStore(noSubscribe, isLiveVoiceSupported, () => false);
   const [state, setState] = useState<VoiceState>("off");
   const [error, setError] = useState<string | null>(null);
@@ -105,8 +107,10 @@ export function useLiveVoiceConversation(
   };
   const stopRef = useRef<() => void>(() => {});
   const turnRef = useRef(onTurn);
+  const optionsRef = useRef(options);
   useEffect(() => {
     turnRef.current = onTurn;
+    optionsRef.current = options;
   });
 
   const note = useCallback((event: string) => {
@@ -160,6 +164,7 @@ export function useLiveVoiceConversation(
       pushToTalk: mode === "hold",
       firstMessage,
       conversationId: () => currentConversation.current,
+      map: optionsRef.current?.map,
       onState: (live) => {
         liveState.current = live;
         // Sa phrase d'attente est finie (réponse complète et plus aucun son) : pause pour l'histoire.
@@ -223,6 +228,9 @@ export function useLiveVoiceConversation(
         }
       },
       onToolCall: async (name, args, signal) => {
+        // Boutons propres à la page (carte de Mayotte) : exécutés par elle.
+        const local = await optionsRef.current?.onTool?.(name, args);
+        if (typeof local === "string") return local;
         // Tableau déjà à l'écran : Tamilya agit directement dessus, sans passer par le serveur.
         if (name === "lire_tableau") return describeBoard();
         if (name === "toucher_tableau") return touchBoard(String(args.bouton ?? ""), signal);
@@ -408,6 +416,9 @@ export function useLiveVoiceConversation(
     else setChoosing(true);
   }, [open]);
 
+  /** Écoute tout de suite, sans bouton et sans demander comment parler (globe de la carte de Mayotte) ; le choix gardé dans les paramètres ne change pas. */
+  const listen = useCallback(() => open("free"), [open]);
+
   // L'histoire se fait entendre alors que Tamilya parle encore : l'appel se met en pause tout de
   // suite (jamais deux voix en même temps dans les écouteurs).
   useEffect(() => {
@@ -521,5 +532,5 @@ export function useLiveVoiceConversation(
 
   // say / replied : l'ancien mode lisait les réponses écrites ; en direct, Gemini parle lui-même.
   const nothing = useCallback(() => {}, []);
-  return { live: true, board, stage, leaveStage, handsFree, choosing, choose, startWith, press, release, supported, state, error, hint: null, debug, transcript, reply, beat, start, stop, interrupt, say: nothing, replied: nothing };
+  return { live: true, board, stage, leaveStage, handsFree, choosing, choose, startWith, press, release, supported, state, error, hint: null, debug, transcript, reply, beat, start, listen, stop, interrupt, say: nothing, replied: nothing };
 }

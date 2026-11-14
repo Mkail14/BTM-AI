@@ -35,7 +35,7 @@ function setStoredCollapsed(value: boolean) {
 
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { user, openAuthDialog, signOut } = useAuth();
-  const { conversations, conversationsLoading, refreshConversations, startNewChat } = useChatShell();
+  const { conversations, conversationsLoading, refreshConversations, startNewChat, goToLanding } = useChatShell();
   const pathname = usePathname();
   const router = useRouter();
   const panelRef = useRef<HTMLDivElement>(null);
@@ -126,7 +126,19 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         aria-modal={open ? true : undefined}
       >
         <div className={`flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 ${collapsed ? "md:justify-center md:px-0" : ""}`}>
-          <Link prefetch={false} href="/" onClick={onClose} aria-label="BTM AI — accueil" className={`rounded ${wide}`}>
+          <Link
+            prefetch={false}
+            href="/"
+            onClick={(event) => {
+              // Visiteur dans la conversation d'essai : le logo ramène à la page d'accueil.
+              // Fermeture sans `dismiss` : c'est goToLanding qui remonte l'historique.
+              if (goToLanding && pathname === "/") {
+                event.preventDefault();
+                goToLanding();
+              }
+              onClose();
+            }}
+            aria-label="BTM AI — accueil" className={`rounded ${wide}`}>
             <BrandLogo size="md" />
           </Link>
           {/* Repliée : le « + » passe sous le bouton de repli. */}

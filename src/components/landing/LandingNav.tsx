@@ -14,6 +14,7 @@ const NAV_LINKS = [
   { href: "/#shimaore", label: "Tamilya", hide: "app-hide" },
   { href: "/partenaires", label: "Nos partenaires", hide: "" },
   { href: "/developpeurs", label: "Développeurs", hide: "" },
+  { href: "/mayotte", label: "Mayotte", hide: "" },
 ] as const;
 
 /** Sur le site, ces liens sont dans le pied de page ; l'application n'en a pas. */

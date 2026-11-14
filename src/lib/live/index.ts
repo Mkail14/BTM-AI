@@ -4,6 +4,7 @@ import { liveIntent } from "./intent";
 import { matchNews } from "./match";
 import { getMayotteNews, type NewsItem } from "./news";
 import { communesBlock } from "./communes";
+import { companiesBlock, companyAsk } from "./companies";
 import { servicesAsked, servicesBlock } from "./services";
 import { getMayotteWeather } from "./weather";
 import { cyclonesText } from "@/lib/cyclone/gdacs";
@@ -65,6 +66,8 @@ export async function liveContextFor(message: string, { maxWaitMs }: { maxWaitMs
     intent.cyclones ? cyclonesText(cycloneZoneFor(message)) : null,
     intent.communes ? communesBlock() : null,
     servicesAsked(message) ? servicesBlock(message) : null,
+    // Entreprises de Mayotte, en activité ou fermées (annuaire officiel) : seulement si le message en parle.
+    companyAsk(message) ? companiesBlock(message) : null,
   ].filter(
     (task): task is Promise<string | null> => task !== null,
   );

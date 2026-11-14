@@ -19,6 +19,7 @@ import { usesDemoWallet } from "@/lib/wallet/demo";
 import { loadVoiceCorrections } from "@/lib/voice-live/corrections";
 import { speechDetection } from "@/lib/voice-live/detection";
 import { listeningRules } from "@/lib/voice-live/listening";
+import { MAP_RULES, mapToolDeclarations } from "@/lib/voice-live/map-mode";
 import { LIVE_PRIORITY, LIVE_RULES } from "@/lib/voice-live/rules";
 import { chooseLiveModel, liveModels } from "@/lib/voice-live/models";
 import { liveTicketSecret, readLiveTicket } from "@/lib/voice-live/ticket";
@@ -134,11 +135,13 @@ export async function POST(request: NextRequest) {
               text: [
                 system,
                 "Dans ce vocal, l'heure exacte ci-dessus est celle du début de l'appel : si on te demande l'heure ou le jour, appelle heure_mayotte et dis ce qu'elle renvoie.",
-                news ? `${JOURNAL_RULES}\n\n${news}` : null,
+                // Carte de la page « Mayotte » : pas de journal, seulement les villes de l'île.
+                news && !ticket.map ? `${JOURNAL_RULES}\n\n${news}` : null,
                 earlier,
                 LIVE_RULES,
                 listeningRules(corrections),
                 LIVE_PRIORITY,
+                ticket.map ? MAP_RULES : null,
               ]
                 .filter(Boolean)
                 .join("\n\n"),
@@ -146,7 +149,7 @@ export async function POST(request: NextRequest) {
           ],
         },
         // Recherche Google (événements passés, ce qu'elle ne sait pas) et boutons (réservations…).
-        tools: [{ googleSearch: {} }, { functionDeclarations: liveToolDeclarations({ food, barge }) }],
+        tools: [{ googleSearch: {} }, { functionDeclarations: ticket.map ? mapToolDeclarations() : liveToolDeclarations({ food, barge }) }],
         // Textes de ce qui est dit des deux côtés : affichés à l'écran et enregistrés.
         inputAudioTranscription: {},
         outputAudioTranscription: {},

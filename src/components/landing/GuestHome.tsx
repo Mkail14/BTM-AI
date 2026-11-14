@@ -15,7 +15,10 @@ const LEAVE_MS = 560;
 /** Temps laissé à la conversation pour afficher le message avant la morphose. */
 const MORPH_SETTLE_MS = 90;
 
-type Phase = "landing" | "leaving" | "chat";
+/** Marque, dans l'historique du navigateur, l'entrée qui correspond à la page d'accueil. */
+const LANDING_ENTRY = "accueilVisiteur";
+
+type Phase ="landing" | "leaving" | "chat";
 
 type ChatViewComponent = typeof import("@/components/chat/ChatView").ChatView;
 
@@ -55,7 +58,11 @@ export function GuestHome({
 }) {
   const [phase, setPhase] = useState<Phase>("landing");
   const { openAuthDialog } = useAuth();
-  const { setChatCovered } = useChatShell();
+  const { setChatCovered, setGoToLanding } = useChatShell();
+  // La conversation a déjà été ouverte : le bouton « suivant » du navigateur peut y retourner.
+  const chatSeen = useRef(false);
+  // Un message est parti pendant cette visite : la reprise est proposée même s'il n'est pas encore sauvegardé.
+  const sent = useRef(false);
   const [prompt, setPrompt] = useState<string | null>(null);
   const [hasDraft, setHasDraft] = useState(false);
   const [Chat, setChat] = useState<ChatViewComponent | null>(null);
@@ -122,6 +129,33 @@ export function GuestHome({
   }, [covered, setChatCovered]);
   useEffect(() => () => setChatCovered(false), [setChatCovered]);
 
+  // Bouton « retour » du navigateur ou du téléphone : la conversation rend la place à la page
+  // d'accueil (et « suivant » y retourne), comme dans les autres assistants.
+  useEffect(() => {
+    const onPopState = () => {
+      if (window.history.state?.[LANDING_ENTRY]) {
+        if (timer.current) window.clearTimeout(timer.current);
+        starting.current = false;
+        setPrompt(null);
+        setHasDraft(sent.current || (loadAnonymousDraft()?.length ?? 0) > 0);
+        setPhase("landing");
+      } else if (chatSeen.current) {
+        starting.current = true;
+        setPhase("chat");
+      }
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  // Dans la conversation, le logo ramène à l'accueil : même chemin que le bouton « retour »
+  // (deux pas si le tiroir du téléphone, qui a sa propre entrée d'historique, est ouvert).
+  useEffect(() => {
+    if (phase !== "chat") return;
+    setGoToLanding(() => window.history.go(window.history.state?.tiroir ? -2 : -1));
+    return () => setGoToLanding(null);
+  }, [phase, setGoToLanding]);
+
   // Pendant la page d'accueil, la page du dessous ne défile pas.
   useEffect(() => {
     if (phase === "chat") return;
@@ -150,6 +184,14 @@ export function GuestHome({
   };
 
   const start = (message: string | null, component: ChatViewComponent) => {
+    // L'accueil garde son entrée d'historique (marquée), la conversation en reçoit une nouvelle :
+    // « retour » revient donc à l'accueil au lieu de quitter le site. L'état de Next.js est recopié
+    // pour qu'il reconnaisse ces entrées (voir useBackToClose).
+    const state = window.history.state;
+    window.history.replaceState({ ...state, [LANDING_ENTRY]: true }, "");
+    window.history.pushState({ ...state, [LANDING_ENTRY]: false }, "");
+    chatSeen.current = true;
+    if (message) sent.current = true;
     // Le globe de l'accueil est celui qui glissera jusqu'à la première réponse (MessageItem).
     if (message) noteGlobeOrigin(document.querySelector(".landing .tamilya-blob")?.getBoundingClientRect() ?? null);
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {

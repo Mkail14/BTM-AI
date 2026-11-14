@@ -35,11 +35,11 @@ export async function POST(request: NextRequest) {
   }
   flow.step("guard", true);
 
-  const body = (await request.json().catch(() => null)) as { manual?: unknown; conversationId?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { manual?: unknown; conversationId?: unknown; map?: unknown } | null;
   // Conversation en cours : relue avec les droits de ce compte (celle d'un autre compte n'est pas trouvée).
   const asked = typeof body?.conversationId === "string" && /^[0-9a-f-]{36}$/i.test(body.conversationId) ? body.conversationId : null;
   const cid = asked && supabase ? (await getConversation(supabase, asked).catch(() => null))?.id : undefined;
-  const ticket = signLiveTicket(user, secret, Date.now(), body?.manual === true, cid);
+  const ticket = signLiveTicket(user, secret, Date.now(), body?.manual === true, cid, body?.map === true);
   const url = `${relay.replace(/^http/, "ws")}/live?ticket=${encodeURIComponent(ticket)}`;
   // Mots validés de Tamilya : le téléphone y rapproche ce que Gemini écrit à l'oreille.
   const brain = await loadTamilyaBrain().catch(() => null);
