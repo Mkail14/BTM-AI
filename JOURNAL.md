@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `8cf9121` (2026-11-14, orchestr-api-dediee, envoyé sur develop et main)**
+**Dernier commit noté : `3ddc937` (2026-11-14, carte-mayotte, envoyé sur develop et main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -105,6 +105,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-14
+- **Page Mayotte, entreprises, retour du visiteur** (`3ddc937`, envoyé sur develop et main). Page `/mayotte` : la carte de l'île avec le globe de Tamilya ; on nomme une ville ou un village, la carte vole dessus, pose un repère, et Tamilya dit la commune, les habitants (INSEE) et où c'est. Pourquoi l'envoi en ligne : en local, on disait « c'est où Trévani » et rien ne bougeait. Le relais vocal Cloudflare prend toujours les consignes de Tamilya sur tamilya.yt (`SITE_URL`), qui ne connaissait pas encore les boutons de la carte ; le vocal d'une nouveauté ne se teste donc qu'une fois en ligne. Dans le même envoi : annuaire officiel des entreprises de Mayotte (écrit et vocal), crédits des cartes dans les Conditions, bouton retour et logo qui ramènent le visiteur de la conversation d'essai à l'accueil, conversation d'essai enregistrée seule dans le compte après connexion.
 - **Orchestr AI : sa propre route, sans limite** (`8cf9121`, envoyé sur develop et main). Demande de l'utilisateur : qu'Orchestr AI, sa messagerie privée avec Tamilya, marche sans limite, avec une API de BTM AI rien que pour lui. Nouvelle route `/api/orchestr` : même Tamilya et même secret de site que `/api/tamilya`, mais sans quota par minute ou par jour, sans plafond de 40 messages ni de 4 000 caractères, réponse non coupée à 1 024 tokens (réglage `maxOutputTokens` du site) et jusqu'à 5 minutes. Bornes gardées, techniques seulement : 4 Mo par requête, 400 000 caractères d'historique transmis au modèle, les plus récents d'abord (`lib/ai/orchestr.ts`, testé). La coupure de /admin/circuit arrête aussi cette route. La vérification du secret est sortie dans `lib/ai/partner-key.ts`, partagée par les deux routes. Risque accepté : sans quota, un secret volé ferait répondre Tamilya sans fin, aux frais du crédit Gemini. Constat du même jour : `/api/awa` répondait 401 à Orchestr AI, car la migration `20261218` n'est pas appliquée et son secret n'est pas enregistré. **Reste à faire** : appliquer `20261218` et ajouter l'empreinte du secret « orchestr-ai » dans `awa_partner_keys`. Vérifié : lint des fichiers touchés, 748 tests ; le contrôle des types ne signale que le cache `.next/dev`, qui cherche encore l'ancienne route awa. Pas essayé de bout en bout (clé refusée en ligne).
 
 ### 2026-11-13
