@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `0155567` (2026-11-13, tamilya-sans-awa, envoyé sur develop et main)**
+**Dernier commit noté : `8cf9121` (2026-11-14, orchestr-api-dediee, pas encore envoyé)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -102,6 +102,9 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+### 2026-11-14
+- **Orchestr AI : sa propre route, sans limite** (`8cf9121`, branche orchestr-api-dediee, pas encore envoyé). Demande de l'utilisateur : qu'Orchestr AI, sa messagerie privée avec Tamilya, marche sans limite, avec une API de BTM AI rien que pour lui. Nouvelle route `/api/orchestr` : même Tamilya et même secret de site que `/api/tamilya`, mais sans quota par minute ou par jour, sans plafond de 40 messages ni de 4 000 caractères, réponse non coupée à 1 024 tokens (réglage `maxOutputTokens` du site) et jusqu'à 5 minutes. Bornes gardées, techniques seulement : 4 Mo par requête, 400 000 caractères d'historique transmis au modèle, les plus récents d'abord (`lib/ai/orchestr.ts`, testé). La coupure de /admin/circuit arrête aussi cette route. La vérification du secret est sortie dans `lib/ai/partner-key.ts`, partagée par les deux routes. Risque accepté : sans quota, un secret volé ferait répondre Tamilya sans fin, aux frais du crédit Gemini. Constat du même jour : `/api/awa` répondait 401 à Orchestr AI, car la migration `20261218` n'est pas appliquée et son secret n'est pas enregistré. **Reste à faire** : appliquer `20261218` et ajouter l'empreinte du secret « orchestr-ai » dans `awa_partner_keys` ; envoyer sur develop et main. Vérifié : lint des fichiers touchés, 748 tests ; le contrôle des types ne signale que le cache `.next/dev`, qui cherche encore l'ancienne route awa. Pas essayé de bout en bout (clé refusée en ligne).
 
 ### 2026-11-13
 - **Plus de nom Awa dans le code** (`0155567`, envoyé sur develop et main). Demande de l'utilisateur : il n'y a plus d'Awa, seulement Tamilya. Fichiers, composants, classes du globe (`tamilya-blob`…), textes et exemples renommés ; la route des sites partenaires devient `/api/tamilya` et l'ancienne `/api/awa` reste ouverte (ligne dans `next.config.ts`) tant que btm.yt et BTM Market l'appellent ; la rubrique des paramètres devient `?rubrique=tamilya` ; la consigne « Avant, tu t'appelais Awa » est retirée. Dans le même commit : Orchestr AI ajouté aux sites partenaires (migration renumérotée `20261218`, pas appliquée). **Reste à faire** : les tables `awa_…` de la base gardent leur nom (les renommer touche la base en ligne, à décider) ; l'app Android cherche encore `.awa-blob` pour la vibration du globe (`MainActivity.java`), changé dans le dossier Android le même jour (les APK déjà installés perdent cette vibration tant qu'ils ne sont pas mis à jour). Vérifié : types, lint, 745 tests.
