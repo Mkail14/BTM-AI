@@ -69,7 +69,9 @@ export async function POST(request: NextRequest) {
   const model = await chooseLiveModel().catch(() => null);
   if (!model) return NextResponse.json({ error: "Aucun modèle Gemini en direct pour cette clé." }, { status: 503 });
 
-  const admin = getSupabaseAdminClient();
+  // Visiteur sans compte (carte de Mayotte) : aucune donnée de compte à lire, et toujours le mode carte.
+  const admin = ticket.guest ? null : getSupabaseAdminClient();
+  const map = ticket.map === true || ticket.guest === true;
   const sessionUser = { id: ticket.uid, email: null, isAdmin: ticket.admin, isPrincipalAdmin: false };
   // Anciennes discussions (sans celle en cours, déjà donnée plus bas en entier).
   const pastTalksTask = admin
@@ -88,8 +90,8 @@ export async function POST(request: NextRequest) {
       : Promise.resolve(null),
     // Journal du jour : météo et articles détaillés des journaux de Mayotte (3 s au plus).
     Promise.race([buildJournal(), new Promise<null>((resolve) => setTimeout(() => resolve(null), 3_000))]).catch(() => null),
-    canOrderFood(sessionUser).catch(() => false),
-    canBuyBargeTickets(sessionUser).catch(() => false),
+    map ? false : canOrderFood(sessionUser).catch(() => false),
+    map ? false : canBuyBargeTickets(sessionUser).catch(() => false),
     loadVoiceCorrections().catch(() => []),
   ]);
   // Conversation vérifiée pour ce compte à la signature du ticket (route session).
@@ -136,12 +138,12 @@ export async function POST(request: NextRequest) {
                 system,
                 "Dans ce vocal, l'heure exacte ci-dessus est celle du début de l'appel : si on te demande l'heure ou le jour, appelle heure_mayotte et dis ce qu'elle renvoie.",
                 // Carte de la page « Mayotte » : pas de journal, seulement les villes de l'île.
-                news && !ticket.map ? `${JOURNAL_RULES}\n\n${news}` : null,
+                news && !map ?`${JOURNAL_RULES}\n\n${news}` : null,
                 earlier,
                 LIVE_RULES,
                 listeningRules(corrections),
                 LIVE_PRIORITY,
-                ticket.map ? MAP_RULES : null,
+                map ? MAP_RULES : null,
               ]
                 .filter(Boolean)
                 .join("\n\n"),
@@ -149,7 +151,7 @@ export async function POST(request: NextRequest) {
           ],
         },
         // Recherche Google (événements passés, ce qu'elle ne sait pas) et boutons (réservations…).
-        tools: [{ googleSearch: {} }, { functionDeclarations: ticket.map ? mapToolDeclarations() : liveToolDeclarations({ food, barge }) }],
+        tools: [{ googleSearch: {} }, { functionDeclarations: map ? mapToolDeclarations() : liveToolDeclarations({ food, barge }) }],
         // Textes de ce qui est dit des deux côtés : affichés à l'écran et enregistrés.
         inputAudioTranscription: {},
         outputAudioTranscription: {},

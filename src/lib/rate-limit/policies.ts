@@ -112,6 +112,17 @@ export const RATE_LIMIT_POLICIES = {
     { name: "voice-ambiance-min", limit: 10, windowSeconds: 60 },
     { name: "voice-ambiance-day", limit: 200, windowSeconds: 86_400 },
   ],
+  // Carte de la page « Mayotte », ouverte aux visiteurs sans compte (décision du 2026-11-14) : c'est
+  // BTM qui paie chaque appel. Par appareil (cookie) : 10 appels par jour ; par adresse IP (souvent
+  // partagée à Mayotte) : 60 ; tous les visiteurs ensemble : 500 par jour.
+  voiceMapGuestDevice: [
+    { name: "voice-map-dev-min", limit: 3, windowSeconds: 60 },
+    { name: "voice-map-dev-day", limit: 10, windowSeconds: 86_400 },
+  ],
+  voiceMapGuestIp: [{ name: "voice-map-ip-day", limit: 60, windowSeconds: 86_400 }],
+  voiceMapGuestAll: [{ name: "voice-map-all-day", limit: 500, windowSeconds: 86_400 }],
+  // Habitants de la commune montrée sur la carte, demandés sans compte.
+  voiceMapGuestTool: [{ name: "voice-map-tool-min", limit: 20, windowSeconds: 60 }],
   // Chansons (Lyria) : chaque appel coûte, on borne les essais.
   // Chaque compte : 3 chansons par jour (décision de l'utilisateur, 2026-11-08). Admins : de quoi essayer.
   music: [{ name: "music-day", limit: 3, windowSeconds: 86_400 }],

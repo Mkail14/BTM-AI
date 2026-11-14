@@ -46,4 +46,12 @@ describe("carte de la page Mayotte", () => {
     assert.equal(readLiveTicket(signLiveTicket(user, "s", Date.now(), false, undefined, true), "s")?.map, true);
     assert.equal(readLiveTicket(signLiveTicket(user, "s"), "s")?.map, undefined);
   });
+
+  it("le ticket d'un visiteur sans compte est marqué, celui d'un compte ne l'est pas", () => {
+    const guest = readLiveTicket(signLiveTicket({ id: "visiteur", isAdmin: false }, "s", Date.now(), false, undefined, true, true), "s");
+    assert.equal(guest?.guest, true);
+    assert.equal(guest?.map, true);
+    assert.equal(guest?.admin, false);
+    assert.equal(readLiveTicket(signLiveTicket({ id: "u", isAdmin: false }, "s", Date.now(), false, undefined, true), "s")?.guest, undefined);
+  });
 });

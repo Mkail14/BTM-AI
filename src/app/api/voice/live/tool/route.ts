@@ -15,7 +15,7 @@ import { companiesBlockFor, companyAskFromVoice } from "@/lib/live/companies";
 import { getProfileContact } from "@/lib/profile-contact";
 import { tripBlock } from "@/lib/trip/intent";
 import { describeTrip, planTrip } from "@/lib/trip/plan";
-import { isSameOrigin } from "@/lib/security/request";
+import { getClientIp, hashIdentifier, isSameOrigin } from "@/lib/security/request";
 import { liveToolBlock, readingSubject } from "@/lib/voice-live/tools";
 
 /**
@@ -39,11 +39,23 @@ const bodySchema = z.object({
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Requête refusée." }, { status: 403 });
   const { supabase, user } = await getAuthContext();
+  const raw: unknown = await request.json().catch(() => null);
+  // Carte de la page « Mayotte », ouverte sans compte : seulement les habitants de la commune montrée.
+  if (!user || !(await canUse(user, "vocal"))) {
+    const asked = bodySchema.safeParse(raw);
+    if (asked.success && asked.data.name === "montrer_ville") {
+      const allowed = await consumeRateLimits([{ key: hashIdentifier(`voice-map-tool:${getClientIp(request.headers)}`), rules: RATE_LIMIT_POLICIES.voiceMapGuestTool }]).catch(() => null);
+      if (!allowed?.allowed) return NextResponse.json({ population: null });
+      const commune = String(asked.data.args.commune ?? "").slice(0, 60);
+      const wait = new Promise<null>((resolve) => setTimeout(() => resolve(null), VOICE_INFO_WAIT_MS));
+      return NextResponse.json({ population: await Promise.race([communePopulation(commune), wait]).catch(() => null) });
+    }
+  }
   if (!user) return NextResponse.json({ error: "Connexion requise." }, { status: 401 });
   if (!(await canUse(user, "vocal"))) return NextResponse.json({ error: "Le vocal en direct n'est pas ouvert pour l'instant." }, { status: 403 });
   const limit = await consumeRateLimits([{ key: `voice-live-tool:${user.id}`, rules: RATE_LIMIT_POLICIES.voiceLiveTool }]).catch(() => null);
   if (limit && !limit.allowed) return NextResponse.json({ error: "Trop de demandes, réessaie dans un instant." }, { status: 429 });
-  const parsed = bodySchema.safeParse(await request.json().catch(() => null));
+  const parsed = bodySchema.safeParse(raw);
   if (!parsed.success) return NextResponse.json({ error: "Demande invalide." }, { status: 400 });
   // Pas un tableau : juste une réponse pour Tamilya, lue sur l'horloge du serveur.
   if (parsed.data.name === "heure_mayotte") return NextResponse.json({ time: mayotteClock() });
