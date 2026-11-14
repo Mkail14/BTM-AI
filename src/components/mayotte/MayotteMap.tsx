@@ -8,7 +8,7 @@ import { useLiveVoiceConversation } from "@/components/chat/useLiveVoiceConversa
 import { personaStyle } from "@/components/personality/PersonalityContext";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
 import { loadMapLibre } from "@/lib/geo/maplibre";
-import { describeTown, findTown, type Town } from "@/lib/mayotte/towns";
+import { describeRoute, describeTown, findTown, type Town, type TownRoute } from "@/lib/mayotte/towns";
 
 /**
  * Carte de Mayotte de la page « Mayotte », la même que celle du suivi de
@@ -17,7 +17,8 @@ import { describeTown, findTown, type Town } from "@/lib/mayotte/towns";
  * et suit le thème clair ou sombre.
  *
  * Toucher le globe : Tamilya écoute. Ici elle ne parle que des villes et
- * villages de l'île (map-mode.ts) : on en nomme un, la carte vole jusque-là.
+ * villages de l'île (map-mode.ts) : on en nomme un, la carte vole jusque-là ;
+ * on en nomme deux, la route entre eux se trace en rose.
  */
 
 const STYLE_LIGHT = "https://tiles.openfreemap.org/styles/positron";
@@ -42,17 +43,36 @@ const TOWN_PITCH = 55;
 const ORBIT_MS = 40_000;
 const ORBIT_DEG = 70;
 
+/** Trajet entre deux villes : la ligne rose (le rose des repères), posée sur un liseré blanc pour rester lisible. */
+const ROUTE = "trajet";
+const ROUTE_PINK = "#ff4dd8";
+const ROUTE_FIT_MS = 2_600;
+
 /** Envoyé par le mot « Mayotte » du titre de la page : la carte revient à sa vue de départ. */
 export const MAP_RESET_EVENT = "tamilya:carte-mayotte-depart";
 
 const isDark = () => document.documentElement.dataset.theme === "dark";
 const isCalm = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/** Pose (ou remplace) le tracé du trajet sur la carte. */
+function drawRoute(view: MapLibreMap, line: [number, number][]) {
+  const data = { type: "Feature" as const, properties: {}, geometry: { type: "LineString" as const, coordinates: line } };
+  const source = view.getSource(ROUTE) as { setData?: (d: typeof data) => void } | undefined;
+  if (source?.setData) return source.setData(data);
+  view.addSource(ROUTE, { type: "geojson", data });
+  const layout = { "line-cap": "round" as const, "line-join": "round" as const };
+  view.addLayer({ id: `${ROUTE}-bord`, type: "line", source: ROUTE, layout, paint: { "line-color": "#ffffff", "line-width": 8, "line-opacity": 0.9 } });
+  view.addLayer({ id: ROUTE, type: "line", source: ROUTE, layout, paint: { "line-color": ROUTE_PINK, "line-width": 4.5 } });
+}
+
 export function MayotteMap() {
   const frame = useRef<HTMLDivElement>(null);
   const map = useRef<MapLibreMap | null>(null);
   const engine = useRef<typeof import("maplibre-gl") | null>(null);
-  const pin = useRef<Marker | null>(null);
+  /** Repères posés sur la carte : un pour une ville, deux pour un trajet. */
+  const pins = useRef<Marker[]>([]);
+  /** Tracé du trajet affiché ([longitude, latitude]) : reposé quand la carte change de fond (thème). */
+  const routeLine = useRef<[number, number][] | null>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
 
@@ -79,6 +99,10 @@ export function MayotteMap() {
       created.touchZoomRotate.disableRotation();
       created.on("error", (e) => console.warn("[carte Mayotte]", e.error?.message));
       created.on("load", () => setReady(true));
+      // Changement de fond (thème) : le tracé du trajet est effacé avec l'ancien fond, on le repose.
+      created.on("style.load", () => {
+        if (created && routeLine.current) drawRoute(created, routeLine.current);
+      });
       engine.current = maplibre;
       map.current = created;
 
@@ -96,11 +120,38 @@ export function MayotteMap() {
     return () => {
       cancelled = true;
       theme?.disconnect();
-      pin.current?.remove();
-      pin.current = null;
+      pins.current.forEach((p) => p.remove());
+      pins.current = [];
+      routeLine.current = null;
       map.current = null;
       created?.remove();
     };
+  }, []);
+
+  /** Retire les repères et le tracé du trajet. */
+  const clearMarks = useCallback(() => {
+    pins.current.forEach((p) => p.remove());
+    pins.current = [];
+    routeLine.current = null;
+    const view = map.current;
+    if (!view?.getSource(ROUTE)) return;
+    view.removeLayer(`${ROUTE}-bord`);
+    view.removeLayer(ROUTE);
+    view.removeSource(ROUTE);
+  }, []);
+
+  /** Pose un repère lumineux au nom du lieu. */
+  const addPin = useCallback((town: Town) => {
+    const [view, maplibre] = [map.current, engine.current];
+    if (!view || !maplibre) return null;
+    const mark = document.createElement("div");
+    mark.className = "town-pin";
+    const name = document.createElement("span");
+    name.className = "town-pin__name";
+    name.textContent = town.name;
+    mark.append(name);
+    pins.current.push(new maplibre.Marker({ element: mark, anchor: "center" }).setLngLat([town.point.lng, town.point.lat]).addTo(view));
+    return mark;
   }, []);
 
   /** La carte vole jusqu'à la ville, s'incline, pose un repère lumineux à son nom, puis tourne doucement autour. */
@@ -108,14 +159,8 @@ export function MayotteMap() {
     const [view, maplibre] = [map.current, engine.current];
     if (!view || !maplibre) return false;
     const center: [number, number] = [town.point.lng, town.point.lat];
-    pin.current?.remove();
-    const mark = document.createElement("div");
-    mark.className = "town-pin";
-    const name = document.createElement("span");
-    name.className = "town-pin__name";
-    name.textContent = town.name;
-    mark.append(name);
-    pin.current = new maplibre.Marker({ element: mark, anchor: "center" }).setLngLat(center).addTo(view);
+    clearMarks();
+    const mark = addPin(town);
     view.stop();
     if (isCalm()) {
       view.jumpTo({ center, zoom: TOWN_ZOOM, pitch: 0, bearing: 0 });
@@ -126,22 +171,46 @@ export function MayotteMap() {
     view.once("moveend", () => {
       // Vol coupé au doigt, ou autre ville demandée entre-temps : pas de tour.
       const at = view.getCenter();
-      if (pin.current?.getElement() !== mark || Math.abs(at.lng - center[0]) > 0.0005 || Math.abs(at.lat - center[1]) > 0.0005) return;
+      if (pins.current[0]?.getElement() !== mark || Math.abs(at.lng - center[0]) > 0.0005 || Math.abs(at.lat - center[1]) > 0.0005) return;
       view.easeTo({ bearing: bearing + ORBIT_DEG, duration: ORBIT_MS, easing: (t) => t, essential: true });
     });
     return true;
-  }, []);
+  }, [addPin, clearMarks]);
+
+  /** Trajet entre deux lieux : un repère à chaque bout, la route en rose (si elle a pu être calculée), et la carte cadrée sur le tout. */
+  const showRoute = useCallback(
+    (from: Town, to: Town, line: [number, number][] | null) => {
+      const [view, maplibre] = [map.current, engine.current];
+      if (!view || !maplibre) return false;
+      clearMarks();
+      addPin(from);
+      addPin(to);
+      view.stop();
+      const ends: [number, number][] = [
+        [from.point.lng, from.point.lat],
+        [to.point.lng, to.point.lat],
+      ];
+      if (line && line.length > 1) {
+        routeLine.current = line;
+        drawRoute(view, line);
+      }
+      const bounds = new maplibre.LngLatBounds(ends[0], ends[0]);
+      for (const point of [...ends, ...(line ?? [])]) bounds.extend(point);
+      view.fitBounds(bounds, { padding: 64, maxZoom: 14, pitch: 0, bearing: 0, duration: isCalm() ? 0 : ROUTE_FIT_MS, essential: true });
+      return true;
+    },
+    [addPin, clearMarks],
+  );
 
   /** Retour à l'île entière, vue du dessus, sans repère. */
   const showIsland = useCallback(() => {
     const view = map.current;
     if (!view) return false;
-    pin.current?.remove();
-    pin.current = null;
+    clearMarks();
     view.stop();
     view.fitBounds(ISLAND, { padding: 24, pitch: 0, bearing: 0, duration: isCalm() ? 0 : 1_100, essential: true });
     return true;
-  }, []);
+  }, [clearMarks]);
 
   // Mot « Mayotte » du titre touché : vue de départ.
   useEffect(() => {
@@ -149,12 +218,30 @@ export function MayotteMap() {
     return () => window.removeEventListener(MAP_RESET_EVENT, showIsland);
   }, [showIsland]);
 
-  // Boutons de Tamilya sur cette page : montrer une ville, revenir à l'île.
+  // Boutons de Tamilya sur cette page : montrer une ville, tracer un trajet, revenir à l'île.
   const options = useMemo(
     () => ({
       map: true,
       onTool: async (name: string, args: Record<string, unknown>) => {
         if (name === "montrer_ile") return showIsland() ? "La carte revient sur Mayotte en entier. Dis-le en quelques mots, à ta façon." : "La carte n'est pas encore chargée : dis-lui de réessayer dans un instant.";
+        if (name === "montrer_trajet") {
+          const [from, to] = [findTown(String(args.depart ?? "")), findTown(String(args.arrivee ?? ""))];
+          if (!from || !to) return `${!from ? "Le lieu de départ" : "Le lieu d'arrivée"} n'est pas sur la carte de Mayotte : demande-lui de redire ce nom, sans rien inventer.`;
+          if (from.name === to.name) return "Le départ et l'arrivée sont le même lieu : demande-lui vers où elle veut aller.";
+          if (!map.current) return "La carte n'est pas encore chargée : dis-lui de réessayer dans un instant.";
+          // La route (OSRM) est calculée par le site ; sans elle, les deux repères sont quand même montrés.
+          const route = await fetch("/api/voice/live/tool", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name: "montrer_trajet", args: { depart: from.name, arrivee: to.name } }),
+            signal: AbortSignal.timeout(8_000),
+          })
+            .then((r) => (r.ok ? (r.json() as Promise<{ route?: TownRoute | null }>) : null))
+            .then((data) => data?.route ?? null)
+            .catch(() => null);
+          if (!showRoute(from, to, route?.line ?? null)) return "La carte n'est pas encore chargée : dis-lui de réessayer dans un instant.";
+          return describeRoute(from, to, route);
+        }
         if (name !== "montrer_ville") return null;
         const town = findTown(String(args.ville ?? ""));
         if (!town) return "Ce nom n'est pas sur la carte de Mayotte : demande-lui de redire le nom de la ville ou du village, sans rien inventer.";
@@ -172,7 +259,7 @@ export function MayotteMap() {
         return describeTown(town, population);
       },
     }),
-    [showIsland, showTown],
+    [showIsland, showRoute, showTown],
   );
 
   // Toucher le globe : le micro s'ouvre et Tamilya écoute, sans changer de page. Chaque échange est enregistré comme sur /voix.

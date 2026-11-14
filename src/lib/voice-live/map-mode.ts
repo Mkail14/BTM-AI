@@ -1,10 +1,10 @@
 /**
  * Vocal ouvert depuis la carte de la page « Mayotte » : Tamilya n'y fait qu'une
- * chose, montrer les villes et villages de l'île et en parler. Ses seuls
+ * chose, montrer les villes et villages de l'île (et la route entre deux d'entre eux) et en parler. Ses seuls
  * boutons font bouger la carte (exécutés dans le navigateur : MayotteMap.tsx).
  */
 
-export const MAP_TOOLS = ["montrer_ville", "montrer_ile"] as const;
+export const MAP_TOOLS = ["montrer_ville", "montrer_trajet", "montrer_ile"] as const;
 
 /** Déclarations envoyées à Gemini à la place des boutons habituels. */
 export function mapToolDeclarations() {
@@ -20,6 +20,19 @@ export function mapToolDeclarations() {
       },
     },
     {
+      name: "montrer_trajet",
+      description:
+        "Trace en rose sur la carte la route entre deux villes ou villages de Mayotte et cadre la carte sur tout le trajet. À appeler tout de suite dès que la personne demande le chemin, la route, le trajet ou la distance entre deux lieux de l'île. Renvoie les faits sûrs à dire (kilomètres, temps en voiture, barge s'il en faut une).",
+      parameters: {
+        type: "OBJECT",
+        properties: {
+          depart: { type: "STRING", description: "La ville ou le village de départ, comme elle l'a dit (ex. « Trévani »)." },
+          arrivee: { type: "STRING", description: "La ville ou le village d'arrivée, comme elle l'a dit (ex. « Sada »)." },
+        },
+        required: ["depart", "arrivee"],
+      },
+    },
+    {
       name: "montrer_ile",
       description: "Ramène la carte sur Mayotte en entier (Grande-Terre et Petite-Terre). À appeler quand la personne veut revoir toute l'île ou dézoomer.",
       parameters: { type: "OBJECT", properties: {} },
@@ -31,8 +44,9 @@ export function mapToolDeclarations() {
 export const MAP_RULES = [
   "PAGE « CARTE DE MAYOTTE » — cette consigne passe avant toutes les autres.",
   "- La personne te parle depuis la carte de Mayotte du site. Ici tu ne fais qu'une chose : montrer les villes et les villages de l'île sur la carte et en parler.",
-  "- Tes seuls boutons sont montrer_ville et montrer_ile. Tous les autres boutons cités plus haut (repas, barge, code de la route, devis, vidéos, histoires, chansons, trajets, cyclones, infos, entreprises, heure…) n'existent pas sur cette page : ne les appelle pas et ne les propose pas.",
+  "- Tes seuls boutons sont montrer_ville, montrer_trajet et montrer_ile. Tous les autres boutons cités plus haut (repas, barge, code de la route, devis, vidéos, histoires, chansons, trajets, cyclones, infos, entreprises, heure…) n'existent pas sur cette page : ne les appelle pas et ne les propose pas.",
   "- Dès qu'elle nomme une ville ou un village de Mayotte, appelle montrer_ville tout de suite, sans question : la carte vole jusque-là sous ses yeux. Ensuite, dis en deux ou trois phrases ce que le bouton renvoie (sa commune, ses habitants, où c'est sur l'île) et ce que ce lieu a de connu. Ce que tu ajoutes de toi-même doit être sûr : vérifie avec la recherche Google si tu doutes, sinon n'en dis rien. Jamais de chiffre inventé.",
+  "- Dès qu'elle demande le chemin, la route, le trajet ou la distance entre deux villes ou villages de l'île, appelle montrer_trajet tout de suite avec le départ et l'arrivée : la route se trace en rose sous ses yeux. Ensuite, dis en une ou deux phrases ce que le bouton renvoie (les kilomètres, le temps en voiture, la barge s'il en faut une). Si elle ne donne qu'un seul des deux lieux, demande-lui l'autre. Aucun chiffre inventé.",
   "- Si le bouton ne trouve pas le lieu, demande-lui simplement de redire le nom.",
   "- Si elle veut revoir toute l'île ou dézoomer, appelle montrer_ile.",
   "- Si elle demande autre chose que les villes et villages de Mayotte (commander, une histoire, une chanson, l'actualité, le journal, une question sans rapport…), ne le fais pas : fais-lui comprendre en une phrase, à ta façon et jamais deux fois pareil, qu'ici tu ne parles que des villes de l'île, et invite-la à en nommer une.",

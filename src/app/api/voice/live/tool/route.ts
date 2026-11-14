@@ -14,7 +14,8 @@ import { communePopulation } from "@/lib/live/communes";
 import { companiesBlockFor, companyAskFromVoice } from "@/lib/live/companies";
 import { getProfileContact } from "@/lib/profile-contact";
 import { tripBlock } from "@/lib/trip/intent";
-import { describeTrip, planTrip } from "@/lib/trip/plan";
+import { findTown } from "@/lib/mayotte/towns";
+import { describeTrip, drivingRoute, planTrip } from "@/lib/trip/plan";
 import { getClientIp, hashIdentifier, isSameOrigin } from "@/lib/security/request";
 import { liveToolBlock, readingSubject } from "@/lib/voice-live/tools";
 
@@ -28,6 +29,8 @@ import { liveToolBlock, readingSubject } from "@/lib/voice-live/tools";
 const VOICE_INFO_WAIT_MS = 3_000;
 /** Cyclones : la toute première lecture de GDACS prend quelques secondes de plus (ensuite, elle est gardée). */
 const CYCLONE_INFO_WAIT_MS = 8_000;
+/** Route tracée sur la carte de Mayotte : le calcul (OSRM) répond en 1 à 2 s, on lui laisse un peu plus. */
+const MAP_ROUTE_WAIT_MS = 6_500;
 
 const bodySchema = z.object({
   name: z.string().max(40),
@@ -36,6 +39,21 @@ const bodySchema = z.object({
   conversationId: z.uuid().nullish(),
 });
 
+/** Boutons de la carte de la page « Mayotte » qui demandent une donnée au site (ouverts sans compte). */
+const isMapTool = (name: string): name is "montrer_ville" | "montrer_trajet" => name === "montrer_ville" || name === "montrer_trajet";
+
+async function mapToolAnswer(name: "montrer_ville" | "montrer_trajet", args: Record<string, unknown>) {
+  const said = (key: string) => String(args[key] ?? "").slice(0, 60);
+  const within = <T,>(task: Promise<T>, ms: number) => Promise.race([task, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))]).catch(() => null);
+  // Les habitants de la commune montrée (le reste est su par le navigateur).
+  if (name === "montrer_ville") return { population: await within(communePopulation(said("commune")), VOICE_INFO_WAIT_MS) };
+  // La route entre deux villes de l'île : seulement des lieux connus du site, jamais des coordonnées libres.
+  const [from, to] = [findTown(said("depart")), findTown(said("arrivee"))];
+  if (!from || !to) return { route: null };
+  const found = await within(drivingRoute(from.point, to.point), MAP_ROUTE_WAIT_MS);
+  return { route: found ? { km: found.km, minutes: found.minutes, line: found.path.map(([lat, lng]) => [Number(lng.toFixed(5)), Number(lat.toFixed(5))]) } : null };
+}
+
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Requête refusée." }, { status: 403 });
   const { supabase, user } = await getAuthContext();
@@ -43,12 +61,10 @@ export async function POST(request: NextRequest) {
   // Carte de la page « Mayotte », ouverte sans compte : seulement les habitants de la commune montrée.
   if (!user || !(await canUse(user, "vocal"))) {
     const asked = bodySchema.safeParse(raw);
-    if (asked.success && asked.data.name === "montrer_ville") {
+    if (asked.success && isMapTool(asked.data.name)) {
       const allowed = await consumeRateLimits([{ key: hashIdentifier(`voice-map-tool:${getClientIp(request.headers)}`), rules: RATE_LIMIT_POLICIES.voiceMapGuestTool }]).catch(() => null);
-      if (!allowed?.allowed) return NextResponse.json({ population: null });
-      const commune = String(asked.data.args.commune ?? "").slice(0, 60);
-      const wait = new Promise<null>((resolve) => setTimeout(() => resolve(null), VOICE_INFO_WAIT_MS));
-      return NextResponse.json({ population: await Promise.race([communePopulation(commune), wait]).catch(() => null) });
+      if (!allowed?.allowed) return NextResponse.json({ population: null, route: null });
+      return NextResponse.json(await mapToolAnswer(asked.data.name, asked.data.args));
     }
   }
   if (!user) return NextResponse.json({ error: "Connexion requise." }, { status: 401 });
@@ -60,11 +76,7 @@ export async function POST(request: NextRequest) {
   // Pas un tableau : juste une réponse pour Tamilya, lue sur l'horloge du serveur.
   if (parsed.data.name === "heure_mayotte") return NextResponse.json({ time: mayotteClock() });
   // Carte de la page « Mayotte » : les habitants de la commune montrée (le reste est su par le navigateur).
-  if (parsed.data.name === "montrer_ville") {
-    const commune = String(parsed.data.args.commune ?? "").slice(0, 60);
-    const wait = new Promise<null>((resolve) => setTimeout(() => resolve(null), VOICE_INFO_WAIT_MS));
-    return NextResponse.json({ population: await Promise.race([communePopulation(commune), wait]).catch(() => null) });
-  }
+  if (isMapTool(parsed.data.name)) return NextResponse.json(await mapToolAnswer(parsed.data.name, parsed.data.args));
   // Pas un tableau : des informations à jour (météo, services publics, communes…) que Tamilya dit à voix haute.
   if (parsed.data.name === "infos_mayotte") {
     const question = String(parsed.data.args.question ?? "").slice(0, 300);

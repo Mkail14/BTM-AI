@@ -91,6 +91,9 @@ async function osrm(base: string, from: Point, to: Point, full: boolean) {
   };
 }
 
+/** Route en voiture entre deux points, avec son tracé (carte de la page « Mayotte »). */
+export const drivingRoute = (from: Point, to: Point) => osrm(CAR, from, to, true);
+
 /**
  * @param to    lieu d'arrivée, dans les mots de la personne
  * @param from  lieu de départ dit par la personne (null : position GPS, sinon adresse du compte)

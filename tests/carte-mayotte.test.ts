@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { describeTown, findTown } from "@/lib/mayotte/towns";
+import { describeRoute, describeTown, findTown } from "@/lib/mayotte/towns";
 import { MAP_RULES, MAP_TOOLS, mapToolDeclarations } from "@/lib/voice-live/map-mode";
 import { readLiveTicket, signLiveTicket } from "@/lib/voice-live/ticket";
 
@@ -35,7 +35,19 @@ describe("carte de la page Mayotte", () => {
     assert.doesNotMatch(describeTown(findTown("Combani")!, null), /habitants/);
   });
 
-  it("n'a que les deux boutons de la carte", () => {
+  it("décrit un trajet avec ses seuls faits sûrs", () => {
+    const [trevani, sada, labattoir] = [findTown("Trévani")!, findTown("Sada")!, findTown("Labattoir")!];
+    const text = describeRoute(trevani, sada, { km: 27.4, minutes: 48 });
+    assert.match(text, /de Trévani à Sada/);
+    assert.match(text, /27,4 km/);
+    assert.match(text, /48 minutes/);
+    assert.doesNotMatch(text, /barge/);
+    assert.match(describeRoute(trevani, labattoir, { km: 12, minutes: 75 }), /1 h 15[\s\S]*barge/);
+    // Route pas calculée : aucun chiffre à dire.
+    assert.doesNotMatch(describeRoute(trevani, sada, null), /\d/);
+  });
+
+  it("n'a que les boutons de la carte", () => {
     assert.deepEqual(mapToolDeclarations().map((d) => d.name), [...MAP_TOOLS]);
     assert.match(MAP_RULES, /montrer_ville/);
     assert.doesNotMatch(MAP_RULES, /kibushi/i);

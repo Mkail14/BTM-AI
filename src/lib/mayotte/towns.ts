@@ -49,6 +49,19 @@ export function findTown(said: string): Town | null {
   return { name, point, commune, isCommune: Boolean(communeName), where: whereIs(point, commune) };
 }
 
+/** Route entre deux lieux : distance, temps en voiture et tracé ([longitude, latitude]). */
+export type TownRoute = { km: number; minutes: number; line: [number, number][] };
+
+const minutesText = (minutes: number) => (minutes < 60 ? `${minutes} minutes` : `${Math.floor(minutes / 60)} h ${String(minutes % 60).padStart(2, "0")}`);
+
+/** Ce que Tamilya reçoit après avoir tracé un trajet : seulement des faits sûrs (`route` null : route pas calculée). */
+export function describeRoute(from: Town, to: Town, route: Pick<TownRoute, "km" | "minutes"> | null): string {
+  const barge = PETITE_TERRE.has(from.commune) !== PETITE_TERRE.has(to.commune) ? " Il faut prendre la barge entre Grande-Terre et Petite-Terre." : "";
+  if (!route)
+    return `La carte montre ${from.name} et ${to.name} avec deux repères, mais la route entre les deux n'a pas pu être calculée pour l'instant : dis-le simplement, sans donner de distance ni de temps.${barge}`;
+  return `La carte trace en rose la route de ${from.name} à ${to.name} et se cadre sur tout le trajet. Faits sûrs : environ ${String(route.km).replace(".", ",")} km par la route, environ ${minutesText(route.minutes)} en voiture, sans compter les bouchons.${barge} Dis-le avec tes mots, en une ou deux phrases ; aucun autre chiffre.`;
+}
+
 /** Ce que Tamilya reçoit après avoir montré un lieu : seulement des faits sûrs (`population` : habitants de la commune, si connus). */
 export function describeTown(town: Town, population: string | null): string {
   const kind = town.isCommune ? `${town.name} est une commune de Mayotte` : `${town.name} est un village de la commune de ${town.commune}`;
