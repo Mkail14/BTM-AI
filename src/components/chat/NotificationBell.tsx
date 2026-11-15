@@ -3,7 +3,7 @@
 import { Pictogram } from "@/components/ui/Pictogram";
 import { Bell } from "lucide-react";
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode, type Ref } from "react";
 import { createPortal } from "react-dom";
 import { BELL_ID, dismiss, lastSeen, markSeen, NOTIFY_EVENT, readHidden, readLocal, RING_EVENT, type AppNotification } from "@/lib/notifications";
 
@@ -126,6 +126,62 @@ const startOfDay =(now: number) => new Date(new Date(now).toLocaleDateString("en
  * Les notifications animées qui s'en vont entrent dans la cloche : elle sonne.
  * Ouverte, la liste descend de la cloche sur fond flouté, ligne par ligne.
  */
+/** Le bouton de la cloche, avec sa pastille. Seul, il sert aussi à l'aperçu de la conversation (/apercu/conversation). */
+export function BellButton({
+  ref,
+  id,
+  onClick,
+  unread = 0,
+  expanded = false,
+  ring = 0,
+}: {
+  ref?: Ref<HTMLButtonElement>;
+  id?: string;
+  onClick?: () => void;
+  unread?: number;
+  expanded?: boolean;
+  /** Change à chaque notification reçue : la cloche sonne. */
+  ring?: number;
+}) {
+  return (
+    <button
+      ref={ref}
+      id={id}
+      type="button"
+      onClick={onClick}
+      aria-label={unread ? `Notifications : ${unread} nouvelle${unread > 1 ? "s" : ""}` : "Notifications"}
+      aria-expanded={expanded}
+      className="relative rounded-full p-2 text-fg-muted transition hover:bg-bg-muted hover:text-fg"
+    >
+      <svg
+        key={ring}
+        viewBox="0 0 24 24"
+        width={22}
+        height={22}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className={ring ? "notif-bell-ring" : ""}
+        aria-hidden="true"
+      >
+        <path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8" />
+        <path d="M10.3 20a1.94 1.94 0 0 0 3.4 0" />
+      </svg>
+      {unread ? (
+        <span
+          key={`b${unread}`}
+          className="notif-badge absolute top-1 right-1 grid min-w-[1.1rem] place-items-center rounded-full px-1 text-[10px] leading-[1.1rem] font-bold text-white"
+          style={{ background: "var(--persona,var(--accent))" }}
+        >
+          {unread > 9 ? "9+" : unread}
+        </span>
+      ) : null}
+    </button>
+  );
+}
+
 export function NotificationBell() {
   const [server, setServer] = useState<AppNotification[]>([]);
   const [local, setLocal] = useState<AppNotification[]>([]);
@@ -200,41 +256,7 @@ export function NotificationBell() {
 
   return (
     <>
-      <button
-        ref={button}
-        id={BELL_ID}
-        type="button"
-        onClick={toggle}
-        aria-label={unread ? `Notifications : ${unread} nouvelle${unread > 1 ? "s" : ""}` : "Notifications"}
-        aria-expanded={open}
-        className="relative rounded-full p-2 text-fg-muted transition hover:bg-bg-muted hover:text-fg"
-      >
-        <svg
-          key={ring}
-          viewBox="0 0 24 24"
-          width={22}
-          height={22}
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.8"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={ring ? "notif-bell-ring" : ""}
-          aria-hidden="true"
-        >
-          <path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8" />
-          <path d="M10.3 20a1.94 1.94 0 0 0 3.4 0" />
-        </svg>
-        {unread ? (
-          <span
-            key={`b${unread}`}
-            className="notif-badge absolute top-1 right-1 grid min-w-[1.1rem] place-items-center rounded-full px-1 text-[10px] leading-[1.1rem] font-bold text-white"
-            style={{ background: "var(--persona,var(--accent))" }}
-          >
-            {unread > 9 ? "9+" : unread}
-          </span>
-        ) : null}
-      </button>
+      <BellButton ref={button} id={BELL_ID} onClick={toggle} unread={unread} expanded={open} ring={ring} />
 
       {open
         ? createPortal(

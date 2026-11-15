@@ -41,6 +41,8 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       { source: "/:path*", headers: securityHeaders },
+      // Aperçu de la conversation : affiché dans le téléphone de l'accueil, donc dans un cadre du site lui-même (et de lui seul).
+      { source: "/apercu/:path*", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
       // Moteur des cartes : l'adresse porte la version (?v=), le fichier ne change donc jamais à la même adresse.
       { source: "/maplibre/:file*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
       // Lecteur de PDF (livres) : la version est dans l'adresse (scripts/copy-vad.mjs).

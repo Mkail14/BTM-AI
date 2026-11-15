@@ -1,5 +1,6 @@
 "use client";
 
+import { ChatSurface } from "@/components/chat/ChatChrome";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, use, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -145,19 +146,12 @@ export function ChatShell({ children }: { children: ReactNode }) {
 function PersonaMain({ children }: { children: ReactNode }) {
   const { current } = useCurrentPersonality();
   return (
-    <main
-      id="contenu"
-      data-persona={current}
-      style={personaStyle(current)}
-      className="persona-surface relative flex min-w-0 flex-1 flex-col"
-    >
-      <div aria-hidden="true" className="fond-lagon" />
-      <div aria-hidden="true" className="persona-line pointer-events-none absolute inset-x-0 top-0 z-20 h-0.5" />
+    <ChatSurface persona={current} style={personaStyle(current)}>
       {children}
       {/* Commande en cours : toujours à portée, sans remonter la conversation. */}
       <ActiveOrderTab />
       {/* Bonne nouvelle animée (place de code réservée…). */}
       <CelebrationToast />
-    </main>
+    </ChatSurface>
   );
 }

@@ -6,9 +6,8 @@ import { NotificationBell } from "./NotificationBell";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
-import { BrandLogo } from "@/components/brand/BrandLogo";
 import { useChatShell } from "@/components/layout/ChatShell";
-import { IconArrowDown, IconArrowLeft, IconMenu, IconMic, IconOffline, IconPlus } from "@/components/ui/icons";
+import { IconArrowDown, IconOffline } from "@/components/ui/icons";
 import {
   clearAnonymousDraft,
   loadAnonymousDraft,
@@ -25,6 +24,7 @@ import { fadeOutHome, noteGlobeOrigin, takeGlobeOrigin } from "./globe-origin";
 import { PlusMenu, type SentFile } from "./PlusMenu";
 import { SentFileChip } from "./SentFileChip";
 import { withAttachmentLabel } from "@/lib/chat/attachment";
+import { CHAT_DISCLAIMER, CHAT_PLACEHOLDER, ChatFootnote, ChatHeader, ComposerDock, ComposerRow, MessageThread, MicButton } from "./ChatChrome";
 import { Composer, type ComposerHandle } from "./Composer";
 import { MessageItem, type UiMessage } from "./MessageItem";
 import { wantsSpokenReply } from "@/lib/voice-live/spoken-request";
@@ -628,54 +628,10 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       // overscroll-contain : l'effet élastique en bout de liste ne fait pas bouger toute la page.
       className={`relative flex h-full min-h-0 flex-col overscroll-contain ${messages.length === 0 ? "overflow-hidden" : "overflow-y-auto"}`}
     >
-      {/* z-20 : au-dessus des boutons des messages (copier, écouter : z-10) qui défilent dessous. */}
-      <header className="sticky top-0 z-20 flex h-[calc(3.5rem+env(safe-area-inset-top))] shrink-0 items-center gap-2 persona-backdrop border-b border-border px-3 pt-[env(safe-area-inset-top)] md:border-transparent md:px-5">
-        {/* Visiteur : flèche pour revenir à la page d'accueil (la conversation est gardée). */}
-        {goToLanding ? (
-          <button
-            type="button"
-            onClick={goToLanding}
-            aria-label="Revenir à l'accueil"
-            title="Revenir à l'accueil"
-            className="zone-appui relative rounded-lg p-2 text-fg-muted hover:bg-bg-muted hover:text-fg"
-          >
-            <IconArrowLeft />
-          </button>
-        ) : null}
-        <button
-          type="button"
-          onClick={openSidebar}
-          className="zone-appui relative rounded-lg p-2 text-fg-muted hover:bg-bg-muted md:hidden"
-          aria-label="Ouvrir le menu"
-        >
-          <IconMenu />
-        </button>
-        {/* Visiteur : le logo ramène à la page d'accueil. */}
-        {goToLanding ? (
-          <button type="button" onClick={goToLanding} aria-label="Revenir à l'accueil" className="rounded md:hidden">
-            <BrandLogo size="sm" />
-          </button>
-        ) : (
-          <span className="md:hidden">
-            <BrandLogo size="sm" />
-          </span>
-        )}
-        <div className="ml-auto flex items-center gap-2">
-          {/* Téléphone : nouvelle conversation sans ouvrir le menu (sur ordinateur, le « + » est dans la barre latérale). */}
-          {messages.length > 0 ? (
-            <button
-              type="button"
-              onClick={startNewChat}
-              aria-label="Nouvelle conversation"
-              className="app-hide rounded-lg p-2 text-fg-muted hover:bg-bg-muted hover:text-fg md:hidden"
-            >
-              <IconPlus width={22} height={22} />
-            </button>
-          ) : null}
-          {/* Notifications : livraisons, paiements, réservations (compte connecté). */}
-          {userId ? <NotificationBell /> : null}
-        </div>
-      </header>
+      <ChatHeader onBack={goToLanding} onMenu={openSidebar} onNewChat={messages.length > 0 ? startNewChat : null}>
+        {/* Notifications : livraisons, paiements, réservations (compte connecté). */}
+        {userId ? <NotificationBell /> : null}
+      </ChatHeader>
 
       <div ref={contentRef} className={`flex flex-1 flex-col ${messages.length === 0 ? "min-h-0" : "shrink-0"}`}>
         {messages.length === 0 ? (
@@ -728,7 +684,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             </ul>
           </div>
         ) : (
-          <section aria-label="Conversation" className="mx-auto w-full max-w-3xl space-y-10 px-3.5 pt-4 pb-10 sm:px-6 sm:pt-6 sm:pb-12">
+          <MessageThread>
             <TeachWordContext value={user?.isAdmin ? teachWord : null}>
               <CorrectContext value={user?.isAdmin ? correctPassage : null}>
                 {messages.map((message, index) => (
@@ -741,28 +697,26 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
                 ))}
               </CorrectContext>
             </TeachWordContext>
-          </section>
+          </MessageThread>
         )}
       </div>
 
-      {/* Fondu vers la teinte de la conversation : les messages passent dessous en douceur. */}
-      <div
-        className={`composer-dock sticky bottom-0 z-10 shrink-0 px-2.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] ${
-          messages.length === 0 ? "pt-1" : "bg-[linear-gradient(to_top,var(--persona-surface,var(--bg))_80%,transparent)] pt-4"
-        }`}
+      <ComposerDock
+        empty={messages.length === 0}
+        before={
+          // Revenir en bas après avoir remonté la conversation.
+          showJump && messages.length > 0 ? (
+            <button
+              type="button"
+              onClick={() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })}
+              aria-label="Revenir en bas de la conversation"
+              className="absolute -top-10 left-1/2 grid size-9 -translate-x-1/2 place-items-center rounded-full border border-border bg-bg text-fg-muted shadow-lg transition hover:text-fg"
+            >
+              <IconArrowDown width={18} height={18} />
+            </button>
+          ) : null
+        }
       >
-        {/* Revenir en bas après avoir remonté la conversation. */}
-        {showJump && messages.length > 0 ? (
-          <button
-            type="button"
-            onClick={() => scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" })}
-            aria-label="Revenir en bas de la conversation"
-            className="absolute -top-10 left-1/2 grid size-9 -translate-x-1/2 place-items-center rounded-full border border-border bg-bg text-fg-muted shadow-lg transition hover:text-fg"
-          >
-            <IconArrowDown width={18} height={18} />
-          </button>
-        ) : null}
-        <div className="mx-auto w-full max-w-3xl space-y-2">
           {!online ? (
             <p role="status" className="flex items-center gap-2 rounded-lg bg-warning-soft px-3 py-2 text-sm">
               <IconOffline width={16} height={16} />
@@ -812,7 +766,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
           {/* Le + (photo ou document, si « documents » est allumé : /admin/fonctionnalites) flotte à gauche de la barre, dans sa propre bulle. */}
           {sentFile ? <SentFileChip file={sentFile} onRemove={() => setSentFile(null)} /> : null}
           {/* Au repos, la ligne s'aligne sur les cartes et les messages ; dès qu'on écrit, elle s'étire en douceur sur toute la largeur. */}
-          <div className="flex items-end gap-2 transition-[padding] duration-300 ease-out motion-reduce:transition-none sm:px-6 sm:focus-within:px-0">
+          <ComposerRow>
             {user?.features?.includes("documents") ? (
               <PlusMenu
                 disabled={blocked || !online || isStreaming}
@@ -844,28 +798,19 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
                   }
                 }}
                 onStop={() => abortRef.current?.abort()}
-                placeholder="Demande-moi ce que tu veux…"
+                placeholder={CHAT_PLACEHOLDER}
                 // Conversation vide : des exemples défilent pour montrer ce que Tamilya sait faire ; ensuite, le texte reste fixe.
                 examples={messages.length === 0 ? [...(user?.isAdmin ? [FOOD_EXAMPLE] : []), ...EXAMPLES] : undefined}
                 trailing={
                   voiceEnabled ? (
-                    <button
-                      type="button"
-                      onClick={voice.start}
-                      disabled={blocked || !online || isStreaming}
-                      aria-label="Parler à Tamilya"
-                      title="Parler à Tamilya"
-                      className="grid size-9 shrink-0 place-items-center rounded-full text-fg-muted transition pointer-coarse:size-10 hover:bg-bg-muted hover:text-fg disabled:opacity-45"
-                    >
-                      <IconMic />
-                    </button>
+                    <MicButton onClick={voice.start} disabled={blocked || !online || isStreaming} />
                   ) : null
                 }
               />
             </div>
-          </div>
+          </ComposerRow>
           {!userId && !anonymousLimitReached && guestSent > 0 ? (
-            <p className="text-center text-[11px] text-fg-muted">
+            <ChatFootnote>
               Encore {guestLeft} message{guestLeft > 1 ? "s" : ""} sans compte ·{" "}
               <button
                 type="button"
@@ -874,12 +819,11 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
               >
                 Créer mon compte gratuit
               </button>
-            </p>
+            </ChatFootnote>
           ) : (
-            <p className="text-center text-[11px] text-fg-muted">Tamilya peut se tromper. Vérifie les informations importantes.</p>
+            <ChatFootnote>{CHAT_DISCLAIMER}</ChatFootnote>
           )}
-        </div>
-      </div>
+      </ComposerDock>
 
       <p className="sr-only" role="status" aria-live="polite">
         {liveStatus}

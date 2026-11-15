@@ -1,6 +1,5 @@
 "use client";
 
-import { Check } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState, type CSSProperties, type FormEvent, type ReactNode } from "react";
 import { useAuth } from "@/components/auth/AuthProvider";
@@ -34,12 +33,6 @@ const POINTS = [
     title: "Elle parle shimaoré avec toi",
     text: "Écris-lui en français ou en shimaoré, comme tu parles. Demande-lui de répondre en shimaoré : elle le fait avec les mots qu'elle connaît.",
     tag: "maison → nyumba",
-  },
-  {
-    title: "Elle n'invente pas",
-    text: "Elle n'utilise que des mots vérifiés. Quand elle ne connaît pas un mot, elle le dit au lieu de deviner.",
-    tag: "Mots vérifiés",
-    checked: true,
   },
   {
     title: "Elle apprend chaque jour",
@@ -281,43 +274,40 @@ export function GuestLanding({
           </section>
         </div>
 
-        {/* Ce qu'il faut savoir sur Tamilya : fond d'eau rose floutée (.landing-eau), une conversation d'exemple et trois cartes. */}
-        {/* Ordinateur : tout tient sur un écran sous la barre du haut (2,75 rem) ; la conversation prend la place qui reste. */}
+        {/* Ce qu'il faut savoir sur Tamilya : fond d'eau rose floutée (.landing-eau), deux cartes et un téléphone qui montre une conversation. */}
+        {/* Ordinateur : tout tient sur un écran sous la barre du haut (2,75 rem) ; le téléphone prend toute la hauteur, à droite. */}
         <section id="shimaore" className="app-hide relative isolate flex min-h-dvh flex-col justify-center overflow-hidden pt-12 md:h-dvh md:min-h-[36rem] md:pt-11">
           <div aria-hidden="true" className="landing-eau" />
           <div className="mx-auto flex w-full max-w-5xl flex-col px-5 py-12 md:h-full md:py-8">
-            {/* Même grille que les cartes du dessous : la conversation tombe pile au-dessus de la troisième carte. */}
-            <div className="grid gap-10 md:min-h-0 md:flex-1 md:grid-cols-3 md:grid-rows-1 md:gap-4">
-              <Reveal className="md:col-span-2 md:self-center md:pr-12">
-                <h2 className="landing-h2">Une IA qui apprend le shimaoré, pour de vrai</h2>
-                <p className="mt-5 max-w-sm leading-relaxed text-fg-muted">
-                  Tamilya est créée à Mayotte par GROUPE BTM. Sa priorité : la langue de l&apos;île. Elle t&apos;aide aussi au quotidien à Mayotte.
-                </p>
-              </Reveal>
+            <div className="grid gap-10 md:min-h-0 md:flex-1 md:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] md:grid-rows-1 md:gap-12">
+              <div className="md:self-center">
+                <Reveal>
+                  <h2 className="landing-h2">Une IA qui apprend le shimaoré, pour de vrai</h2>
+                  <p className="mt-5 max-w-sm leading-relaxed text-fg-muted">
+                    Tamilya est créée à Mayotte par GROUPE BTM. Sa priorité : la langue de l&apos;île. Elle t&apos;aide aussi au quotidien à Mayotte.
+                  </p>
+                </Reveal>
+                <ul className="mt-8 grid gap-4 sm:grid-cols-2">
+                  {POINTS.map((point, i) => (
+                    <li key={point.title}>
+                      <Reveal delay={80 + i * 70} className="landing-glass flex h-full flex-col rounded-3xl p-5 md:p-4">
+                        <span aria-hidden="true" className="landing-index">
+                          0{i + 1}
+                        </span>
+                        <h3 className="mt-2 text-lg font-semibold tracking-tight md:text-base">{point.title}</h3>
+                        <p className="mt-1 text-[15px] leading-relaxed text-fg-muted md:text-sm">{point.text}</p>
+                        <p className="mt-auto pt-3">
+                          <span className="inline-block rounded-full bg-white/60 px-3 py-1 text-xs font-medium dark:bg-white/[0.08]">{point.tag}</span>
+                        </p>
+                      </Reveal>
+                    </li>
+                  ))}
+                </ul>
+              </div>
               <Reveal delay={80} className="md:h-full md:min-h-0">
                 <ChatDemo />
               </Reveal>
             </div>
-
-            <ul className="mt-4 grid gap-4 md:grid-cols-3">
-              {POINTS.map((point, i) => (
-                <li key={point.title}>
-                  <Reveal delay={i * 70} className="landing-glass flex h-full flex-col rounded-3xl p-5 md:p-4">
-                    <span aria-hidden="true" className="landing-index">
-                      0{i + 1}
-                    </span>
-                    <h3 className="mt-2 text-lg font-semibold tracking-tight md:text-base">{point.title}</h3>
-                    <p className="mt-1 text-[15px] leading-relaxed text-fg-muted md:text-sm">{point.text}</p>
-                    <p className="mt-auto pt-3">
-                      <span className="inline-block rounded-full bg-white/60 px-3 py-1 text-xs font-medium dark:bg-white/[0.08]">
-                        {"checked" in point && point.checked ? <Check aria-hidden="true" className="mr-1 inline size-3.5 align-[-2px]" /> : null}
-                        {point.tag}
-                      </span>
-                    </p>
-                  </Reveal>
-                </li>
-              ))}
-            </ul>
           </div>
         </section>
 
