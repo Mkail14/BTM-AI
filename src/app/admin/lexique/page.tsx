@@ -8,31 +8,20 @@ import { LexiconTabs } from "./LexiconTabs";
 import { buildLexiconTree } from "@/lib/language/curriculum";
 import { listBranches } from "@/lib/language/branches";
 import { sortNewWords } from "@/lib/language/sort-words";
-import { readVariants } from "@/lib/ai/brain";
-import { PERSONALITY_IDS } from "@/lib/ai/personalities";
 import { findConflicts } from "@/lib/language/word-conflicts";
 import { ConflictsPanel } from "./ConflictsPanel";
-import type { ConflictRow, LexiconRow, LexiconVariants, WordRequestRow, WordRow } from "./limits";
+import type { ConflictRow, LexiconRow, WordRequestRow, WordRow } from "./limits";
 import { WordRequests } from "./WordRequests";
 import { WordsPanel } from "./WordsPanel";
 
 export const metadata: Metadata = { title: "Lexique shimaoré", robots: { index: false, follow: false } };
-
-/** Les trois façons de dire l'expression ; une ancienne entrée (sans versions) passe en « professionnelle ». */
-function toVariants(shimaore: string, stored: unknown): LexiconVariants {
-  const saved = readVariants(stored);
-  const variants = Object.fromEntries(PERSONALITY_IDS.map((id) => [id, saved[id] ?? ""])) as LexiconVariants;
-  if (!Object.values(variants).some(Boolean)) variants.professionnelle = shimaore;
-  return variants;
-}
 
 export default async function AdminLexiconPage() {
   const { supabase, user } = await requireAdmin("/admin/lexique");
   const [lexicon, words, requests, branches, ignored] = await Promise.all([
     supabase
       .from("awa_lexicon")
-      // « * » : la colonne variants peut ne pas exister encore (migration lexicon_variants).
-      .select("*")
+      .select("id, french, shimaore, context, validated_by, validated_at, is_active")
       .order("created_at", { ascending: false })
       .limit(1000),
     supabase
@@ -58,7 +47,7 @@ export default async function AdminLexiconPage() {
   const rows: LexiconRow[] = (lexicon.data ?? []).map((r) => ({
     id: r.id,
     french: r.french,
-    variants: toVariants(r.shimaore, r.variants),
+    shimaore: r.shimaore,
     context: r.context ?? "",
     validatedBy: r.validated_by,
     validatedAt: r.validated_at,
@@ -81,7 +70,7 @@ export default async function AdminLexiconPage() {
   });
   for (const word of wordRows) word.category = sorted.get(word.id) ?? word.category;
   const tree = buildLexiconTree(
-    [...activeWords, ...rows.filter((r) => r.isActive).map((r) => ({ french: r.french, shimaore: Object.values(r.variants).find(Boolean) ?? "" }))],
+    [...activeWords, ...rows.filter((r) => r.isActive).map((r) => ({ french: r.french, shimaore: r.shimaore }))],
     branches ?? [],
   );
 

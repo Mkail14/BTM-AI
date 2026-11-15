@@ -13,7 +13,7 @@ const TEXTS: { id: keyof CharacterDraft; label: string; hint: string; icon: Comp
   {
     id: "identity",
     label: "Caractère",
-    hint: "Sa façon de parler et d'agir, commune à toutes les personnalités. Écrivez « Tu… ».",
+    hint: "Sa façon de parler et d'agir. Écrivez « Tu… ».",
     icon: IconSparkle,
   },
   {

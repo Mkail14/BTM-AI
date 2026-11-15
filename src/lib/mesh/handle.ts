@@ -122,7 +122,7 @@ async function chat(admin: SupabaseClient, user: SessionUser, payload: ChatPaylo
     personalityInstructions,
     identity: brain.identity,
     rules: brain.rules,
-    lexicon: lexiconFor(brain, DEFAULT_PERSONALITY, payload.text),
+    lexicon: lexiconFor(brain, payload.text),
     grammar: brain.grammar,
     words: wordsFor(brain, payload.text),
     gloss: glossFor(brain, payload.text),

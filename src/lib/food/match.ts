@@ -44,6 +44,8 @@ const GENERIC = new Set([
   "le", "la", "les", "du", "de", "des", "chez", "restaurant", "resto", "snack", "food", "cuisine", "traiteur", "top", "good", "eat",
   // « l'île », « Mayotte » : mots courants, pas le nom d'un restaurant (Le Goût des Îles).
   "ile", "mayotte", "maore",
+  // « taxi », « brousse » : le transport (Taxi Brousse Wass Na Wass), pas un resto ; « wass » reste son vrai nom.
+  "taxi", "brousse",
   "mamoudzou", "koungou", "dembeni", "kaweni", "passamainty", "tsararano",
   ...DISH_KINDS.map((k) => k.id),
 ]);

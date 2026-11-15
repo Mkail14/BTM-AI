@@ -1,6 +1,5 @@
 "use client";
 
-import { Pictogram } from "@/components/ui/Pictogram";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
@@ -8,7 +7,6 @@ import { IconClose, IconLanguage, IconPlus, IconTrash } from "@/components/ui/ic
 import type { ActionResult } from "@/lib/admin/action-auth";
 import { lostOk } from "@/lib/safe-action";
 import { deleteLexiconAction, saveLexiconAction } from "./actions";
-import { PERSONALITIES, type PersonalityId } from "@/lib/ai/personalities";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { LEXICON_LIMITS, type LexiconRow } from "./limits";
 
@@ -17,18 +15,11 @@ type Draft = Omit<LexiconRow, "id" | "validatedAt"> & { id: string | null };
 const EMPTY: Draft = {
   id: null,
   french: "",
-  variants: { professionnelle: "", mechante: "", cool: "" },
+  shimaore: "",
   context: "",
   validatedBy: "",
   isActive: true,
 };
-
-/** Ordre d'affichage : la version professionnelle sert aussi de version générale. */
-const TONES: { id: PersonalityId; placeholder: string }[] = [
-  { id: "professionnelle", placeholder: "Version polie, posée" },
-  { id: "mechante", placeholder: "Version moqueuse, piquante" },
-  { id: "cool", placeholder: "Version détendue, familière" },
-];
 
 const dateFormat = new Intl.DateTimeFormat("fr-FR", { dateStyle: "medium", timeZone: "UTC" });
 
@@ -44,8 +35,7 @@ function EntryDialog({ initial, onClose }: { initial: Draft; onClose: () => void
     setStatus(null);
   };
   const complete =
-    draft.french.trim() && Object.values(draft.variants).some((v) => v.trim()) && draft.validatedBy.trim();
-  const setVariant = (tone: PersonalityId, value: string) => set("variants", { ...draft.variants, [tone]: value });
+    draft.french.trim() && draft.shimaore.trim() && draft.validatedBy.trim();
 
   useEffect(() => {
     dialogRef.current?.querySelector<HTMLElement>("input")?.focus();
@@ -136,31 +126,18 @@ function EntryDialog({ initial, onClose }: { initial: Draft; onClose: () => void
                 onChange={(e) => set("french", e.target.value)}
                 className="w-full bg-transparent px-3.5 pt-1 pb-3 text-[15px] outline-none"
               />
-              <div className="border-t border-border bg-bg px-3.5 pt-2.5 pb-1">
-                <p className="text-xs font-medium text-accent">En shimaoré, selon la personnalité</p>
-                <ul className="mt-1 divide-y divide-border">
-                  {TONES.map(({ id, placeholder }) => (
-                    <li key={id} className="flex items-center gap-3 py-1.5">
-                      <label htmlFor={`lexicon-${id}`} className="flex w-36 shrink-0 items-center gap-2 text-sm">
-                        <Pictogram of={PERSONALITIES[id].emoji} />
-                        {PERSONALITIES[id].label}
-                      </label>
-                      <input
-                        id={`lexicon-${id}`}
-                        value={draft.variants[id]}
-                        maxLength={LEXICON_LIMITS.phrase}
-                        placeholder={placeholder}
-                        onChange={(e) => setVariant(id, e.target.value)}
-                        className="min-w-0 flex-1 bg-transparent py-1.5 text-[15px] font-medium outline-none placeholder:font-normal"
-                      />
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              <label htmlFor="lexicon-shi" className="block border-t border-border bg-bg px-3.5 pt-2.5 text-xs font-medium text-accent">
+                En shimaoré
+              </label>
+              <input
+                id="lexicon-shi"
+                value={draft.shimaore}
+                maxLength={LEXICON_LIMITS.phrase}
+                placeholder="Ex. : Kwezi, hali gani ?"
+                onChange={(e) => set("shimaore", e.target.value)}
+                className="w-full bg-bg px-3.5 pt-1 pb-3 text-[15px] font-medium outline-none placeholder:font-normal"
+              />
             </div>
-            <p className="-mt-2 text-xs text-fg-muted">
-              Au moins une version. Une personnalité sans version utilise la professionnelle.
-            </p>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
@@ -248,7 +225,7 @@ export function LexiconEditor({ rows }: { rows: LexiconRow[] }) {
   const active = rows.filter((r) => r.isActive).length;
   const q = query.trim().toLowerCase();
   const shown = q
-    ? rows.filter((r) => `${r.french} ${Object.values(r.variants).join(" ")} ${r.context}`.toLowerCase().includes(q))
+    ? rows.filter((r) => `${r.french} ${r.shimaore} ${r.context}`.toLowerCase().includes(q))
     : rows;
   const opened = openId === "new" ? EMPTY : rows.find((r) => r.id === openId);
   // Stable : la fenêtre ne doit pas reprendre le focus à chaque frappe.
@@ -293,14 +270,7 @@ export function LexiconEditor({ rows }: { rows: LexiconRow[] }) {
                   {row.context ? <span className="block text-xs text-fg-muted">{row.context}</span> : null}
                 </span>
                 <span className="min-w-0 space-y-0.5">
-                  {TONES.filter(({ id }) => row.variants[id]).map(({ id }) => (
-                    <span key={id} className="flex items-baseline gap-1.5" title={PERSONALITIES[id].label}>
-                      <span aria-label={PERSONALITIES[id].label} className="shrink-0 text-xs">
-                        <Pictogram of={PERSONALITIES[id].emoji} />
-                      </span>
-                      <span className="break-words text-accent">{row.variants[id]}</span>
-                    </span>
-                  ))}
+                  <span className="break-words text-accent">{row.shimaore}</span>
                 </span>
                 <span className="text-xs text-fg-muted">
                   {row.isActive ? "" : "désactivée · "}

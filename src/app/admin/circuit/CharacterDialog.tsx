@@ -60,7 +60,7 @@ export function CharacterDialog({
             <h2 id="character-title" className="text-lg leading-tight font-semibold">
               Caractère et règles
             </h2>
-            <p className="mt-0.5 text-sm text-fg-muted">Envoyés au modèle à chaque message, quelle que soit la personnalité.</p>
+            <p className="mt-0.5 text-sm text-fg-muted">Envoyés au modèle à chaque message.</p>
           </div>
           <button
             type="button"

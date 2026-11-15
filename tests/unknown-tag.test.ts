@@ -55,8 +55,8 @@ describe("relevé de fond du shimaoré", () => {
 
 describe("signalement des mots inconnus dans le message système", () => {
   it("est demandé aux utilisateurs, pas au maître", () => {
-    assert.match(buildSystemPrompt("cool", { reportUnknownWords: true }), /<<inconnu:/);
-    assert.doesNotMatch(buildSystemPrompt("cool", { reportUnknownWords: true, teacher: true }), /<<inconnu:/);
+    assert.match(buildSystemPrompt("professionnelle", { reportUnknownWords: true }), /<<inconnu:/);
+    assert.doesNotMatch(buildSystemPrompt("professionnelle", { reportUnknownWords: true, teacher: true }), /<<inconnu:/);
     assert.doesNotMatch(buildSystemPrompt(), /<<inconnu:/);
   });
 });

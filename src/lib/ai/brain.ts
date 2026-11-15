@@ -72,21 +72,15 @@ async function loadGrammar(admin: NonNullable<ReturnType<typeof getSupabaseAdmin
   return (data ?? []).map((row) => ({ title: row.title, rule: row.rule, examples: row.examples ?? "" }));
 }
 
-/** Colonnes du lexique lues ; variants peut manquer (migration lexicon_variants non appliquée). */
+/** Colonnes du lexique lues. */
 const LEXICON_COLUMNS = "french, shimaore, context, validated_by, validated_at";
 
-/** Expressions actives, les plus récentes d'abord pour la limite ; sans la colonne variants si elle n'existe pas. */
-async function loadLexicon(admin: NonNullable<ReturnType<typeof getSupabaseAdminClient>>) {
-  const query = (columns: string) =>
-    admin.from("awa_lexicon").select(columns).eq("is_active", true).order("created_at", { ascending: false }).limit(2000);
-  const withVariants = await query(`${LEXICON_COLUMNS}, variants`);
-  // 42703 : colonne inconnue.
-  const error = withVariants.error;
-  if (error && (error.code === "42703" || /variants/.test(error.message ?? ""))) return query(LEXICON_COLUMNS);
-  return withVariants;
+/** Expressions actives, les plus récentes d'abord pour la limite. */
+function loadLexicon(admin: NonNullable<ReturnType<typeof getSupabaseAdminClient>>) {
+  return admin.from("awa_lexicon").select(LEXICON_COLUMNS).eq("is_active", true).order("created_at", { ascending: false }).limit(2000);
 }
 
-type LexiconRow = { french: string; shimaore: string; context: string | null; validated_by: string; validated_at: string; variants?: unknown };
+type LexiconRow = { french: string; shimaore: string; context: string | null; validated_by: string; validated_at: string };
 
 // Court : invalidateTamilyaBrain() ne vide que le module qui l'appelle (les actions
 // de l'admin), pas celui des routes du chat ni les autres instances. Une leçon
@@ -149,7 +143,6 @@ async function readTamilyaBrain(started: number): Promise<TamilyaBrain> {
         french: row.french,
         shimaore: row.shimaore,
         context: row.context ?? undefined,
-        variants: readVariants(row.variants),
         validatedBy: row.validated_by,
         validatedAt: row.validated_at,
       })),
@@ -181,31 +174,22 @@ export function knowledgeFor(brain: TamilyaBrain, message: string, maxChars = 60
   return selectKnowledge(brain.knowledge, message, maxChars);
 }
 
-/** Versions par personnalité enregistrées en base (texte non vide uniquement). */
-export function readVariants(value: unknown): Record<string, string> {
-  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
-  return Object.fromEntries(
-    Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === "string" && entry[1].trim() !== ""),
-  );
-}
-
 /** Phrases modèles données au modèle à chaque message, au plus. */
 const LEXICON_IN_PROMPT = 80;
 
 /**
- * Expressions telles que la personnalité les dit : sa version si elle existe,
- * sinon la version générale. undefined sans expression (exemples du code).
+ * Expressions validées par le maître. undefined sans expression (exemples du code).
  * Avec le message, et beaucoup d'expressions : celles qui y apparaissent
  * d'abord, puis les plus récemment validées (« C'est juste », corrections).
  */
-export function lexiconFor(brain: TamilyaBrain, personality: PersonalityId, message?: string): ValidatedExample[] | undefined {
+export function lexiconFor(brain: TamilyaBrain, message?: string): ValidatedExample[] | undefined {
   if (brain.lexicon.length === 0) return undefined;
   let chosen = brain.lexicon;
   if (message !== undefined && chosen.length > LEXICON_IN_PROMPT) {
     const picked = new Set(selectWords(chosen, message, { maxMatched: 40, maxTopic: LEXICON_IN_PROMPT, topic: true }));
     chosen = chosen.filter((example) => picked.has(example));
   }
-  return chosen.map(({ variants, ...example }) => ({ ...example, shimaore: variants?.[personality] || example.shimaore }));
+  return chosen;
 }
 
 /** Mots du dictionnaire utiles pour ce message ; avec son maître, Tamilya parle shimaoré et reçoit tout son vocabulaire. */

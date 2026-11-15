@@ -25,9 +25,7 @@ export type PersonalityRecord = {
 export type PersonalityRecords = Record<PersonalityId, PersonalityRecord>;
 
 const EMPTY: PersonalityRecords = {
-  mechante: { behavior: null, updatedAt: null },
   professionnelle: { behavior: null, updatedAt: null },
-  cool: { behavior: null, updatedAt: null },
 };
 
 const CACHE_MS = 60_000;

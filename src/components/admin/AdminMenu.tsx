@@ -55,7 +55,6 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
     title: "Savoir",
     items: [
       { label: "Connaissances", icon: IconBook, href: "/admin/connaissances" },
-      { label: "Bibliothèque Mayotte", tab: "Bibliothèque", icon: IconBook, href: "/admin/bibliotheque" },
     ],
   },
   {

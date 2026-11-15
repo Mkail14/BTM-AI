@@ -1,7 +1,7 @@
 import { stripEmoji } from "@/lib/chat/no-emoji";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { EMPTY_BRAIN, lexiconFor, readVariants } from "@/lib/ai/brain";
+import { EMPTY_BRAIN, lexiconFor } from "@/lib/ai/brain";
 import { selectKnowledge } from "@/lib/ai/knowledge";
 import { extractMemories, isMemoryAllowed, parseMemoryUpdates, shouldLearnFrom } from "@/lib/ai/memory";
 import { mayBeTeaching, parseTaughtWords, parseTeaching, parseWordList, shimaoreEntryKey } from "@/lib/language/teaching";
@@ -130,7 +130,7 @@ describe("selectWords", () => {
   });
 
   it("ajoute le vocabulaire au message système", () => {
-    const prompt = buildSystemPrompt("cool", { words: [words[0]] });
+    const prompt = buildSystemPrompt("professionnelle", { words: [words[0]] });
     assert.match(prompt, /maison → nyumba/);
   });
 });
@@ -142,27 +142,18 @@ describe("lexiconFor", () => {
       {
         french: "Bonjour",
         shimaore: "Jéjé",
-        variants: { mechante: "Eh toi, jéjé", cool: "Kwezi !" },
         validatedBy: "test",
         validatedAt: "2026-10-27",
       },
     ],
   };
 
-  it("utilise la version de la personnalité, sinon la version générale", () => {
-    assert.equal(lexiconFor(brain, "mechante")?.[0].shimaore, "Eh toi, jéjé");
-    assert.equal(lexiconFor(brain, "cool")?.[0].shimaore, "Kwezi !");
-    assert.equal(lexiconFor(brain, "professionnelle")?.[0].shimaore, "Jéjé");
+  it("donne les expressions validées telles qu'elles sont", () => {
+    assert.equal(lexiconFor(brain)?.[0].shimaore, "Jéjé");
   });
 
   it("laisse les exemples du code sans expression en base", () => {
-    assert.equal(lexiconFor(EMPTY_BRAIN, "cool"), undefined);
-  });
-
-  it("ignore les versions vides ou mal formées", () => {
-    assert.deepEqual(readVariants({ cool: "Kwezi", mechante: "  ", x: 3 }), { cool: "Kwezi" });
-    assert.deepEqual(readVariants(null), {});
-    assert.deepEqual(readVariants(["a"]), {});
+    assert.equal(lexiconFor(EMPTY_BRAIN), undefined);
   });
 });
 
@@ -232,7 +223,7 @@ describe("mémoire tenue par le modèle", () => {
 
   it("Tamilya reste Tamilya quelle que soit l'API", () => {
     assert.match(buildSystemPrompt(), /Continuité : tu es toujours la même Tamilya/);
-    assert.match(buildSystemPrompt("cool", { identity: "Caractère : autre." }), /Ne te présente jamais comme ChatGPT/);
+    assert.match(buildSystemPrompt("professionnelle", { identity: "Caractère : autre." }), /Ne te présente jamais comme ChatGPT/);
   });
 });
 
@@ -268,12 +259,12 @@ describe("leçon à la voix avec le maître de Tamilya", () => {
 
   it("demande des réponses brèves, sauf sur la voix et les sites partenaires qui ont leurs propres consignes", () => {
     assert.match(buildSystemPrompt(), /Longueur : va droit au but/);
-    assert.doesNotMatch(buildSystemPrompt("cool", { voice: true }), /Longueur : va droit au but/);
+    assert.doesNotMatch(buildSystemPrompt("professionnelle", { voice: true }), /Longueur : va droit au but/);
   });
 
   it("le mode maître n'apparaît qu'avec le maître", () => {
     assert.doesNotMatch(buildSystemPrompt(), /MODE MAÎTRE/);
-    assert.match(buildSystemPrompt("cool", { teacher: true }), /MODE MAÎTRE/);
+    assert.match(buildSystemPrompt("professionnelle", { teacher: true }), /MODE MAÎTRE/);
   });
 
   it("lit les réponses sans Markdown ni emojis", () => {
@@ -283,7 +274,7 @@ describe("leçon à la voix avec le maître de Tamilya", () => {
 
 describe("mode vocal", () => {
   it("prévient Tamilya que le message est dicté, et finit par lui rappeler qui elle est", () => {
-    const prompt = buildSystemPrompt("cool", { voice: true });
+    const prompt = buildSystemPrompt("professionnelle", { voice: true });
     assert.match(prompt, /« chinois »[^\n]*« shimaoré »/);
     assert.match(prompt, /Rappel : tu es Tamilya, de GROUPE BTM, née le 9 juillet 2026[^\n]*$/);
     assert.doesNotMatch(buildSystemPrompt(), /dictée automatique/);
@@ -292,7 +283,7 @@ describe("mode vocal", () => {
 
 describe("mode maître : Tamilya parle shimaoré", () => {
   it("remplace « français par défaut » par le shimaoré, sans traduction", () => {
-    const prompt = buildSystemPrompt("cool", { teacher: true });
+    const prompt = buildSystemPrompt("professionnelle", { teacher: true });
     assert.doesNotMatch(prompt, /réponds en français par défaut/);
     assert.match(prompt, /UNIQUEMENT en shimaoré/);
     assert.match(prompt, /\[\[marché\]\]/);

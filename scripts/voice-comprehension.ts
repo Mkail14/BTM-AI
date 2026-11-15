@@ -40,7 +40,7 @@ void (async () => {
       personalityInstructions: await loadPersonalityInstructions(DEFAULT_PERSONALITY).catch(() => undefined),
       identity: brain.identity,
       rules: brain.rules,
-      lexicon: lexiconFor(brain, DEFAULT_PERSONALITY, ""),
+      lexicon: lexiconFor(brain, ""),
       grammar: brain.grammar,
       words: wordsFor(brain, "", false),
       knowledge: knowledgeFor(brain, ""),

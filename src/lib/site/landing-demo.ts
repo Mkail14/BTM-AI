@@ -27,7 +27,7 @@ let failedAt = 0;
 const french = (): DemoLine[] => DEMO_SCRIPT.map((line) => ({ ...line, shimaore: null }));
 
 function vocabularyKey(brain: TamilyaBrain): string {
-  const lexicon = lexiconFor(brain, DEFAULT_PERSONALITY) ?? [];
+  const lexicon = lexiconFor(brain) ?? [];
   const vocabulary = [...lexicon.map((e) => [e.french, e.shimaore]), ...brain.words.map((w) => [w.french, w.shimaore])];
   return createHash("sha256").update(JSON.stringify([DEMO_SCRIPT, vocabulary])).digest("hex");
 }
@@ -56,7 +56,7 @@ async function translate(brain: TamilyaBrain): Promise<string[] | null> {
   const system = buildSystemPrompt(DEFAULT_PERSONALITY, {
     identity: brain.identity,
     rules: brain.rules,
-    lexicon: lexiconFor(brain, DEFAULT_PERSONALITY, text),
+    lexicon: lexiconFor(brain, text),
     grammar: brain.grammar,
     words: wordsFor(brain, text, true),
     gloss: glossFor(brain, text),

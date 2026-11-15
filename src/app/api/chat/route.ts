@@ -37,7 +37,6 @@ import {
   getRecentMessages,
   insertMessage,
 } from "@/lib/conversations/repository";
-import { libraryContextFor } from "@/lib/library/store";
 import { liveContextFor } from "@/lib/live";
 import { glossFor, invalidateTamilyaBrain, knownTranslations, knowledgeFor, lexiconFor, loadTamilyaBrain, wordsFor } from "@/lib/ai/brain";
 import { AI_ERROR_LABELS } from "@/lib/ai/flow-events";
@@ -248,8 +247,6 @@ export async function POST(request: NextRequest) {
       : Promise.resolve(null);
   // Offres d'emploi et actu de Mayotte, seulement si le message en parle (mode maître compris).
   const liveTask = liveContextFor(body.message, { maxWaitMs: body.voice ? VOICE_LIVE_WAIT_MS : undefined }).catch(() => null);
-  // Bibliothèque Mayotte : passages proches du message (1,5 s au plus, jamais bloquant).
-  const libraryTask = body.voice ? Promise.resolve(null) : libraryContextFor(body.message).catch(() => null);
   // Commande de repas et tickets de barge ouverts à ce compte ? Dernière commande (cookie signé).
   const foodTask = canOrderFood(user).catch(() => false);
   const bargeTask = canBuyBargeTickets(user).catch(() => false);
@@ -404,13 +401,12 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const [brain, { home }, personalityInstructions, live, library, dossier, foodOrdering, bargeTickets, foodOrder] =
+  const [brain, { home }, personalityInstructions, live, dossier, foodOrdering, bargeTickets, foodOrder] =
     await Promise.all([
       brainTask,
       profileTask,
       personalityInstructionsTask,
       liveTask,
-      libraryTask,
       dossierTask,
       foodTask,
       bargeTask,
@@ -491,13 +487,12 @@ export async function POST(request: NextRequest) {
     personalityInstructions,
     identity: brain.identity,
     rules: brain.rules,
-    lexicon: lexiconFor(brain, DEFAULT_PERSONALITY, body.message),
+    lexicon: lexiconFor(brain, body.message),
     grammar: brain.grammar,
     words: wordsFor(brain, body.message, master),
     gloss: glossFor(brain, body.message),
     knowledge: knowledgeFor(brain, body.message),
     live,
-    library,
     memories,
     pastTalks,
     dossier,
@@ -744,7 +739,7 @@ ${block}`;
           text = await reviewShimaore(ai.provider, {
             draft: text,
             grammar: brain.grammar,
-            phrases: lexiconFor(brain, DEFAULT_PERSONALITY, `${body.message} ${text}`) ?? [],
+            phrases: lexiconFor(brain, `${body.message} ${text}`) ?? [],
             words: wordsFor(brain, `${body.message} ${text}`, master),
           });
         }

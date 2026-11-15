@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
     personalityInstructions,
     identity: brain.identity,
     rules: brain.rules,
-    lexicon: lexiconFor(brain, personality, ""),
+    lexicon: lexiconFor(brain, ""),
     grammar: brain.grammar,
     words: withRecentWords(wordsFor(brain, "", ticket.admin), recentWords),
     knowledge: knowledgeFor(brain, ""),
