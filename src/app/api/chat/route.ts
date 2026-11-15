@@ -49,6 +49,7 @@ import { describeMemoryUpdates, getMemories, isMemoryOn, learnFromMessage, newMe
 import { getPastTalks } from "@/lib/ai/past-talks-store";
 import { withRecentReplies } from "@/lib/ai/past-talks";
 import { collectUnknownWords, reportWordConflicts } from "@/lib/ai/word-requests";
+import { collectDoubts } from "@/lib/ai/doubts";
 import { learnWordsFromMessage, teachWords } from "@/lib/ai/words-store";
 import { createUnknownTagFilter } from "@/lib/language/unknown-tag";
 import { parseTeaching, type TaughtWord, type WordList } from "@/lib/language/teaching";
@@ -861,6 +862,15 @@ ${block}`;
             });
           } catch (error) {
             console.error("[chat] Impossible d'enregistrer la réponse", error);
+          }
+          // Elle relit son shimaoré et envoie ses doutes à l'administrateur (même relecture qu'à la voix).
+          if (user.isAdmin && text && status !== "error") {
+            const reply = text;
+            after(() =>
+              collectDoubts(ai.provider, { reply, brain, source: "chat" }).catch((error: unknown) =>
+                console.error("[chat] Doutes non signalés", error),
+              ),
+            );
           }
           if (newConversation && text && status !== "error") {
             const id = conversationId;

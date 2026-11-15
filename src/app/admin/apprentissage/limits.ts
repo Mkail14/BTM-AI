@@ -8,3 +8,14 @@ export type GrammarRow = {
   examples: string;
   isActive: boolean;
 };
+
+/** Doute de Tamilya sur une de ses phrases shimaoré (table awa_questions), en attente de réponse. */
+export type QuestionRow = {
+  id: string;
+  phrase: string;
+  french: string;
+  question: string;
+  source: "chat" | "voix";
+  occurrences: number;
+  lastSeenAt: string;
+};

@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { getAIProvider } from "@/lib/ai";
 import { loadTamilyaBrain } from "@/lib/ai/brain";
+import { collectDoubts } from "@/lib/ai/doubts";
 import { VOICE_NODE } from "@/lib/ai/flow-events";
 import { startFlowTrace } from "@/lib/ai/flow-trace";
 import { extractMemories } from "@/lib/ai/memory";
@@ -47,6 +48,14 @@ async function learnSpokenWords(supabase: SupabaseClient, userId: string, messag
   await learnWordsFromMessage(supabase, userId, ai.provider, { message, previousReply });
 }
 
+/** Relecture de son shimaoré après qu'elle a parlé : doutes envoyés à l'administrateur. */
+async function doubtsAfterSpeaking(reply: string) {
+  const ai = await getAIProvider();
+  if (!ai.ok) return;
+  const brain = await loadTamilyaBrain();
+  await collectDoubts(ai.provider, { reply, brain, source: "voix" });
+}
+
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Requête refusée." }, { status: 403 });
   const { supabase, user } = await getAuthContext();
@@ -83,7 +92,11 @@ export async function POST(request: NextRequest) {
       // Le mot tel qu'il a été entendu, pas rapproché du lexique : un mot nouveau y deviendrait un mot déjà connu.
       if (user.isAdmin) after(() => learnSpokenWords(supabase, user.id, heard, previousReply).catch((error: unknown) => console.error("[vocal direct] Leçon de shimaoré non enregistrée", error)));
     }
-    if (parsed.data.tamilya) await insertMessage(supabase, { conversationId, userId: user.id, role: "assistant", content: parsed.data.tamilya });
+    if (parsed.data.tamilya) {
+      await insertMessage(supabase, { conversationId, userId: user.id, role: "assistant", content: parsed.data.tamilya });
+      // Même relecture qu'au chat : ses doutes sur son shimaoré arrivent dans les mêmes questions.
+      if (user.isAdmin) after(() => doubtsAfterSpeaking(parsed.data.tamilya).catch((error: unknown) => console.error("[vocal direct] Doutes non signalés", error)));
+    }
     flow.step("output", true);
     return NextResponse.json({ conversationId });
   } catch (error) {

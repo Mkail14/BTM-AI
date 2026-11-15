@@ -11,7 +11,8 @@ import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { LexiconTabs } from "../lexique/LexiconTabs";
 import { CleanupPanel } from "./CleanupPanel";
 import { GrammarPanel } from "./GrammarPanel";
-import type { GrammarRow } from "./limits";
+import type { GrammarRow, QuestionRow } from "./limits";
+import { QuestionsPanel } from "./QuestionsPanel";
 import { ProgressPanel, type ProgressTotals } from "./ProgressPanel";
 
 export const metadata: Metadata = { title: "Apprentissage du shimaoré", robots: { index: false, follow: false } };
@@ -49,15 +50,32 @@ export default async function AdminLearningPage() {
   const { supabase, user } = await requireAdmin("/admin/apprentissage");
   const weekAgo = daysAgo(7);
   const monthAgo = daysAgo(30);
-  const [grammar, words, lexicon, ignored, replies, brain] = await Promise.all([
+  const [grammar, words, lexicon, ignored, replies, brain, questions] = await Promise.all([
     supabase.from("awa_grammar").select("id, title, rule, examples, is_active").order("position").order("created_at").limit(100),
     supabase.from("awa_words").select("id, french, shimaore, created_at").limit(10000),
     supabase.from("awa_lexicon").select("id, french, shimaore, created_at").limit(5000),
     supabase.from("awa_cleanup_ignored").select("kind, ref").limit(5000),
     masterReplies(),
     loadTamilyaBrain(),
+    supabase
+      .from("awa_questions")
+      .select("id, phrase, french, question, source, occurrences, last_seen_at")
+      .eq("status", "pending")
+      .order("last_seen_at", { ascending: false })
+      .limit(50),
   ]);
   if (grammar.error) console.error("[admin] Grammaire illisible", grammar.error);
+  if (questions.error) console.error("[admin] Questions illisibles", questions.error);
+
+  const questionRows: QuestionRow[] = (questions.data ?? []).map((r) => ({
+    id: r.id,
+    phrase: r.phrase,
+    french: r.french ?? "",
+    question: r.question,
+    source: r.source === "voix" ? "voix" : "chat",
+    occurrences: r.occurrences,
+    lastSeenAt: r.last_seen_at,
+  }));
 
   const grammarRows: GrammarRow[] = (grammar.data ?? []).map((r) => ({
     id: r.id,
@@ -103,6 +121,13 @@ export default async function AdminLearningPage() {
                     unavailable={replies === null}
                   />
                 ),
+              },
+              {
+                id: "questions",
+                label: "Questions",
+                count: questionRows.length,
+                highlight: questionRows.length > 0,
+                content: <QuestionsPanel rows={questionRows} unavailable={Boolean(questions.error)} />,
               },
               {
                 id: "grammaire",

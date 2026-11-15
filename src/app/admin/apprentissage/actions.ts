@@ -221,3 +221,73 @@ export async function checkSpellingAction(): Promise<{ ok: true; fixes: Spelling
   }
   return { ok: true, fixes };
 }
+
+/* ───────────── Questions de Tamilya ───────────── */
+
+const answerSchema = z.object({
+  id: z.uuid(),
+  french: z.string().trim().max(200, "Français trop long (200 caractères)."),
+  shimaore: z.string().trim().max(200, "Phrase trop longue (200 caractères)."),
+  // Règle à retenir, facultative : elle entre dans la grammaire que le chat et la voix reçoivent.
+  rule: z.string().trim().max(GRAMMAR_LIMITS.rule, "Règle trop longue : coupez-la en deux."),
+});
+
+/**
+ * Réponse du maître à un doute de Tamilya : la bonne phrase entre dans le lexique
+ * et/ou une règle dans la grammaire. Chat et voix s'en servent au message suivant.
+ */
+export async function answerQuestionAction(input: unknown): Promise<ActionResult> {
+  const auth = await requireAdminAction();
+  if (!auth) return NOT_ADMIN;
+  const parsed = answerSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Données invalides." };
+  const { id, rule } = parsed.data;
+  const french = tidy(parsed.data.french);
+  const shimaore = tidy(parsed.data.shimaore);
+  if (!shimaore && !rule) return { ok: false, message: "Écrivez la bonne phrase ou une règle." };
+  if (shimaore && !french) return { ok: false, message: "Écrivez aussi la phrase en français." };
+
+  if (shimaore) {
+    const { error } = await auth.supabase.from("awa_lexicon").insert({
+      french,
+      shimaore,
+      validated_by: auth.user.email ?? "Administrateur",
+      is_active: true,
+    });
+    if (error) {
+      console.error("[admin] Phrase corrigée non enregistrée", error);
+      return { ok: false, message: "La phrase n'a pas été enregistrée." };
+    }
+  }
+  if (rule) {
+    const { data: last } = await auth.supabase.from("awa_grammar").select("position").order("position", { ascending: false }).limit(1);
+    const { error } = await auth.supabase.from("awa_grammar").insert({
+      title: (french || shimaore || "Règle").slice(0, GRAMMAR_LIMITS.title),
+      rule,
+      examples: shimaore && french ? `${french} → ${shimaore}`.slice(0, GRAMMAR_LIMITS.examples) : "",
+      position: (last?.[0]?.position ?? 0) + 1,
+      created_by: auth.user.id,
+    });
+    if (error) {
+      console.error("[admin] Règle issue d'une question non enregistrée", error);
+      return { ok: false, message: "La règle n'a pas été enregistrée." };
+    }
+  }
+  const { error } = await auth.supabase.from("awa_questions").update({ status: "answered" }).eq("id", id);
+  if (error) console.error("[admin] Question non marquée répondue", error);
+  return done("Merci : Tamilya s'en sert dès le prochain message, au chat comme à la voix.");
+}
+
+/** Question sans intérêt (ou phrase qui était déjà juste) : retirée sans rien apprendre. */
+export async function ignoreQuestionAction(id: unknown): Promise<ActionResult> {
+  const auth = await requireAdminAction();
+  if (!auth) return NOT_ADMIN;
+  const parsed = z.uuid().safeParse(id);
+  if (!parsed.success) return { ok: false, message: "Question inconnue." };
+  const { error } = await auth.supabase.from("awa_questions").update({ status: "ignored" }).eq("id", parsed.data);
+  if (error) {
+    console.error("[admin] Question non ignorée", error);
+    return { ok: false, message: "L'action a échoué." };
+  }
+  return done("Question retirée.");
+}
