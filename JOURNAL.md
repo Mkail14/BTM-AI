@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `e7ad1ed` (2026-11-15, carte-mayotte, envoyé sur la branche carte-mayotte seulement)**
+**Dernier commit noté : `2888b97` (2026-11-15, carte-mayotte, envoyé sur la branche carte-mayotte seulement)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -105,6 +105,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-15
+- **Shimaoré : une leçon en conversation n'efface plus le dictionnaire** (`2888b97`, branche carte-mayotte seulement). Le soir du 15 novembre, en corrigeant Tamilya sur « je t'aime », le relevé automatique a remplacé la bonne ligne (« nisihuvendza ») par « nina fahale » puis « sain du », et 5 autres fausses lignes sont entrées depuis le 14 ; Tamilya répondait n'importe quoi. Lignes fausses retirées à la main dans la base, « je t'aime » et « merci » remises. Désormais, si le mot français existe déjà, la nouvelle traduction est gardée désactivée et l'administrateur l'active dans /admin/lexique ; les mots nouveaux restent appris tout de suite.
 - **Accueil : un vrai téléphone qui montre la vraie conversation** (`e7ad1ed`, envoyé sur la branche carte-mayotte seulement, pas encore sur develop ni main). La conversation d'exemple de l'accueil est maintenant dans un iPhone 17 dessiné, et son écran est une vraie page du site (`/apercu/conversation`) affichée à la largeur d'un téléphone. Pourquoi : avant, l'exemple était une copie à part, qui ne suivait pas les changements de la conversation. L'habillage de la conversation (fond, barre du haut, messages, barre d'écriture) est sorti dans `ChatChrome` et le bouton de la cloche dans `BellButton` : la vraie conversation et l'aperçu utilisent les mêmes pièces. La page d'aperçu n'est pas indexée, rien n'y est cliquable, et seul le site peut l'afficher dans un cadre. Les deux cartes passent à gauche du téléphone ; la carte « Elle n'invente pas » est retirée.
 - **Shimaoré : « comment on dit … » traduit au lieu de répondre** (`fef7d7c`, branche carte-mayotte seulement). Rattrapage du journal : une phrase apprise est retrouvée malgré une faute de frappe ou un verbe conjugué et redonnée telle quelle ; les leçons relevées seules ne gardent que ce que le locuteur a dit ; repères sûrs sur Mayotte (port à Longoni, aéroport à Pamandzi).
 
