@@ -72,7 +72,12 @@ async function translate(brain: TamilyaBrain): Promise<string[] | null> {
   if (!lines) return null;
   // Comme dans le chat du maître : le français restant devient [[à apprendre]], puis les mots appris le remplacent.
   const known = knownTranslations(brain);
-  return lines.map((line) => fillKnownWords(enforceShimaore(line), known));
+  return lines.map((line, i) => {
+    // Phrase déjà apprise (ou corrigée) à l'identique : on la reprend telle quelle, sans laisser l'IA la réécrire.
+    const learned = fillKnownWords(`[[${DEMO_SCRIPT[i].fr}]]`, known);
+    if (!learned.startsWith("[[")) return learned;
+    return fillKnownWords(enforceShimaore(line), known);
+  });
 }
 
 async function load(): Promise<DemoLine[]> {

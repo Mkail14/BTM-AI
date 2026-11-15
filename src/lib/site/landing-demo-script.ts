@@ -14,7 +14,7 @@ export const DEMO_SCRIPT = [
   { from: "user", fr: "Le taxi de Trévani jusqu'à Mamoudzou, c'est combien ?" },
   { from: "tamilya", fr: "C'est 3 euros en taxi." },
   { from: "user", fr: "Et pour aller à Petite-Terre ?" },
-  { from: "tamilya", fr: "Tu prends la barge à Mamoudzou." },
+  { from: "tamilya", fr: "Tu prends la barge depuis Grand Terre." },
   { from: "user", fr: "Merci beaucoup Tamilya !" },
   { from: "tamilya", fr: "De rien ! Demande-moi encore, je suis là." },
 ] as const;
