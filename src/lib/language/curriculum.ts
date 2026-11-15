@@ -79,6 +79,10 @@ export const THEMES: Theme[] = [
     categories: ["phrase", "expression", "conversation"],
     groups: [
       {
+        label: "Phrases de base",
+        words: ["je suis", "tu es", "il est|elle est", "j'ai", "tu as", "je vais", "je peux", "je veux", "je sais", "j'aime", "il y a", "c'est"],
+      },
+      {
         label: "Se présenter",
         words: ["je m'appelle", "comment tu t'appelles", "quel âge as-tu", "d'où viens-tu", "j'habite à", "enchanté", "je suis de Mayotte"],
       },
@@ -103,7 +107,10 @@ export const THEMES: Theme[] = [
     categories: ["question", "grammaire", "pronom", "mot outil"],
     groups: [
       { label: "Questions", words: ["qui", "quoi", "où", "quand", "comment", "pourquoi", "combien", "lequel"] },
-      { label: "Pronoms", words: ["je|moi", "tu|toi", "il|elle", "nous", "vous", "ils|elles", "mon|ma", "ton|ta"] },
+      { label: "Pronoms", words: ["je|moi", "tu|toi", "il|elle", "nous", "vous", "ils|elles", "lui", "eux"] },
+      { label: "Possessifs", words: ["mon|ma|mes", "ton|ta|tes", "son|sa|ses", "notre|nos", "votre|vos", "leur|leurs"] },
+      { label: "Négation", words: ["ne pas", "pas", "jamais", "rien", "personne", "plus", "pas encore"] },
+      { label: "Petits mots", words: ["à", "de", "dans", "sur", "sous", "chez", "vers", "devant", "derrière", "entre", "ce|cet|cette", "ça"] },
       { label: "Liens", words: ["et", "mais", "avec", "sans", "pour", "parce que", "aussi", "alors", "si"] },
     ],
   },

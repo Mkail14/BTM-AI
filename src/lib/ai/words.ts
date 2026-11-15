@@ -183,8 +183,23 @@ export function selectWords<T extends WordEntry>(
   });
   // Trop de mots trouvés (long texte à traduire) : les plus récents restent, ce sont les leçons et corrections.
   const kept = matched.slice(Math.max(0, matched.length - maxMatched));
-  if (topic || SHIMAORE_TOPIC.test(normalize(message))) kept.push(...rest.reverse().slice(0, Math.max(0, maxTopic - kept.length)));
+  if (topic || SHIMAORE_TOPIC.test(normalize(message))) kept.push(...fillOrder(rest).slice(0, Math.max(0, maxTopic - kept.length)));
   return kept;
+}
+
+/**
+ * Catégories qui servent à construire une phrase (pronoms, mots-outils, questions, salutations,
+ * phrases, verbes) : elles passent avant le reste. Sans cela, le complément du vocabulaire était
+ * « les plus récents d'abord », donc le dernier import en vrac (images, manuels) et jamais les
+ * mots dont Tamilya a besoin pour répondre.
+ */
+const SENTENCE_CATEGORY = /mot outil|pronom|question|grammaire|salutation|politesse|conversation|phrase|verbe|lien|n[ée]gation|possessif|petits mots/;
+
+/** Mots qui construisent une phrase d'abord, puis le reste ; dans chaque groupe, les plus récents d'abord. */
+function fillOrder<T extends WordEntry>(rest: readonly T[]): T[] {
+  const recent = [...rest].reverse();
+  const isCore = (entry: T) => SENTENCE_CATEGORY.test(normalize(entry.category ?? ""));
+  return [...recent.filter(isCore), ...recent.filter((entry) => !isCore(entry))];
 }
 
 /** Les mots les plus récents d'abord : pour un même mot français, la dernière leçon remplace l'ancienne. */

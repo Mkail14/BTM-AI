@@ -13,16 +13,56 @@ type Draft = Omit<GrammarRow, "id"> & { id: string | null };
 
 const EMPTY: Draft = { id: null, title: "", rule: "", examples: "", isActive: true };
 
-/** Idées de règles pour démarrer : seul un locuteur écrit la règle elle-même. */
-const IDEAS = [
-  "Les pronoms (je, tu, il, nous…)",
-  "Conjuguer au présent",
-  "Parler au passé",
-  "Parler au futur",
-  "Dire non (la négation)",
-  "Le pluriel des noms",
-  "Mon, ton, son (possessifs)",
-  "Poser une question",
+/**
+ * Guide pour construire la grammaire : chaque fiche donne les phrases FRANÇAISES à traduire, le
+ * locuteur écrit le shimaoré. Aucune traduction n'est écrite ici : seul un locuteur la donne.
+ */
+const GUIDES: { title: string; hint: string; examples: string }[] = [
+  {
+    title: "Les pronoms (je, tu, il, nous…)",
+    hint: "Une seule écriture pour chaque pronom.",
+    examples: "je = \ntu = \nil / elle = \nnous = \nvous = \nils / elles = ",
+  },
+  {
+    title: "Conjuguer au présent",
+    hint: "Avec un verbe courant : le début (marque de la personne) change-t-il, et la fin du verbe ?",
+    examples: "je mange = \ntu manges = \nil mange = \nnous mangeons = \nvous mangez = \nils mangent = ",
+  },
+  {
+    title: "Parler au passé",
+    hint: "Dis ce qui change par rapport au présent.",
+    examples: "j'ai mangé = \ntu as mangé = \nil a mangé = \nnous avons mangé = \nils ont mangé = ",
+  },
+  {
+    title: "Parler au futur",
+    hint: "Dis ce qui change par rapport au présent.",
+    examples: "je mangerai = \ntu mangeras = \nil mangera = \nnous mangerons = \nils mangeront = ",
+  },
+  {
+    title: "Dire non (la négation)",
+    hint: "Où se place le « non » ? Change-t-il selon le temps ?",
+    examples: "je ne mange pas = \ntu ne manges pas = \nje n'ai pas mangé = \nje ne mangerai pas = \nje ne sais pas = ",
+  },
+  {
+    title: "Poser une question",
+    hint: "Avec un mot (où, quand…) et sans mot (oui ou non).",
+    examples: "tu manges ? = \noù tu vas ? = \nquand tu viens ? = \ncomment tu t'appelles ? = \ncombien ça coûte ? = \npourquoi tu pleures ? = ",
+  },
+  {
+    title: "Mon, ton, son (possessifs)",
+    hint: "Le possessif change-t-il avec le nom (maison, enfants) ?",
+    examples: "ma maison = \nta maison = \nsa maison = \nnotre maison = \nvotre maison = \nleur maison = \nmes enfants = ",
+  },
+  {
+    title: "Le pluriel des noms",
+    hint: "Qu'est-ce qui s'ajoute ou change devant le nom ?",
+    examples: "un enfant = \ndes enfants = \nune maison = \ndes maisons = \nle taxi = \nles taxis = ",
+  },
+  {
+    title: "Être et avoir",
+    hint: "« Je suis fatigué », « j'ai faim », « il y a de l'eau » se disent-ils comme les autres verbes ?",
+    examples: "je suis fatigué = \nil est grand = \nj'ai faim = \ntu as un frère = \nil y a de l'eau = ",
+  },
 ];
 
 export function GrammarPanel({ rows, unavailable }: { rows: GrammarRow[]; unavailable: boolean }) {
@@ -60,6 +100,10 @@ export function GrammarPanel({ rows, unavailable }: { rows: GrammarRow[]; unavai
     run(() => deleteGrammarAction(row.id));
   };
 
+  const done = new Set(rows.map((r) => r.title.trim().toLowerCase()));
+  const todo = GUIDES.filter((g) => !done.has(g.title.toLowerCase()));
+  const hint = GUIDES.find((g) => g.title === draft?.title)?.hint;
+
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setDraft((d) => (d ? { ...d, [key]: value } : d));
 
   return (
@@ -78,18 +122,21 @@ export function GrammarPanel({ rows, unavailable }: { rows: GrammarRow[]; unavai
 
       <ActionStatus result={status} />
 
-      {rows.length === 0 && !draft ? (
+      {todo.length > 0 && !draft ? (
         <div className="rounded-xl border border-dashed border-border p-4">
-          <p className="text-sm font-medium">Aucune règle pour l&apos;instant. Quelques idées pour commencer :</p>
+          <p className="text-sm font-medium">
+            {rows.length === 0 ? "Aucune règle pour l'instant." : "À écrire pour qu'elle sache construire des phrases :"} Choisis une fiche, remplis le
+            shimaoré à côté de chaque phrase française, puis relis la règle.
+          </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {IDEAS.map((idea) => (
+            {todo.map((guide) => (
               <button
-                key={idea}
+                key={guide.title}
                 type="button"
-                onClick={() => setDraft({ ...EMPTY, title: idea })}
+                onClick={() => setDraft({ ...EMPTY, title: guide.title, examples: guide.examples, rule: "" })}
                 className="rounded-full border border-border px-3 py-1 text-sm hover:bg-bg-muted"
               >
-                + {idea}
+                + {guide.title}
               </button>
             ))}
           </div>
@@ -158,6 +205,7 @@ export function GrammarPanel({ rows, unavailable }: { rows: GrammarRow[]; unavai
           </label>
           <label className="block">
             <span className="text-sm font-medium">La règle, en mots simples</span>
+            {hint ? <span className="block text-xs text-fg-muted">{hint}</span> : null}
             <textarea
               value={draft.rule}
               maxLength={GRAMMAR_LIMITS.rule}
@@ -173,7 +221,7 @@ export function GrammarPanel({ rows, unavailable }: { rows: GrammarRow[]; unavai
             <textarea
               value={draft.examples}
               maxLength={GRAMMAR_LIMITS.examples}
-              rows={3}
+              rows={Math.min(10, Math.max(3, draft.examples.split("\n").length))}
               onChange={(e) => set("examples", e.target.value)}
               placeholder={"le taxi = i taxi\nles offres = zi offres"}
               className={`${inputClass} mt-1.5 font-mono`}

@@ -29,38 +29,48 @@ export async function teachWords(
   userId: string,
   words: readonly TaughtWord[],
   category: string | null = null,
-  options: { sameShimaore?: boolean; /** Leçon de conversation : un mot déjà au dictionnaire n'est jamais remplacé (voir plus bas). */ protectExisting?: boolean } = {},
+  options: { sameShimaore?: boolean; /** Leçon de conversation : l'ancienne ligne est mise en pause au lieu d'être effacée (voir plus bas). */ protectExisting?: boolean } = {},
 ): Promise<number> {
   if (words.length === 0) return 0;
 
   const { data: existing, error: readError } = await supabase.from("awa_words").select("id, french, shimaore, is_active").limit(10000);
   if (readError) throw readError;
 
-  // Leçon relevée par le modèle dans une conversation : il se trompe parfois (« je t'aime » est devenu
-  // « sain du » le 2026-11-15 et a effacé la bonne ligne). Un mot français déjà au dictionnaire n'est donc
-  // ni effacé ni remplacé : la nouvelle traduction est gardée désactivée, et l'administrateur la valide
-  // dans /admin/lexique (elle ne sert à Tamilya qu'une fois activée).
-  const known = new Set((existing ?? []).filter((row) => row.is_active !== false).map((row) => key(row.french)));
-  const pairs = new Set((existing ?? []).map((row) => `${key(row.french)}\u0000${shimaoreEntryKey(String(row.shimaore ?? ""))}`));
-  const pending = options.protectExisting ? words.filter((w) => known.has(key(w.french))) : [];
-  const direct = words.filter((w) => !pending.includes(w));
+  // Leçon relevée par le modèle dans une conversation : il peut se tromper (« je t'aime » est devenu
+  // « sain du » le 2026-11-15). La correction du maître compte tout de suite, mais l'ancienne ligne n'est
+  // jamais effacée : elle est seulement mise en pause (is_active = false) et se réactive dans /admin/lexique.
+  const soft = Boolean(options.protectExisting);
+  const pairKey = (french: string, shimaore: string) => `${key(french)}\u0000${shimaoreEntryKey(shimaore)}`;
+  const rowsExisting = existing ?? [];
 
-  const taught = new Set(direct.map((w) => key(w.french)));
-  const taughtShimaore = new Set(options.sameShimaore ? direct.map((w) => shimaoreEntryKey(w.shimaore)) : []);
-  const replaced = (existing ?? [])
+  const taught = new Set(words.map((w) => key(w.french)));
+  const taughtShimaore = new Set(options.sameShimaore ? words.map((w) => shimaoreEntryKey(w.shimaore)) : []);
+  const wanted = new Set(words.map((w) => pairKey(w.french, w.shimaore)));
+  const replaced = rowsExisting
     .filter((row) => taught.has(key(row.french)) || taughtShimaore.has(shimaoreEntryKey(String(row.shimaore ?? ""))))
+    // La ligne qui dit déjà la même chose reste telle quelle (réactivée plus bas si elle était en pause).
+    .filter((row) => !wanted.has(pairKey(row.french, String(row.shimaore ?? ""))))
     .map((row) => row.id as string);
 
   for (let i = 0; i < replaced.length; i += 200) {
-    const { error } = await supabase.from("awa_words").delete().in("id", replaced.slice(i, i + 200));
+    const ids = replaced.slice(i, i + 200);
+    const { error } = soft
+      ? await supabase.from("awa_words").update({ is_active: false }).in("id", ids)
+      : await supabase.from("awa_words").delete().in("id", ids);
     if (error) throw error;
   }
-  const rows = [
-    ...direct.map((w) => ({ french: w.french, shimaore: w.shimaore, category, created_by: userId, is_active: true })),
-    ...pending
-      .filter((w) => !pairs.has(`${key(w.french)}\u0000${shimaoreEntryKey(w.shimaore)}`))
-      .map((w) => ({ french: w.french, shimaore: w.shimaore, category, created_by: userId, is_active: false })),
-  ];
+
+  // Même paire déjà au dictionnaire mais en pause : on la réactive au lieu d'en créer une deuxième.
+  const sleeping = rowsExisting.filter((row) => row.is_active === false && wanted.has(pairKey(row.french, String(row.shimaore ?? ""))));
+  const sleepingKeys = new Set(sleeping.map((row) => pairKey(row.french, String(row.shimaore ?? ""))));
+  if (sleeping.length > 0) {
+    const { error } = await supabase.from("awa_words").update({ is_active: true }).in("id", sleeping.map((row) => row.id as string));
+    if (error) throw error;
+  }
+  const activeKeys = new Set(rowsExisting.filter((row) => row.is_active !== false).map((row) => pairKey(row.french, String(row.shimaore ?? ""))));
+  const rows = words
+    .filter((w) => !sleepingKeys.has(pairKey(w.french, w.shimaore)) && !activeKeys.has(pairKey(w.french, w.shimaore)))
+    .map((w) => ({ french: w.french, shimaore: w.shimaore, category, created_by: userId, is_active: true }));
   for (let i = 0; i < rows.length; i += 500) {
     const { error } = await supabase.from("awa_words").insert(rows.slice(i, i + 500));
     if (error) throw error;

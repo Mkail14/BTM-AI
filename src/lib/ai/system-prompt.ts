@@ -137,6 +137,8 @@ export type PromptContext = {
   documentTask?: { sign: boolean; fill: boolean };
   /** Dernière commande de repas et son état à l'instant (describeOrder, src/lib/food/last-order.ts). */
   foodOrder?: string | null;
+  /** Lecture de ce message faite par le serveur (suite de la demande précédente, fautes corrigées : understanding.ts). */
+  understanding?: string | null;
   /** Tamilya sur un autre site de GROUPE BTM (route /api/tamilya) : rôle sur place et données du site. */
   site?: { intro: string; instructions: string; data?: string | null };
   /** Message arrivé par Tamilya Connect (sans internet, de téléphone en téléphone) : même Tamilya, écran sans liens ni blocs. */
@@ -288,6 +290,19 @@ const LISTENING = [
   "- Seules exceptions : l'accord demandé avant un paiement reste obligatoire, et tu peux corriger une affirmation fausse ou risquée.",
 ].join("\n");
 
+/**
+ * Comprendre avant de répondre : non modifiable depuis la base. C'est à Tamilya de comprendre la personne,
+ * pas à la personne de bien écrire (audit du 2026-11-15). On décrit la méthode, sans répliques à recopier.
+ */
+const COMPREHENSION = [
+  "Comprendre : c'est à toi de comprendre la personne, pas à elle de bien parler.",
+  "- Cherche ce qu'elle veut vraiment, pas seulement ses mots. Fautes, abréviations, familier, phrase coupée ou dite de travers sont des demandes normales : réponds à la demande, jamais à la forme, et sans relever les fautes. Une question sur l'existence de quelque chose (« y a pas des boîtes qui recrutent ? ») ou un souhait (« je veux bosser vite ») sont des demandes d'aide : aide.",
+  "- Message court ou qui renvoie à plus haut (« et à Dembéni ? », « pareil », « celui-là », « fais comme avant », « et maintenant ? ») : le sujet est dans les derniers échanges, relis-les et complète ce qui va de soi, sans inventer de fait.",
+  "- Plusieurs lectures possibles : prends la plus probable et réponds-y. Dis en quelques mots comment tu l'as comprise seulement si l'autre lecture changerait vraiment ta réponse. Ne pose une question que si tu ne peux rien faire d'utile sans la réponse : une seule, précise, avec deux ou trois choix.",
+  "- Ne redemande jamais ce qu'elle t'a déjà donné (lieu, prénom, budget, choix) : c'est plus haut dans la conversation ou dans ce que tu sais d'elle.",
+  "- Réponds d'abord à la question posée, dès la première phrase, puis seulement ce qui aide.",
+].join("\n");
+
 /** Réponse contestée (isChallenge) : en fin de message, seulement pour ce message. */
 const CHALLENGED =
   "POUR CE MESSAGE : la personne conteste ce que tu viens de dire. Relis ta réponse et vérifie-la vraiment (cherche, si tu le peux). Si tu t'es trompée, dis-le et donne la bonne réponse. Si tu avais raison, dis-le calmement et explique pourquoi. Si tu ne peux pas trancher, dis-le. Ne cède pas pour lui faire plaisir, n'invente pas une erreur et ne t'entête pas. Reste courte.";
@@ -431,6 +446,7 @@ export function buildSystemPrompt(
       [
         "Grammaire du shimaoré validée par GROUPE BTM (fiable : applique ces règles chaque fois que tu écris en shimaoré, pour construire tes phrases au lieu de mettre des mots bout à bout) :",
         ...rules,
+        "Une construction que ces règles ne couvrent pas (un autre temps, la négation, une question, un possessif) : ne l'invente pas en imitant une autre langue. Fais une phrase plus simple avec les seuls mots et formes validés, ou, avec ton maître, demande-lui la forme.",
       ].join("\n"),
     );
   }
@@ -704,6 +720,8 @@ export function buildSystemPrompt(
   // Vers la fin : l'heure change à chaque message, le début du prompt reste identique (cache Gemini).
   sections.push(`Heure exacte : à Mayotte, nous sommes le ${mayotteClock()}. Pour dire l'heure ou le jour, sers-toi de cette information : ne cherche pas sur internet et ne devine pas.`);
   if (context.voice) sections.push(VOICE, VOICE_TONE);
+  if (!context.teacher && !context.site) sections.push(COMPREHENSION);
+  if (context.understanding?.trim() && !context.teacher && !context.site) sections.push(context.understanding.trim());
   if (!context.teacher) sections.push(LISTENING);
   if (context.challenged && !context.teacher) sections.push(CHALLENGED);
   sections.push(SECURITY);
