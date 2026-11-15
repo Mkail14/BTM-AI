@@ -62,6 +62,17 @@ final class ChatStore {
         prefs.edit().putString("accountName", name == null ? "" : name).putString("accountEmail", email == null ? "" : email).apply();
     }
 
+    /** Solde du portefeuille en centimes, ou null si ce compte n'en a pas (ou pas encore lu). */
+    Long accountBalance() { return prefs.contains("accountBalance") ? prefs.getLong("accountBalance", 0L) : null; }
+    boolean accountDemo() { return prefs.getBoolean("accountDemo", false); }
+
+    void saveBalance(Long cents, boolean demo) {
+        SharedPreferences.Editor editor = prefs.edit().putBoolean("accountDemo", demo);
+        if (cents == null) editor.remove("accountBalance");
+        else editor.putLong("accountBalance", cents);
+        editor.apply();
+    }
+
     /** Ce que l'accueil du site montre à ce compte (lu dans la page, voir HomeChat.readSite). */
     String siteBadge() { return prefs.getString("siteBadge", ""); }
     boolean siteFood() { return prefs.getBoolean("siteFood", false); }
@@ -74,7 +85,7 @@ final class ChatStore {
     }
 
     void clearAccount() {
-        prefs.edit().remove("accountName").remove("accountEmail").remove("siteBadge").remove("siteFood").remove("siteVoice").remove("siteAttach").apply();
+        prefs.edit().remove("accountName").remove("accountEmail").remove("accountBalance").remove("accountDemo").remove("siteBadge").remove("siteFood").remove("siteVoice").remove("siteAttach").apply();
         new File(dir, "historique.json").delete();
     }
 

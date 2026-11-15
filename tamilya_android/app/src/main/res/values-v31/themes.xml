@@ -5,6 +5,7 @@
         <item name="android:statusBarColor">@color/ink</item>
         <item name="android:navigationBarColor">@color/ink</item>
         <item name="android:colorBackground">@color/ink</item>
-        <item name="android:windowSplashScreenBackground">@color/ink</item>
+        <item name="android:windowSplashScreenBackground">@color/launch_bg</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/launch_logo_systeme</item>
     </style>
 </resources>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Écran de lancement d'Android 12+ : il étire l'image sur toute sa pastille ; la marge de cette
+     image ramène le « b » à la taille qu'il a ensuite dans l'app. -->
+<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+    android:src="@drawable/logo_b_marge"
+    android:tint="@color/launch_logo" />

@@ -29,7 +29,6 @@ final class HomeChat implements HomeScreen.Actions {
         /** Lien d'une réponse (autre site, mail, téléphone). */
         void openLink(Uri uri);
         void openHelp();
-        void openConnect();
         /** Fenêtre de connexion du site, par-dessus l'accueil web. */
         void signIn();
         /** Lit quelque chose dans la page du site chargée derrière (ce que le site montre à ce compte). */
@@ -56,10 +55,18 @@ final class HomeChat implements HomeScreen.Actions {
     private boolean signedIn;
     private String name = "";
     private String email = "";
+    /** Solde du portefeuille, ou null si ce compte n'en a pas. */
+    private Long balanceCents;
+    private boolean demo;
     private int guestSent;
     private boolean trialOver;
     private boolean limitReached;
     private boolean online = true;
+    // Cloche : historique du compte (serveur) et événements gardés par le site sur cet appareil.
+    private JSONArray bellServer = new JSONArray();
+    private JSONArray bellLocal = new JSONArray();
+    private final java.util.Set<String> bellHidden = new java.util.HashSet<>();
+    private long bellSeen = System.currentTimeMillis();
     private boolean loaded;
 
     private boolean streaming;
@@ -80,6 +87,8 @@ final class HomeChat implements HomeScreen.Actions {
         signedIn = ChatApi.signedIn();
         name = store.accountName();
         email = store.accountEmail();
+        balanceCents = store.accountBalance();
+        demo = store.accountDemo();
         guestSent = store.guestSent();
         screen.setSite(store.siteBadge(), store.siteFood(), store.siteVoice(), store.siteAttach());
         render();
@@ -127,19 +136,41 @@ final class HomeChat implements HomeScreen.Actions {
         render();
     }
 
-    void close() {
-        if (!isOpen()) return;
+    /** Retour du vocal : le globe de l'accueil part de la place du gros globe (écran, en pixels). */
+    void returnGlobe(float centerX, float centerY, float width) {
+        screen.returnGlobe(centerX, centerY, width);
+    }
+
+    /** Ouverture du vocal : le globe grandit jusqu'à la place du globe de la page vocale, le reste s'efface. */
+    void morphToVoice(float centerX, float centerY, float width) {
         screen.hideKeyboard();
         screen.closeMenu();
+        screen.morphToVoice(centerX, centerY, width);
+    }
+
+    /** La page vocale est prête derrière : l'accueil s'efface en douceur. */
+    void fadeClose() {
+        if (!isOpen()) return;
+        screen.animate().alpha(0f).setDuration(220).withEndAction(this::close).start();
+    }
+
+    void close() {
+        if (!isOpen()) return;
+        screen.animate().cancel();
+        screen.hideKeyboard();
+        screen.closeMenu();
+        screen.resetVoiceMorph();
         screen.setVisibility(View.GONE);
     }
 
     boolean menuOpen() {
-        return screen.menuOpen();
+        return screen.menuOpen() || screen.notificationsOpen();
     }
 
+    /** Bouton retour : le petit menu ou la fenêtre ouverts dans le menu d'abord, puis le menu. */
     void closeMenu() {
-        screen.closeMenu();
+        if (screen.notificationsOpen()) screen.closeNotifications();
+        else if (!screen.dismissMenuPopup()) screen.closeMenu();
     }
 
     void setPull(float progress) {
@@ -159,6 +190,7 @@ final class HomeChat implements HomeScreen.Actions {
     void onSiteLoaded() {
         refreshAccount();
         // La page s'anime après son arrivée (micro, idées) : lue un peu plus tard, deux fois.
+        main.postDelayed(() -> readBell(false), 1200);
         main.postDelayed(this::readSite, 1500);
         main.postDelayed(this::readSite, 5000);
     }
@@ -194,6 +226,8 @@ final class HomeChat implements HomeScreen.Actions {
 
     void destroy() {
         if (call != null) call.cancel();
+        // Lectures du site prévues pour plus tard : l'écran n'existe plus (changement de thème…).
+        main.removeCallbacksAndMessages(null);
         io.shutdown();
     }
 
@@ -205,6 +239,8 @@ final class HomeChat implements HomeScreen.Actions {
             if (!now) {
                 name = "";
                 email = "";
+                balanceCents = null;
+                demo = false;
                 history = new JSONArray();
                 io.execute(store::clearAccount);
                 screen.setSite("", false, false, false);
@@ -222,25 +258,35 @@ final class HomeChat implements HomeScreen.Actions {
                 return;
             }
         }
-        if (signedIn && name.isEmpty() && email.isEmpty() && !accountLoading && online) {
-            accountLoading = true;
-            io.execute(() -> {
-                try {
-                    JSONObject account = ChatApi.account();
-                    String n = account.isNull("name") ? "" : account.optString("name", "");
-                    String e = account.isNull("email") ? "" : account.optString("email", "");
-                    store.saveAccount(n, e);
-                    main.post(() -> {
-                        name = n;
-                        email = e;
-                        accountLoading = false;
-                        render();
-                    });
-                } catch (IOException | JSONException e) {
-                    main.post(() -> accountLoading = false);
-                }
-            });
-        }
+        if (name.isEmpty() && email.isEmpty()) loadAccount();
+    }
+
+    /** Nom, adresse et solde du compte, lus sur le serveur (relus à chaque ouverture du menu, comme sur le site). */
+    private void loadAccount() {
+        if (!signedIn || accountLoading || !online) return;
+        accountLoading = true;
+        io.execute(() -> {
+            try {
+                JSONObject account = ChatApi.account();
+                String n = account.isNull("name") ? "" : account.optString("name", "");
+                String e = account.isNull("email") ? "" : account.optString("email", "");
+                Long cents = account.isNull("balanceCents") ? null : Long.valueOf(account.optLong("balanceCents"));
+                boolean d = account.optBoolean("demo");
+                store.saveAccount(n, e);
+                store.saveBalance(cents, d);
+                main.post(() -> {
+                    name = n;
+                    email = e;
+                    balanceCents = cents;
+                    demo = d;
+                    accountLoading = false;
+                    render();
+                    if (screen.menuOpen()) showMenu(false);
+                });
+            } catch (IOException | JSONException e) {
+                main.post(() -> accountLoading = false);
+            }
+        });
     }
 
     private void render() {
@@ -532,11 +578,6 @@ final class HomeChat implements HomeScreen.Actions {
     }
 
     @Override
-    public void connect() {
-        host.openConnect();
-    }
-
-    @Override
     public void signIn() {
         host.signIn();
     }
@@ -553,8 +594,94 @@ final class HomeChat implements HomeScreen.Actions {
 
     @Override
     public void notifications() {
-        // Pas encore dans l'app : l'accueil du site, où la cloche ouvre les notifications.
-        host.openPage("/?notifications=1");
+        publishBell(true);
+        readBell(false);
+    }
+
+    /** Ce que le site garde dans le navigateur (lib/notifications.ts) : événements de l'appareil, dernière ouverture, supprimées. */
+    private static final String BELL_SCRIPT = "(function(){try{var L=localStorage,s=L.getItem('btm-notifications-seen');"
+            + "if(!s){s=String(Date.now());L.setItem('btm-notifications-seen',s);}"
+            + "return JSON.stringify({local:JSON.parse(L.getItem('btm-notifications')||'[]'),seen:Number(s)||0,"
+            + "hidden:JSON.parse(L.getItem('btm-notifications-hidden')||'[]')});}catch(e){return '';}})()";
+
+    /** Relit la cloche : la mémoire du site tout de suite, l'historique du compte sur le serveur. */
+    private void readBell(boolean show) {
+        host.siteScript(BELL_SCRIPT, value -> {
+            try {
+                Object text = value == null ? null : new org.json.JSONTokener(value).nextValue();
+                if (text instanceof String && !((String) text).isEmpty()) {
+                    JSONObject kept = new JSONObject((String) text);
+                    JSONArray local = kept.optJSONArray("local");
+                    bellLocal = local == null ? new JSONArray() : local;
+                    bellSeen = kept.optLong("seen", bellSeen);
+                    JSONArray hidden = kept.optJSONArray("hidden");
+                    bellHidden.clear();
+                    for (int i = 0; hidden != null && i < hidden.length(); i++) bellHidden.add(hidden.optString(i));
+                }
+            } catch (JSONException ignored) {
+                // Mémoire illisible : on garde ce qu'on savait.
+            }
+            publishBell(show);
+        });
+        if (!online || !signedIn) return;
+        io.execute(() -> {
+            try {
+                JSONArray items = ChatApi.notifications();
+                main.post(() -> {
+                    bellServer = items;
+                    publishBell(false);
+                });
+            } catch (IOException | JSONException ignored) {
+                // Pas de réponse : la cloche garde sa liste.
+            }
+        });
+    }
+
+    /** Liste de la cloche comme sur le site : une seule fois chaque notification, les plus récentes d'abord, sans les supprimées. */
+    private void publishBell(boolean show) {
+        java.util.Map<String, JSONObject> byId = new java.util.LinkedHashMap<>();
+        for (JSONArray source : new JSONArray[]{bellLocal, bellServer}) {
+            for (int i = 0; i < source.length(); i++) {
+                JSONObject item = source.optJSONObject(i);
+                if (item != null && !item.optString("id").isEmpty()) byId.put(item.optString("id"), item);
+            }
+        }
+        List<JSONObject> items = new ArrayList<>();
+        for (JSONObject item : byId.values()) if (!bellHidden.contains(item.optString("id"))) items.add(item);
+        java.util.Collections.sort(items, (a, b) -> b.optString("at").compareTo(a.optString("at")));
+        int unread = 0;
+        for (JSONObject item : items) if (HomeScreen.instant(item.optString("at")) > bellSeen) unread++;
+        screen.setUnread(signedIn ? unread : 0);
+        if (show || screen.notificationsOpen()) screen.showNotifications(items, bellSeen);
+    }
+
+    @Override
+    public void notificationsSeen() {
+        bellSeen = System.currentTimeMillis();
+        host.siteScript("(function(){try{localStorage.setItem('btm-notifications-seen',String(Date.now()));"
+                + "window.dispatchEvent(new Event('btm-notify'));}catch(e){}return '';})()", null);
+        publishBell(false);
+    }
+
+    @Override
+    public void notificationsDismiss(List<String> ids) {
+        if (ids.isEmpty()) return;
+        bellHidden.addAll(ids);
+        JSONArray left = new JSONArray();
+        for (int i = 0; i < bellLocal.length(); i++) {
+            JSONObject item = bellLocal.optJSONObject(i);
+            if (item != null && !ids.contains(item.optString("id"))) left.put(item);
+        }
+        bellLocal = left;
+        // Même rangement que dismiss() du site : masquées sur cet appareil, retirées des événements gardés.
+        host.siteScript("(function(ids){try{var L=localStorage,h=[],l=[];"
+                + "try{h=JSON.parse(L.getItem('btm-notifications-hidden')||'[]');}catch(e){}"
+                + "h=ids.concat(h).filter(function(id,i,a){return a.indexOf(id)===i;}).slice(0,300);"
+                + "L.setItem('btm-notifications-hidden',JSON.stringify(h));"
+                + "try{l=JSON.parse(L.getItem('btm-notifications')||'[]');}catch(e){}"
+                + "L.setItem('btm-notifications',JSON.stringify(l.filter(function(n){return ids.indexOf(n.id)<0;})));"
+                + "window.dispatchEvent(new Event('btm-notify'));}catch(e){}return '';})(" + new JSONArray(ids) + ")", null);
+        publishBell(false);
     }
 
     @Override
@@ -575,13 +702,53 @@ final class HomeChat implements HomeScreen.Actions {
 
     @Override
     public void menuOpened() {
-        screen.showMenu(history, conversationId, name, email, signedIn, historyLoading || history.length() == 0);
+        showMenu(historyLoading || history.length() == 0);
+        loadAccount();
         loadHistory();
+    }
+
+    private void showMenu(boolean loading) {
+        screen.showMenu(history, conversationId, name, email, signedIn, loading, balanceCents, demo);
+    }
+
+    /** Suppression confirmée dans le menu : comme sur le site, la liste est mise à jour et la conversation ouverte laisse la place à une neuve. */
+    @Override
+    public void deleteConversation(String id) {
+        if (!signedIn || id == null || id.isEmpty()) return;
+        if (!online) {
+            screen.alert("La suppression a échoué", "Vérifie ta connexion.");
+            return;
+        }
+        io.execute(() -> {
+            boolean done;
+            try {
+                ChatApi.deleteConversation(id);
+                done = true;
+            } catch (IOException e) {
+                done = false;
+            }
+            boolean ok = done;
+            main.post(() -> {
+                if (!ok) {
+                    screen.alert("La suppression a échoué", "Réessaie dans un instant.");
+                    return;
+                }
+                JSONArray kept = new JSONArray();
+                for (int i = 0; i < history.length(); i++) {
+                    JSONObject item = history.optJSONObject(i);
+                    if (item != null && !id.equals(item.optString("id"))) kept.put(item);
+                }
+                history = kept;
+                io.execute(() -> store.saveHistory(kept));
+                if (id.equals(conversationId)) newConversation();
+                if (screen.menuOpen()) showMenu(false);
+            });
+        });
     }
 
     private void loadHistory() {
         if (!signedIn || historyLoading || !online) {
-            if (screen.menuOpen()) screen.showMenu(history, conversationId, name, email, signedIn, false);
+            if (screen.menuOpen()) showMenu(false);
             return;
         }
         historyLoading = true;
@@ -597,7 +764,7 @@ final class HomeChat implements HomeScreen.Actions {
             main.post(() -> {
                 historyLoading = false;
                 if (got != null) history = got;
-                if (screen.menuOpen()) screen.showMenu(history, conversationId, name, email, signedIn, false);
+                if (screen.menuOpen()) showMenu(false);
             });
         });
     }

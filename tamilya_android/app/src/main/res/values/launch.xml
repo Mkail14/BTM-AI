@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Écran de lancement : clair ou sombre comme le téléphone (values-night), fond du site. -->
+<resources>
+    <color name="launch_bg">#FFFFFF</color>
+    <color name="launch_logo">#16191B</color>
+</resources>

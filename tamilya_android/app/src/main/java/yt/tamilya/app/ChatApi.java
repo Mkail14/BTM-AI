@@ -119,9 +119,27 @@ final class ChatApi {
         return new JSONObject(get("/api/conversations/" + id)).getJSONArray("messages");
     }
 
+    /** Historique de la cloche (paiements, recharges, réservations du code) : [{ id, emoji, title, subtitle, at, href }]. */
+    static JSONArray notifications() throws IOException, JSONException {
+        return new JSONObject(get("/api/notifications")).getJSONArray("items");
+    }
+
     /** Nom et adresse du compte : { name, email, balanceCents, demo }. 401 : pas connecté. */
     static JSONObject account() throws IOException, JSONException {
         return new JSONObject(get("/api/mesh/account"));
+    }
+
+    /** Supprime une conversation du compte. Déjà absente : c'est fait aussi. */
+    static void deleteConversation(String id) throws IOException {
+        String url = BASE + "/api/conversations/" + id;
+        HttpURLConnection connection = open("DELETE", url);
+        try {
+            int status = connection.getResponseCode();
+            keepCookies(connection, url);
+            if ((status < 200 || status >= 300) && status != 404) throw refused(connection, status);
+        } finally {
+            connection.disconnect();
+        }
     }
 
     private static String get(String path) throws IOException {

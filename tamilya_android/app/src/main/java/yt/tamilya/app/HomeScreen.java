@@ -67,7 +67,8 @@ final class HomeScreen extends FrameLayout {
         void openPage(String path);
         void openLink(Uri uri);
         void help();
-        void connect();
+        /** Suppression confirmée d'une conversation de l'historique. */
+        void deleteConversation(String id);
         void signIn();
         void retry();
         /** Menu ouvert : la liste des conversations est relue sur le serveur. */
@@ -77,6 +78,10 @@ final class HomeScreen extends FrameLayout {
         /** « + » à gauche de la barre : photo ou document. */
         void attach();
         void notifications();
+        /** Cloche refermée : tout est lu. */
+        void notificationsSeen();
+        /** Notifications supprimées de la cloche. */
+        void notificationsDismiss(List<String> ids);
         /** Pastille des administrateurs (« Mode démo »…). */
         void admin();
     }
@@ -110,6 +115,12 @@ final class HomeScreen extends FrameLayout {
     private final LinearLayout column;
     private final TextView badge;
     private final View bell;
+    private TextView unreadBadge;
+    private int unread = -1;
+    private FrameLayout notif;
+    private LinearLayout notifPanel;
+    private LinearLayout notifBody;
+    private int notifMax;
     private final FrameLayout body;
     private final LinearLayout homeBox;
     private final ScrollView scroll;
@@ -129,8 +140,7 @@ final class HomeScreen extends FrameLayout {
     private final ImageView sendIcon;
     private final TextView hint;
     private final LinearLayout bar;
-    private final FrameLayout menu;
-    private final LinearLayout menuPanel;
+    private final HomeMenu menu;
     private final Paint ringPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final Paint hintPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
     private final RectF ringBounds = new RectF();
@@ -187,6 +197,18 @@ final class HomeScreen extends FrameLayout {
         header.addView(new View(context), new LinearLayout.LayoutParams(0, 1, 1f));
         bell = iconButton(R.drawable.ic_site_bell, 22, 38, 19, "Notifications", v -> actions.notifications());
         bell.setVisibility(GONE);
+        // Pastille des nouveautés : top-1 right-1, min-w 1.1rem, 10px en gras, blanc sur la couleur de Tamilya.
+        unreadBadge = text("", 10, 17.6f, Color.WHITE, theme.bold);
+        unreadBadge.setGravity(Gravity.CENTER);
+        unreadBadge.setMinWidth(Math.round(dpf(17.6f)));
+        unreadBadge.setPadding(dp(4), unreadBadge.getPaddingTop(), dp(4), unreadBadge.getPaddingBottom());
+        unreadBadge.setBackground(round(theme.persona, 999));
+        unreadBadge.setVisibility(GONE);
+        LayoutParams unreadParams = new LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.END);
+        unreadParams.topMargin = dp(4);
+        unreadParams.rightMargin = dp(4);
+        ((FrameLayout) bell).addView(unreadBadge, unreadParams);
+        ((FrameLayout) bell).setClipChildren(false);
         header.addView(bell);
         FrameLayout headerBox = new FrameLayout(context);
         headerBox.addView(header, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56)));
@@ -391,18 +413,8 @@ final class HomeScreen extends FrameLayout {
         dock.addView(hint, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         column.addView(dock);
 
-        // Menu (barre latérale du site), par-dessus tout, fermé au départ.
-        menu = new FrameLayout(context);
-        menu.setBackgroundColor(0x66000000);
-        menu.setClickable(true);
-        menu.setOnClickListener(v -> closeMenu());
-        menu.setVisibility(GONE);
-        menuPanel = new LinearLayout(context);
-        menuPanel.setOrientation(LinearLayout.VERTICAL);
-        menuPanel.setBackgroundColor(theme.bgSubtle);
-        menuPanel.setClickable(true);
-        int panelWidth = Math.min(dp(288), Math.round(getResources().getDisplayMetrics().widthPixels * 0.85f));
-        menu.addView(menuPanel, new LayoutParams(panelWidth, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.START));
+        // Menu (tiroir du site), par-dessus tout, fermé au départ.
+        menu = new HomeMenu(context, theme, actions, column, brand(28));
         addView(menu, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         layoutFor(true);
         updateSendButton();
@@ -699,6 +711,122 @@ final class HomeScreen extends FrameLayout {
         view.animate().alpha(1f).translationY(0f).setStartDelay(delayMs).setDuration(700).setInterpolator(rise).start();
     }
 
+    /** Ce que l'ouverture du vocal a effacé ou laissé déborder, à remettre ensuite. */
+    private final java.util.Map<View, Float> voiceFaded = new java.util.HashMap<>();
+    private final java.util.List<ViewGroup> voiceOpened = new java.util.ArrayList<>();
+
+    private View homeGlobe() {
+        View box = globeBox;
+        if (!(box instanceof ViewGroup) || box.getWidth() == 0 || !box.isShown()) return null;
+        return ((ViewGroup) box).getChildAt(0);
+    }
+
+    /** Le globe déborde de sa zone pendant un trajet : rien ne le coupe en route. */
+    private void unclipGlobe(java.util.List<ViewGroup> opened) {
+        for (android.view.ViewParent p = globeBox.getParent(); p instanceof ViewGroup; p = p.getParent()) {
+            ViewGroup group = (ViewGroup) p;
+            if (group.getClipChildren()) {
+                group.setClipChildren(false);
+                opened.add(group);
+            }
+            if (group == this) break;
+        }
+    }
+
+    /**
+     * Ouverture du vocal : comme sur le site, le globe grandit et glisse jusqu'à la place du globe
+     * du vocal (centre et largeur en pixels de l'écran ; largeur 0 : place estimée), le reste s'efface.
+     */
+    void morphToVoice(float centerX, float centerY, float width) {
+        View globe = homeGlobe();
+        if (globe == null) return;
+        resetVoiceMorph();
+        int[] at = new int[2];
+        if (width <= 0f) {
+            // Page vocale du site : titre en haut, boutons en bas, globe de min(60vw, 16rem) centré entre les deux.
+            getLocationOnScreen(at);
+            width = Math.min(getWidth() * 0.6f, dpf(256));
+            float top = dpf(44), bottom = getHeight() - dpf(112), content = width + dpf(112);
+            centerX = at[0] + getWidth() / 2f;
+            centerY = at[1] + top + (bottom - top - content) / 2f + width / 2f;
+        }
+        unclipGlobe(voiceOpened);
+        // Tout ce qui n'est pas sur le chemin du globe s'efface.
+        View keep = globeBox;
+        for (android.view.ViewParent p = keep.getParent(); p instanceof ViewGroup; p = p.getParent()) {
+            ViewGroup group = (ViewGroup) p;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                View child = group.getChildAt(i);
+                if (child == keep || child.getVisibility() != VISIBLE) continue;
+                voiceFaded.put(child, child.getAlpha());
+                child.animate().alpha(0f).setStartDelay(0).setDuration(260).start();
+            }
+            if (group == this) break;
+            keep = group;
+        }
+        globeBox.getLocationOnScreen(at);
+        float scale = width / globeBox.getWidth();
+        globe.animate().cancel();
+        globe.setAlpha(1f);
+        globe.animate().translationX(centerX - (at[0] + globeBox.getWidth() / 2f)).translationY(centerY - (at[1] + globeBox.getHeight() / 2f))
+                .scaleX(scale).scaleY(scale).setStartDelay(0).setDuration(620)
+                .setInterpolator(new android.view.animation.PathInterpolator(0.22f, 1f, 0.36f, 1f)).start();
+    }
+
+    /** Après le vocal : l'accueil retrouve son état normal (globe à sa place, tout visible). */
+    void resetVoiceMorph() {
+        for (java.util.Map.Entry<View, Float> entry : voiceFaded.entrySet()) {
+            entry.getKey().animate().cancel();
+            entry.getKey().setAlpha(entry.getValue());
+        }
+        voiceFaded.clear();
+        for (ViewGroup group : voiceOpened) group.setClipChildren(true);
+        voiceOpened.clear();
+        View box = globeBox;
+        View globe = box instanceof ViewGroup ? ((ViewGroup) box).getChildAt(0) : null;
+        if (globe == null) return;
+        globe.animate().cancel();
+        globe.setTranslationX(0f);
+        globe.setTranslationY(0f);
+        globe.setScaleX(1f);
+        globe.setScaleY(1f);
+        globe.setAlpha(1f);
+    }
+
+    /**
+     * Retour du vocal sans échange : le globe part de la place et de la taille du gros globe du vocal
+     * (centre et largeur, en pixels de l'écran), puis rétrécit et glisse jusqu'à sa place.
+     */
+    void returnGlobe(float centerX, float centerY, float width) {
+        getViewTreeObserver().addOnPreDrawListener(new android.view.ViewTreeObserver.OnPreDrawListener() {
+            @Override
+            public boolean onPreDraw() {
+                getViewTreeObserver().removeOnPreDrawListener(this);
+                View globe = homeGlobe();
+                if (globe == null) return true;
+                View box = globeBox;
+                java.util.List<ViewGroup> opened = new java.util.ArrayList<>();
+                unclipGlobe(opened);
+                int[] at = new int[2];
+                box.getLocationOnScreen(at);
+                float scale = width / box.getWidth();
+                globe.animate().cancel();
+                globe.setAlpha(1f);
+                globe.setTranslationX(centerX - (at[0] + box.getWidth() / 2f));
+                globe.setTranslationY(centerY - (at[1] + box.getHeight() / 2f));
+                globe.setScaleX(scale);
+                globe.setScaleY(scale);
+                globe.animate().translationX(0f).translationY(0f).scaleX(1f).scaleY(1f).alpha(1f).setStartDelay(0).setDuration(620)
+                        .setInterpolator(new android.view.animation.PathInterpolator(0.22f, 1f, 0.36f, 1f))
+                        .withEndAction(() -> {
+                            for (ViewGroup group : opened) group.setClipChildren(true);
+                        }).start();
+                return true;
+            }
+        });
+        invalidate();
+    }
+
     /**
      * Accueil du site : Tamilya (globe animé) au centre, « Bonjour », la phrase, puis les idées
      * juste au-dessus de la barre d'écriture. Tout tient dans l'écran.
@@ -721,11 +849,16 @@ final class HomeScreen extends FrameLayout {
         box.setClipToPadding(false);
         GreyGlobe globe = new GreyGlobe(getContext(), theme.persona, blob);
         globe.setContentDescription(voice ? "Parler à Tamilya" : "Écrire à Tamilya");
+        // Comme sur le site : l'animation du clic d'abord (520 ms), puis la voix ou la zone de saisie.
         globe.setOnClickListener(v -> {
-            globe.pop();
-            if (voice && enabled()) actions.voice();
-            else focusInput();
+            long wait = globe.pop();
+            if (wait < 0L) return;
+            globe.postDelayed(() -> {
+                if (voice && enabled()) actions.voice();
+                else focusInput();
+            }, wait);
         });
+        if (animate) globe.hatch();
         int globeView = Math.round(dpf(blob) * 1.8f);
         box.addView(globe, new LayoutParams(globeView, globeView, Gravity.CENTER));
         globeBox = box;
@@ -1139,164 +1272,422 @@ final class HomeScreen extends FrameLayout {
         return dots;
     }
 
+    // ----- Cloche (NotificationBell.tsx) -----
+
+    /** Date ISO d'une notification, en millisecondes ; 0 si illisible. */
+    static long instant(String iso) {
+        try {
+            return java.time.OffsetDateTime.parse(iso).toInstant().toEpochMilli();
+        } catch (RuntimeException e) {
+            return 0L;
+        }
+    }
+
+    /** « à l'instant », « il y a 5 minutes », « hier », « 12 oct. » (ago() du site). */
+    private static String ago(long at, long now) {
+        long s = Math.round((at - now) / 1000.0);
+        if (s > -60) return "à l'instant";
+        if (s > -3600) {
+            long m = -Math.round(s / 60.0);
+            return "il y a " + m + (m > 1 ? " minutes" : " minute");
+        }
+        if (s > -86_400) {
+            long h = -Math.round(s / 3600.0);
+            return "il y a " + h + (h > 1 ? " heures" : " heure");
+        }
+        if (s > -2 * 86_400) return "hier";
+        java.text.SimpleDateFormat format = new java.text.SimpleDateFormat("d MMM", java.util.Locale.FRANCE);
+        format.setTimeZone(java.util.TimeZone.getTimeZone("Indian/Mayotte"));
+        return format.format(new java.util.Date(at));
+    }
+
+    /** Icône d'une notification (Pictogram.tsx) : jamais d'emoji à l'écran, la cloche par défaut. */
+    private static int pictogram(String emoji) {
+        if (emoji == null || emoji.isEmpty()) return R.drawable.ic_site_bell;
+        switch (emoji.codePointAt(0)) {
+            case 0x23F0: case 0x23F1: return R.drawable.ic_notif_horloge;
+            case 0x1F9FE: return R.drawable.ic_notif_recu;
+            case 0x1F6F5: return R.drawable.ic_notif_scooter;
+            case 0x1F4CD: return R.drawable.ic_notif_lieu;
+            case 0x21A9: return R.drawable.ic_notif_retour;
+            case 0x2705: return R.drawable.ic_notif_fait;
+            case 0x1F4B3: return R.drawable.ic_notif_carte;
+            case 0x2716: case 0x270B: return R.drawable.ic_site_close;
+            case 0x1F697: return R.drawable.ic_idee_voiture;
+            default: return R.drawable.ic_site_bell;
+        }
+    }
+
+    /** Pastille de la cloche : nombre de nouveautés depuis la dernière ouverture (« 9+ » au-delà). */
+    void setUnread(int count) {
+        if (count == unread) return;
+        unread = count;
+        unreadBadge.setText(count > 9 ? "9+" : String.valueOf(count));
+        unreadBadge.setVisibility(count > 0 ? VISIBLE : GONE);
+        bell.setContentDescription(count > 0 ? "Notifications : " + count + (count > 1 ? " nouvelles" : " nouvelle") : "Notifications");
+        if (count <= 0) return;
+        // notif-badge : elle arrive avec un petit rebond.
+        unreadBadge.setScaleX(0.2f);
+        unreadBadge.setScaleY(0.2f);
+        unreadBadge.animate().scaleX(1f).scaleY(1f).setDuration(520).setInterpolator(new PathInterpolator(0.34f, 1.56f, 0.64f, 1f)).start();
+    }
+
+    boolean notificationsOpen() {
+        return notif != null && notif.getVisibility() == VISIBLE;
+    }
+
+    void closeNotifications() {
+        if (!notificationsOpen()) return;
+        notif.setVisibility(GONE);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) column.setRenderEffect(null);
+        actions.notificationsSeen();
+    }
+
+    /**
+     * La liste descend de la cloche sur le fond assombri et flouté : panneau de 23rem, coins de 1.5rem,
+     * « Aujourd'hui » puis « Plus tôt », chaque ligne arrive l'une après l'autre.
+     */
+    void showNotifications(List<JSONObject> items, long seen) {
+        boolean opening = !notificationsOpen();
+        if (notif == null) buildNotifications();
+        if (opening) {
+            hideKeyboard();
+            int[] bellAt = new int[2], meAt = new int[2];
+            bell.getLocationInWindow(bellAt);
+            getLocationInWindow(meAt);
+            int top = bellAt[1] - meAt[1] + bell.getHeight() + dp(10);
+            int right = Math.max(dp(12), getWidth() - (bellAt[0] - meAt[0] + bell.getWidth()) - dp(8));
+            notifMax = Math.min(dp(512), getHeight() - top - dp(12));
+            LayoutParams params = new LayoutParams(Math.min(dp(368), getWidth() - dp(24)), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP | Gravity.END);
+            params.topMargin = top;
+            params.rightMargin = right;
+            notifPanel.setLayoutParams(params);
+        }
+        long now = System.currentTimeMillis();
+        fillNotifications(items, seen, now, opening);
+        if (!opening) return;
+        notif.setVisibility(VISIBLE);
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+            // backdrop-blur-sm : la page derrière est floutée de 4 px.
+            float radius = (dpf(4) - 0.5f) / 0.57735f;
+            column.setRenderEffect(android.graphics.RenderEffect.createBlurEffect(radius, radius, android.graphics.Shader.TileMode.CLAMP));
+        }
+        View shade = notif.getChildAt(0);
+        shade.setAlpha(0f);
+        shade.animate().alpha(1f).setDuration(300).start();
+        // notif-panel : part un peu plus haut et plus petit, depuis le coin de la cloche.
+        notifPanel.setAlpha(0f);
+        notifPanel.setTranslationY(-dp(8));
+        notifPanel.setScaleX(0.94f);
+        notifPanel.setScaleY(0.94f);
+        notifPanel.post(() -> {
+            notifPanel.setPivotX(notifPanel.getWidth());
+            notifPanel.setPivotY(0f);
+        });
+        notifPanel.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setDuration(380)
+                .setInterpolator(new PathInterpolator(0.22f, 1f, 0.36f, 1f)).start();
+    }
+
+    private void buildNotifications() {
+        notif = new FrameLayout(getContext());
+        notif.setClickable(true);
+        notif.setOnClickListener(v -> closeNotifications());
+        notif.setVisibility(GONE);
+        View shade = new View(getContext());
+        shade.setBackgroundColor(0x40000000);
+        notif.addView(shade, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        notifPanel = new LinearLayout(getContext()) {
+            @Override
+            protected void onMeasure(int widthSpec, int heightSpec) {
+                super.onMeasure(widthSpec, MeasureSpec.makeMeasureSpec(notifMax, MeasureSpec.AT_MOST));
+            }
+        };
+        notifPanel.setOrientation(LinearLayout.VERTICAL);
+        GradientDrawable shape = round(theme.bg, 24);
+        shape.setStroke(Math.max(1, dp(1)), theme.border);
+        notifPanel.setBackground(shape);
+        notifPanel.setClipToOutline(true);
+        notifPanel.setElevation(dp(24));
+        notifPanel.setClickable(true);
+        notif.addView(notifPanel);
+        addView(notif, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+    }
+
+    private void fillNotifications(List<JSONObject> items, long seen, long now, boolean animate) {
+        notifPanel.removeAllViews();
+        int fresh = 0;
+        List<String> ids = new ArrayList<>();
+        for (JSONObject item : items) {
+            ids.add(item.optString("id"));
+            if (instant(item.optString("at")) > seen) fresh++;
+        }
+        // En-tête : px-5 py-3.5, « Notifications » en demi-gras, les deux actions à droite (gap-3), filet dessous.
+        LinearLayout head = new LinearLayout(getContext());
+        head.setOrientation(LinearLayout.HORIZONTAL);
+        head.setGravity(Gravity.CENTER_VERTICAL);
+        head.setPadding(dp(20), dp(14), dp(20), dp(14));
+        head.addView(text("Notifications", 16, 24, theme.fg, theme.semibold));
+        head.addView(new View(getContext()), new LinearLayout.LayoutParams(0, 1, 1f));
+        if (fresh > 0) {
+            TextView read = text("Tout marquer comme lu", 12, 16, theme.persona, theme.semibold);
+            read.setOnClickListener(v -> closeNotifications());
+            head.addView(read);
+        }
+        if (!items.isEmpty()) {
+            TextView clear = text("Tout effacer", 12, 16, theme.fgMuted, theme.medium);
+            clear.setOnClickListener(v -> actions.notificationsDismiss(ids));
+            LinearLayout.LayoutParams clearParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            clearParams.leftMargin = dp(12);
+            head.addView(clear, clearParams);
+        }
+        notifPanel.addView(head, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        notifPanel.addView(rule(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Math.max(1, dp(1))));
+
+        ScrollView scroller = new ScrollView(getContext());
+        scroller.setVerticalScrollBarEnabled(false);
+        scroller.setOverScrollMode(OVER_SCROLL_NEVER);
+        notifBody = new LinearLayout(getContext());
+        notifBody.setOrientation(LinearLayout.VERTICAL);
+        scroller.addView(notifBody, new ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        notifPanel.addView(scroller, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+
+        if (items.isEmpty()) {
+            // Vide : px-6 py-12, la cloche (30 px), puis deux lignes centrées.
+            LinearLayout none = new LinearLayout(getContext());
+            none.setOrientation(LinearLayout.VERTICAL);
+            none.setGravity(Gravity.CENTER_HORIZONTAL);
+            none.setPadding(dp(24), dp(48), dp(24), dp(48));
+            none.addView(icon(R.drawable.ic_site_bell, theme.fg), new LinearLayout.LayoutParams(dp(30), dp(36)));
+            TextView first = text("Rien pour l'instant", 14, 20, theme.fg, theme.medium);
+            none.addView(first, spaced(8));
+            TextView second = text("Tes livraisons, paiements et réservations s'afficheront ici.", 12, 16, theme.fgMuted, theme.sans);
+            second.setGravity(Gravity.CENTER);
+            none.addView(second, spaced(4));
+            notifBody.addView(none, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            return;
+        }
+        java.time.ZoneId zone = java.time.ZoneId.of("Indian/Mayotte");
+        long today = java.time.Instant.ofEpochMilli(now).atZone(zone).toLocalDate().atStartOfDay(zone).toInstant().toEpochMilli();
+        int group = 0;
+        for (int g = 0; g < 2; g++) {
+            List<JSONObject> part = new ArrayList<>();
+            for (JSONObject item : items) if ((instant(item.optString("at")) >= today) == (g == 0)) part.add(item);
+            if (part.isEmpty()) continue;
+            // Section : px-2 pb-2 ; titre px-3 pt-3 pb-1, 11 px demi-gras en capitales espacées.
+            LinearLayout section = new LinearLayout(getContext());
+            section.setOrientation(LinearLayout.VERTICAL);
+            section.setPadding(dp(8), 0, dp(8), dp(8));
+            TextView title = text(g == 0 ? "AUJOURD'HUI" : "PLUS TÔT", 11, 16.5f, theme.fgMuted, theme.semibold);
+            title.setLetterSpacing(0.025f);
+            pad(title, 12, 12, 12, 4);
+            section.addView(title);
+            for (int i = 0; i < part.size(); i++) section.addView(notificationRow(part.get(i), seen, now, animate ? group * 4 + i : -1));
+            notifBody.addView(section, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+            group++;
+        }
+    }
+
+    /**
+     * Une notification : rond de l'icône (2.5rem), titre et heure, précision sur une ligne, point des
+     * nouveautés. Elle se supprime en la glissant vers la gauche (fond rouge « Supprimer ») ou par la petite croix.
+     */
+    private View notificationRow(JSONObject item, long seen, long now, int order) {
+        String id = item.optString("id");
+        long at = instant(item.optString("at"));
+        boolean fresh = at > seen;
+        String href = item.isNull("href") ? "" : item.optString("href");
+        String subtitle = item.isNull("subtitle") ? "" : item.optString("subtitle");
+
+        TextView under = text("Supprimer", 12, 16, theme.dark ? 0xFF2A0A07 : Color.WHITE, theme.semibold);
+        under.setGravity(Gravity.CENTER_VERTICAL | Gravity.END);
+        under.setPadding(dp(20), 0, dp(20), 0);
+        under.setBackground(round(theme.danger, 16));
+        under.setAlpha(0f);
+
+        FrameLayout front = new FrameLayout(getContext());
+        front.setBackgroundColor(theme.bg);
+        LinearLayout line = new LinearLayout(getContext());
+        line.setOrientation(LinearLayout.HORIZONTAL);
+        line.setPadding(dp(12), dp(10), dp(44), dp(10));
+        FrameLayout circle = new FrameLayout(getContext());
+        circle.setBackground(round(theme.bgSubtle, 999));
+        circle.addView(icon(pictogram(item.optString("emoji")), theme.fg), new LayoutParams(dp(18), dp(18), Gravity.CENTER));
+        line.addView(circle, new LinearLayout.LayoutParams(dp(40), dp(40)));
+        LinearLayout words = new LinearLayout(getContext());
+        words.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout first = new LinearLayout(getContext());
+        first.setOrientation(LinearLayout.HORIZONTAL);
+        first.addView(text(item.optString("title"), 14, 19.25f, theme.fg, fresh ? theme.semibold : theme.medium), new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+        TextView when = text(ago(at, now), 11, 16.5f, theme.fgMuted, theme.sans);
+        LinearLayout.LayoutParams whenParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        whenParams.leftMargin = dp(8);
+        whenParams.topMargin = dp(2);
+        first.addView(when, whenParams);
+        words.addView(first, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        if (!subtitle.isEmpty()) {
+            TextView more = text(subtitle, 12, 16, theme.fgMuted, theme.sans);
+            more.setMaxLines(1);
+            more.setEllipsize(TextUtils.TruncateAt.END);
+            LinearLayout.LayoutParams moreParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            moreParams.topMargin = dp(2);
+            words.addView(more, moreParams);
+        }
+        LinearLayout.LayoutParams wordsParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        wordsParams.leftMargin = dp(12);
+        line.addView(words, wordsParams);
+        if (fresh) {
+            View dot = new View(getContext());
+            dot.setBackground(round(theme.persona, 999));
+            LinearLayout.LayoutParams dotParams = new LinearLayout.LayoutParams(dp(8), dp(8));
+            dotParams.leftMargin = dp(12);
+            dotParams.topMargin = dp(6);
+            line.addView(dot, dotParams);
+        }
+        front.addView(line, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        // Croix (écran tactile) : top-2 right-2, 1.5rem, ronde, filet, à 60 %.
+        FrameLayout cross = new FrameLayout(getContext());
+        GradientDrawable crossShape = round(theme.bg, 999);
+        crossShape.setStroke(Math.max(1, dp(1)), theme.border);
+        cross.setBackground(crossShape);
+        cross.setAlpha(0.6f);
+        cross.setContentDescription("Supprimer la notification");
+        cross.addView(icon(R.drawable.ic_site_close, theme.fgMuted), new LayoutParams(dp(13), dp(13), Gravity.CENTER));
+        LayoutParams crossParams = new LayoutParams(dp(24), dp(24), Gravity.TOP | Gravity.END);
+        crossParams.topMargin = dp(8);
+        crossParams.rightMargin = dp(8);
+        front.addView(cross, crossParams);
+
+        // Le doigt glisse vers la gauche : la ligne suit, le fond rouge apparaît ; au-delà de 90 px, elle est supprimée.
+        final float limit = dpf(90), slop = dpf(8);
+        FrameLayout row = new FrameLayout(getContext()) {
+            private float downX, downY;
+            private boolean dragging, removing;
+
+            void remove() {
+                if (removing) return;
+                removing = true;
+                if (front.getTranslationX() < 0f) front.animate().translationX(-getResources().getDisplayMetrics().widthPixels).setDuration(200).start();
+                int height = getHeight();
+                ValueAnimator fold = ValueAnimator.ofFloat(1f, 0f);
+                fold.setDuration(260);
+                fold.addUpdateListener(a -> {
+                    float f = (float) a.getAnimatedValue();
+                    getLayoutParams().height = Math.round(height * f);
+                    setAlpha(f);
+                    requestLayout();
+                });
+                fold.start();
+                postDelayed(() -> actions.notificationsDismiss(java.util.Collections.singletonList(id)), 260);
+            }
+
+            @Override
+            public boolean onInterceptTouchEvent(MotionEvent event) {
+                if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                    downX = event.getX();
+                    downY = event.getY();
+                    dragging = false;
+                } else if (event.getActionMasked() == MotionEvent.ACTION_MOVE && !dragging) {
+                    float x = event.getX() - downX, y = event.getY() - downY;
+                    if (Math.abs(x) > slop && Math.abs(x) > Math.abs(y)) {
+                        dragging = true;
+                        getParent().requestDisallowInterceptTouchEvent(true);
+                    }
+                }
+                return dragging;
+            }
+
+            @Override
+            public boolean onTouchEvent(MotionEvent event) {
+                if (!dragging) return super.onTouchEvent(event);
+                float x = Math.min(0f, event.getX() - downX);
+                switch (event.getActionMasked()) {
+                    case MotionEvent.ACTION_MOVE:
+                        front.setTranslationX(x);
+                        under.setAlpha(Math.min(1f, -x / limit));
+                        break;
+                    case MotionEvent.ACTION_UP:
+                        dragging = false;
+                        if (x < -limit) {
+                            remove();
+                            break;
+                        }
+                        // Pas assez loin : elle revient.
+                    case MotionEvent.ACTION_CANCEL:
+                        dragging = false;
+                        front.animate().translationX(0f).setDuration(200).start();
+                        under.animate().alpha(0f).setDuration(200).start();
+                        break;
+                    default:
+                        break;
+                }
+                return true;
+            }
+
+            @Override
+            public boolean performClick() {
+                remove();
+                return true;
+            }
+        };
+        row.setBackground(null);
+        row.setClipToOutline(true);
+        row.setOutlineProvider(new android.view.ViewOutlineProvider() {
+            @Override
+            public void getOutline(View view, android.graphics.Outline outline) {
+                outline.setRoundRect(0, 0, view.getWidth(), view.getHeight(), dpf(16));
+            }
+        });
+        row.addView(under, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        row.addView(front, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        cross.setOnClickListener(v -> row.performClick());
+        if (!href.isEmpty()) {
+            line.setClickable(true);
+            line.setOnClickListener(v -> {
+                closeNotifications();
+                actions.openPage(href);
+            });
+        }
+        if (order >= 0) {
+            // notif-item : chaque ligne monte de 8 px en apparaissant, l'une après l'autre.
+            front.setAlpha(0f);
+            front.setTranslationY(dp(8));
+            front.animate().alpha(1f).translationY(0f).setStartDelay(60 + order * 35L).setDuration(420)
+                    .setInterpolator(new PathInterpolator(0.22f, 1f, 0.36f, 1f)).start();
+        }
+        row.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        return row;
+    }
+
     // ----- Menu -----
 
     boolean menuOpen() {
-        return menu.getVisibility() == VISIBLE;
+        return menu.isOpen();
     }
 
     private void openMenu() {
         hideKeyboard();
-        menu.setAlpha(0f);
-        menu.setVisibility(VISIBLE);
-        menu.animate().alpha(1f).setDuration(160).start();
-        menuPanel.setTranslationX(-dp(40));
-        menuPanel.animate().translationX(0f).setDuration(200).start();
+        menu.open();
         actions.menuOpened();
     }
 
     void closeMenu() {
-        if (!menuOpen()) return;
-        menu.animate().alpha(0f).setDuration(140).withEndAction(() -> menu.setVisibility(GONE)).start();
+        menu.close();
     }
 
-    /** Contenu du menu : nouvelle conversation, historique du compte, pages du site, compte. */
-    void showMenu(JSONArray history, String currentId, String name, String email, boolean signedIn, boolean loading) {
-        menuPanel.removeAllViews();
-        LinearLayout top = new LinearLayout(getContext());
-        top.setOrientation(LinearLayout.HORIZONTAL);
-        top.setGravity(Gravity.CENTER_VERTICAL);
-        top.setPadding(dp(16), dp(10), dp(8), dp(4));
-        top.addView(brand(20), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        top.addView(new View(getContext()), new LinearLayout.LayoutParams(0, 1, 1f));
-        top.addView(iconButton(Glyph.CLOSE, "Fermer le menu", v -> closeMenu()), new LinearLayout.LayoutParams(dp(44), dp(44)));
-        menuPanel.addView(top, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, dp(56)));
-
-        TextView fresh = menuRow(Glyph.PLUS, "Nouvelle conversation");
-        fresh.setOnClickListener(v -> {
-            closeMenu();
-            actions.newConversation();
-        });
-        menuPanel.addView(fresh);
-
-        ScrollView middle = new ScrollView(getContext());
-        middle.setVerticalScrollBarEnabled(false);
-        LinearLayout items = new LinearLayout(getContext());
-        items.setOrientation(LinearLayout.VERTICAL);
-        items.setPadding(0, dp(8), 0, dp(8));
-        TextView title = text("HISTORIQUE", 12, theme.fgMuted);
-        title.setLetterSpacing(0.06f);
-        title.setPadding(dp(20), dp(8), dp(20), dp(6));
-        items.addView(title);
-        if (!signedIn) {
-            TextView empty = text("Connecte-toi pour retrouver tes conversations sur tous tes appareils.", 14, theme.fgMuted);
-            empty.setPadding(dp(20), dp(4), dp(20), dp(10));
-            items.addView(empty);
-        } else if (history.length() == 0) {
-            TextView empty = text(loading ? "Chargement…" : "Tes conversations apparaîtront ici.", 14, theme.fgMuted);
-            empty.setPadding(dp(20), dp(4), dp(20), dp(10));
-            items.addView(empty);
-        }
-        for (int i = 0; i < history.length(); i++) {
-            JSONObject conversation = history.optJSONObject(i);
-            if (conversation == null) continue;
-            String id = conversation.optString("id");
-            String label = conversation.optString("title");
-            if (label.isEmpty()) label = "Conversation";
-            TextView row = text(label, 15, id.equals(currentId) ? theme.fg : theme.fgMuted);
-            row.setMaxLines(1);
-            row.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            row.setPadding(dp(20), dp(11), dp(20), dp(11));
-            if (id.equals(currentId)) {
-                row.setTypeface(row.getTypeface(), Typeface.BOLD);
-                row.setBackground(round(theme.bgMuted, 10));
-            } else {
-                row.setBackground(ripple());
-            }
-            row.setClickable(true);
-            row.setOnClickListener(v -> {
-                closeMenu();
-                actions.openConversation(id);
-            });
-            LinearLayout.LayoutParams rowParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-            rowParams.leftMargin = dp(8);
-            rowParams.rightMargin = dp(8);
-            items.addView(row, rowParams);
-        }
-        middle.addView(items);
-        menuPanel.addView(middle, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
-        menuPanel.addView(rule(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1));
-
-        TextView settings = menuRow(Glyph.GEAR, "Paramètres");
-        settings.setOnClickListener(v -> {
-            closeMenu();
-            actions.openPage("/parametres");
-        });
-        menuPanel.addView(settings);
-        TextView help = menuRow(Glyph.HELP, "Obtenir de l'aide");
-        help.setOnClickListener(v -> {
-            closeMenu();
-            actions.help();
-        });
-        menuPanel.addView(help);
-        TextView connect = menuRow(Glyph.WAVES, "Tamilya Connect");
-        connect.setOnClickListener(v -> {
-            closeMenu();
-            actions.connect();
-        });
-        menuPanel.addView(connect);
-        TextView site = menuRow(Glyph.GLOBE, "Le site tamilya.yt");
-        site.setOnClickListener(v -> {
-            closeMenu();
-            actions.openPage("/utilisation");
-        });
-        menuPanel.addView(site);
-        menuPanel.addView(rule(), new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 1));
-
-        // Bas du menu : le compte, ou le bouton rose pour se connecter.
-        LinearLayout account = new LinearLayout(getContext());
-        account.setOrientation(LinearLayout.VERTICAL);
-        account.setPadding(dp(20), dp(12), dp(20), dp(16));
-        if (signedIn) {
-            TextView who = text(name == null || name.isEmpty() ? (email == null || email.isEmpty() ? "Mon compte" : email) : name, 15, theme.fg);
-            who.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL));
-            who.setMaxLines(1);
-            who.setEllipsize(android.text.TextUtils.TruncateAt.END);
-            account.addView(who);
-            if (name != null && !name.isEmpty() && email != null && !email.isEmpty()) {
-                TextView mail = text(email, 12, theme.fgMuted);
-                mail.setMaxLines(1);
-                mail.setEllipsize(android.text.TextUtils.TruncateAt.END);
-                account.addView(mail);
-            }
-            account.setClickable(true);
-            account.setBackground(ripple());
-            account.setOnClickListener(v -> {
-                closeMenu();
-                actions.openPage("/parametres");
-            });
-        } else {
-            TextView login = pinkButton("Se connecter");
-            login.setOnClickListener(v -> {
-                closeMenu();
-                actions.signIn();
-            });
-            account.addView(login, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
-        }
-        menuPanel.addView(account);
+    /** Bouton retour : ferme d'abord le petit menu ou la fenêtre ouverts dans le menu. Faux s'il n'y en avait pas. */
+    boolean dismissMenuPopup() {
+        return menu.dismissPopup();
     }
 
-    private TextView menuRow(int glyph, String label) {
-        TextView row = text(label, 15, theme.fg);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(20), dp(12), dp(20), dp(12));
-        row.setCompoundDrawablePadding(dp(14));
-        Glyph icon = new Glyph(getContext(), glyph, theme.fgMuted);
-        android.graphics.drawable.Drawable drawable = icon.asDrawable(dp(20));
-        row.setCompoundDrawablesRelative(drawable, null, null, null);
-        row.setClickable(true);
-        row.setBackground(ripple());
-        return row;
+    /** Contenu du menu (HomeMenu) : historique, compte et solde ; le reste vient de ce que le site montre à ce compte. */
+    void showMenu(JSONArray history, String currentId, String name, String email, boolean signedIn, boolean loading, Long balanceCents, boolean demo) {
+        menu.show(history, currentId, name, email, signedIn, loading, badge.getVisibility() == VISIBLE, attach, balanceCents, demo);
+    }
+
+    /** Erreur : dans la fenêtre du site si le menu est ouvert, sinon au-dessus de la barre d'écriture. */
+    void alert(String title, String message) {
+        if (menu.isOpen()) menu.alert(title, message);
+        else setNotice(title + ". " + message);
     }
 
     // ----- Geste vers Tamilya Connect -----
@@ -1394,33 +1785,6 @@ final class HomeScreen extends FrameLayout {
         return button;
     }
 
-    private View iconButton(int glyph, String description, OnClickListener click) {
-        FrameLayout button = new FrameLayout(getContext());
-        button.setContentDescription(description);
-        button.setClickable(true);
-        button.setOnClickListener(click);
-        button.setBackground(ripple());
-        button.addView(new Glyph(getContext(), glyph, theme.fgMuted), new LayoutParams(dp(22), dp(22), Gravity.CENTER));
-        return button;
-    }
-
-    private android.graphics.drawable.Drawable ripple() {
-        TypedValue value = new TypedValue();
-        getContext().getTheme().resolveAttribute(android.R.attr.selectableItemBackground, value, true);
-        return value.resourceId != 0 ? getContext().getDrawable(value.resourceId) : null;
-    }
-
-    /** Bouton rose plein du site (btn-rose) : rond, texte blanc en gras. */
-    private TextView pinkButton(String label) {
-        TextView button = text(label, 15, Color.WHITE);
-        button.setTypeface(theme.bold);
-        button.setGravity(Gravity.CENTER);
-        button.setPadding(dp(20), dp(11), dp(20), dp(11));
-        button.setBackground(round(theme.accent, 24));
-        button.setClickable(true);
-        return button;
-    }
-
     private TextView outlinedButton(String label) {
         TextView button = text(label, 14, 20, theme.fg, theme.medium);
         button.setGravity(Gravity.CENTER_VERTICAL);
@@ -1430,16 +1794,6 @@ final class HomeScreen extends FrameLayout {
         button.setBackground(shape);
         button.setClickable(true);
         return button;
-    }
-
-    /** Texte du menu : police du site, taille en dp (les « px » du CSS). */
-    private TextView text(String value, int size, int color) {
-        TextView view = new TextView(getContext());
-        view.setText(value);
-        view.setTextSize(TypedValue.COMPLEX_UNIT_DIP, size);
-        view.setTextColor(color);
-        view.setTypeface(theme.sans);
-        return view;
     }
 
     /**
@@ -1500,102 +1854,5 @@ final class HomeScreen extends FrameLayout {
 
     private float dpf(float value) {
         return TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, value, getResources().getDisplayMetrics());
-    }
-
-    /** Icônes du site (trait de 2, bouts ronds, grille de 24), dessinées à la main. */
-    static final class Glyph extends View {
-        static final int MENU = 0, PLUS = 1, ARROW = 2, STOP = 3, CLOSE = 4, GEAR = 5, HELP = 6, WAVES = 7, GLOBE = 8;
-        private int kind;
-        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
-
-        Glyph(Context context, int kind, int color) {
-            super(context);
-            this.kind = kind;
-            paint.setColor(color);
-            paint.setStyle(Paint.Style.STROKE);
-            paint.setStrokeCap(Paint.Cap.ROUND);
-            paint.setStrokeJoin(Paint.Join.ROUND);
-            setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
-        }
-
-        void setKind(int value) {
-            if (kind == value) return;
-            kind = value;
-            invalidate();
-        }
-
-        /** La même icône, pour un drawable (icônes des lignes du menu). */
-        android.graphics.drawable.Drawable asDrawable(int sizePx) {
-            android.graphics.Bitmap bitmap = android.graphics.Bitmap.createBitmap(sizePx, sizePx, android.graphics.Bitmap.Config.ARGB_8888);
-            draw(new Canvas(bitmap), sizePx, sizePx);
-            android.graphics.drawable.BitmapDrawable drawable = new android.graphics.drawable.BitmapDrawable(getResources(), bitmap);
-            drawable.setBounds(0, 0, sizePx, sizePx);
-            return drawable;
-        }
-
-        @Override
-        protected void onDraw(Canvas canvas) {
-            draw(canvas, getWidth(), getHeight());
-        }
-
-        private void draw(Canvas canvas, int width, int height) {
-            float u = Math.min(width, height) / 24f;
-            paint.setStrokeWidth(2 * u);
-            paint.setStyle(Paint.Style.STROKE);
-            switch (kind) {
-                case MENU:
-                    canvas.drawLine(4 * u, 6 * u, 20 * u, 6 * u, paint);
-                    canvas.drawLine(4 * u, 12 * u, 20 * u, 12 * u, paint);
-                    canvas.drawLine(4 * u, 18 * u, 20 * u, 18 * u, paint);
-                    break;
-                case PLUS:
-                    canvas.drawLine(12 * u, 5 * u, 12 * u, 19 * u, paint);
-                    canvas.drawLine(5 * u, 12 * u, 19 * u, 12 * u, paint);
-                    break;
-                case STOP:
-                    paint.setStyle(Paint.Style.FILL);
-                    canvas.drawRoundRect(7 * u, 7 * u, 17 * u, 17 * u, 2 * u, 2 * u, paint);
-                    break;
-                case CLOSE:
-                    canvas.drawLine(6 * u, 6 * u, 18 * u, 18 * u, paint);
-                    canvas.drawLine(18 * u, 6 * u, 6 * u, 18 * u, paint);
-                    break;
-                case GEAR:
-                    canvas.drawCircle(12 * u, 12 * u, 3 * u, paint);
-                    for (int i = 0; i < 8; i++) {
-                        double a = Math.PI / 4 * i;
-                        canvas.drawLine((float) (12 * u + Math.cos(a) * 6.5 * u), (float) (12 * u + Math.sin(a) * 6.5 * u),
-                                (float) (12 * u + Math.cos(a) * 9.5 * u), (float) (12 * u + Math.sin(a) * 9.5 * u), paint);
-                    }
-                    canvas.drawCircle(12 * u, 12 * u, 6.5f * u, paint);
-                    break;
-                case HELP:
-                    canvas.drawCircle(12 * u, 12 * u, 9 * u, paint);
-                    android.graphics.Path q = new android.graphics.Path();
-                    q.moveTo(9.5f * u, 9.5f * u);
-                    q.cubicTo(9.5f * u, 7.5f * u, 14.5f * u, 7.5f * u, 14.5f * u, 9.5f * u);
-                    q.cubicTo(14.5f * u, 11.5f * u, 12 * u, 11 * u, 12 * u, 13.5f * u);
-                    canvas.drawPath(q, paint);
-                    canvas.drawPoint(12 * u, 17 * u, paint);
-                    break;
-                case WAVES:
-                    for (int i = 0; i < 3; i++) {
-                        float r = (4 + 4 * i) * u;
-                        canvas.drawArc(12 * u - r, 14 * u - r, 12 * u + r, 14 * u + r, 215, 110, false, paint);
-                    }
-                    canvas.drawPoint(12 * u, 15 * u, paint);
-                    break;
-                case GLOBE:
-                    canvas.drawCircle(12 * u, 12 * u, 9 * u, paint);
-                    canvas.drawLine(3 * u, 12 * u, 21 * u, 12 * u, paint);
-                    canvas.drawOval(8 * u, 3 * u, 16 * u, 21 * u, paint);
-                    break;
-                default:
-                    paint.setStrokeWidth(2.4f * u);
-                    canvas.drawLine(12 * u, 19 * u, 12 * u, 5 * u, paint);
-                    canvas.drawLine(5 * u, 12 * u, 12 * u, 5 * u, paint);
-                    canvas.drawLine(19 * u, 12 * u, 12 * u, 5 * u, paint);
-            }
-        }
     }
 }

@@ -144,6 +144,11 @@ public class MainActivity extends Activity {
     private HomeChat home;
     /** Fenêtre de connexion du site ouverte depuis l'accueil natif : « / » reste à la WebView jusqu'à la connexion. */
     private boolean webAuthFlow;
+    /** Page vocale ouverte par le globe de l'accueil natif : sa croix ramène à cet accueil, pas à l'admin. */
+    private boolean voiceFromHome;
+    private boolean voiceSeen;
+    /** La page vocale charge derrière l'accueil natif, qui reste affiché (globe au centre) jusqu'à ce qu'elle soit là. */
+    private boolean voiceOpening;
     /** « Obtenir de l'aide » de l'app : la page /aide du site n'y est jamais ouverte. */
     private HelpScreen help;
     private LinkViewer links;
@@ -155,6 +160,11 @@ public class MainActivity extends Activity {
     /** Tamilya Connect ouvert avec internet : il reste ouvert tant que la personne ne le ferme pas. */
     private boolean openedOnline;
 
+    /** Le thème choisi sur le site n'est plus celui des écrans natifs : à refaire au retour à l'accueil. */
+    private boolean themeStale;
+    /** L'écran est refait pour changer de thème : l'accueil natif revient tout de suite après. */
+    private boolean themeHome;
+
     private float swipeX;
     private float swipeY;
     private boolean swipeDone;
@@ -165,6 +175,29 @@ public class MainActivity extends Activity {
     /** Un dessin du geste est en cours dans la page : on n'envoie que le plus récent. */
     private boolean pullInFlight;
     private float pullSent = -1f, pullWanted;
+
+    /** Thème choisi dans Paramètres › Apparence : imposé à tout l'écran, natif compris. */
+    @Override
+    protected void attachBaseContext(android.content.Context base) {
+        super.attachBaseContext(base);
+        android.content.res.Configuration forced = ThemePref.forced(base);
+        if (forced != null) applyOverrideConfiguration(forced);
+    }
+
+    /** La page du site annonce le choix de thème (pageScript) : l'écran natif est refait s'il n'a plus le bon. */
+    private void themeChosen(String choice) {
+        if (isFinishing() || isDestroyed() || !ThemePref.save(this, choice)) return;
+        themeStale = ThemePref.dark(this) != ThemePref.night(this);
+        // Accueil natif à l'écran (premier lancement après un choix fait sur le site) : tout de suite.
+        // Sinon au retour à l'accueil, pour ne pas recharger la page des paramètres sous le doigt.
+        if (themeStale && home.isOpen() && !connect.isOpen()) restartForTheme();
+    }
+
+    private void restartForTheme() {
+        themeStale = false;
+        themeHome = true;
+        recreate();
+    }
 
     @Override
     protected void onCreate(Bundle state) {
@@ -190,6 +223,7 @@ public class MainActivity extends Activity {
         root.setBackgroundColor(Color.parseColor("#111111"));
 
         FrameLayout content = new FrameLayout(this);
+        content.setBackgroundColor(getColor(R.color.launch_bg));
         web = new WebView(this);
         content.addView(web, match());
         offline = buildOfflineView();
@@ -262,7 +296,22 @@ public class MainActivity extends Activity {
         home = new HomeChat(this, new HomeChat.Host() {
             @Override
             public void openPage(String path) {
-                home.close();
+                voiceFromHome = "/voix".equals(path);
+                voiceSeen = false;
+                if (voiceFromHome && home.isOpen()) {
+                    // Pas de passage visible par la page du site : l'accueil reste, son globe grandit
+                    // jusqu'à la place du globe du vocal, et la page vocale prend le relais une fois prête.
+                    voiceOpening = true;
+                    android.content.SharedPreferences prefs = getPreferences(MODE_PRIVATE);
+                    String key = "voiceGlobe." + web.getWidth() + "x" + web.getHeight();
+                    int[] at = new int[2];
+                    web.getLocationOnScreen(at);
+                    float width = prefs.getFloat(key + ".w", 0f);
+                    home.morphToVoice(at[0] + prefs.getFloat(key + ".x", 0f), at[1] + prefs.getFloat(key + ".y", 0f), width);
+                    main.postDelayed(() -> endVoiceOpening(0L), 10000L);
+                } else {
+                    home.close();
+                }
                 web.loadUrl(SITE_ORIGIN + path);
             }
 
@@ -283,12 +332,6 @@ public class MainActivity extends Activity {
             }
 
             @Override
-            public void openConnect() {
-                openedOnline = online;
-                connect.open();
-            }
-
-            @Override
             public void signIn() {
                 webAuthFlow = true;
                 openPage("/?auth=required&next=%2F");
@@ -303,7 +346,7 @@ public class MainActivity extends Activity {
 
             @Override
             public void siteScript(String script, android.webkit.ValueCallback<String> result) {
-                web.evaluateJavascript(script, result);
+                if (web != null) web.evaluateJavascript(script, result);
             }
         });
         content.addView(home.view(), match());
@@ -343,9 +386,10 @@ public class MainActivity extends Activity {
 
     private View buildSplashView() {
         FrameLayout box = new FrameLayout(this);
-        box.setBackgroundColor(Color.parseColor("#111111"));
+        // Fond et logo du thème affiché (clair ou sombre) : pas de carré noir sur fond clair.
+        box.setBackgroundColor(getColor(R.color.launch_bg));
         ImageView icon = new ImageView(this);
-        icon.setImageResource(R.mipmap.ic_launcher);
+        icon.setImageResource(R.drawable.launch_logo);
         int size = dp(128);
         box.addView(icon, new FrameLayout.LayoutParams(size, size, Gravity.CENTER));
         splashLogo = icon;
@@ -653,7 +697,7 @@ public class MainActivity extends Activity {
         if ((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
             WebView.setWebContentsDebuggingEnabled(true);
         }
-        web.setBackgroundColor(Color.parseColor("#111111"));
+        web.setBackgroundColor(getColor(R.color.launch_bg));
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
         WebSettings s = web.getSettings();
@@ -714,6 +758,41 @@ public class MainActivity extends Activity {
         return (path == null || path.isEmpty() || path.equals("/")) && (query == null || query.isEmpty());
     }
 
+    /** La page vocale est affichée derrière : l'accueil natif s'efface et la laisse voir. */
+    private void endVoiceOpening(long delayMs) {
+        if (!voiceOpening) return;
+        voiceOpening = false;
+        main.postDelayed(() -> {
+            if (voiceFromHome) home.fadeClose();
+        }, delayMs);
+    }
+
+    /** Fin de la page vocale ouverte par le globe : l'accueil de l'app revient, et la page du site derrière redevient « / ». */
+    private void leaveVoice(float x, float y, float width, boolean talked) {
+        if (!voiceFromHome) return;
+        voiceFromHome = false;
+        voiceOpening = false;
+        if (!ChatApi.signedIn()) return;
+        float density = getResources().getDisplayMetrics().density;
+        if (width > 0f) {
+            // Place du globe du vocal sur cet écran, retenue pour la prochaine ouverture.
+            String key = "voiceGlobe." + web.getWidth() + "x" + web.getHeight();
+            getPreferences(MODE_PRIVATE).edit().putFloat(key + ".x", x * density).putFloat(key + ".y", y * density)
+                    .putFloat(key + ".w", width * density).apply();
+        }
+        if (home.isOpen()) home.close();
+        if (!connect.isOpen()) {
+            home.open();
+            // Rien n'a été dit : le gros globe du vocal rétrécit et glisse jusqu'à sa place sur l'accueil.
+            if (width > 0f && !talked) {
+                int[] at = new int[2];
+                web.getLocationOnScreen(at);
+                home.returnGlobe(at[0] + x * density, at[1] + y * density, width * density);
+            }
+        }
+        web.loadUrl(HOME);
+    }
+
     /** Une page « / » vient d'arriver dans la WebView : l'accueil natif reprend la main. */
     private void siteHomeReached() {
         // Fenêtre de connexion ouverte depuis l'accueil natif : le site remet l'adresse à « / » tout de
@@ -725,7 +804,9 @@ public class MainActivity extends Activity {
             home.close();
             return;
         }
-        if (!home.isOpen() && !connect.isOpen()) home.open();
+        if (home.isOpen() || connect.isOpen()) return;
+        if (themeStale) restartForTheme();
+        else home.open();
     }
 
     private void openExternally(Uri uri) {
@@ -817,6 +898,14 @@ public class MainActivity extends Activity {
                 // Liens vers /aide (menu du compte…) : la page d'aide de l'app, avant que le site ne change de page.
                 + "if(!window.__tamilyaHelp){window.__tamilyaHelp=1;document.addEventListener('click',function(e){var a=e.target&&e.target.closest&&e.target.closest('a[href]');"
                 + "if(!a||a.origin!==location.origin||(a.pathname!=='/aide'&&a.pathname!=='/aide/'))return;e.preventDefault();e.stopPropagation();TamilyaNative.openHelp(token);},true);}"
+                // Thème choisi sur le site (Theme.tsx, clé btm-theme) : dit à l'app à chaque page et à chaque
+                // changement, pour que l'accueil et la conversation natifs aient le même.
+                + "if(!window.__tamilyaTheme){window.__tamilyaTheme=1;"
+                + "var sendTheme=function(){var c=null;try{c=localStorage.getItem('btm-theme');}catch(e){}TamilyaNative.theme(token,c==='dark'||c==='light'?c:'system');};"
+                + "try{var SP=Storage.prototype,setI=SP.setItem,delI=SP.removeItem;"
+                + "SP.setItem=function(k){var r=setI.apply(this,arguments);if(k==='btm-theme')sendTheme();return r;};"
+                + "SP.removeItem=function(k){var r=delI.apply(this,arguments);if(k==='btm-theme')sendTheme();return r;};}catch(e){}"
+                + "sendTheme();}"
                 + "if(window.__tamilyaVoice)return;"
                 + "var st=document.createElement('style');"
                 + "st.textContent='.voice-halo{display:none!important}.voice-overlay[data-compact]::after{content:\"\";position:fixed;inset:-24px;z-index:-1;pointer-events:none;opacity:.35;border-radius:64px;box-shadow:inset 34px 0 60px -22px #4dd2ff,inset -34px 0 60px -22px #ff4dd8,inset 0 34px 60px -22px #7a5cff,inset 0 -34px 60px -22px #ff9a5c;transition:opacity .6s ease;animation:tamilya-glow 6s ease-in-out infinite alternate}.voice-overlay[data-compact]:has([data-state=waiting])::after{opacity:.6}.voice-overlay[data-compact]:has([data-state=speaking])::after{opacity:.9}@keyframes tamilya-glow{from{filter:hue-rotate(-22deg)}to{filter:hue-rotate(22deg)}}@media (prefers-reduced-motion:reduce){.voice-overlay[data-compact]::after{animation:none}}"
@@ -827,10 +916,17 @@ public class MainActivity extends Activity {
                 // Vibrations du site (écriture de Tamilya, réponse prête) : celles du téléphone, sans la limite du navigateur.
                 + "navigator.vibrate=function(p){TamilyaNative.feedback(token,Array.isArray(p)?'ready':'tick');return true;};"
                 + "document.addEventListener('click',function(e){var t=e.target;"
-                + "if(!t||!t.closest)return;if(t.closest('.tamilya-blob,.voice-orb-slot'))TamilyaNative.feedback(token,'tap');"
+                + "if(!t||!t.closest)return;"
+                // Croix de la page vocale : l'app revient à son accueil tout de suite, avant que le site ne parte vers /admin.
+                + "if(location.pathname==='/voix'&&t.closest('button[aria-label^=Terminer]')){"
+                // Place du gros globe au moment de quitter : sans échange, celui de l'accueil part de là et revient à sa place.
+                + "var gb=document.querySelector('.voice-orb-slot .tamilya-blob'),gr=gb?gb.getBoundingClientRect():null;"
+                + "TamilyaNative.voiceClosed(token,gr?gr.left+gr.width/2:-1,gr?gr.top+gr.height/2:-1,gr?gr.width:0,!!window.__tamilyaTalked);}"
+                + "if(t.closest('.tamilya-blob,.voice-orb-slot'))TamilyaNative.feedback(token,'tap');"
                 // Tous les boutons du site : petite vibration, sans son.
                 + "else if(t.closest('button,a,summary,label,select,[role=button],[role=tab],[role=menuitem],[role=switch],[role=option],input[type=checkbox],input[type=radio]'))TamilyaNative.feedback(token,'key');},true);"
                 + "var voiceOn=false;function watchVoice(){var o=document.querySelector('.voice-overlay'),s=document.querySelector('.voice-orb-slot');"
+                + "if(s&&(s.dataset.state==='waiting'||s.dataset.state==='speaking'))window.__tamilyaTalked=1;"
                 + "var on=!!o&&(voiceOn||location.pathname!=='/voix'||(!!s&&s.dataset.state!=='off'));"
                 + "if(on!==voiceOn){voiceOn=on;TamilyaNative.feedback(token,on?'start':'end');}}"
                 + "new MutationObserver(watchVoice).observe(document.documentElement,{childList:true,subtree:true,attributes:true,attributeFilter:['data-state']});"
@@ -1062,6 +1158,13 @@ public class MainActivity extends Activity {
             if (bridgeToken.equals(token)) pageAtBottom = value;
         }
 
+        /** Choix de Paramètres › Apparence du site : « system », « light » ou « dark ». */
+        @JavascriptInterface
+        public void theme(String token, String choice) {
+            if (!bridgeToken.equals(token)) return;
+            main.post(() -> themeChosen(choice));
+        }
+
         @JavascriptInterface
         public void openHelp(String token) {
             if (!bridgeToken.equals(token)) return;
@@ -1087,6 +1190,12 @@ public class MainActivity extends Activity {
                 ttsWaiting.clear();
                 if (tts != null) tts.stop();
             });
+        }
+
+        @JavascriptInterface
+        public void voiceClosed(String token, double x, double y, double width, boolean talked) {
+            if (!bridgeToken.equals(token)) return;
+            main.post(() -> leaveVoice((float) x, (float) y, (float) width, talked));
         }
 
         @JavascriptInterface
@@ -1266,6 +1375,15 @@ public class MainActivity extends Activity {
             // Arrivée sur /aide sans clic (lien d'une autre app, navigation du site) : retour à la
             // page d'avant, ou à l'accueil, et la page d'aide de l'app s'ouvre.
             Uri visited = Uri.parse(String.valueOf(url));
+            if (voiceFromHome) {
+                if ("/voix".equals(visited.getPath())) {
+                    voiceSeen = true;
+                } else if (voiceSeen) {
+                    // Croix de la page vocale (le site part vers /admin) : retour à l'accueil de l'app.
+                    leaveVoice(-1f, -1f, 0f, true);
+                    return;
+                }
+            }
             if (isSiteHome(visited)) {
                 siteHomeReached();
                 return;
@@ -1285,6 +1403,8 @@ public class MainActivity extends Activity {
         @Override
         public void onPageCommitVisible(WebView view, String url) {
             Perf.mark("page.visible", launchNs);
+            // Le globe du site met 0,9 s à éclore : l'accueil natif (globe déjà au centre) couvre ce moment.
+            endVoiceOpening(800L);
             injectPageSupport(view);
             if (!pageFailed) hideSplash();
         }
@@ -1312,6 +1432,10 @@ public class MainActivity extends Activity {
         public void onReceivedError(WebView view, WebResourceRequest request, WebResourceError error) {
             if (!request.isForMainFrame()) return;
             pageFailed = true;
+            if (voiceOpening) {
+                voiceOpening = false;
+                home.close();
+            }
             offline.setVisibility(View.VISIBLE);
             hideSplash();
         }
@@ -1455,7 +1579,10 @@ public class MainActivity extends Activity {
             else super.onBackPressed();
         }
         else if (web.canGoBack()) web.goBack();
-        else if (ChatApi.signedIn()) home.open();
+        else if (ChatApi.signedIn()) {
+            if (themeStale) restartForTheme();
+            else home.open();
+        }
         else super.onBackPressed();
     }
 
@@ -1463,7 +1590,7 @@ public class MainActivity extends Activity {
     protected void onSaveInstanceState(Bundle state) {
         super.onSaveInstanceState(state);
         web.saveState(state);
-        state.putBoolean("home", home.isOpen());
+        state.putBoolean("home", home.isOpen() || themeHome);
     }
 
     @Override

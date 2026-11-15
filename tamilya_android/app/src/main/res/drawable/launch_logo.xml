@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Le « b » seul, sans carré noir autour, à la couleur du thème. -->
+<bitmap xmlns:android="http://schemas.android.com/apk/res/android"
+    android:gravity="center"
+    android:src="@drawable/logo_b"
+    android:tint="@color/launch_logo" />
