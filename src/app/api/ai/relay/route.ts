@@ -29,6 +29,7 @@ const bodySchema = z.object({
   model: z.string().regex(/^gemini-[a-z0-9.-]{1,60}$/).optional(),
   deep: z.boolean().optional(),
   search: z.boolean().optional(),
+  careful: z.boolean().optional(),
 });
 
 export async function POST(request: NextRequest) {

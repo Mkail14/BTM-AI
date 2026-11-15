@@ -65,6 +65,7 @@ import { isChallenge, isComplexRequest, needsWebSearch } from "@/lib/ai/depth";
 import { planTeam } from "@/lib/ai/agents/plan";
 import { AGENT_LABELS, runTeam, teamBlock, teamSummary } from "@/lib/ai/agents/team";
 import { mayotteClock } from "@/lib/ai/clock";
+import { understand } from "@/lib/ai/understanding";
 
 export const maxDuration = 120;
 
@@ -423,8 +424,21 @@ export async function POST(request: NextRequest) {
   // seulement quand le message le mérite. Pas à l'oral, où la vitesse prime.
   // Réponse contestée : Tamilya vérifie (réflexion et recherche), même sur un message très court.
   const challenged = !master && history.length > 0 && isChallenge(body.message);
-  const deep = !body.voice && (challenged || isComplexRequest(body.message));
-  const search = !body.voice && (challenged || needsWebSearch(body.message));
+  // Compréhension (src/lib/ai/understanding.ts) : message remis au propre (fautes, abréviations, familier) et
+  // suite rattachée à la demande précédente. Sert à choisir ce qu'on va chercher, pas à réécrire le message du modèle.
+  const understood = master ? null : understand(body.message, history);
+  const follows = understood?.followUp ? understood.previousAsks[0] : undefined;
+  const asked = understood?.cleaned ?? body.message;
+  const deep = !body.voice && (challenged || isComplexRequest(asked) || (follows !== undefined && isComplexRequest(follows)));
+  const search = !body.voice && (challenged || needsWebSearch(asked) || (follows !== undefined && needsWebSearch(follows)));
+  // Suite (« et à Dembéni ? ») ou message à fautes : les infos du moment sont cherchées sur le texte remis au propre,
+  // avec la demande précédente. Les messages clairs gardent la recherche lancée au départ.
+  const liveContext =
+    understood && understood.retrieval !== body.message
+      ? await liveContextFor(understood.retrieval, { maxWaitMs: body.voice ? VOICE_LIVE_WAIT_MS : undefined })
+          .then((found) => found ?? live)
+          .catch(() => live)
+      : live;
   const known = master ? knownTranslations(brain) : new Map<string, string>();
   const toShimaore = (reply: string) => fillKnownWords(enforceShimaore(reply), known);
   const messages: ChatTurn[] = [
@@ -491,8 +505,9 @@ export async function POST(request: NextRequest) {
     grammar: brain.grammar,
     words: wordsFor(brain, body.message, master),
     gloss: glossFor(brain, body.message),
-    knowledge: knowledgeFor(brain, body.message),
-    live,
+    knowledge: knowledgeFor(brain, understood?.retrieval ?? body.message),
+    live: liveContext,
+    understanding: understood?.block,
     memories,
     pastTalks,
     dossier,
@@ -694,6 +709,7 @@ ${block}`;
           persona: true,
           fast: body.voice,
           deep,
+          careful: Boolean(understood?.careful) && !deep,
           search: finalSearch,
           // Réflexion approfondie : les « pensées » comptent dans la limite, on la relève pour ne pas couper la réponse.
           maxOutputTokens: body.voice

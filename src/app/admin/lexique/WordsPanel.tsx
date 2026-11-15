@@ -472,7 +472,8 @@ export function WordsPanel({ rows, unavailable }: { rows: WordRow[]; unavailable
           </div>
           <ul className="min-h-0 flex-1 divide-y divide-border overflow-y-auto overscroll-contain">
             {shown.map((row) => (
-              <li key={row.id}>
+              // content-visibility : le navigateur ne mesure que les lignes à l'écran (2 000 mots : l'ouverture de l'onglet bloquait 208 ms).
+              <li key={row.id} className="[contain-intrinsic-size:auto_44px] [content-visibility:auto]">
                 <button
                   type="button"
                   onClick={() => setOpenId(row.id)}

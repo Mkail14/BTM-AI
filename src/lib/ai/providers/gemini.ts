@@ -55,6 +55,14 @@ export function deepThinking(model: string): ThinkingConfig {
   return generation >= 3 ? { thinkingLevel: "high" } : { thinkingBudget: 8192 };
 }
 
+/** Un peu de réflexion pour un message à lire avec soin : Gemini 3 « low », Gemini 2 un petit budget, sinon rien de forcé. */
+export function carefulThinking(model: string): ThinkingConfig[] {
+  const generation = Number(model.match(/^gemini-(\d+)/)?.[1] ?? 0);
+  if (generation >= 3) return [{ thinkingLevel: "low" }];
+  if (/flash/.test(model)) return [{ thinkingBudget: 1024 }];
+  return [];
+}
+
 export function thinkingSettings(model: string): ThinkingConfig[] {
   const generation = Number(model.match(/^gemini-(\d+)/)?.[1] ?? 0);
   if (generation >= 3) return [{ thinkingLevel: "minimal" }, { thinkingLevel: "low" }];
@@ -115,7 +123,7 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
 
   return {
     id: "gemini",
-    async *stream({ system, messages, maxOutputTokens, signal, fast, model: tryModel, deep, search }: AIStreamInput): AsyncIterable<AIStreamChunk> {
+    async *stream({ system, messages, maxOutputTokens, signal, fast, model: tryModel, deep, search, careful }: AIStreamInput): AsyncIterable<AIStreamChunk> {
       // Réflexion approfondie ou recherche : le premier morceau peut mettre bien plus longtemps à venir.
       const firstChunkMs = deep || search ? 45_000 : FIRST_CHUNK_MS;
       // À l'oral : modèle réservé au vocal s'il est réglé (AI_VOICE_MODEL, ex. un « flash-lite »), sinon le modèle habituel.
@@ -151,7 +159,14 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
       const open = async (model: string): Promise<{ reader: ReadableStreamDefaultReader<string>; first: string } | null> => {
         // Réglages de réflexion du plus rapide au plus sûr : un réglage que le modèle
         // refuse (400 qui parle de « thinking ») est retiré au lieu de faire échouer la réponse.
-        const attempts = deep ? [deepThinking(model), null] : config.disableReasoning || fast ? [...thinkingSettings(model), null] : [null];
+        // Message à lire avec soin (hors oral) : réflexion légère, même quand la réflexion est réduite par défaut.
+        const attempts = deep
+          ? [deepThinking(model), null]
+          : careful && !fast
+            ? [...carefulThinking(model), null]
+            : config.disableReasoning || fast
+              ? [...thinkingSettings(model), null]
+              : [null];
         for (const [index, thinkingConfig] of attempts.entries()) {
           const attempt = new AbortController();
           const timer = setTimeout(() => attempt.abort(), firstChunkMs);

@@ -25,6 +25,11 @@ export type AIStreamInput = {
   deep?: boolean;
   /** Recherche Google autorisée (Gemini décide s'il cherche). */
   search?: boolean;
+  /**
+   * Message à lire avec soin (suite, fautes, demande indirecte, voir understanding.ts) : un peu de réflexion
+   * au lieu du minimum. Sans effet à l'oral (fast) ni quand la réflexion approfondie (deep) est déjà demandée.
+   */
+  careful?: boolean;
 };
 
 /** Contrat commun à tous les fournisseurs de modèle. */

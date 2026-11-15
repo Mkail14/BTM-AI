@@ -75,6 +75,7 @@ export function createRelayProvider(url: string, secret: string): AIProvider {
         ...(input.model ? { model: input.model } : {}),
         ...(input.deep ? { deep: true } : {}),
         ...(input.search ? { search: true } : {}),
+        ...(input.careful ? { careful: true } : {}),
       });
       const time = Date.now();
       const response = await fetch(`${url}/api/ai/relay`, {
