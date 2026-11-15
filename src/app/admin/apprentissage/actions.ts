@@ -291,3 +291,61 @@ export async function ignoreQuestionAction(id: unknown): Promise<ActionResult> {
   }
   return done("Question retirée.");
 }
+
+/* ───────────── Règles proposées ───────────── */
+
+export type SuggestedRule = { title: string; rule: string; examples: string };
+export type SuggestResult = ActionResult & { rules?: SuggestedRule[] };
+
+const SUGGEST_PROMPT = `Tu aides à écrire la grammaire du shimaoré (langue de Mayotte) à partir de phrases validées par un locuteur.
+Observe ce qui se répète dans les phrases (ordre des mots, préfixes, pluriel, négation, temps) et propose au plus 3 règles courtes que ces phrases montrent clairement.
+Ne propose rien que les phrases ne prouvent pas, et aucune règle déjà écrite. N'invente aucun exemple : tes exemples viennent des phrases données.
+Réponds uniquement par un tableau JSON : [{"title":"…","rule":"règle en mots simples","examples":"français = shimaoré, un par ligne"}]. Réponds [] s'il n'y a rien de sûr.`;
+
+/** Règles que les phrases du maître laissent deviner : il relit chacune avant de la garder, rien n'est enregistré ici. */
+export async function suggestRulesAction(): Promise<SuggestResult> {
+  const auth = await requireAdminAction();
+  if (!auth) return NOT_ADMIN;
+  const [phrases, grammar] = await Promise.all([
+    auth.supabase.from("awa_lexicon").select("french, shimaore").eq("is_active", true).order("created_at", { ascending: false }).limit(80),
+    auth.supabase.from("awa_grammar").select("title, rule").eq("is_active", true).limit(100),
+  ]);
+  const rows = phrases.data ?? [];
+  if (rows.length < 5) return { ok: false, message: "Il faut au moins 5 phrases validées dans le lexique pour proposer des règles." };
+  const ai = await getAIProvider();
+  if (!ai.ok) return { ok: false, message: "L'IA n'est pas disponible pour l'instant." };
+
+  const output = await completeText(ai.provider, {
+    system: SUGGEST_PROMPT,
+    content: `Règles déjà écrites :\n${(grammar.data ?? []).map((g) => `- ${g.title} : ${g.rule}`).join("\n") || "(aucune)"}\n\nPhrases validées :\n${rows.map((r) => `- ${r.french} = ${r.shimaore}`).join("\n")}`,
+    maxOutputTokens: 900,
+  }).catch((error: unknown) => {
+    console.error("[admin] Règles non proposées", error);
+    return "";
+  });
+
+  const start = output.indexOf("[");
+  const end = output.lastIndexOf("]");
+  let list: unknown = [];
+  try {
+    if (start >= 0 && end > start) list = JSON.parse(output.slice(start, end + 1));
+  } catch {
+    list = [];
+  }
+  const rules: SuggestedRule[] = (Array.isArray(list) ? list : [])
+    .flatMap((item): SuggestedRule[] => {
+      if (!item || typeof item !== "object") return [];
+      const { title, rule, examples } = item as Record<string, unknown>;
+      if (typeof title !== "string" || typeof rule !== "string" || !title.trim() || !rule.trim()) return [];
+      return [
+        {
+          title: title.trim().slice(0, GRAMMAR_LIMITS.title),
+          rule: rule.trim().slice(0, GRAMMAR_LIMITS.rule),
+          examples: typeof examples === "string" ? examples.trim().slice(0, GRAMMAR_LIMITS.examples) : "",
+        },
+      ];
+    })
+    .slice(0, 3);
+  if (rules.length === 0) return { ok: true, message: "Rien de sûr à proposer pour l'instant : ajoute des phrases dans le lexique.", rules: [] };
+  return { ok: true, message: "Relis chaque règle : garde-la seulement si elle est juste.", rules };
+}

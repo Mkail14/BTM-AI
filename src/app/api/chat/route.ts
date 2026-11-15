@@ -50,6 +50,7 @@ import { getPastTalks } from "@/lib/ai/past-talks-store";
 import { withRecentReplies } from "@/lib/ai/past-talks";
 import { collectUnknownWords, reportWordConflicts } from "@/lib/ai/word-requests";
 import { collectDoubts } from "@/lib/ai/doubts";
+import { reviewShimaore } from "@/lib/ai/review";
 import { learnWordsFromMessage, teachWords } from "@/lib/ai/words-store";
 import { createUnknownTagFilter } from "@/lib/language/unknown-tag";
 import { parseTeaching, type TaughtWord, type WordList } from "@/lib/language/teaching";
@@ -736,6 +737,17 @@ ${block}`;
           }
         }
 
+        // Relecture avant d'envoyer : en mode maître (écrit), un deuxième regard corrige le shimaoré
+        // d'après les règles et le vocabulaire ; la version relue remplace l'affichage (flush).
+        // Pas à la voix : chaque phrase est déjà partie, et la latence compte.
+        if (master && !body.voice && text && !signal.aborted) {
+          text = await reviewShimaore(ai.provider, {
+            draft: text,
+            grammar: brain.grammar,
+            phrases: lexiconFor(brain, DEFAULT_PERSONALITY, `${body.message} ${text}`) ?? [],
+            words: wordsFor(brain, `${body.message} ${text}`, master),
+          });
+        }
         flush();
         closeTag();
         if (sentences) speakSentences(sentences.end());

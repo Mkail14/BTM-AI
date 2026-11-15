@@ -6,7 +6,7 @@ import { ActionStatus, Counter, inputClass, primaryButton, secondaryButton } fro
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import type { ActionResult } from "@/lib/admin/action-auth";
 import { lostOk } from "@/lib/safe-action";
-import { deleteGrammarAction, reorderGrammarAction, saveGrammarAction } from "./actions";
+import { deleteGrammarAction, reorderGrammarAction, saveGrammarAction, suggestRulesAction, type SuggestedRule } from "./actions";
 import { GRAMMAR_LIMITS, type GrammarRow } from "./limits";
 
 type Draft = Omit<GrammarRow, "id"> & { id: string | null };
@@ -29,6 +29,7 @@ export function GrammarPanel({ rows, unavailable }: { rows: GrammarRow[]; unavai
   const router = useRouter();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [status, setStatus] = useState<ActionResult | null>(null);
+  const [suggested, setSuggested] = useState<SuggestedRule[]>([]);
   const [pending, startTransition] = useTransition();
 
   const run = (action: () => Promise<ActionResult>, after?: () => void) =>
@@ -39,6 +40,13 @@ export function GrammarPanel({ rows, unavailable }: { rows: GrammarRow[]; unavai
         after?.();
         router.refresh();
       }
+    });
+
+  const suggest = () =>
+    startTransition(async () => {
+      const result = await suggestRulesAction().catch(lostOk);
+      setStatus(result);
+      setSuggested("rules" in result ? (result.rules ?? []) : []);
     });
 
   const move = (index: number, by: -1 | 1) => {
@@ -186,10 +194,42 @@ export function GrammarPanel({ rows, unavailable }: { rows: GrammarRow[]; unavai
           </div>
         </form>
       ) : (
-        <button type="button" disabled={unavailable} onClick={() => setDraft(EMPTY)} className={primaryButton}>
-          + Ajouter une règle
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" disabled={unavailable} onClick={() => setDraft(EMPTY)} className={primaryButton}>
+            + Ajouter une règle
+          </button>
+          <button type="button" disabled={unavailable || pending} onClick={suggest} className={secondaryButton}>
+            {pending ? "Recherche…" : "Proposer des règles d'après mes phrases"}
+          </button>
+        </div>
       )}
+
+      {suggested.length > 0 ? (
+        <ul className="space-y-2">
+          {suggested.map((rule) => (
+            <li key={rule.title} className="rounded-xl border border-dashed border-accent/50 p-4">
+              <p className="font-semibold">{rule.title}</p>
+              <p className="mt-1 text-sm whitespace-pre-line">{rule.rule}</p>
+              {rule.examples ? <p className="mt-2 text-sm whitespace-pre-line text-fg-muted">{rule.examples}</p> : null}
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDraft({ ...EMPTY, ...rule });
+                    setSuggested((list) => list.filter((r) => r !== rule));
+                  }}
+                  className={secondaryButton}
+                >
+                  Relire et garder
+                </button>
+                <button type="button" onClick={() => setSuggested((list) => list.filter((r) => r !== rule))} className={secondaryButton}>
+                  Écarter
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }
