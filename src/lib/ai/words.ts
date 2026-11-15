@@ -26,7 +26,44 @@ function findSequence(count: number, size: number, same: (at: number, j: number)
   return -1;
 }
 
-const SHIMAORE_TOPIC = /shimaor|shimaore|maore|mahorais/;
+/** Radical d'un verbe à l'infinitif (« connaitre » → « connai », « parler » → « parl ») ; vide sinon, ou s'il est trop court. */
+function verbRadical(word: string): string {
+  return word.match(/^(.{4,}?)(?:tre|oir|er|ir|re)$/)?.[1] ?? "";
+}
+
+/**
+ * Pour un mot français du vocabulaire : les mots du message qui le valent. Le
+ * même, ou écrit avec une faute de frappe (une lettre d'écart à partir de 7
+ * lettres, deux à partir de 9 : « Mmaoudzou » = « Mamoudzou »), ou, avec
+ * `verb`, une forme conjuguée de cet infinitif (« connais » = « connaître »).
+ */
+function frenchMatcher(stems: readonly string[]): (token: string, verb?: boolean) => ReadonlySet<string> {
+  const unique = [...new Set(stems)];
+  const exact = new Set(unique);
+  const long = unique.filter((stem) => stem.length >= 6);
+  const memo = new Map<string, Set<string>>();
+  return (token, verb = false) => {
+    const key = verb ? `${token}\u0000` : token;
+    const cached = memo.get(key);
+    if (cached) return cached;
+    const found = new Set<string>();
+    if (exact.has(token)) found.add(token);
+    if (token.length >= 7) {
+      for (const stem of long) {
+        if (stem === token || Math.abs(stem.length - token.length) > 2) continue;
+        if (Math.min(stem.length, token.length) >= 9 ? editDistance(token, stem, 2) <= 2 : stem.length >= 7 && oneEditApart(token, stem)) found.add(stem);
+      }
+    }
+    const radical = verb ? verbRadical(token) : "";
+    if (radical) {
+      for (const stem of unique) if (stem.startsWith(radical) && stem.length - radical.length <= 4) found.add(stem);
+    }
+    memo.set(key, found);
+    return found;
+  };
+}
+
+const SHIMAORE_TOPIC =/shimaor|shimaore|maore|mahorais/;
 
 /**
  * Vocabulaire préparé une fois (mots découpés, clés shimaoré, clés rangées par
@@ -103,7 +140,8 @@ function similarKeys(index: Prepared, key: string, memo: Map<string, Set<string>
 
 /**
  * Mots du dictionnaire à donner au modèle pour ce message : d'abord ceux qui y
- * apparaissent (en français, ou en shimaoré même écrit autrement), puis, si le
+ * apparaissent (en français, même avec une faute de frappe ou un verbe
+ * conjugué, ou en shimaoré même écrit autrement), puis, si le
  * message parle de shimaoré, d'autres mots jusqu'à `maxTopic`, les plus
  * récemment appris d'abord (`entries` va du plus ancien au plus récent).
  */
@@ -119,7 +157,7 @@ export function selectWords<T extends WordEntry>(
   const index = prepare(entries);
   const words = tokens(message);
   const stems = words.map(frenchStem);
-  const stemSet = new Set(stems);
+  const sameFrench = frenchMatcher(stems);
   // Pour chaque mot du message : les clés shimaoré du vocabulaire qui lui correspondent.
   const memo = new Map<string, Set<string>>();
   const near = words.map((word) => similarKeys(index, shimaoreKey(word), memo));
@@ -132,8 +170,10 @@ export function selectWords<T extends WordEntry>(
     const keys = index.keys[e];
     const inFrench =
       french.length > 0 &&
-      stemSet.has(french[0]) &&
-      findSequence(stems.length, french.length, (at, j) => stems[at] === french[j]) >= 0;
+      (french.length === 1
+        ? sameFrench(french[0], true).size > 0
+        : sameFrench(french[0]).size > 0 &&
+          findSequence(stems.length, french.length, (at, j) => sameFrench(french[j]).has(stems[at])) >= 0);
     const inShimaore =
       !inFrench &&
       keys.length > 0 &&

@@ -2,6 +2,8 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   buildTeachingRequest,
+  isExplanation,
+  isGivenBySpeaker,
   mayBeTeaching,
   parseTaughtWords,
   shimaoreEntryKey,
@@ -68,7 +70,10 @@ export async function learnWordsFromMessage(
     system: TEACHING_SYSTEM_PROMPT,
     content: buildTeachingRequest(input.previousReply, input.message),
   });
-  const taught = parseTaughtWords(output);
+  // Rien que le locuteur n'a pas dit lui-même, et pas d'explication en français prise pour une traduction.
+  const taught = parseTaughtWords(output).filter(
+    (w) => isGivenBySpeaker(w.shimaore, input.message, input.previousReply) && !isExplanation(w.shimaore),
+  );
   const short = (w: TaughtWord) => w.french.length <= TAUGHT_WORD_MAX && w.shimaore.length <= TAUGHT_WORD_MAX;
   const words = taught.filter(short);
   const phrases = taught.filter((w) => !short(w));

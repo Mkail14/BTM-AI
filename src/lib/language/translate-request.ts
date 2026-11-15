@@ -6,7 +6,8 @@
  */
 const normalize = (text: string) => text.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
 
-const ASK = /\b(tradui[st]?|traduire|traduction|tradu(?:is|isez)[- ]moi|ecris|dis|redige|mets|passe)\b/;
+// « comment on dit … », « comment dit-on … », « comment se dit … », et la faute de frappe « comment on dt … ».
+const ASK = /\b(tradui[st]?|traduire|traduction|tradu(?:is|isez)[- ]moi|ecris|dis|redige|mets|passe|comment (?:on |se |ca se |tu )?(?:di?t|dire|dis))\b/;
 const TARGET = /\b(?:en|vers le|au)\s+(?:shimaor\w*|mahorais|shimaor)\b/;
 
 export function isShimaoreTranslationRequest(message: string): boolean {

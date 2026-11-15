@@ -152,3 +152,23 @@ export function isCopiedFrench(french: string, shimaore: string): boolean {
   if (shi.length === 0) return true;
   return shi.filter((w) => fr.has(w)).length / shi.length >= 0.5;
 }
+
+/**
+ * Le shimaoré relevé vient-il bien du locuteur ? Ses mots doivent se trouver
+ * dans son message, ou dans la réplique de Tamilya qu'il confirme (« oui »).
+ * Sinon le modèle l'a inventé ou l'a recopié de ses exemples (« Bonne nuit » =
+ * « non, merci se dit marahaba ») : la leçon n'est pas gardée.
+ */
+export function isGivenBySpeaker(shimaore: string, message: string, previousReply: string | null): boolean {
+  const said = new Set([...wordsOf(message), ...wordsOf(previousReply ?? "")]);
+  const shi = wordsOf(shimaore);
+  if (shi.length === 0) return false;
+  return shi.filter((w) => said.has(w)).length / shi.length >= 0.6;
+}
+
+// « non, merci se dit marahaba » : une explication en français, pas une traduction.
+const EXPLANATION = /\b(?:se dit|on dit|veut dire|ca veut dire|signifie|c est a dire|en shimaore|en francais)\b/;
+
+export function isExplanation(shimaore: string): boolean {
+  return EXPLANATION.test(wordsOf(shimaore).join(" "));
+}

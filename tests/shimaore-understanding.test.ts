@@ -102,3 +102,26 @@ describe("mots à apprendre remplacés par le shimaoré appris", () => {
     assert.equal(fillKnownWords("[[merci pour tout]]", taught), "[[merci pour tout]]");
   });
 });
+
+describe("retrouver ce qui est appris malgré une faute ou un verbe conjugué", () => {
+  const LEARNED = [
+    { french: "connaître", shimaore: "ujua" },
+    { french: "parler", shimaore: "ulagua" },
+    { french: "maison", shimaore: "nyumba" },
+    { french: "Est-ce que tu connais la ville de Mmaoudzou ?", shimaore: "Wawé jouwa dhago la Mamoudzou ?" },
+  ];
+  const found = (message: string) => selectWords(LEARNED, message).map((w) => w.french);
+
+  it("retrouve une phrase apprise avec une faute de frappe", () => {
+    assert.ok(found("est-ce que tu connais la ville de Mamoudzou ?").includes(LEARNED[3].french));
+  });
+
+  it("retrouve l'infinitif d'un verbe conjugué", () => {
+    assert.ok(found("tu connais Mamoudzou ?").includes("connaître"));
+    assert.ok(found("nous parlons ensemble").includes("parler"));
+  });
+
+  it("ne confond pas deux mots courts voisins", () => {
+    assert.deepEqual(found("quelle saison"), []);
+  });
+});
