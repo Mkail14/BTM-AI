@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `c4f4cb0` (2026-11-14, carte-mayotte, envoyé sur develop et main)**
+**Dernier commit noté : `e7ad1ed` (2026-11-15, carte-mayotte, envoyé sur la branche carte-mayotte seulement)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -103,6 +103,10 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+### 2026-11-15
+- **Accueil : un vrai téléphone qui montre la vraie conversation** (`e7ad1ed`, envoyé sur la branche carte-mayotte seulement, pas encore sur develop ni main). La conversation d'exemple de l'accueil est maintenant dans un iPhone 17 dessiné, et son écran est une vraie page du site (`/apercu/conversation`) affichée à la largeur d'un téléphone. Pourquoi : avant, l'exemple était une copie à part, qui ne suivait pas les changements de la conversation. L'habillage de la conversation (fond, barre du haut, messages, barre d'écriture) est sorti dans `ChatChrome` et le bouton de la cloche dans `BellButton` : la vraie conversation et l'aperçu utilisent les mêmes pièces. La page d'aperçu n'est pas indexée, rien n'y est cliquable, et seul le site peut l'afficher dans un cadre. Les deux cartes passent à gauche du téléphone ; la carte « Elle n'invente pas » est retirée.
+- **Shimaoré : « comment on dit … » traduit au lieu de répondre** (`fef7d7c`, branche carte-mayotte seulement). Rattrapage du journal : une phrase apprise est retrouvée malgré une faute de frappe ou un verbe conjugué et redonnée telle quelle ; les leçons relevées seules ne gardent que ce que le locuteur a dit ; repères sûrs sur Mayotte (port à Longoni, aéroport à Pamandzi).
 
 ### 2026-11-14
 - **Carte de Mayotte : le chemin entre deux lieux, en rose** (`c4f4cb0`, envoyé sur develop et main). Demande de l'utilisateur : que Tamilya dessine une ligne rose pour montrer le chemin entre deux lieux. Nouveau bouton `montrer_trajet` (départ, arrivée) : le site calcule la route en voiture (OSRM, déjà utilisé pour les itinéraires), la carte la trace en rose (le rose des repères, `#ff4dd8`, sur un liseré blanc), pose un repère à chaque bout et se cadre sur le trajet ; Tamilya dit les kilomètres, le temps et la barge s'il en faut une. Villes et villages seulement, pas d'adresses ni de commerces (validé). Route pas calculée : les deux repères sont montrés et elle ne donne aucun chiffre. Ouvert aux visiteurs comme le reste de la carte. Vérifié par capture d'écran (Trévani–Sada : 32,7 km, 48 min). Constat : sur le site local, le style des repères (`.town-pin`) n'était pas servi alors qu'il l'est en ligne ; un redémarrage de `pnpm dev` est à essayer.
