@@ -209,8 +209,9 @@ function Table({ head, rows }: { head: string[]; rows: ReactNode[][] }) {
       <table className="w-full min-w-[34rem] text-left text-sm">
         <thead className="border-b border-border text-xs text-fg">
           <tr>
-            {head.map((h) => (
-              <th key={h} className="px-4 py-2.5 font-semibold">
+            {head.map((h, i) => (
+              // Clé par position : certains tableaux ont des en-têtes vides (["", ""]).
+              <th key={`${i}-${h}`} className="px-4 py-2.5 font-semibold">
                 {h}
               </th>
             ))}
@@ -265,10 +266,10 @@ export default async function DocumentationPage() {
   return (
     <DevShell>
       <div className="mx-auto max-w-6xl px-5 pt-12 pb-24">
-        <Link href="/developpeurs" className="text-sm text-fg-muted transition hover:text-fg">
+        <Link href="/developpeurs" className="zone-appui relative block w-fit text-sm text-fg-muted transition hover:text-fg">
           ← Espace développeurs
         </Link>
-        <p className="landing-eyebrow mt-8">Documentation</p>
+        <p className="landing-eyebrow mt-6 sm:mt-8">Documentation</p>
         <h1 className="mt-3 text-[clamp(2rem,4.5vw,3rem)] leading-tight font-[650] tracking-[-0.035em] text-balance">
           API de Tamilya
         </h1>

@@ -27,10 +27,10 @@ export default function ChartePage() {
   return (
     <DevShell>
       <div className="mx-auto max-w-3xl px-5 pt-12 pb-24">
-        <Link href="/developpeurs" className="text-sm text-fg-muted transition hover:text-fg">
+        <Link href="/developpeurs" className="zone-appui relative block w-fit text-sm text-fg-muted transition hover:text-fg">
           ← Espace développeurs
         </Link>
-        <p className="landing-eyebrow mt-8">Charte d&apos;utilisation</p>
+        <p className="landing-eyebrow mt-6 sm:mt-8">Charte d&apos;utilisation</p>
         <h1 className="mt-3 text-[clamp(2rem,4.5vw,3rem)] leading-tight font-[650] tracking-[-0.035em]">Tamilya chez vous</h1>
         <p className="mt-4 text-fg-muted">Version du {version}. GROUPE BTM met Tamilya gratuitement à disposition des développeurs, aux conditions suivantes.</p>
 

@@ -36,8 +36,9 @@ export async function AdminHeader({ section }: { section?: string; email?: strin
             <span className="text-sm font-medium text-fg-muted max-[400px]:hidden">Admin</span>
           </Link>
           {section ? (
-            <span className="min-w-0 truncate text-sm font-medium max-sm:hidden lg:hidden">
-              <span aria-hidden="true" className="mr-3 text-border">
+            // Téléphone aussi : sans onglets, c'est le seul repère de la page ouverte.
+            <span className="min-w-0 truncate text-sm font-medium lg:hidden">
+              <span aria-hidden="true" className="mr-2 text-border sm:mr-3">
                 /
               </span>
               {section}

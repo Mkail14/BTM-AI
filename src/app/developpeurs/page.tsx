@@ -288,8 +288,8 @@ export default async function DeveloppeursPage() {
             Une seule adresse, à appeler depuis votre serveur. Jamais depuis le navigateur : votre code et votre clé seraient
             visibles par tous.
           </p>
-          {/* Téléphone : l'adresse passe à la ligne au lieu d'être coupée. */}
-          <code className="mt-4 inline-block max-w-full rounded-2xl border border-border bg-bg px-4 py-1.5 font-mono text-xs break-all sm:truncate sm:rounded-full">
+          {/* Téléphone : l'adresse reste sur une ligne et défile, au lieu d'être coupée au milieu d'un mot. */}
+          <code className="scrollbar-none mt-4 inline-block max-w-full overflow-x-auto rounded-full border border-border bg-bg px-4 py-1.5 align-top font-mono text-xs whitespace-nowrap">
             <span className="font-semibold text-[var(--persona,var(--accent))]">POST</span> {endpoint}
           </code>
         </div>
