@@ -195,11 +195,21 @@ export function selectWords<T extends WordEntry>(
  */
 const SENTENCE_CATEGORY = /mot outil|pronom|question|grammaire|salutation|politesse|conversation|phrase|verbe|lien|n[ée]gation|possessif|petits mots/;
 
-/** Mots qui construisent une phrase d'abord, puis le reste ; dans chaque groupe, les plus récents d'abord. */
+/**
+ * Parmi elles, les mots de tous les jours (« oui » = ewa, « merci », « je », « où ») passent en
+ * premier : les centaines de verbes importés après eux remplissaient les 400 places, et Tamilya
+ * ne savait plus dire « oui » (2026-11-16).
+ */
+const EVERYDAY_CATEGORY = /mot outil|pronom|question|grammaire|salutation|politesse|conversation|lien|n[ée]gation|possessif|petits mots/;
+
+/** Mots de tous les jours, puis ceux qui construisent une phrase, puis le reste ; dans chaque groupe, les plus récents d'abord. */
 function fillOrder<T extends WordEntry>(rest: readonly T[]): T[] {
   const recent = [...rest].reverse();
-  const isCore = (entry: T) => SENTENCE_CATEGORY.test(normalize(entry.category ?? ""));
-  return [...recent.filter(isCore), ...recent.filter((entry) => !isCore(entry))];
+  const rank = (entry: T) => {
+    const category = normalize(entry.category ?? "");
+    return EVERYDAY_CATEGORY.test(category) ? 0 : SENTENCE_CATEGORY.test(category) ? 1 : 2;
+  };
+  return [0, 1, 2].flatMap((tier) => recent.filter((entry) => rank(entry) === tier));
 }
 
 /** Les mots les plus récents d'abord : pour un même mot français, la dernière leçon remplace l'ancienne. */

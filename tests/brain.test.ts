@@ -129,6 +129,16 @@ describe("selectWords", () => {
     assert.equal(selectWords(words, "Réponds-moi en shimaoré", { maxTopic: 2 }).length, 2);
   });
 
+  it("garde « oui = ewa » quand des centaines de verbes ont été importés après", () => {
+    // Avec son maître, Tamilya parle shimaoré : « oui » n'est pas dans le message mais doit être connu.
+    const dictionary = [
+      { french: "oui", shimaore: "ewa", category: "conversation" },
+      ...Array.from({ length: 500 }, (_, i) => ({ french: `verbe${i}`, shimaore: `uv${i}`, category: "verbe" })),
+    ];
+    const kept = selectWords(dictionary, "Bweni, ukoua ?", { topic: true }).map((w) => w.shimaore);
+    assert.ok(kept.includes("ewa"));
+  });
+
   it("ajoute le vocabulaire au message système", () => {
     const prompt = buildSystemPrompt("professionnelle", { words: [words[0]] });
     assert.match(prompt, /maison → nyumba/);
