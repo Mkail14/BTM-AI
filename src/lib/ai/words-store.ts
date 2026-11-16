@@ -22,7 +22,8 @@ const key = (french: string) => french.trim().toLowerCase();
  * Enregistre des mots appris (chat ou liste collée dans /admin/lexique).
  * La dernière leçon fait foi : les traductions déjà connues d'un même mot
  * français sont remplacées ; avec `sameShimaore`, aussi celles du même
- * shimaoré (correction du français en conversation). Client RLS d'un
+ * shimaoré dont le français ne diffère que par l'écriture (correction du
+ * français en conversation). Client RLS d'un
  * administrateur requis.
  */
 export async function teachWords(
@@ -45,10 +46,12 @@ export async function teachWords(
   const rowsExisting = existing ?? [];
 
   const taught = new Set(words.map((w) => key(w.french)));
-  const taughtShimaore = new Set(options.sameShimaore ? words.map((w) => shimaoreEntryKey(w.shimaore)) : []);
+  // Même shimaoré : seulement le même français écrit autrement (« il est ou » → « il est où ? »). Un mot a souvent
+  // plusieurs sens (mutsanga = plage, sable) : « je te déteste → mutsanga », relevé de travers le 2026-11-16, les avait mis en pause.
+  const respelled = new Set(options.sameShimaore ? words.map((w) => pairKey(shimaoreEntryKey(w.french), w.shimaore)) : []);
   const wanted = new Set(words.map((w) => pairKey(w.french, w.shimaore)));
   const replaced = rowsExisting
-    .filter((row) => taught.has(key(row.french)) || taughtShimaore.has(shimaoreEntryKey(String(row.shimaore ?? ""))))
+    .filter((row) => taught.has(key(row.french)) || respelled.has(pairKey(shimaoreEntryKey(row.french), String(row.shimaore ?? ""))))
     // La ligne qui dit déjà la même chose reste telle quelle (réactivée plus bas si elle était en pause).
     .filter((row) => !wanted.has(pairKey(row.french, String(row.shimaore ?? ""))))
     .map((row) => row.id as string);
@@ -91,7 +94,7 @@ export async function learnWordsFromMessage(
   /** previousAsk : message précédent du locuteur, souvent la phrase dont il corrige la traduction. */
   input: { message: string; previousReply: string | null; previousAsk?: string | null },
 ): Promise<TaughtWord[]> {
-  if (!mayBeTeaching(input.message, input.previousReply)) return [];
+  if (!mayBeTeaching(input.message, input.previousReply, input.previousAsk ?? null)) return [];
   const output = await completeText(provider, {
     system: TEACHING_SYSTEM_PROMPT,
     content: buildTeachingRequest(input.previousReply, input.message, input.previousAsk ?? null),

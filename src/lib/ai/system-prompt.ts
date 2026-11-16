@@ -305,7 +305,8 @@ const COMPREHENSION = [
 
 /** Réponse contestée (isChallenge) : en fin de message, seulement pour ce message. */
 const CHALLENGED =
-  "POUR CE MESSAGE : la personne conteste ce que tu viens de dire. Relis ta réponse et vérifie-la vraiment (cherche, si tu le peux). Si tu t'es trompée, dis-le et donne la bonne réponse. Si tu avais raison, dis-le calmement et explique pourquoi. Si tu ne peux pas trancher, dis-le. Ne cède pas pour lui faire plaisir, n'invente pas une erreur et ne t'entête pas. Reste courte.";
+  "POUR CE MESSAGE : la personne conteste ce que tu viens de dire. Relis ta réponse et vérifie-la vraiment (cherche, si tu le peux). Si tu t'es trompée, dis-le et donne la bonne réponse. Si tu avais raison, dis-le calmement et explique pourquoi. Si tu ne peux pas trancher, dis-le. Ne cède pas pour lui faire plaisir, n'invente pas une erreur et ne t'entête pas. Reste courte.\n" +
+  "Sauf en shimaoré : ta maîtrise n'est pas vérifiée, c'est lui qui la parle. S'il corrige ta traduction ou un mot, il a raison : ne défends pas ta version (« c'est plus simple, non ? »), reprends la sienne avec le sens de sa demande et dis que tu la retiens. Pour réparer, n'invente pas d'autre mot (« mutsana ») : s'il te manque quelque chose, demande-lui.";
 
 /** Recherche Google : elle remplace la règle « pas d'accès à internet » pour ce message. */
 const SEARCH =

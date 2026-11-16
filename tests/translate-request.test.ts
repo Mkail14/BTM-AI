@@ -51,6 +51,20 @@ describe("leçons relevées dans la conversation", () => {
     assert.equal(isNotAMeaning("oui"), false);
   });
 
+  // Conversation du 2026-11-16 : « non c'est tsi vedzé ou hedrah la pjagi » n'avait aucun mot-clé, rien n'était relevé.
+  it("relève la correction d'une phrase demandée juste avant", async () => {
+    const { mayBeTeaching } = await import("@/lib/language/teaching");
+    const ask = "Coucou comment on dit j'aime pas aller à la plage";
+    assert.equal(mayBeTeaching("non c'est tsi vedzé ou hedrah la pjagi", "Nisi ou hega mutsanga.", ask), true);
+    assert.equal(mayBeTeaching("merci, à demain", "Avec plaisir !", "tu fais quoi ce soir ?"), false);
+  });
+
+  it("« comment on dit … aller à la plage » n'ouvre pas de trajet", async () => {
+    const { detectTrip } = await import("@/lib/trip/intent");
+    assert.equal(detectTrip("Coucou comment on dit j'aime pas aller à la plage"), null);
+    assert.notEqual(detectTrip("combien de temps pour aller à la plage de Moya"), null);
+  });
+
   it("une phrase à traduire ne va pas dans la mémoire de la personne", async () => {
     const { shouldLearnFrom } = await import("@/lib/ai/memory");
     assert.equal(shouldLearnFrom("comment on dit j'aime pas les Hommes"), false);

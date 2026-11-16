@@ -1,3 +1,4 @@
+import { isHowToSay } from "@/lib/language/translate-request";
 import { mayotteClock } from "./clock";
 
 /** since : dernière mise à jour du souvenir, quand il vient de la base. */
@@ -52,13 +53,10 @@ export type MemoryUpdate = { kind: string; content: string | null };
 
 const MEMORY_KIND = /^[a-z][a-z0-9_]{0,39}$/;
 const LEARN_HINT = /\b(?:je|j|moi|mon|ma|mes|nous|notre|nos|retiens|souviens|rappelle|oublie|non|faux|erreur|tromp\w*|plut\w*)\b/i;
-// « comment on dit j'aime pas les hommes » : la phrase est à traduire, elle ne dit rien de la personne.
-const TRANSLATION_ASK = /\b(?:comment (?:on |se |ca se |tu )?(?:di?t|dis|dire)|dit[- ]on|tradui\w*|traduction)\b/i;
-
 /** Vaut-il la peine de demander au modèle ce qu'il faut retenir ? (évite un appel par question ordinaire) */
 export function shouldLearnFrom(message: string): boolean {
-  const text = message.replace(/[’`]/g, " ").replace(/'/g, " ");
-  return message.trim().length >= 8 && LEARN_HINT.test(text) && !TRANSLATION_ASK.test(text.normalize("NFD").replace(/\p{Diacritic}/gu, ""));
+  // « comment on dit j'aime pas les hommes » : la phrase est à traduire, elle ne dit rien de la personne.
+  return message.trim().length >= 8 && LEARN_HINT.test(message.replace(/[’`]/g, " ").replace(/'/g, " ")) && !isHowToSay(message);
 }
 
 /** Consigne du modèle chargé de tenir la mémoire de Tamilya à jour. */

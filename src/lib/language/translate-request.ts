@@ -15,6 +15,14 @@ export function isShimaoreTranslationRequest(message: string): boolean {
   return ASK.test(text) && TARGET.test(text);
 }
 
+// « comment on dit j'aime pas aller à la plage », même sans « en shimaoré ».
+const HOW_TO_SAY = /\b(?:comment (?:on |se |ca se |tu )?(?:di?t|dis|dire)|dit[- ]on|tradui\w*|traduction)\b/;
+
+/** Phrase donnée à traduire : elle ne dit rien de la personne, et « aller à la plage » n'y est pas un trajet. */
+export function isHowToSay(message: string): boolean {
+  return HOW_TO_SAY.test(normalize(message).replace(/[’'`]/g, " ").slice(0, 300));
+}
+
 export const SHIMAORE_TRANSLATION = [
   "POUR CE MESSAGE : la personne (administrateur de GROUPE BTM) te demande de traduire un texte en shimaoré. Fais-le, même s'il est long : c'est un brouillon qu'elle fera relire.",
   "- Traduis TOUT le texte, phrase par phrase, dans l'ordre. Ne refuse pas, ne commente pas la demande, ne réponds pas seulement avec quelques mots.",

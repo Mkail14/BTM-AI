@@ -4,6 +4,8 @@
  * bloc ```itineraire``` ouvre la carte du trajet dans la conversation.
  */
 
+import { isHowToSay } from "@/lib/language/translate-request";
+
 /** Bloc remplacé dans la conversation par la carte du trajet (TripCard). */
 export const TRIP_BLOCK = "itineraire";
 
@@ -38,7 +40,8 @@ const clean = (place: string) =>
 /** Le trajet demandé, ou null. `to` et `from` sont en minuscules sans accents (cherchés ensuite dans l'annuaire et sur la carte). */
 export function detectTrip(message: string): TripSpec | null {
   let text = normalize(message);
-  if (!ASKS.test(text) || NOT_A_TRIP.test(text)) return null;
+  // « comment on dit j'aime pas aller à la plage » : une phrase à traduire, pas un trajet (carte ouverte le 2026-11-16).
+  if (!ASKS.test(text) || NOT_A_TRIP.test(text) || isHowToSay(message)) return null;
   // « combien de temps (il faut) (pour aller) » : retiré, sinon « de temps » passerait pour un départ.
   text = text.replace(/\bcombien de temps(?: (?:ca prend|il faut|je mets|on met|faut-il))?\b/, " ");
 
