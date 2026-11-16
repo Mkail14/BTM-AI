@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 
 const SECTIONS = [
   ["presentation", "Présentation"],
-  ["acces", "Accès : un engagement"],
+  ["acces", "Accès : fiche et engagement"],
   ["identite", "Identité et mission"],
   ["widget", "Widget : une ligne à coller"],
   ["demarrage", "API : démarrage rapide"],
@@ -313,10 +313,10 @@ export default async function DocumentationPage() {
               </p>
             </Section>
 
-            <Section id="acces" title="Accès : un engagement">
+            <Section id="acces" title="Accès : une fiche et un engagement">
               <p>
-                L&apos;accès est gratuit et <strong>immédiat</strong>, sans attente ni validation. Une seule condition : vous
-                engager à garder l&apos;identité de Tamilya.
+                L&apos;accès est gratuit et <strong>immédiat</strong>, sans attente ni validation. Il suffit de dire ce que vous
+                allez faire de Tamilya et de vous engager à garder son identité.
               </p>
               <ol className="ml-5 flex list-decimal flex-col gap-1">
                 <li>Créez votre compte gratuit et connectez-vous.</li>
@@ -325,7 +325,11 @@ export default async function DocumentationPage() {
                   <Link href="/developpeurs#acces" className="text-fg underline underline-offset-4">
                     l&apos;espace développeurs
                   </Link>
-                  , cochez l&apos;engagement : ne jamais changer le nom, le shimaoré ni la personnalité de Tamilya, et respecter la{" "}
+                  , remplissez votre <strong>fiche</strong> : nom, structure (ou « Particulier »), site ou application, et ce que vous
+                  allez faire de Tamilya. Vous pourrez la modifier ensuite.
+                </li>
+                <li>
+                  Cochez l&apos;engagement : ne jamais changer le nom, le shimaoré ni la personnalité de Tamilya, et respecter la{" "}
                   <Link href="/developpeurs/charte" className="text-fg underline underline-offset-4">
                     charte d&apos;utilisation
                   </Link>
@@ -335,7 +339,8 @@ export default async function DocumentationPage() {
               </ol>
               <p>
                 Sans cet engagement, l&apos;API répond <C>403 terms_not_accepted</C> et la bulle affiche « Ce widget n&apos;est pas
-                encore activé ».
+                encore activé ». BTM peut vous écrire à l&apos;adresse de votre compte ; en cas de suspension, vous recevez un
+                e-mail qui en donne la raison.
               </p>
             </Section>
 
@@ -370,7 +375,7 @@ export default async function DocumentationPage() {
             <Section id="widget" title="Widget : une ligne à coller">
               <H3>1. Créez votre widget</H3>
               <p>
-                Une fois l&apos;engagement pris, sur{" "}
+                Une fois votre fiche remplie, sur{" "}
                 <Link href="/developpeurs#widget" className="text-fg underline underline-offset-4">
                   l&apos;espace développeurs
                 </Link>
@@ -450,7 +455,7 @@ export default async function DocumentationPage() {
               />
               <ol className="ml-5 flex list-decimal flex-col gap-2">
                 <li>
-                  Une fois l&apos;<a href="#acces" className="text-fg underline underline-offset-4">engagement pris</a>, créez un{" "}
+                  Une fois votre <a href="#acces" className="text-fg underline underline-offset-4">fiche remplie</a>, créez un{" "}
                   <strong>code d&apos;accès</strong> sur{" "}
                   <Link href="/developpeurs#code" className="text-fg underline underline-offset-4">
                     l&apos;espace développeurs

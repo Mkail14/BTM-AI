@@ -37,8 +37,9 @@ export default function ChartePage() {
         <div className="mt-12 flex flex-col gap-8">
           <Article n={1} title="Accès sur engagement">
             <p>
-              L&apos;accès (widget et API) s&apos;ouvre aussitôt, sans validation, dès que vous vous engagez à respecter cette
-              charte, et en particulier l&apos;identité de Tamilya (article 3).
+              L&apos;accès (widget et API) s&apos;ouvre aussitôt, sans validation, dès que vous avez rempli votre fiche (ce que
+              vous allez faire de Tamilya) et que vous vous engagez à respecter cette charte, en particulier l&apos;identité de
+              Tamilya (article 3). La fiche doit être exacte et tenue à jour.
             </p>
             <p>Les informations doivent être exactes et tenues à jour. Un compte ne se prête ni ne se revend.</p>
           </Article>
@@ -105,7 +106,7 @@ export default function ChartePage() {
 
           <Article n={7} title="Données">
             <p>
-              BTM garde la date de votre engagement, vos widgets et vos codes le temps de l&apos;accès. Les conversations ne sont pas enregistrées. Vous pouvez demander la suppression de ces
+              BTM garde votre fiche, la date de votre engagement, vos widgets et vos codes le temps de l&apos;accès, et peut vous écrire à l&apos;adresse de votre compte (par exemple pour vous prévenir d&apos;une suspension). Les conversations ne sont pas enregistrées. Vous pouvez demander la suppression de ces
               données à tout moment. Voir{" "}
               <Link href="/confidentialite" className="text-fg underline underline-offset-4">
                 Données et confidentialité

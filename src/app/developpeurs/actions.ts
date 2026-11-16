@@ -45,14 +45,44 @@ function checkMission(userId: string, mission: string): { ok: true; mission: str
   return { ok: true, mission: mission || null };
 }
 
-// --- Engagement ---
+// --- Fiche et engagement ---
 
-/** Le développeur s'engage à garder l'identité de Tamilya : accès ouvert aussitôt, sans validation. */
-export async function acceptTermsAction(accepted: unknown): Promise<ActionMessage> {
+const profileSchema = z.strictObject({
+  fullName: z.string().trim().min(2, "Indiquez vos nom et prénom.").max(80, "Nom : 80 caractères au plus."),
+  organization: z.string().trim().min(2, "Indiquez votre structure (ou « Particulier »).").max(120, "Structure : 120 caractères au plus."),
+  website: z.string().trim().min(4, "Indiquez l'adresse de votre site ou application.").max(200, "Adresse : 200 caractères au plus."),
+  usage: z
+    .string()
+    .trim()
+    .min(20, "Dites en quelques phrases ce que vous allez faire de Tamilya (20 caractères au moins).")
+    .max(2000, "Projet : 2 000 caractères au plus."),
+  accepted: z.literal(true, "Cochez l'engagement pour continuer."),
+});
+
+/**
+ * Le développeur remplit sa fiche (ce qu'il va faire de Tamilya) et s'engage à
+ * garder son identité : accès ouvert aussitôt, sans validation.
+ */
+export async function acceptTermsAction(input: unknown): Promise<ActionMessage> {
   const { user } = await getAuthContext();
   if (!user) return { ok: false, message: "Connectez-vous d'abord." };
-  if (accepted !== true) return { ok: false, message: "Cochez l'engagement pour continuer." };
-  if (!(await acceptDeveloperTerms(user.id))) return { ok: false, message: "L'enregistrement a échoué. Réessayez plus tard." };
+  const parsed = profileSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Fiche incomplète." };
+  const { fullName, organization, website, usage } = parsed.data;
+  const profile = { fullName, organization, website, usage };
+  // Fiche qui annonce un renommage : refusée tout de suite (l'accès n'est pas encore ouvert, rien à suspendre).
+  const violation = findIdentityViolation(profile.usage);
+  if (violation) {
+    return { ok: false, message: `Ce projet n'est pas possible : il est interdit de ${IDENTITY_LABELS[violation]}. Une mission, oui ; un autre nom, non.` };
+  }
+  try {
+    const limit = await consumeRateLimits([{ key: `dev-profile:${user.id}`, rules: RATE_LIMIT_POLICIES.developerKeyCreate }]);
+    if (!limit.allowed) return { ok: false, message: "Trop d'envois aujourd'hui : réessayez demain." };
+  } catch (error) {
+    console.error("[developpeurs] Limite d'envoi indisponible", error);
+    return { ok: false, message: "L'enregistrement a échoué. Réessayez plus tard." };
+  }
+  if (!(await acceptDeveloperTerms(user.id, profile))) return { ok: false, message: "L'enregistrement a échoué. Réessayez plus tard." };
   revalidatePath("/developpeurs");
   return { ok: true };
 }

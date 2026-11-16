@@ -21,7 +21,7 @@ export const metadata: Metadata = {
 };
 
 const ACCESS_RULES = [
-  { title: "Un engagement, c'est tout", text: "Vous cochez une case : l'accès s'ouvre tout de suite, sans attente ni validation." },
+  { title: "Une fiche et un engagement", text: "Vous dites ce que vous allez faire de Tamilya, vous vous engagez : l'accès s'ouvre tout de suite, sans validation." },
   { title: "Une mission, oui", text: "Agent d'accueil, conseillère, guide… Confiez à Tamilya le rôle que vous voulez." },
   {
     title: "Son identité, jamais",
@@ -29,17 +29,32 @@ const ACCESS_RULES = [
   },
 ] as const;
 
-/** Engagement à prendre, accès ouvert, ou suspendu. */
+/** Fiche et engagement à remplir, accès ouvert (fiche modifiable), ou suspendu. */
 function AccessStatus({ account }: { account: DeveloperAccount | null }) {
   if (!account) return <AccessRequest />;
-  if (account.status === "approved") {
+  if (account.status === "approved" && !account.profile) {
+    // Engagé avant l'arrivée de la fiche : à compléter pour retrouver ses outils.
     return (
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-4">
+        <p className="text-sm leading-relaxed text-fg-muted">Complétez votre fiche pour retrouver vos widgets et codes.</p>
+        <AccessRequest />
+      </div>
+    );
+  }
+  if (account.status === "approved" && account.profile) {
+    return (
+      <div className="flex flex-col gap-3">
         <p className="font-medium text-success">Accès ouvert</p>
         <p className="text-sm leading-relaxed text-fg-muted">
           Vous pouvez créer votre <a href="#widget" className="text-fg underline underline-offset-4">widget</a> ou vos{" "}
           <a href="#code" className="text-fg underline underline-offset-4">codes d&apos;accès</a>.
         </p>
+        <details className="rounded-2xl border border-border p-3 text-sm">
+          <summary className="cursor-pointer font-medium">Votre fiche</summary>
+          <div className="mt-3">
+            <AccessRequest initial={account.profile} />
+          </div>
+        </details>
       </div>
     );
   }
@@ -59,13 +74,13 @@ function AccessStatus({ account }: { account: DeveloperAccount | null }) {
 }
 
 const WIDGET_STEPS = [
-  { title: "Créez votre widget", text: "Une fois l'engagement pris. Donnez l'adresse de votre site et, si vous voulez, une mission." },
+  { title: "Créez votre widget", text: "Une fois votre fiche remplie. Donnez l'adresse de votre site et, si vous voulez, une mission." },
   { title: "Copiez la ligne", text: "Une seule balise <script>, prête à l'emploi." },
   { title: "Collez-la sur votre site", text: "Avant </body>, dans n'importe quel site : HTML, WordPress, Wix, Shopify… La bulle Tamilya apparaît." },
 ] as const;
 
 const STEPS = [
-  { title: "Créez votre code", text: "Une fois l'engagement pris. Le code dit à Tamilya que c'est vous." },
+  { title: "Créez votre code", text: "Une fois votre fiche remplie. Le code dit à Tamilya que c'est vous." },
   { title: "Ajoutez votre clé Gemini", text: "Gratuite sur Google AI Studio. Elle paie les réponses, et nous ne la gardons jamais." },
   { title: "Posez vos questions", text: "Depuis votre serveur. Tamilya répond avec tout ce qu'elle sait." },
 ] as const;
@@ -74,26 +89,27 @@ const perMinute = RATE_LIMIT_POLICIES.developerKey.find((r) => r.windowSeconds =
 const perDay = RATE_LIMIT_POLICIES.developerKey.find((r) => r.windowSeconds === 86_400)?.limit ?? 0;
 
 /**
- * Espace développeurs, en cinq écrans : l'accueil, l'engagement à garder
+ * Espace développeurs, en cinq écrans : l'accueil, la fiche et l'engagement à garder
  * l'identité de Tamilya (accès ouvert aussitôt), le widget à coller (payé par
  * BTM), l'API et son code d'accès, puis l'exemple d'appel.
  */
 export default async function DeveloppeursPage() {
   const [{ user }, endpoint, scriptUrl] = await Promise.all([getAuthContext(), apiEndpoint(), widgetScriptUrl()]);
   const account = user ? await getDeveloperAccount(user.id) : null;
-  const approved = account !== "error" && account?.status === "approved";
+  // Outils visibles seulement avec la fiche remplie et l'engagement pris.
+  const approved = account !== "error" && account?.status === "approved" && account.profile !== null;
   const [keys, widgets] = user && approved ? await Promise.all([listDeveloperKeys(user.id), listDeveloperWidgets(user.id)]) : [null, null];
 
   /** Carte d'un outil (widget ou code) : connexion, puis vérification, puis l'outil. */
   const gated = (tool: ReactNode, unavailable: string) =>
     !user ? (
       <div className="flex flex-col items-start gap-4">
-        <p className="text-sm leading-relaxed text-fg-muted">Créez votre compte gratuit, puis prenez l&apos;engagement. Déjà un compte ? Connectez-vous en haut de la page.</p>
+        <p className="text-sm leading-relaxed text-fg-muted">Créez votre compte gratuit, puis remplissez votre fiche. Déjà un compte ? Connectez-vous en haut de la page.</p>
         <SignInButton className={roseButton} />
       </div>
     ) : !approved ? (
       <p className="text-sm leading-relaxed text-fg-muted">
-        Disponible une fois l&apos;engagement pris :{" "}
+        Disponible une fois votre fiche remplie :{" "}
         <a href="#acces" className="text-fg underline underline-offset-4">
           voir plus haut
         </a>
@@ -161,7 +177,7 @@ export default async function DeveloppeursPage() {
               {!user ? (
                 <div className="flex flex-col items-start gap-4">
                   <p className="text-sm leading-relaxed text-fg-muted">
-                    Créez votre compte gratuit, puis cochez l&apos;engagement : l&apos;accès s&apos;ouvre aussitôt. Déjà un compte ? Connectez-vous en haut de la page.
+                    Créez votre compte gratuit, puis remplissez votre fiche : l&apos;accès s&apos;ouvre aussitôt. Déjà un compte ? Connectez-vous en haut de la page.
                   </p>
                   <SignInButton className={roseButton} />
                 </div>
