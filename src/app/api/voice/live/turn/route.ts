@@ -42,10 +42,10 @@ async function rememberSpoken(supabase: SupabaseClient, userId: string, message:
 }
 
 /** Leçon de shimaoré à la voix : le mot va au dictionnaire, comme à l'écrit, et sert dès le prochain appel. */
-async function learnSpokenWords(supabase: SupabaseClient, userId: string, message: string, previousReply: string | null) {
+async function learnSpokenWords(supabase: SupabaseClient, userId: string, message: string, previousReply: string | null, previousAsk: string | null) {
   const ai = await getAIProvider();
   if (!ai.ok) return;
-  await learnWordsFromMessage(supabase, userId, ai.provider, { message, previousReply });
+  await learnWordsFromMessage(supabase, userId, ai.provider, { message, previousReply, previousAsk });
 }
 
 /** Relecture de son shimaoré après qu'elle a parlé : doutes envoyés à l'administrateur. */
@@ -87,10 +87,12 @@ export async function POST(request: NextRequest) {
       // La question de Tamilya (« comment on dit chien ? ») donne son sens à une réponse d'un seul mot.
       const recent = await getRecentMessages(supabase, conversationId, 4).catch(() => []);
       const previousReply = recent.findLast((message) => message.role === "assistant")?.content ?? null;
+      // Sa demande d'avant : la phrase dont il corrige peut-être la traduction.
+      const previousAsk = recent.findLast((message) => message.role === "user")?.content ?? null;
       await insertMessage(supabase, { conversationId, userId: user.id, role: "user", content: spoken });
       after(() => rememberSpoken(supabase, user.id, spoken, previousReply).catch((error: unknown) => console.error("[vocal direct] Souvenir non enregistré", error)));
       // Le mot tel qu'il a été entendu, pas rapproché du lexique : un mot nouveau y deviendrait un mot déjà connu.
-      if (user.isAdmin) after(() => learnSpokenWords(supabase, user.id, heard, previousReply).catch((error: unknown) => console.error("[vocal direct] Leçon de shimaoré non enregistrée", error)));
+      if (user.isAdmin) after(() => learnSpokenWords(supabase, user.id, heard, previousReply, previousAsk).catch((error: unknown) => console.error("[vocal direct] Leçon de shimaoré non enregistrée", error)));
     }
     if (parsed.data.tamilya) {
       await insertMessage(supabase, { conversationId, userId: user.id, role: "assistant", content: parsed.data.tamilya });

@@ -4,6 +4,7 @@ import {
   buildTeachingRequest,
   isExplanation,
   isGivenBySpeaker,
+  isNotAMeaning,
   mayBeTeaching,
   parseTaughtWords,
   shimaoreEntryKey,
@@ -87,16 +88,18 @@ export async function learnWordsFromMessage(
   supabase: SupabaseClient,
   userId: string,
   provider: AIProvider,
-  input: { message: string; previousReply: string | null },
+  /** previousAsk : message précédent du locuteur, souvent la phrase dont il corrige la traduction. */
+  input: { message: string; previousReply: string | null; previousAsk?: string | null },
 ): Promise<TaughtWord[]> {
   if (!mayBeTeaching(input.message, input.previousReply)) return [];
   const output = await completeText(provider, {
     system: TEACHING_SYSTEM_PROMPT,
-    content: buildTeachingRequest(input.previousReply, input.message),
+    content: buildTeachingRequest(input.previousReply, input.message, input.previousAsk ?? null),
   });
-  // Rien que le locuteur n'a pas dit lui-même, et pas d'explication en français prise pour une traduction.
+  // Rien que le locuteur n'a pas dit lui-même, pas d'explication en français prise pour une traduction,
+  // et pas de réaction (« Non, c'est ça ») prise pour un sens.
   const taught = parseTaughtWords(output).filter(
-    (w) => isGivenBySpeaker(w.shimaore, input.message, input.previousReply) && !isExplanation(w.shimaore),
+    (w) => isGivenBySpeaker(w.shimaore, input.message, input.previousReply) && !isExplanation(w.shimaore) && !isNotAMeaning(w.french),
   );
   const short = (w: TaughtWord) => w.french.length <= TAUGHT_WORD_MAX && w.shimaore.length <= TAUGHT_WORD_MAX;
   const words = taught.filter(short);

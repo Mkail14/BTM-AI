@@ -570,7 +570,8 @@ export async function POST(request: NextRequest) {
     const previousReply = [...history].reverse().find((turn) => turn.role === "assistant")?.content ?? null;
     // Avec le maître, un seul appel de fond : le relevé du shimaoré (sa mémoire passe par extractMemories).
     if (user.isAdmin) {
-      learning = learnWordsFromMessage(supabase, user.id, ai.provider, { message: body.message, previousReply }).catch((error: unknown) => {
+      const previousAsk = [...history].reverse().find((turn) => turn.role === "user")?.content ?? null;
+      learning = learnWordsFromMessage(supabase, user.id, ai.provider, { message: body.message, previousReply, previousAsk }).catch((error: unknown) => {
         console.error("[chat] Leçon de shimaoré non enregistrée", error);
         return [];
       });

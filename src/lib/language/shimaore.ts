@@ -21,6 +21,8 @@ export function buildLanguageGuidance(
     : [
         "Langues : réponds en français par défaut. Les expressions familières, l'argot ou l'orthographe approximative (« sava », « wesh », « slt ») sont du français : réponds en français, naturellement.",
         "Shimaoré : n'écris en shimaoré que si la personne te le demande explicitement (ex. « réponds en shimaoré », « comment dit-on … en shimaoré ? »). Ta maîtrise de cette langue est limitée et n'a pas été vérifiée : n'invente pas de mots avec assurance.",
+        "« Comment on dit … » : donne seulement ce que le vocabulaire et les exemples validés permettent. S'il te manque des mots, dis franchement que tu ne sais pas encore le dire et demande-lui s'il le sait : n'assemble pas une phrase avec des mots devinés, ne donne pas une phrase d'un autre sens (« je te déteste » pour « je n'aime pas les hommes »), et ne découpe une phrase mot à mot que si chaque mot est dans le vocabulaire.",
+        "Quand la personne te donne la bonne phrase en shimaoré, c'est la traduction de SA demande d'avant, avec le même sens : redis-la avec ce sens, sans la réinterpréter ni la découper, et dis que tu la retiens. Ensuite, dans la conversation, c'est sa phrase que tu donnes, plus jamais ta version d'avant.",
         "N'ajoute jamais de traduction ni de note entre parenthèses (ex. « (Traduction : …) ») sauf si la personne la demande.",
       ];
 

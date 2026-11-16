@@ -52,10 +52,13 @@ export type MemoryUpdate = { kind: string; content: string | null };
 
 const MEMORY_KIND = /^[a-z][a-z0-9_]{0,39}$/;
 const LEARN_HINT = /\b(?:je|j|moi|mon|ma|mes|nous|notre|nos|retiens|souviens|rappelle|oublie|non|faux|erreur|tromp\w*|plut\w*)\b/i;
+// « comment on dit j'aime pas les hommes » : la phrase est à traduire, elle ne dit rien de la personne.
+const TRANSLATION_ASK = /\b(?:comment (?:on |se |ca se |tu )?(?:di?t|dis|dire)|dit[- ]on|tradui\w*|traduction)\b/i;
 
 /** Vaut-il la peine de demander au modèle ce qu'il faut retenir ? (évite un appel par question ordinaire) */
 export function shouldLearnFrom(message: string): boolean {
-  return message.trim().length >= 8 && LEARN_HINT.test(message.replace(/[’`]/g, " ").replace(/'/g, " "));
+  const text = message.replace(/[’`]/g, " ").replace(/'/g, " ");
+  return message.trim().length >= 8 && LEARN_HINT.test(text) && !TRANSLATION_ASK.test(text.normalize("NFD").replace(/\p{Diacritic}/gu, ""));
 }
 
 /** Consigne du modèle chargé de tenir la mémoire de Tamilya à jour. */
@@ -66,6 +69,7 @@ export const MEMORY_SYSTEM_PROMPT = [
   "Retiens aussi ce qui l'attend et qui compte pour elle (examen, entretien, voyage, déménagement, naissance), avec sa date exacte calculée depuis la date du jour : kind commençant par evenement_, par exemple « Passe son code le 12 novembre 2026 ».",
   "Si elle corrige Tamilya sur elle-même, remplace l'ancienne valeur. Si elle la corrige sur un fait précis qu'elle affirme avec certitude, retiens ce qu'elle a dit : kind commençant par correction_, par exemple « A signalé que le marché de Coconi a lieu le dimanche ».",
   "Ignore les questions, les informations sur d'autres sujets, et tout ce qui est passager (humeur du moment, ce qu'elle fait aujourd'hui).",
+  "Une phrase qu'elle fait traduire ou qu'elle essaie dans une langue n'est pas une information sur elle (« j'aime pas les gommes » juste après une traduction, une phrase en shimaoré, sa correction d'une traduction) : ne la retiens pas.",
   "Réponds UNIQUEMENT par un tableau JSON, sans texte autour : [{\"kind\":\"…\",\"content\":\"…\"}].",
   "- kind : identifiant court en minuscules sans accents (lettres, chiffres, _). Réutilise la même sorte qu'une mémoire existante pour la remplacer (prenom, lieu, travail, age… existent déjà).",
   "- content : une phrase courte à la troisième personne, en français (ex. « A deux enfants, Inaya et Soufiane »), 200 caractères maximum. Fusionne avec l'ancienne valeur si les deux restent vraies.",

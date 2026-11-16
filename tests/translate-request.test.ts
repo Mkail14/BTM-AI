@@ -36,4 +36,25 @@ describe("leçons relevées dans la conversation", () => {
     assert.equal(isExplanation("non, merci se dit marahaba"), true);
     assert.equal(isExplanation("Wawé jouwa dhago la Mamoudzou ?"), false);
   });
+
+  // Conversation du 2026-11-16 : Tamilya invente « nisi ou hega », le maître la corrige, et c'est l'invention qui est retenue.
+  it("ne garde pas la traduction que le locuteur corrige", async () => {
+    const { isGivenBySpeaker, isNotAMeaning } = await import("@/lib/language/teaching");
+    const reply = "En shimaoré, on dit : Nisi ou hega. Ça veut dire littéralement « je te déteste ». Nisi ou hega wa fatché.";
+    assert.equal(isGivenBySpeaker("nisi ou hega", "tsi vedzé watchu baba c'est comme sa on dit", reply), false);
+    assert.equal(isGivenBySpeaker("nisi ou hega wa fatché", "tsi vedzé watchu baba c'est comme sa on dit", reply), false);
+    assert.equal(isGivenBySpeaker("tsi vedzé watchu baba", "tsi vedzé watchu baba c'est comme sa on dit", reply), true);
+    assert.equal(isGivenBySpeaker("ya havih", "non c'est où avec un accent", "D'accord, je retiens : ya havih, il est ou."), true);
+    assert.equal(isNotAMeaning("Non, c'est ça"), true);
+    assert.equal(isNotAMeaning("littéralement je te déteste"), true);
+    assert.equal(isNotAMeaning("je n'aime pas les gommes"), false);
+    assert.equal(isNotAMeaning("oui"), false);
+  });
+
+  it("une phrase à traduire ne va pas dans la mémoire de la personne", async () => {
+    const { shouldLearnFrom } = await import("@/lib/ai/memory");
+    assert.equal(shouldLearnFrom("comment on dit j'aime pas les Hommes"), false);
+    assert.equal(shouldLearnFrom("comment ça se dit je suis fatigué en shimaoré"), false);
+    assert.equal(shouldLearnFrom("j'ai deux enfants, Inaya et Soufiane"), true);
+  });
 });
