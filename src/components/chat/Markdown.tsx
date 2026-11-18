@@ -1,6 +1,7 @@
 import { stripEmoji } from "@/lib/chat/no-emoji";
 import dynamic from "next/dynamic";
-import { Children, isValidElement, memo, type ReactNode } from "react";
+import { Children, isValidElement, memo, Suspense, type ReactNode } from "react";
+import { Skeleton } from "@/components/ui/Skeleton";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { markUnknownWords } from "@/lib/language/unknown-words";
@@ -64,9 +65,8 @@ const CARD_BLOCKS = [
   COMBINED_BLOCK,
 ];
 
-// Le HTML brut n'est pas interprété (pas de rehype-raw) : seul le Markdown est rendu.
-const components: Components = {
-  pre: ({ children }) => {
+/** Bloc ``` : remplacé par la carte qu'il nomme, ou laissé en bloc de code. */
+function renderPre(children: ReactNode) {
     const code = isValidElement<{ className?: string }>(children) ? children.props.className : undefined;
     // Le contenu du bloc nomme le bureau visé (« Kaweni ») : le tableau s'ouvre sur ses horaires.
     // Bureau, puis jour et moment voulus (« jour: 2026-11-03 ») ajoutés par le serveur : nouveau contenu, tableau rouvert.
@@ -150,7 +150,14 @@ const components: Components = {
       );
     }
     return <pre>{children}</pre>;
-  },
+}
+
+// Le HTML brut n'est pas interprété (pas de rehype-raw) : seul le Markdown est rendu.
+const components: Components = {
+  // Le code d'une carte se télécharge la première fois qu'elle s'affiche. Sans ce Suspense, l'attente
+  // remontait jusqu'au chargement de la page : toute la conversation disparaissait le temps du
+  // téléchargement, puis revenait. Seule la place de la carte attend maintenant.
+  pre: ({ children }) => <Suspense fallback={<Skeleton className="h-24 w-full rounded-2xl" />}>{renderPre(children)}</Suspense>,
   // Paragraphe fait seulement de vidéos YouTube : rangée qui défile vers la droite.
   p: ({ children }) => {
     const items = Children.toArray(children).filter((c) => !(typeof c === "string" && !c.trim()));
