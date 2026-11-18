@@ -4014,10 +4014,9 @@ body:has([data-voice-touch]) .voice-edge[data-on] {
 }
 
 @keyframes voice-morph-bg {
+  /* Opacité seule : la carte graphique la joue, même si la page est occupée. */
   from {
     opacity: 0;
-    -webkit-backdrop-filter: blur(0) saturate(1);
-    backdrop-filter: blur(0) saturate(1);
   }
 }
 

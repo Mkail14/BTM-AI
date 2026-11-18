@@ -238,6 +238,8 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
   let vad: VoiceDetector | null = null;
   if (!manual)
     void loadSilero().then((detector) => {
+      // Le détecteur est partagé entre les sessions : on repart d'une mémoire vide.
+      detector?.reset();
       vad = detector;
       note(detector ? "Silero prêt" : "Silero indisponible, porte au volume");
     });
