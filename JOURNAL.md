@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `7e26698` (2026-11-18, branche carte-mayotte, pas encore envoyé)**
+**Dernier commit noté : `79a8aca` (2026-11-18, branche carte-mayotte, pas encore envoyé)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -105,6 +105,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-18
+- **Chat : Tamilya a internet en permanence à l'écrit** (`79a8aca`, branche carte-mayotte). La recherche Google (Gemini) ne s'ouvrait que si le message contenait certains mots (depth.ts) ; elle est maintenant toujours disponible et c'est Tamilya qui décide de chercher, comme les autres IA. Consigne de recherche réécrite dans ce sens. Restent sans recherche : le vocal (déjà branché à part) et la leçon de shimaoré. Peut rallonger un peu certaines réponses. Vérifié : 781 tests et typecheck passent.
 - **Vocal de l’app : Tamilya écoute dès l’appui sur le micro** (`7e26698`, branche carte-mayotte). La page /voix attendait qu’on touche le globe ; dans l’app, le micro de l’accueil l’ouvre maintenant avec `?ecoute=1` et la page lance l’écoute seule (VoiceRoom). Sans ce réglage, rien ne change sur le site. À vérifier sur la tablette une fois le site en ligne.
 - **Vocal : le toucher du globe ne fige plus l'écran** (`0f2da44`, branche carte-mayotte). Silero (détecteur de voix) est maintenant préchargé quand la page est au repos et partagé entre les sessions, au lieu d'être chargé au clic ; l'animation d'ouverture du globe ne joue plus que la transparence (le flou animé était lourd). Comme le détecteur garde une mémoire (état et fin du son d'avant), il a une remise à zéro appelée au début de chaque session, sinon un deuxième appel aurait commencé avec les restes du premier. Vérifié : 781 tests et typecheck passent ; pas encore essayé au téléphone.
 
