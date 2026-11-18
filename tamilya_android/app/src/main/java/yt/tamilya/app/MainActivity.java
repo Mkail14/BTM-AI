@@ -29,6 +29,7 @@ import android.speech.tts.UtteranceProgressListener;
 import android.util.Base64;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -136,6 +137,8 @@ public class MainActivity extends Activity {
     private String pendingSpeechLang;
 
     private SoundPool sounds;
+    /** Volume de Tamilya pendant le vocal : casque ou haut-parleur, jour ou nuit, choix de la personne. */
+    private VoiceVolume voiceVolume;
     private int soundStart;
     private int soundEnd;
     private long lastTap;
@@ -404,6 +407,7 @@ public class MainActivity extends Activity {
         applySystemBars(root);
 
         loadSounds();
+        voiceVolume = new VoiceVolume(this, main);
         watchNetwork();
         Perf.end("onCreate", created);
     }
@@ -1104,10 +1108,12 @@ public class MainActivity extends Activity {
                 break;
             case "start":
                 sounds.play(soundStart, 0.8f, 0.8f, 1, 0, 1f);
+                voiceVolume.start();
                 if (now - lastTap > 500) haptic(VibrationEffect.EFFECT_CLICK, 0, 30);
                 break;
             case "end":
                 sounds.play(soundEnd, 0.8f, 0.8f, 1, 0, 1f);
+                voiceVolume.end();
                 haptic(VibrationEffect.EFFECT_DOUBLE_CLICK, 0, 25, 70, 25);
                 break;
             default:
@@ -1649,8 +1655,17 @@ public class MainActivity extends Activity {
         state.putBoolean("home", home.isOpen() || themeHome);
     }
 
+    /** Boutons de volume pendant le vocal : Tamilya retient le choix de la personne. */
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        if (voiceVolume != null) voiceVolume.onKey(event);
+        return super.dispatchKeyEvent(event);
+    }
+
     @Override
     protected void onPause() {
+        // Hors de l'app, le téléphone retrouve son volume d'avant le vocal.
+        if (voiceVolume != null) voiceVolume.pause();
         keepLastPage();
         long paused = Perf.start("onPause.flush");
         CookieManager.getInstance().flush();
@@ -1666,6 +1681,7 @@ public class MainActivity extends Activity {
         super.onResume();
         web.onResume();
         connect.resume();
+        if (voiceVolume != null) voiceVolume.resume();
     }
 
     @Override
