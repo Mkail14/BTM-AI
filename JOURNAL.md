@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `4a870cd` (2026-11-18, main et develop)**
+**Dernier commit noté : `38ce7a0` (2026-11-18, branche vocal-ecoute-app, pas encore sur main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -104,6 +104,7 @@ Comment le tenir :
 
 ## Journal (le plus récent en haut)
 
+- **Vocal de l’app : Tamilya écoute dès l’appui sur le micro** (`38ce7a0`, 2026-11-18). La page /voix attendait qu’on touche le globe ; dans l’app, le micro de l’accueil l’ouvre maintenant avec `?ecoute=1` et la page lance l’écoute seule (VoiceRoom). Sans ce réglage, rien ne change sur le site.
 - **Vocal : le toucher du globe ne fige plus l’écran** (`4a870cd`, main et develop ; même correction que `0f2da44` sur carte-mayotte). Silero (détecteur de voix) est préchargé quand la page est au repos, partagé entre les sessions et remis à zéro à chaque appel, au lieu d’être chargé au clic ; l’animation d’ouverture du globe ne joue plus que la transparence (le flou animé était lourd). Essai sur la Pad 6 (site local) : fond sombre dès 0,6 s, aucune image plus lente que 0,3 s ; le micro est refusé sur l’adresse locale, donc la phase de connexion n’a pas pu être vue : à confirmer sur tamilya.yt.
 - **Téléphone, application et PWA : pages remises au propre** (2026-11-16, envoyé sur develop et main). Plainte de l'utilisateur : la version téléphone (site, PWA, APK) moche, surtout la barre, alors que le PC est présentable. Regardé en vrai (navigateur à 360 et 390 px, clair et sombre, avec l'agent de l'APK `TamilyaApp/`) : accueil, conversation, menu, Développeurs, documentation, charte, Conditions, Aide, Confidentialité, Partenaires, mot de passe oublié, page d'attente. Aucune page ne déborde. Corrigé : (1) Conditions, Aide, Confidentialité, Paramètres et les autres pages simples (`SimplePage`) avaient une barre blanche à part : même barre en verre dépoli que l'accueil, collée en haut, logo à la même taille, retour en pastille ; les ancres du sommaire s'arrêtent sous la barre ; (2) documentation et charte : « ← Espace développeurs » était collé à « DOCUMENTATION » sur la même ligne ; (3) adresse de l'API coupée au milieu d'un mot : une ligne qui défile ; (4) admin au téléphone : le nom de la rubrique ouverte s'affiche à côté du logo ; (5) documentation : erreur React (deux en-têtes vides avec la même clé). Vérifié : types, lint, captures avant et après. **Pas vu** : la conversation d'un compte connecté et l'admin au téléphone (pas de Supabase sur ce poste) ; à regarder sur l'APK et la PWA une fois en ligne.
 - **Espace développeurs : l'admin écrit au développeur** (2026-11-16, envoyé sur develop et main). L'admin peut envoyer un e-mail libre au développeur (il répond à contact@btm.yt) ; suspendre demande confirmation et affiche si l'e-mail est bien parti. Pourquoi : savoir si le développeur a vraiment été prévenu. Textes de la page développeurs et de la documentation alignés sur les règles réelles.
