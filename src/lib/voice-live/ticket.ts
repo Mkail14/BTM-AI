@@ -21,6 +21,8 @@ export type LiveTicket = {
   map?: boolean;
   /** Visiteur sans compte, sur la carte de la page « Mayotte » : aucune donnée de compte n'est lue. */
   guest?: boolean;
+  /** Casque branché, dit par l'app Android : Tamilya chuchote (quiet.ts). */
+  headphones?: boolean;
 };
 
 /** Identité d'un visiteur sans compte (pas un compte de la base). */
@@ -33,8 +35,8 @@ export const liveRelayUrl = () => process.env.LIVE_RELAY_URL?.trim().replace(/\/
 
 const sign = (payload: string, secret: string) => createHmac("sha256", secret).update(payload).digest("base64url");
 
-export function signLiveTicket(user: { id: string; isAdmin: boolean }, secret: string, now = Date.now(), manual = false, cid?: string, map = false, guest = false): string {
-  const ticket: LiveTicket = { sid: randomUUID(), uid: user.id, admin: user.isAdmin, exp: now + TICKET_MS, manual, ...(cid ? { cid } : {}), ...(map ? { map: true } : {}), ...(guest ? { guest: true } : {}) };
+export function signLiveTicket(user: { id: string; isAdmin: boolean }, secret: string, now = Date.now(), manual = false, cid?: string, map = false, guest = false, headphones = false): string {
+  const ticket: LiveTicket = { sid: randomUUID(), uid: user.id, admin: user.isAdmin, exp: now + TICKET_MS, manual, ...(cid ? { cid } : {}), ...(map ? { map: true } : {}), ...(guest ? { guest: true } : {}), ...(headphones ? { headphones: true } : {}) };
   const payload = Buffer.from(JSON.stringify(ticket)).toString("base64url");
   return `${payload}.${sign(payload, secret)}`;
 }

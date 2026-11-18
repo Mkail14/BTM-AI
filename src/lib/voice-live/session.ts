@@ -128,6 +128,16 @@ type GeminiMessage = {
   error?: { message?: string };
 };
 
+/** App Android : casque branché (pont window.TamilyaAudio de l'app). Sur le web, on ne sait pas. */
+function headphonesOn(): boolean {
+  try {
+    const audio = (window as unknown as { TamilyaAudio?: { headphones?: () => unknown } }).TamilyaAudio;
+    return audio?.headphones?.() === true;
+  } catch {
+    return false;
+  }
+}
+
 export const isLiveVoiceSupported = () =>
   typeof window !== "undefined" && typeof AudioWorkletNode !== "undefined" && Boolean(navigator.mediaDevices?.getUserMedia);
 
@@ -398,7 +408,7 @@ export async function openLiveSession(callbacks: LiveCallbacks): Promise<LiveSes
     const session = (await fetch("/api/voice/live/session", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ manual, conversationId: callbacks.conversationId?.() ?? undefined, map: callbacks.map || undefined }),
+      body: JSON.stringify({ manual, conversationId: callbacks.conversationId?.() ?? undefined, map: callbacks.map || undefined, headphones: headphonesOn() || undefined }),
     })
       .then((r) => r.json())
       .catch(() => null)) as { url?: string; lexicon?: string[]; error?: string; initiative?: boolean } | null;

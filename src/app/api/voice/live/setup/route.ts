@@ -24,6 +24,7 @@ import { LIVE_PRIORITY, LIVE_RULES } from "@/lib/voice-live/rules";
 import { chooseLiveModel, liveModels } from "@/lib/voice-live/models";
 import { liveTicketSecret, readLiveTicket } from "@/lib/voice-live/ticket";
 import { liveToolDeclarations } from "@/lib/voice-live/tools";
+import { isMayotteNight, quietRules } from "@/lib/voice-live/quiet";
 
 /**
  * Appelée par le relais Cloudflare à l'ouverture d'une conversation vocale en
@@ -141,6 +142,7 @@ export async function POST(request: NextRequest) {
                 news && !map ?`${JOURNAL_RULES}\n\n${news}` : null,
                 earlier,
                 LIVE_RULES,
+                quietRules(isMayotteNight(), ticket.headphones === true),
                 listeningRules(corrections),
                 LIVE_PRIORITY,
                 map ? MAP_RULES : null,

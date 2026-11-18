@@ -28,7 +28,7 @@ const ONLINE_SITE = "https://tamilya.yt";
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return NextResponse.json({ error: "Requête refusée." }, { status: 403 });
   const { supabase, user } = await getAuthContext();
-  const body = (await request.json().catch(() => null)) as { manual?: unknown; conversationId?: unknown; map?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { manual?: unknown; conversationId?: unknown; map?: unknown; headphones?: unknown } | null;
   const member = user && (await canUse(user, "vocal")) ? user : null;
   // Sans compte (ou vocal éteint pour ce compte) : seulement la carte de Mayotte.
   const guest = !member && body?.map === true;
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
   const asked = member && typeof body?.conversationId === "string" && /^[0-9a-f-]{36}$/i.test(body.conversationId) ? body.conversationId : null;
   const cid = asked && supabase ? (await getConversation(supabase, asked).catch(() => null))?.id : undefined;
   const ticket = member
-    ? signLiveTicket(member, secret, Date.now(), body?.manual === true, cid, body?.map === true)
+    ? signLiveTicket(member, secret, Date.now(), body?.manual === true, cid, body?.map === true, false, body?.headphones === true)
     : signLiveTicket(GUEST_VOICE_USER, secret, Date.now(), false, undefined, true, true);
   const url = `${relay.replace(/^http/, "ws")}/live?ticket=${encodeURIComponent(ticket)}`;
   // Mots validés de Tamilya : le téléphone y rapproche ce que Gemini écrit à l'oreille.
