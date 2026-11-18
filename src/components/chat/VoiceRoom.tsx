@@ -93,15 +93,16 @@ export function VoiceRoom() {
   }, [legacyVoice.replied, legacyVoice.say]);
   useEffect(() => () => abortRef.current?.abort(), []);
 
-  // Ouverte avec « ?ecoute=1 » (micro de l'accueil de l'app) : Tamilya écoute dès l'arrivée, sans toucher le globe.
+  // Ouverte avec « ?ecoute=1 » (micro de l'accueil de l'app) : Tamilya écoute dès l'arrivée, sans toucher le globe,
+  // dans la façon de parler choisie (maintenir ou sans bouton) ; rien de choisi encore : la question s'affiche.
   const autoListened = useRef(false);
-  const { supported: liveSupported, listen: liveListen } = liveVoice;
+  const { supported: liveSupported, start: liveStart } = liveVoice;
   useEffect(() => {
     if (autoListened.current || !liveSupported) return;
     if (new URLSearchParams(window.location.search).get("ecoute") !== "1") return;
     autoListened.current = true;
-    liveListen();
-  }, [liveSupported, liveListen]);
+    liveStart();
+  }, [liveSupported, liveStart]);
 
   return (
     <>
