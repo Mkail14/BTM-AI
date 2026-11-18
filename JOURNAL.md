@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `1c885c2` (2026-11-18, main et develop)**
+**Dernier commit noté : `bf0812a` (2026-11-18, main et develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -104,6 +104,7 @@ Comment le tenir :
 
 ## Journal (le plus récent en haut)
 
+- **Chat : Tamilya a internet en permanence à l’écrit** (`bf0812a`, main et develop ; même changement que `79a8aca` sur carte-mayotte). La recherche Google (Gemini) ne s’ouvrait que si le message contenait certains mots (depth.ts) ; elle est maintenant toujours disponible et c’est Tamilya qui décide de chercher, comme les autres IA. Consigne de recherche réécrite dans ce sens. Restent sans recherche : le vocal (déjà branché à part) et la leçon de shimaoré. Peut rallonger un peu certaines réponses. Vérifié : 786 tests et typecheck passent ; à essayer sur tamilya.yt.
 - **Vocal de l’app : le mode choisi est respecté, et le fond ne change plus** (`1c885c2`, main et develop ; app : `7e1c9fb`, feat/coeur-natif, pas encore envoyé). Le micro de l’accueil de l’app ouvre `/voix?ecoute=1`, qui démarrait toujours en « sans bouton » : l’utilisateur avait choisi « maintenir » et voyait « libre ». La page reprend maintenant le mode gardé sur l’appareil, ou pose la question s’il n’y en a pas. Le changement de fond venait de l’app : son accueil restait affiché pendant les ~3 s de chargement de `/voix`, puis laissait place au fond du site ; l’accueil natif pose désormais le même fond que le vocal du site dès le toucher (HomeScreen.VoiceBackdrop). La correction Silero (`4a870cd`) ne réglait pas ce bug-là. Vérifié sur la Pad 6 : fond identique de 0,7 s à 8 s, bouton « Maintenir pour parler » affiché. Reste : depuis une conversation, pas de globe pendant les 2 à 3 premières secondes.
 - **Vocal de l’app : Tamilya écoute dès l’appui sur le micro** (`38ce7a0`, 2026-11-18). La page /voix attendait qu’on touche le globe ; dans l’app, le micro de l’accueil l’ouvre maintenant avec `?ecoute=1` et la page lance l’écoute seule (VoiceRoom). Sans ce réglage, rien ne change sur le site. Envoyé sur main et develop ; vérifié sur la Pad 6 : « Je t’écoute… » dès l’appui.
 - **Vocal : le toucher du globe ne fige plus l’écran** (`4a870cd`, main et develop ; même correction que `0f2da44` sur carte-mayotte). Silero (détecteur de voix) est préchargé quand la page est au repos, partagé entre les sessions et remis à zéro à chaque appel, au lieu d’être chargé au clic ; l’animation d’ouverture du globe ne joue plus que la transparence (le flou animé était lourd). Essai sur la Pad 6 (site local) : fond sombre dès 0,6 s, aucune image plus lente que 0,3 s ; le micro est refusé sur l’adresse locale, donc la phase de connexion n’a pas pu être vue : à confirmer sur tamilya.yt.
