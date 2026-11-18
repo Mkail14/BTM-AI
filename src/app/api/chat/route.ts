@@ -61,7 +61,7 @@ import { consumeRateLimits, type RateLimitSubject } from "@/lib/rate-limit";
 import { usesDemoWallet } from "@/lib/wallet/demo";
 import { loadRateLimitPolicies } from "@/lib/rate-limit/settings";
 import { getClientIp, hashIdentifier, isSameOrigin } from "@/lib/security/request";
-import { isChallenge, isComplexRequest, needsWebSearch } from "@/lib/ai/depth";
+import { isChallenge, isComplexRequest } from "@/lib/ai/depth";
 import { planTeam } from "@/lib/ai/agents/plan";
 import { AGENT_LABELS, runTeam, teamBlock, teamSummary } from "@/lib/ai/agents/team";
 import { mayotteClock } from "@/lib/ai/clock";
@@ -430,7 +430,9 @@ export async function POST(request: NextRequest) {
   const follows = understood?.followUp ? understood.previousAsks[0] : undefined;
   const asked = understood?.cleaned ?? body.message;
   const deep = !body.voice && (challenged || isComplexRequest(asked) || (follows !== undefined && isComplexRequest(follows)));
-  const search = !body.voice && (challenged || needsWebSearch(asked) || (follows !== undefined && needsWebSearch(follows)));
+  // Internet toujours ouvert à l'écrit : c'est Tamilya qui décide de chercher (comme les autres IA), plus une liste de mots.
+  // Fermé pendant la leçon de shimaoré, où elle n'a rien à chercher dehors.
+  const search = !body.voice && !master;
   // Suite (« et à Dembéni ? ») ou message à fautes : les infos du moment sont cherchées sur le texte remis au propre,
   // avec la demande précédente. Les messages clairs gardent la recherche lancée au départ.
   const liveContext =
