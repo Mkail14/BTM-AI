@@ -144,7 +144,8 @@ final class VoiceVolume {
         return hour >= 22 || hour < 7;
     }
 
-    private boolean headphones() {
+    boolean headphones() {
+        if (audio == null) return false;
         for (AudioDeviceInfo device : audio.getDevices(AudioManager.GET_DEVICES_OUTPUTS)) {
             switch (device.getType()) {
                 case AudioDeviceInfo.TYPE_WIRED_HEADSET:

@@ -927,6 +927,8 @@ public class MainActivity extends Activity {
                 // nom et mêmes arguments qu'avant, le jeton est ajouté ici, dans ce cadre seulement.
                 + "if(!window.TamilyaGoogle)window.TamilyaGoogle={googleSignIn:function(r,n){TamilyaNative.googleSignIn(token,String(r),String(n));}};"
                 + "if(!window.TamilyaFiles)window.TamilyaFiles={savePdf:function(n,b){TamilyaNative.savePdf(token,String(n),String(b));}};"
+                // Casque branché : le vocal du site (voice-live/session.ts) le dit à Tamilya, qui chuchote.
+                + "if(!window.TamilyaAudio)window.TamilyaAudio={headphones:function(){return TamilyaNative.headphones(token)===true;}};"
                 // Prévient le site (fenêtre de connexion déjà ouverte) que le bouton Google natif est prêt.
                 + "try{window.dispatchEvent(new Event('tamilya-native-ready'));}catch(e){}"
                 // Pas de zoom dans l'app (deux doigts, double appui) : l'écran reste fixe, comme une app.
@@ -1210,6 +1212,12 @@ public class MainActivity extends Activity {
         public void theme(String token, String choice) {
             if (!bridgeToken.equals(token)) return;
             main.post(() -> themeChosen(choice));
+        }
+
+        /** Casque ou écouteurs branchés (fil, Bluetooth, USB) : lu par le vocal pour chuchoter. */
+        @JavascriptInterface
+        public boolean headphones(String token) {
+            return bridgeToken.equals(token) && voiceVolume != null && voiceVolume.headphones();
         }
 
         @JavascriptInterface
