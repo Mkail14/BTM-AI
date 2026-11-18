@@ -14,6 +14,7 @@ import { acceptPayment, cancelPayment, enterPin, takePinTurn } from "@/lib/voice
 import { voiceHeard, voiceListenEnd, voiceSpeakEnd, voiceSpeakStart, voiceWord } from "@/lib/chat/voice-level";
 import { isVoiceIdle, VOICE_HANG_UP_EVENT, VOICE_IDLE_CHECK_MS } from "@/lib/voice-live/hang-up";
 import { isLiveVoiceSupported, openLiveSession, type LiveSession } from "@/lib/voice-live/session";
+import { preloadSilero } from "@/lib/voice-live/silero";
 import { readTalkMode, saveTalkMode, type TalkMode } from "@/lib/voice-live/talk-mode";
 import type { VoiceConversation, VoiceState } from "./useVoiceConversation";
 
@@ -53,6 +54,9 @@ export function useLiveVoiceConversation(
 ): VoiceConversation & { listen: () => void } {
   const supported = useSyncExternalStore(noSubscribe, isLiveVoiceSupported, () => false);
   const [state, setState] = useState<VoiceState>("off");
+  useEffect(() => {
+    if (supported) preloadSilero();
+  }, [supported]);
   const [error, setError] = useState<string | null>(null);
   const [transcript, setTranscript] = useState("");
   const [reply, setReply] = useState("");

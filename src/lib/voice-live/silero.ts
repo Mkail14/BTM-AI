@@ -16,7 +16,10 @@ const FRAME = 512;
 const CONTEXT = 64;
 
 /** Renvoie, pour un paquet de son à 16 kHz, la plus forte probabilité de voix (0 à 1). */
-export type VoiceDetector = (samples: Float32Array) => Promise<number>;
+export type VoiceDetector = ((samples: Float32Array) => Promise<number>) & {
+  /** Remet à zéro la mémoire du détecteur : à appeler au début de chaque session, il est partagé. */
+  reset: () => void;
+};
 
 type OrtModule = typeof Ort;
 
@@ -38,7 +41,7 @@ export async function createSilero(ort: OrtModule, model: string | Uint8Array): 
   };
 
   // Les paquets ne tombent pas juste sur 512 : le reste attend le paquet suivant.
-  return async (samples) => {
+  const detect = async (samples: Float32Array) => {
     const all = new Float32Array(rest.length + samples.length);
     all.set(rest);
     all.set(samples, rest.length);
@@ -48,17 +51,39 @@ export async function createSilero(ort: OrtModule, model: string | Uint8Array): 
     rest = all.slice(at);
     return best;
   };
+  const reset = () => {
+    state = new ort.Tensor("float32", new Float32Array(2 * 128), [2, 1, 128]);
+    context = new Float32Array(CONTEXT);
+    rest = new Float32Array(0);
+  };
+  return Object.assign(detect, { reset });
 }
 
 /** Navigateur : charge Silero en arrière-plan. Renvoie null si l'appareil ne peut pas (la porte au volume reste alors seule). */
-export async function loadSilero(): Promise<VoiceDetector | null> {
-  try {
-    const ort = await import("onnxruntime-web/wasm");
-    ort.env.wasm.wasmPaths = ortWasmPath(ort);
-    // Plusieurs fils demandent une isolation de page que le site n'a pas : un seul suffit (≈ 1 ms par tranche).
-    ort.env.wasm.numThreads = 1;
-    return await createSilero(ort, "/vad/silero_vad.onnx");
-  } catch {
-    return null;
-  }
+let loading: Promise<VoiceDetector | null> | null = null;
+
+export function loadSilero(): Promise<VoiceDetector | null> {
+  // Un seul chargement, partagé : lancé à l'avance par preloadSilero, repris tel quel au clic.
+  loading ??= (async () => {
+    try {
+      const ort = await import("onnxruntime-web/wasm");
+      ort.env.wasm.wasmPaths = ortWasmPath(ort);
+      // Plusieurs fils demandent une isolation de page que le site n'a pas : un seul suffit (≈ 1 ms par tranche).
+      ort.env.wasm.numThreads = 1;
+      return await createSilero(ort, "/vad/silero_vad.onnx");
+    } catch {
+      loading = null;
+      return null;
+    }
+  })();
+  return loading;
+}
+
+/** Charge Silero quand la page est au repos, pour que le toucher du globe ne fige plus l'écran. */
+export function preloadSilero() {
+  if (loading || typeof window === "undefined") return;
+  const go = () => void loadSilero();
+  // Safari n'a pas requestIdleCallback.
+  if (typeof window.requestIdleCallback === "function") window.requestIdleCallback(go, { timeout: 4000 });
+  else setTimeout(go, 2000);
 }
