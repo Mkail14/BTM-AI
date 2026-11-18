@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `0f2da44` (2026-11-18, branche carte-mayotte, pas encore envoyé)**
+**Dernier commit noté : `7e26698` (2026-11-18, branche carte-mayotte, pas encore envoyé)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -105,6 +105,7 @@ Comment le tenir :
 ## Journal (le plus récent en haut)
 
 ### 2026-11-18
+- **Vocal de l’app : Tamilya écoute dès l’appui sur le micro** (`7e26698`, branche carte-mayotte). La page /voix attendait qu’on touche le globe ; dans l’app, le micro de l’accueil l’ouvre maintenant avec `?ecoute=1` et la page lance l’écoute seule (VoiceRoom). Sans ce réglage, rien ne change sur le site. À vérifier sur la tablette une fois le site en ligne.
 - **Vocal : le toucher du globe ne fige plus l'écran** (`0f2da44`, branche carte-mayotte). Silero (détecteur de voix) est maintenant préchargé quand la page est au repos et partagé entre les sessions, au lieu d'être chargé au clic ; l'animation d'ouverture du globe ne joue plus que la transparence (le flou animé était lourd). Comme le détecteur garde une mémoire (état et fin du son d'avant), il a une remise à zéro appelée au début de chaque session, sinon un deuxième appel aurait commencé avec les restes du premier. Vérifié : 781 tests et typecheck passent ; pas encore essayé au téléphone.
 
 - **Audit du shimaoré : Tamilya ne savait pas faire de phrase** (2026-11-15, `2ec611c`). Constat sur la vraie base : 1 966 mots dont 1 633 importés d'un coup le 13 novembre, 2 règles de grammaire seulement, 18 phrases dont plusieurs étaient des réponses de Tamilya renvoyées dans la base. Il manquait les petits mots qui font une phrase (il/elle/ils, possessifs, négation, où/quand/comment/pourquoi, prépositions, je suis/j'ai/je vais/je peux). Fait : (1) programme (`curriculum.ts`) : groupes Possessifs, Négation, Petits mots, Phrases de base, visibles comme trous dans la carte du Lexique ; (2) vocabulaire donné à Tamilya (`words.ts`) : pronoms, mots-outils, questions, verbes, phrases passent avant les imports récents ; (3) grammaire : 9 fiches guidées (pronoms, présent, passé, futur, négation, question, possessifs, pluriel, être/avoir), le français est déjà écrit, le locuteur écrit le shimaoré ; (4) une correction du maître en conversation compte tout de suite, l'ancienne ligne est mise en pause et non effacée (`words-store.ts`) ; (5) consigne : sans règle pour une construction, Tamilya ne l'invente pas ; (6) base : 4 expressions (emoji, anglais, versions contradictoires de « je te déteste ») et 6 mots (essais « chinois », ancien nom Awa) mis en pause, rien de supprimé. Aucune traduction ajoutée : seul un locuteur les donne. Vérifié : types, lint, 767 tests. **Reste à faire (par le maître)** : donner les mots du programme, remplir les fiches de grammaire, choisir une écriture de référence quand un mot en a plusieurs (227 mots), faire vérifier les verbes qui ressemblent au swahili.
