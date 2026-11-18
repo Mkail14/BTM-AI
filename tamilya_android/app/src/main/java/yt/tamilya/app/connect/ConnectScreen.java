@@ -80,7 +80,7 @@ final class ConnectScreen extends LinearLayout {
         this.actions = actions;
         theme = ConnectTheme.of(context);
         setOrientation(VERTICAL);
-        setBackgroundColor(theme.bg);
+        setBackground(new LagonDrawable(context, theme.bg));
         setClickable(true);
         ringPaint.setStyle(Paint.Style.STROKE);
         ringPaint.setStrokeCap(Paint.Cap.ROUND);

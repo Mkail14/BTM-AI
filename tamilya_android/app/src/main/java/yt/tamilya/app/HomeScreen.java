@@ -714,6 +714,53 @@ final class HomeScreen extends FrameLayout {
         view.animate().alpha(1f).translationY(0f).setStartDelay(delayMs).setDuration(700).setInterpolator(rise).start();
     }
 
+    /** Fond du vocal, posé sous le globe pendant l'ouverture (retiré par resetVoiceMorph). */
+    private VoiceBackdrop voiceBackdrop;
+
+    /**
+     * Même fond que le vocal du site (.voice-overlay::before et .voice-aurora, globals.css) :
+     * #1a0f14, halo de --persona à 18 % au-dessus du centre, et les quatre taches rose sombre.
+     */
+    private static final class VoiceBackdrop extends View {
+        private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final android.graphics.Matrix matrix = new android.graphics.Matrix();
+        private final int persona;
+
+        VoiceBackdrop(Context context, int persona) {
+            super(context);
+            this.persona = persona;
+            setClickable(false);
+            setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+        }
+
+        /** radial-gradient(rx ry at cx cy, couleur, transparent 70 %), en pixels. */
+        private void spot(Canvas canvas, float cx, float cy, float rx, float ry, int color) {
+            int clear = color & 0x00FFFFFF;
+            android.graphics.RadialGradient g = new android.graphics.RadialGradient(0f, 0f, 1f, new int[] {color, clear}, new float[] {0f, 0.7f}, android.graphics.Shader.TileMode.CLAMP);
+            matrix.setScale(Math.max(1f, rx), Math.max(1f, ry));
+            matrix.postTranslate(cx, cy);
+            g.setLocalMatrix(matrix);
+            paint.setShader(g);
+            canvas.drawRect(0, 0, getWidth(), getHeight(), paint);
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            float w = getWidth(), h = getHeight();
+            canvas.drawColor(0xFF1A0F14);
+            // 40rem x 40rem à 50 % 42 % : 640 px CSS = 640 dp.
+            float r = 640f * getResources().getDisplayMetrics().density;
+            spot(canvas, w * 0.5f, h * 0.42f, r, r, (Math.round(0.18f * 255) << 24) | (persona & 0x00FFFFFF));
+            // Taches de .voice-aurora::before (inset -20 % : boîte 1,4 fois plus grande), du dessous au dessus.
+            float bw = w * 1.4f, bh = h * 1.4f, ox = -w * 0.2f, oy = -h * 0.2f;
+            spot(canvas, ox + bw * 0.12f, oy + bh * 0.80f, bw * 0.38f, bh * 0.32f, Color.argb(230, 42, 24, 32));
+            spot(canvas, ox + bw * 0.45f, oy + bh * 0.85f, bw * 0.35f, bh * 0.30f, Color.argb(128, 107, 51, 73));
+            spot(canvas, ox + bw * 0.85f, oy + bh * 0.45f, bw * 0.40f, bh * 0.40f, Color.argb(230, 61, 31, 44));
+            spot(canvas, ox + bw * 0.22f, oy + bh * 0.18f, bw * 0.45f, bh * 0.35f, Color.argb(217, 90, 42, 60));
+            paint.setShader(null);
+        }
+    }
+
     /** Ce que l'ouverture du vocal a effacé ou laissé déborder, à remettre ensuite. */
     private final java.util.Map<View, Float> voiceFaded = new java.util.HashMap<>();
     private final java.util.List<ViewGroup> voiceOpened = new java.util.ArrayList<>();
@@ -742,8 +789,16 @@ final class HomeScreen extends FrameLayout {
      */
     void morphToVoice(float centerX, float centerY, float width) {
         View globe = homeGlobe();
-        if (globe == null) return;
         resetVoiceMorph();
+        // Fond du vocal du site dès le toucher, globe visible ou non (conversation ouverte) :
+        // la page vocale prend ensuite le relais sans que le fond change. Il passe au-dessus
+        // de tout quand il n'y a pas de globe à faire grandir.
+        if (voiceBackdrop == null) voiceBackdrop = new VoiceBackdrop(getContext(), theme.persona);
+        if (globe == null) addView(voiceBackdrop, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        else addView(voiceBackdrop, 0, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        voiceBackdrop.setAlpha(0f);
+        voiceBackdrop.animate().alpha(1f).setStartDelay(0).setDuration(260).start();
+        if (globe == null) return;
         int[] at = new int[2];
         if (width <= 0f) {
             // Page vocale du site : titre en haut, boutons en bas, globe de min(60vw, 16rem) centré entre les deux.
@@ -778,6 +833,10 @@ final class HomeScreen extends FrameLayout {
 
     /** Après le vocal : l'accueil retrouve son état normal (globe à sa place, tout visible). */
     void resetVoiceMorph() {
+        if (voiceBackdrop != null && voiceBackdrop.getParent() != null) {
+            voiceBackdrop.animate().cancel();
+            removeView(voiceBackdrop);
+        }
         for (java.util.Map.Entry<View, Float> entry : voiceFaded.entrySet()) {
             entry.getKey().animate().cancel();
             entry.getKey().setAlpha(entry.getValue());
