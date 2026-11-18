@@ -35,7 +35,16 @@ final class HomeChat implements HomeScreen.Actions {
         /** Le compte n'est plus connecté : l'accueil natif laisse la place à la page de présentation du site. */
         void sessionEnded();
         void siteScript(String script, android.webkit.ValueCallback<String> result);
+        /** Sélecteur de photo ou de PDF d'Android. */
+        void pickFile(java.util.function.Consumer<Uri> picked);
+        /** Appareil photo d'Android : la photo prise est rendue sous forme de Uri. */
+        void takePhoto(java.util.function.Consumer<Uri> taken);
     }
+
+    /** 4 Mo : même limite que le site (attachment.ts). */
+    private static final int ATTACH_MAX_BYTES = 4 * 1024 * 1024;
+    /** Fichier choisi avec le « + », joint à la prochaine question : {name, mimeType, data en base64}. */
+    private JSONObject attachment;
 
     private static final int GUEST_TRIAL = 5;
     private static final int GUEST_MAX_TURNS = 10;
@@ -333,6 +342,7 @@ final class HomeChat implements HomeScreen.Actions {
         try {
             body.put("message", text);
             if (signedIn) {
+                if (attachment != null) body.put("attachment", attachment);
                 if (conversationId != null) body.put("conversationId", conversationId);
             } else {
                 body.put("history", guestHistory());
@@ -340,7 +350,9 @@ final class HomeChat implements HomeScreen.Actions {
         } catch (JSONException e) {
             return;
         }
-        messages.add(new ChatMessage("user", text, ChatMessage.COMPLETE));
+        String shown = attachment != null && signedIn ? "Fichier joint : " + attachment.optString("name") + "\n" + text : text;
+        if (signedIn) attachment = null;
+        messages.add(new ChatMessage("user", shown, ChatMessage.COMPLETE));
         ChatMessage reply = new ChatMessage("assistant", "", ChatMessage.STREAMING);
         messages.add(reply);
         streaming = true;
@@ -588,8 +600,70 @@ final class HomeChat implements HomeScreen.Actions {
     }
 
     @Override
-    public void attach() {
-        host.openPage("/documents");
+    public void attachFile() {
+        host.pickFile(this::receiveFile);
+    }
+
+    @Override
+    public void attachPhoto() {
+        host.takePhoto(this::receiveFile);
+    }
+
+    private void receiveFile(Uri uri) {
+        io.execute(() -> {
+            JSONObject read = readAttachment(uri);
+            main.post(() -> {
+                if (read == null) {
+                    attachment = null;
+                    screen.setNotice("Tamilya lit les photos et les PDF de 4 Mo au plus.");
+                } else {
+                    attachment = read;
+                    screen.setNotice("Fichier joint : " + read.optString("name") + ". Écris ta question.");
+                }
+            });
+        });
+    }
+
+    /** Photo (réduite si besoin) ou PDF du téléphone, prêt pour POST /api/chat ; null si Tamilya ne sait pas le lire. */
+    private JSONObject readAttachment(Uri uri) {
+        try {
+            android.content.ContentResolver resolver = activity.getContentResolver();
+            String type = resolver.getType(uri);
+            if (type == null) return null;
+            String fileName = "fichier";
+            try (android.database.Cursor cursor = resolver.query(uri, new String[]{android.provider.OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+                if (cursor != null && cursor.moveToFirst() && cursor.getString(0) != null) fileName = cursor.getString(0);
+            }
+            java.io.ByteArrayOutputStream bytes = new java.io.ByteArrayOutputStream();
+            try (java.io.InputStream in = resolver.openInputStream(uri)) {
+                if (in == null) return null;
+                byte[] chunk = new byte[16384];
+                int n;
+                while ((n = in.read(chunk)) > 0) {
+                    bytes.write(chunk, 0, n);
+                    if (bytes.size() > 40 * 1024 * 1024) return null;
+                }
+            }
+            byte[] data = bytes.toByteArray();
+            boolean readable = type.equals("image/jpeg") || type.equals("image/png") || type.equals("image/webp") || type.equals("application/pdf");
+            if (type.startsWith("image/") && (!readable || data.length > ATTACH_MAX_BYTES)) {
+                android.graphics.Bitmap bitmap = android.graphics.BitmapFactory.decodeByteArray(data, 0, data.length);
+                if (bitmap == null) return null;
+                float scale = Math.min(1f, 2048f / Math.max(bitmap.getWidth(), bitmap.getHeight()));
+                if (scale < 1f) bitmap = android.graphics.Bitmap.createScaledBitmap(bitmap, Math.round(bitmap.getWidth() * scale), Math.round(bitmap.getHeight() * scale), true);
+                java.io.ByteArrayOutputStream jpeg = new java.io.ByteArrayOutputStream();
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 85, jpeg);
+                data = jpeg.toByteArray();
+                type = "image/jpeg";
+            } else if (!readable) {
+                return null;
+            }
+            if (data.length > ATTACH_MAX_BYTES) return null;
+            return new JSONObject().put("name", fileName).put("mimeType", type)
+                    .put("data", android.util.Base64.encodeToString(data, android.util.Base64.NO_WRAP));
+        } catch (Exception | OutOfMemoryError e) {
+            return null;
+        }
     }
 
     @Override

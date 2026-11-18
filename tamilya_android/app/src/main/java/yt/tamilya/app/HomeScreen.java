@@ -76,7 +76,10 @@ final class HomeScreen extends FrameLayout {
         /** Micro de la barre d'écriture, ou globe quand la voix est disponible. */
         void voice();
         /** « + » à gauche de la barre : photo ou document. */
-        void attach();
+        /** « Prendre une photo » du menu du « + ». */
+        void attachPhoto();
+        /** « Envoyer un document ou une image » du menu du « + ». */
+        void attachFile();
         void notifications();
         /** Cloche refermée : tout est lu. */
         void notificationsSeen();
@@ -315,7 +318,7 @@ final class HomeScreen extends FrameLayout {
         plusBox.setBackground(plusShape);
         plusBox.setContentDescription("Photo ou document");
         plusBox.setClickable(true);
-        plusBox.setOnClickListener(v -> actions.attach());
+        plusBox.setOnClickListener(v -> togglePlusMenu());
         plusBox.addView(icon(R.drawable.ic_site_plus, theme.fgMuted), new LayoutParams(dp(18), dp(18), Gravity.CENTER));
         plusButton = plusBox;
         plusButton.setVisibility(GONE);
@@ -1386,6 +1389,79 @@ final class HomeScreen extends FrameLayout {
         });
         notifPanel.animate().alpha(1f).translationY(0f).scaleX(1f).scaleY(1f).setDuration(380)
                 .setInterpolator(new PathInterpolator(0.22f, 1f, 0.36f, 1f)).start();
+    }
+
+    private FrameLayout plusMenu;
+    private LinearLayout plusPanel;
+
+    boolean plusMenuOpen() {
+        return plusMenu != null && plusMenu.getVisibility() == VISIBLE;
+    }
+
+    void closePlusMenu() {
+        if (!plusMenuOpen()) return;
+        plusPanel.animate().alpha(0f).translationY(dp(6)).setDuration(140).withEndAction(() -> plusMenu.setVisibility(GONE)).start();
+        plusButton.animate().rotation(0f).setDuration(200).start();
+    }
+
+    /** Petit menu au-dessus du « + » (comme PlusMenu du site) : prendre une photo, ou envoyer un document. */
+    private void togglePlusMenu() {
+        if (plusMenuOpen()) {
+            closePlusMenu();
+            return;
+        }
+        hideKeyboard();
+        if (plusMenu == null) {
+            plusMenu = new FrameLayout(getContext());
+            plusMenu.setClickable(true);
+            plusMenu.setOnClickListener(v -> closePlusMenu());
+            plusMenu.setVisibility(GONE);
+            plusPanel = new LinearLayout(getContext());
+            plusPanel.setOrientation(LinearLayout.VERTICAL);
+            GradientDrawable shape = round(theme.bg, 16);
+            shape.setStroke(Math.max(1, dp(1)), theme.border);
+            plusPanel.setBackground(shape);
+            plusPanel.setClipToOutline(true);
+            plusPanel.setElevation(dp(16));
+            plusPanel.setClickable(true);
+            plusPanel.setPadding(0, dp(4), 0, dp(4));
+            plusPanel.addView(plusRow(R.drawable.ic_site_camera, "Prendre une photo", () -> actions.attachPhoto()));
+            plusPanel.addView(plusRow(R.drawable.ic_site_upload, "Envoyer un document ou une image", () -> actions.attachFile()));
+            plusMenu.addView(plusPanel);
+            addView(plusMenu, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        }
+        int[] plusAt = new int[2], meAt = new int[2];
+        plusButton.getLocationInWindow(plusAt);
+        getLocationInWindow(meAt);
+        LayoutParams params = new LayoutParams(Math.min(dp(320), getWidth() - dp(32)), ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.START);
+        params.leftMargin = Math.max(dp(16), plusAt[0] - meAt[0]);
+        params.bottomMargin = getHeight() - (plusAt[1] - meAt[1]) + dp(8);
+        plusPanel.setLayoutParams(params);
+        plusMenu.setVisibility(VISIBLE);
+        plusPanel.setAlpha(0f);
+        plusPanel.setTranslationY(dp(6));
+        plusPanel.animate().alpha(1f).translationY(0f).setDuration(180).start();
+        plusButton.animate().rotation(45f).setDuration(200).start();
+    }
+
+    private View plusRow(int iconId, String label, Runnable then) {
+        LinearLayout row = new LinearLayout(getContext());
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(dp(12), dp(10), dp(12), dp(10));
+        row.setClickable(true);
+        row.setBackground(new android.graphics.drawable.RippleDrawable(
+                android.content.res.ColorStateList.valueOf(0x14000000), null, new android.graphics.drawable.ColorDrawable(0xFFFFFFFF)));
+        row.addView(icon(iconId, theme.persona), new LinearLayout.LayoutParams(dp(16), dp(16)));
+        TextView title = text(label, 14, 20, theme.fg, theme.medium);
+        LinearLayout.LayoutParams titleParams = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f);
+        titleParams.leftMargin = dp(12);
+        row.addView(title, titleParams);
+        row.setOnClickListener(v -> {
+            closePlusMenu();
+            then.run();
+        });
+        return row;
     }
 
     private void buildNotifications() {

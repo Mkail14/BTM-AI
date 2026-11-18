@@ -98,6 +98,8 @@ public class MainActivity extends Activity {
     private static final int REQ_FILE = 4;
     private static final int REQ_CONNECT = 5;
     private static final int REQ_SAVE_PDF = 6;
+    private static final int REQ_HOME_FILE = 7;
+    private static final int REQ_HOME_PHOTO = 8;
     /** Environ 8 Mo de PDF, bien plus qu'un document d'une page avec deux signatures. */
     private static final int MAX_PDF_BASE64 = 11_000_000;
 
@@ -125,6 +127,9 @@ public class MainActivity extends Activity {
     private GeolocationPermissions.Callback pendingGeo;
     private String pendingGeoOrigin;
     private ValueCallback<Uri[]> pendingFile;
+    /** Fichier choisi avec le « + » de l'accueil natif. */
+    private java.util.function.Consumer<Uri> homePick;
+    private Uri photoUri;
     private byte[] pendingPdf;
 
     private SpeechRecognizer recognizer;
@@ -312,7 +317,8 @@ public class MainActivity extends Activity {
                 } else {
                     home.close();
                 }
-                web.loadUrl(SITE_ORIGIN + path);
+                // Micro de l'accueil : la page vocale écoute dès son arrivée (?ecoute=1), sans toucher le globe.
+                web.loadUrl(SITE_ORIGIN + path + (voiceFromHome ? "?ecoute=1" : ""));
             }
 
             @Override
@@ -342,6 +348,41 @@ public class MainActivity extends Activity {
                 // Déconnexion : retour à la page de présentation du site.
                 home.close();
                 web.loadUrl(HOME);
+            }
+
+            @Override
+            public void pickFile(java.util.function.Consumer<Uri> picked) {
+                homePick = picked;
+                Intent intent = new Intent(Intent.ACTION_GET_CONTENT);
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                intent.setType("*/*");
+                intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"image/*", "application/pdf"});
+                try {
+                    startActivityForResult(Intent.createChooser(intent, "Photo ou document"), REQ_HOME_FILE);
+                } catch (ActivityNotFoundException e) {
+                    homePick = null;
+                }
+            }
+
+            @Override
+            public void takePhoto(java.util.function.Consumer<Uri> taken) {
+                try {
+                    java.io.File folder = new java.io.File(getCacheDir(), "photos");
+                    folder.mkdirs();
+                    java.io.File[] old = folder.listFiles();
+                    if (old != null) for (java.io.File f : old) f.delete();
+                    String stamp = new java.text.SimpleDateFormat("dd-MM-yyyy 'à' HH'h'mm", java.util.Locale.FRANCE).format(new java.util.Date());
+                    java.io.File file = new java.io.File(folder, "Photo du " + stamp + ".jpg");
+                    photoUri = androidx.core.content.FileProvider.getUriForFile(MainActivity.this, getPackageName() + ".photos", file);
+                    homePick = taken;
+                    Intent intent = new Intent(android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+                    intent.putExtra(android.provider.MediaStore.EXTRA_OUTPUT, photoUri);
+                    intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION | Intent.FLAG_GRANT_READ_URI_PERMISSION);
+                    startActivityForResult(intent, REQ_HOME_PHOTO);
+                } catch (Exception e) {
+                    homePick = null;
+                    photoUri = null;
+                }
             }
 
             @Override
@@ -1548,6 +1589,21 @@ public class MainActivity extends Activity {
         super.onActivityResult(code, result, data);
         if (code == REQ_SAVE_PDF) {
             writePendingPdf(result == RESULT_OK && data != null ? data.getData() : null);
+            return;
+        }
+        if (code == REQ_HOME_PHOTO) {
+            java.util.function.Consumer<Uri> taken = homePick;
+            Uri uri = photoUri;
+            homePick = null;
+            photoUri = null;
+            if (taken != null && uri != null && result == RESULT_OK) taken.accept(uri);
+            return;
+        }
+        if (code == REQ_HOME_FILE) {
+            java.util.function.Consumer<Uri> picked = homePick;
+            homePick = null;
+            Uri uri = result == RESULT_OK && data != null ? data.getData() : null;
+            if (picked != null && uri != null) picked.accept(uri);
             return;
         }
         if (code != REQ_FILE || pendingFile == null) return;
