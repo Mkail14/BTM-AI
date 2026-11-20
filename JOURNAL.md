@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `f777a83` (2026-11-20, feat/bienvenue-story, develop et main)**
+**Dernier commit noté : `8c3bf46` (2026-11-20, main ; develop : `3930f30`)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -128,6 +128,7 @@ Comment le tenir :
 
 ## Journal (le plus récent en haut)
 
+- **Jauge « Crédit Google » : la voix est comptée** (`3930f30` sur develop, `8c3bf46` sur main, 2026-11-20). Le crédit Gemini s’est épuisé alors que la jauge annonçait environ 1 € : seules les réponses écrites du chat étaient enregistrées. Rien pour le vocal en direct (relais Cloudflare), la voix lue, les histoires, le son d’ambiance ni les chansons. Le vocal en direct est sûrement le plus cher : Google refacture toute la conversation, consignes comprises, à chaque tour, et le son coûte environ 6 fois le texte. Maintenant : chaque appel direct enregistre ce que Google dit avoir compté ; le relais additionne les tours et envoie le total signé à `/api/voice/live/usage` en fin de conversation (lignes « :son » et « :texte »). Tarifs du son ajoutés (estimations). L’API développeurs n’est pas comptée : elle utilise la clé du développeur. Ce qui a été dépensé avant n’est pas rattrapé. Vérifié : 931 tests, types, lint, calcul d’un tour du relais. Ordre de mise en ligne : le site, puis le relais (wrangler deploy).
 - **App Android : bouton clair/sombre et barre d'infos aux couleurs de l'app** (`0b6ef8b` sur feat/coeur-natif, fusionné dans `android` par `840eb4a`, 2026-11-20 ; dépôt Android, rien sur develop ni main). Demandé : le bouton de thème à côté de « Se connecter », et rappel du but : faire une app, pas un site (ce qui est dans l'APK a un rendu d'app). Bouton rond clair/sombre à gauche de « Se connecter » dans la barre du haut de l'accueil sans compte ; il actionne le bouton de thème caché de la barre du site et reprend son icône (soleil ou lune), recopiée dès que le site la dessine. Barre d'infos et barre du bas d'Android : fond de l'app (`#131516` sombre, blanc clair) et icônes foncées en clair, au lancement et à chaque changement de thème ; avant elles restaient noires (`statusBarColor` du thème, encore appliqué sous Android 14). `paintSystemBars()` dans `MainActivity.java`. Vérifié par captures sur la Pad 6 dans les deux thèmes.
 
 - **App Android : vraie barre du haut sur l'accueil sans compte** (`711c3d7` sur feat/coeur-natif, fusionné dans `android` par `7708894`, 2026-11-20 ; dépôt Android, rien sur develop ni main). Jugé pas pro : « Se connecter » flottait seul sous le bandeau de la barge. Remplacé par une barre de 56 comme l'accueil natif connecté, juste sous la barre d'infos d'Android : logo BTM AI à gauche (un peu plus grand, « AI » centré et collé), « Se connecter » rose plein à droite (moins haut, semi-gras), fond plein (le décor ne passe plus derrière), un seul filet (celui du bandeau). Injectée par `guestLoginScript()` dans `MainActivity.java`. Vérifié par captures sur la Pad 6 ; le bouton ouvre bien la fenêtre de connexion. APK installé sur la Pad 6.
