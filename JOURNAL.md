@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `443bd07` (2026-11-20, feat/bienvenue-story)**
+**Dernier commit noté : `be8abcd` (2026-11-20, feat/bienvenue-story)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -119,6 +119,7 @@ Comment le tenir :
 
 ## Journal (le plus récent en haut)
 
+- **Offres d'emploi : plus de liste vide ni d'« opportunités » inventées** (`be8abcd`, 2026-11-20, branche feat/bienvenue-story). Essai sur tamilya.yt (visiteur) : « je cherche du travail comme secrétaire à Koungou » ouvrait la liste filtrée sur « secrétaire » et Koungou, donc vide, alors que Tamilya annonçait « les opportunités actuelles ». Désormais elle reçoit les offres avant de répondre (celles de la commune demandée, sinon les 40 plus récentes, lues en 3 s au plus) et dit franchement quand rien ne correspond, en proposant ce qui s'en rapproche. Après sa réponse, le serveur vérifie le bloc avec la même règle que la recherche de la carte (`matchJobs`, partagé) : métier absent de la commune mais présent ailleurs → toute l'île ; absent partout → sans métier (`fixJobsSpec`). Vérifié : types, lint, 3 tests nouveaux. Le seul test en échec (zones de l'eau) vient du travail en cours de l'autre session.
 - **Cartes affichées directement dans l'application** (`443bd07`, 2026-11-20, feat/bienvenue-story, pas encore en ligne). Demande de l'utilisateur, capture de la tablette à l'appui : la conversation native de l'app montrait un simple bouton « Carte » à la place de la carte de l'eau (et des autres tableaux). Nouvelle page `/apercu/carte?bloc=…&contenu=…` qui ne montre qu'une carte, fond transparent, sans bulle d'aide ni écran de lancement (`CardEmbed.tsx`). Elle donne sa hauteur à l'app et la prévient quand un panneau plein écran s'ouvre (« Voir la carte »), pour que l'app lui laisse tout l'écran. Même rendu que le site, sans refaire chaque carte en natif. Sans internet, l'app montre un bouton qui dit ce qu'il ouvre (« Voir la carte de l'eau »). Côté app : commit `d03ad41` (feat/coeur-natif).
 
 - **Carte de l'eau ouverte à tout le monde** (`2dd3c19`, 2026-11-20, main et develop). Demande de l'utilisateur, après l'avoir vue sur la tablette. Interrupteur « eau » allumé par défaut (rien n'était enregistré en base, donc le défaut s'applique ; on peut le couper dans /admin/fonctionnalites). `/api/eau` acceptait seulement les comptes connectés : ouvert aussi aux visiteurs sans compte, qui peuvent discuter avec Tamilya. Les lieux non placés restent visibles des seuls admins. Pas encore en vocal. 857 tests.
