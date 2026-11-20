@@ -4,51 +4,44 @@ import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { loadMapLibre } from "@/lib/geo/maplibre";
+import { waterCells } from "@/lib/water/cells";
 import type { WaterSpot } from "@/lib/water/map";
 
 /**
- * Carte de l'eau (MapLibre, fond OpenFreeMap, comme la carte des cyclones) : une tache par
- * lieu du planning de la SMAE. Bleu : de l'eau ; rouge : coupé ; hachuré en tirets : pas
- * d'information officielle. Toucher une tache montre ce qu'en dit le planning.
+ * Carte de l'eau (MapLibre, fond OpenFreeMap) : toute l'île colorée, une zone par lieu (le lieu le
+ * plus proche). Les zones sont peintes sous la mer du fond de carte, qui les recoupe au bord de
+ * l'eau. Bleu : de l'eau ; rouge : coupé ; hachuré en tirets : pas d'information officielle.
+ * Toucher une zone montre ce qu'en dit le planning.
  */
 
 const STYLE_LIGHT = "https://tiles.openfreemap.org/styles/positron";
 const STYLE_DARK = "https://tiles.openfreemap.org/styles/dark";
 /** Mêmes couleurs que la légende (WaterCard). */
-const WATER_COLORS ={ eau: "#2563eb", coupee: "#dc2626", inconnu: "#6b7280" } as const;
+const WATER_COLORS = { eau: "#2563eb", coupee: "#dc2626", inconnu: "#6b7280" } as const;
 /** Mayotte entière, Petite-Terre comprise. */
 const BOUNDS: [[number, number], [number, number]] = [
-  [44.99, -13.01],
-  [45.31, -12.63],
+  [45.0, -13.0],
+  [45.3, -12.64],
 ];
-const RADIUS_M = 380;
-
-/** Disque autour d'un lieu, en polygone (MapLibre ne sait pas hachurer un cercle). */
-function disc(lat: number, lng: number, radius = RADIUS_M) {
-  const ring: [number, number][] = [];
-  const dLat = radius / 111_320;
-  const dLng = radius / (111_320 * Math.cos((lat * Math.PI) / 180));
-  for (let i = 0; i <= 32; i++) {
-    const a = (i / 32) * 2 * Math.PI;
-    ring.push([lng + dLng * Math.cos(a), lat + dLat * Math.sin(a)]);
-  }
-  return ring;
-}
 
 function collection(spots: readonly WaterSpot[]) {
+  const cells = waterCells(spots);
   return {
     type: "FeatureCollection",
-    features: spots.map((s, i) => ({ type: "Feature", id: i, properties: { i, state: s.state }, geometry: { type: "Polygon", coordinates: [disc(s.lat, s.lng)] } })),
+    features: spots.flatMap((s, i) => {
+      const ring = cells[i];
+      return ring ? [{ type: "Feature", id: i, properties: { i, state: s.state }, geometry: { type: "Polygon", coordinates: [ring] } }] : [];
+    }),
   };
 }
 
-/** Motif des lieux sans information : des tirets en biais, gris. */
+/** Motif des zones sans information : des tirets en biais, gris. */
 function hatch(dark: boolean) {
   const size = 16;
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = size;
   const ctx = canvas.getContext("2d")!;
-  ctx.strokeStyle = dark ? "rgba(209,213,219,0.85)" : "rgba(75,85,99,0.75)";
+  ctx.strokeStyle = dark ? "rgba(209,213,219,0.7)" : "rgba(75,85,99,0.55)";
   ctx.lineWidth = 2;
   ctx.lineCap = "round";
   // Deux tirets sur la diagonale (et leur suite au bord, pour que le motif se raccorde).
@@ -87,7 +80,7 @@ export function WaterMap({ spots, picked, onPick }: Props) {
         container: frame.current,
         style: dark ? STYLE_DARK : STYLE_LIGHT,
         bounds: BOUNDS,
-        fitBoundsOptions: { padding: 12 },
+        fitBoundsOptions: { padding: 16 },
         attributionControl: { compact: true },
         pitchWithRotate: false,
         dragRotate: false,
@@ -98,38 +91,56 @@ export function WaterMap({ spots, picked, onPick }: Props) {
       created.on("error", (e) => console.warn("[carte eau]", e.error?.message));
       created.on("load", () => {
         if (!created || !frame.current) return;
+        // Sous la mer du fond de carte : elle recoupe les zones au bord de l'eau.
+        const under = created.getStyle().layers.find((l) => l.type === "fill" && l.id === "water")?.id;
         created.addImage("hachures", hatch(dark), { pixelRatio: 2 });
-        created.addSource("lieux", { type: "geojson", data: collection(latest.current.spots) as never });
+        created.addSource("zones", { type: "geojson", data: collection(latest.current.spots) as never });
+        const picked = ["boolean", ["feature-state", "picked"], false];
         const known = ["!=", ["get", "state"], "inconnu"] as never;
         const unknown = ["==", ["get", "state"], "inconnu"] as never;
-        created.addLayer({ id: "inconnu", type: "fill", source: "lieux", filter: unknown, paint: { "fill-pattern": "hachures" } });
-        created.addLayer({
-          id: "inconnu-bord",
-          type: "line",
-          source: "lieux",
-          filter: unknown,
-          paint: { "line-color": WATER_COLORS.inconnu, "line-width": 1.2, "line-dasharray": [2, 2], "line-opacity": 0.9 },
-        });
-        created.addLayer({
-          id: "etat",
-          type: "fill",
-          source: "lieux",
-          filter: known,
-          paint: {
-            "fill-color": ["match", ["get", "state"], "eau", WATER_COLORS.eau, WATER_COLORS.coupee] as never,
-            "fill-opacity": ["case", ["boolean", ["feature-state", "picked"], false], 0.8, 0.5] as never,
+        created.addLayer({ id: "inconnu", type: "fill", source: "zones", filter: unknown, paint: { "fill-pattern": "hachures" } }, under);
+        created.addLayer(
+          {
+            id: "etat",
+            type: "fill",
+            source: "zones",
+            filter: known,
+            paint: {
+              "fill-color": ["match", ["get", "state"], "eau", WATER_COLORS.eau, WATER_COLORS.coupee] as never,
+              "fill-opacity": ["case", picked, 0.75, 0.5] as never,
+            },
           },
-        });
-        created.addLayer({
-          id: "etat-bord",
-          type: "line",
-          source: "lieux",
-          filter: known,
-          paint: {
-            "line-color": ["match", ["get", "state"], "eau", WATER_COLORS.eau, WATER_COLORS.coupee] as never,
-            "line-width": ["case", ["boolean", ["feature-state", "picked"], false], 3, 1.2] as never,
+          under,
+        );
+        // Limites entre villages : fines ; celles d'une zone sans info en tirets.
+        created.addLayer(
+          {
+            id: "bord",
+            type: "line",
+            source: "zones",
+            paint: { "line-color": dark ? "#0b0f19" : "#ffffff", "line-width": 1, "line-opacity": 0.8 },
           },
-        });
+          under,
+        );
+        created.addLayer(
+          {
+            id: "bord-inconnu",
+            type: "line",
+            source: "zones",
+            filter: unknown,
+            paint: { "line-color": WATER_COLORS.inconnu, "line-width": 1, "line-dasharray": [2, 2], "line-opacity": 0.7 },
+          },
+          under,
+        );
+        created.addLayer(
+          {
+            id: "choisi",
+            type: "line",
+            source: "zones",
+            paint: { "line-color": dark ? "#ffffff" : "#111827", "line-width": ["case", picked, 2.5, 0] as never },
+          },
+          under,
+        );
         for (const layer of ["etat", "inconnu"]) {
           created.on("click", layer, (e) => {
             const i = e.features?.[0]?.properties?.i;
@@ -152,17 +163,14 @@ export function WaterMap({ spots, picked, onPick }: Props) {
     };
   }, []);
 
-  // Lieu choisi : mis en avant, et la carte s'en approche.
+  // Lieu choisi : sa zone est entourée. La carte reste sur l'île entière.
   const previous = useRef<number | null>(null);
   useEffect(() => {
     const m = map.current;
     if (!ready || !m) return;
-    if (previous.current !== null) m.setFeatureState({ source: "lieux", id: previous.current }, { picked: false });
+    if (previous.current !== null) m.setFeatureState({ source: "zones", id: previous.current }, { picked: false });
     previous.current = picked;
-    if (picked === null) return;
-    m.setFeatureState({ source: "lieux", id: picked }, { picked: true });
-    const spot = spots[picked];
-    if (spot) m.easeTo({ center: [spot.lng, spot.lat], zoom: Math.max(m.getZoom(), 12.5), duration: 700 });
+    if (picked !== null) m.setFeatureState({ source: "zones", id: picked }, { picked: true });
   }, [ready, picked, spots]);
 
   if (failed) return <div className="grid h-full place-items-center text-sm text-fg-muted">La carte ne se charge pas : vérifie ta connexion.</div>;
