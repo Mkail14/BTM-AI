@@ -883,6 +883,30 @@ public class MainActivity extends Activity {
         if (!isSiteOrigin(Uri.parse(String.valueOf(view.getUrl())))) return;
         view.evaluateJavascript(pageScript(), null);
         view.evaluateJavascript(connectPullScript(), null);
+        view.evaluateJavascript(guestLoginScript(), null);
+    }
+
+    /**
+     * Accueil sans compte : l'app cache la barre du site (globals.css, html[data-app]), et avec elle
+     * « Se connecter ». Un bouton rose plein le remet en haut à droite, sous le bandeau d'annonce ;
+     * il ouvre la même fenêtre de connexion que le bouton caché de la barre.
+     */
+    private String guestLoginScript() {
+        return "(function(){if(window.__tcLogin)return;window.__tcLogin=1;"
+                + "var b=document.createElement('button');b.type='button';b.id='tc-login';b.textContent='Se connecter';"
+                + "b.className='btn-rose h-10 rounded-full px-4 text-[13px] font-medium whitespace-nowrap';"
+                + "b.style.cssText='position:fixed;right:16px;z-index:56;display:none';"
+                + "b.addEventListener('click',function(){var n=document.querySelectorAll('.landing-home .landing-nav button');"
+                + "for(var i=0;i<n.length;i++){if(n[i].textContent.trim()==='Se connecter'){n[i].click();return;}}"
+                + "location.href='/?auth=required&next=%2F';});"
+                + "var place=function(){if(!b.isConnected)document.body&&document.body.appendChild(b);"
+                + "var home=document.querySelector('.landing-home:not([data-leaving])');"
+                + "var show=home&&!document.querySelector('[role=dialog]');"
+                + "b.style.display=show?'':'none';if(!show)return;"
+                + "var c=home.querySelector('.landing-content'),w=c&&c.firstElementChild,bar=w&&w.firstElementChild;"
+                + "var top=bar&&bar.tagName!=='SECTION'?bar.getBoundingClientRect().bottom:(c?c.getBoundingClientRect().top:0);"
+                + "b.style.top=Math.max(0,top)+12+'px';};"
+                + "place();setInterval(place,400);})();";
     }
 
     /** Pendant le geste : les messages montent et un petit rond se remplit au-dessus de la barre d'écriture. */
