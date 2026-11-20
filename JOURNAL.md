@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `b1899b8` (2026-11-20, feat/bienvenue-story)**
+**Dernier commit noté : `c31d067` (2026-11-20, feat/bienvenue-story)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -118,6 +118,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Tours d'eau : relance automatique chaque jour par Vercel** (`c31d067`, 2026-11-20, main et develop). Demande de l'utilisateur : que la carte de l'eau se mette à jour toute seule, sans dépendre de lui. Le planning de la SMAE n'avait pas encore été lu (le clic sur « Relire maintenant » n'est pas arrivé au site, et GitHub n'avait pas encore lancé la nouvelle tâche toutes les heures). Ajouté : une relance Vercel chaque jour à 2 h UTC (5 h à Mayotte, `crons` dans `vercel.json`), qui appelle `/api/cron/eau` avec `CRON_SECRET` comme GitHub. GitHub reste toutes les heures pour voir vite un nouveau planning. Gemini ne lit que si la SMAE annonce un nouveau planning.
 
 - **Événements emploi, et offres d'emploi en attente** (`b1899b8`, 2026-11-20, main et develop). Demande de l'utilisateur : que Tamilya affiche tous les postes actuels à Mayotte. Codé d'abord : la liste complète des offres France Travail du 976 (toutes les pages, 150 par appel, cache 30 min ; carte `offres-emploi` avec recherche, CDI/CDD/intérim, commune, lien pour postuler). Mais France Travail a retiré l'API Offres d'emploi v2 de l'accès libre (accès sur demande) : elle reste éteinte tant que `FRANCE_TRAVAIL_OFFRES` n'est pas « on ». À la place, choisi avec l'utilisateur : « Mes évènements emploi » (job datings, réunions d'information, ateliers ; 12 à Mayotte le 20/11). Carte `evenements-emploi` avec l'heure de Mayotte, les places et « S'inscrire ». Quand on les demande, elle s'ouvre à coup sûr ; quand quelqu'un ne sait pas quoi faire de ses journées (ce message ou ses deux précédents), Tamilya peut en parler d'elle-même si ça colle, pas si la personne va mal. Filtre de l'API trouvé à l'essai : `{ departements: ["976"] }` (au singulier, ignoré) ; heures fiables dans `sessions` (UTC). Jeton France Travail commun aux deux (`france-travail.ts`). Interrupteurs « Offres d'emploi » et « Événements emploi » dans /admin/fonctionnalites. Clés sur Vercel (production, preview, development) et dans `.env.local`. Vérifié : 853 tests, types, lint ; en local avec le vrai Gemini : « il y a des job datings ? » cite le job dating restauration du jeudi et ouvre la carte ; « je sais pas quoi faire de mes journées » puis « plutôt chercher du boulot » propose l'atelier CV et le job dating. Pas en vocal.
 
