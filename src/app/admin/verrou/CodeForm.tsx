@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
-import { IconBackspace, IconLock } from "@/components/ui/icons";
+import { IconArrowLeft, IconBackspace, IconLock } from "@/components/ui/icons";
 import { hapticPress } from "@/lib/chat/haptics";
 import { lostOk } from "@/lib/safe-action";
 import { startEnrollAction, verifyCodeAction } from "./actions";
@@ -56,7 +56,7 @@ export function CodeForm({ enrolled, next, email, minutes }: { enrolled: boolean
 
   return (
     <form
-      className={`w-full rounded-2xl border border-border bg-bg p-6 shadow-sm ${pad ? "grid max-w-3xl grid-cols-2 items-center gap-8" : "max-w-sm"}`}
+      className={`verrou-carte relative z-10 w-full rounded-2xl border border-border bg-bg/90 p-6 shadow-lg backdrop-blur ${pad ? "grid max-w-3xl grid-cols-2 items-center gap-8 pt-12" : "max-w-sm"}`}
       onSubmit={(e) => {
         e.preventDefault();
         if (!asking) return beginSetup();
@@ -71,6 +71,16 @@ export function CodeForm({ enrolled, next, email, minutes }: { enrolled: boolean
         });
       }}
     >
+      {pad ? (
+        <Link
+          href="/"
+          className="absolute left-4 top-4 flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-fg-muted hover:bg-bg-muted hover:text-fg"
+        >
+          <IconArrowLeft width={16} height={16} />
+          Retour au site
+        </Link>
+      ) : null}
+
       <div>
       <span className="mx-auto grid size-12 place-items-center rounded-full bg-accent-soft text-accent">
         <IconLock width={22} height={22} />
@@ -129,16 +139,16 @@ export function CodeForm({ enrolled, next, email, minutes }: { enrolled: boolean
         </p>
       ) : null}
 
-      <div className="mt-6 flex gap-2">
-        <Link href="/" className={`${secondaryButton} flex-1 text-center`}>
-          Retour au site
-        </Link>
-        {pad ? null : (
+      {pad ? null : (
+        <div className="mt-6 flex gap-2">
+          <Link href="/" className={`${secondaryButton} flex-1 text-center`}>
+            Retour au site
+          </Link>
           <button type="submit" disabled={pending || (asking && code.length !== 6)} className={`${primaryButton} flex-1`}>
             {pending ? "Un instant…" : asking ? "Entrer" : "Lier l'application"}
           </button>
-        )}
-      </div>
+        </div>
+      )}
       </div>
 
       {pad ? (

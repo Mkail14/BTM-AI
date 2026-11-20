@@ -173,6 +173,36 @@ html[data-theme="dark"] {
   z-index: 0;
 }
 
+/* Verrou admin : à l'ouverture, les courbes du lagon montent doucement, puis la carte arrive. Une seule fois. */
+.verrou-fond {
+  animation: verrou-fond-in 1.4s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.verrou-carte {
+  animation: verrou-carte-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.35s both;
+}
+
+@keyframes verrou-fond-in {
+  from {
+    opacity: 0;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes verrou-carte-in {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.98);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .verrou-fond,
+  .verrou-carte {
+    animation: none;
+  }
+}
+
 [data-theme="dark"] .fond-lagon {
   --lagon: #2ad1c4;
   opacity: 0.2;

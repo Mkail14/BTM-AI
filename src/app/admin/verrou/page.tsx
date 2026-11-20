@@ -24,7 +24,11 @@ export default async function AdminLockPage({ searchParams }: { searchParams: Pr
   const enrolled = Boolean(data?.all.some((f) => f.factor_type === "totp" && f.status === "verified"));
 
   return (
-    <main className="grid min-h-dvh place-items-center bg-bg-muted px-4 py-10">
+    <main className="persona-surface relative grid min-h-dvh place-items-center overflow-hidden px-4 py-10">
+      <div aria-hidden="true" className="verrou-fond pointer-events-none fixed inset-0">
+        <div className="fond-lagon fond-lagon--page" />
+      </div>
+      <div aria-hidden="true" className="persona-line pointer-events-none fixed inset-x-0 top-0 z-20 h-0.5" />
       <CodeForm enrolled={enrolled} next={next} email={user.email} minutes={ADMIN_IDLE_MINUTES} />
     </main>
   );
