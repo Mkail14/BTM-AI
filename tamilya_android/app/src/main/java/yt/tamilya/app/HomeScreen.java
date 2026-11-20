@@ -439,6 +439,9 @@ final class HomeScreen extends FrameLayout {
         }
         homeBox.setVisibility(home ? VISIBLE : GONE);
         scroll.setVisibility(home ? GONE : VISIBLE);
+        // Conversation : ce qui défile s'arrête net sous la barre du haut (sinon il la recouvre).
+        // Accueil : on laisse dépasser pour ne pas couper le halo de la boule.
+        body.setClipChildren(!home);
     }
 
     /** Colonne centrée de 48rem au plus (max-w-3xl), avec la marge du site de chaque côté. */
