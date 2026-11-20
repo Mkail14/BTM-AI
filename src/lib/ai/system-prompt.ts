@@ -120,7 +120,7 @@ export type PromptContext = {
   /** Ce message parle de l'eau courante (detectWater) : la carte de l'eau s'ouvre ; résumé du planning SMAE et lieu à montrer. */
   water?: { place: string; summary: string } | null;
   /** Ce message demande des offres d'emploi (detectJobs) : la liste des offres de Mayotte s'ouvre ; la commune est déjà lue (jobsTownFor) ; sites lus (« Emploi Territorial »…). */
-  jobs?: (Pick<JobsSpec, "ville"> & { sources: string[] }) | null;
+  jobs?: (Pick<JobsSpec, "ville"> & { sources: string[]; inTown: number | null; total: number | null; lines: string[] }) | null;
   /**
    * Prochains événements emploi à Mayotte (France Travail), une ligne chacun. `asked` : la personne les demande
    * (detectEvents, la carte s'ouvre) ; sinon elle ne sait pas quoi faire de ses journées (detectIdle) et Tamilya
@@ -702,7 +702,19 @@ export function buildSystemPrompt(
         "POUR CE MESSAGE : la personne veut voir les offres d'emploi à Mayotte.",
         "Une ou deux phrases simples et encourageantes, puis ce bloc, seul sur ses lignes. Après « metier: », mets le métier ou le mot qu'elle cherche s'il y en a un (« infirmier », « chauffeur », « BTP »), sinon rien ; ne change pas la ligne « ville: » :",
         `\`\`\`offres-emploi\nmetier: <métier cherché ou rien>\nville: ${context.jobs.ville}\n\`\`\``,
-        `Le bloc affiche toutes les offres en cours publiées sur ${context.jobs.sources.join(" et ")}, avec une recherche, la commune, la date limite et le lien pour postuler : tu ne recopies pas la liste. Tu peux citer une ou deux offres récentes des informations du moment si elles collent à sa demande. Tu n'inventes jamais une offre, un salaire ni un employeur.`,
+        `Le bloc affiche toutes les offres en cours publiées sur ${context.jobs.sources.join(" et ")}, avec une recherche, la commune, la date limite et le lien pour postuler : tu ne recopies pas la liste. Tu n'inventes jamais une offre, un salaire ni un employeur.`,
+        ...(context.jobs.lines.length
+          ? [
+              context.jobs.ville && context.jobs.inTown
+                ? `Les ${context.jobs.inTown} offres en ce moment à ${context.jobs.ville} (sur ${context.jobs.total} dans l'île) :`
+                : context.jobs.ville
+                  ? `Aucune offre en ce moment à ${context.jobs.ville}. Les plus récentes de l'île (${context.jobs.total} en tout) :`
+                  : `Les plus récentes des ${context.jobs.total} offres en ce moment :`,
+              ...context.jobs.lines,
+              "Regarde d'abord si quelque chose correspond vraiment à ce qu'elle cherche. Si oui, dis-le et cite-le. Si rien ne correspond, dis-le franchement, sans annoncer des « opportunités » qui n'existent pas ; propose ce qui s'en rapproche (un autre intitulé, une commune voisine) s'il y en a, et laisse « metier: » vide.",
+              "Après « metier: », mets seulement un mot qu'on retrouve tel quel dans ces offres (« administratif », « agent », « police »), pas un métier absent de la liste.",
+            ]
+          : []),
         ...(context.jobs.sources.includes("France Travail")
           ? []
           : [

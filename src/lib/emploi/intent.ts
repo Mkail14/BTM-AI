@@ -113,6 +113,33 @@ export type JobOffer = {
   link: string;
 };
 
+/** Texte où chercher dans une offre (titre, métier, employeur, commune), sans accents. */
+export const jobHaystack = (o: JobOffer) => normalizeJobs([o.title, o.job, o.company, o.place].filter(Boolean).join(" "));
+
+/** Mots de la recherche (sans accents) : une offre doit tous les contenir. Le pluriel simple est toléré. */
+export const jobQueryWords = (query: string) =>
+  normalizeJobs(query)
+    .split(" ")
+    .filter((w) => w.length > 1)
+    .map((w) => (w.length > 3 ? w.replace(/[sx]$/, "") : w));
+
+/** Offres que la liste montrera pour ces filtres de départ (même règle que la recherche de la carte). */
+export function matchJobs(offers: JobOffer[], spec: Partial<JobsSpec>): JobOffer[] {
+  const words = jobQueryWords(spec.metier ?? "");
+  const town = spec.ville ? normalizeJobs(spec.ville) : "";
+  return offers.filter((o) => (!town || (o.place && normalizeJobs(o.place) === town)) && words.every((w) => jobHaystack(o).includes(w)));
+}
+
+/**
+ * Filtres du bloc écrit par Tamilya, corrigés pour que la liste ne s'ouvre jamais vide :
+ * métier introuvable dans cette commune mais présent ailleurs → toute l'île ; introuvable partout → sans métier.
+ */
+export function fixJobsSpec(offers: JobOffer[], spec: JobsSpec): JobsSpec {
+  if (!spec.metier || matchJobs(offers, spec).length) return spec;
+  if (spec.ville && matchJobs(offers, { metier: spec.metier }).length) return { ...spec, ville: "" };
+  return { ...spec, metier: "" };
+}
+
 export type JobsResponse =
   | { configured: true; offers: JobOffer[]; total: number; updatedAt: string; sources: string[] }
   | { configured: false }

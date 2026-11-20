@@ -7,14 +7,16 @@ import { canBuyBargeTickets } from "@/server/services/barge/access";
 import { CYCLONE_BLOCK, cycloneBlock, cycloneZoneFor, detectCyclone } from "@/lib/cyclone/intent";
 import { WATER_BLOCK, detectWater, waterBlock } from "@/lib/water/intent";
 import { waterContext } from "@/server/services/water/context";
-import { detectJobs, JOBS_BLOCK, jobsBlock, jobsTownFor } from "@/lib/emploi/intent";
-import { jobsSources } from "@/server/services/live/jobs";
+import { detectJobs, fixJobsSpec, JOBS_BLOCK, jobsBlock, jobsSpecOf, jobsTownFor, matchJobs } from "@/lib/emploi/intent";
+import { getMayotteJobs, jobsSources } from "@/server/services/live/jobs";
 import { detectEvents, detectIdle, EVENTS_BLOCK, eventLine, eventsBlock } from "@/lib/emploi/events";
 import { eventsConfigured, getMayotteEvents } from "@/server/services/live/events";
 
 /** Événements emploi : attente maximale (gardés 30 min, c'est presque toujours instantané) et nombre donné au prompt. */
 const EVENTS_WAIT_MS = 3_000;
 const EVENTS_IN_PROMPT = 6;
+/** Offres d'emploi données au prompt (celles de la commune demandée, sinon les plus récentes). */
+const JOBS_IN_PROMPT = 40;
 import { detectSong } from "@/lib/music/intent";
 import { readingMode, withSceneBlock } from "@/lib/lecture/intent";
 import { BARGE_BLOCK, bargeBlockFor, bargeSpec, detectBargeTicket } from "@/lib/barge/intent";
@@ -498,7 +500,28 @@ export async function POST(request: NextRequest) {
   const water = !body.voice && features.includes("eau") && detectWater(body.message) ? await waterContext(body.message).catch(() => null) : null;
   // Offres d'emploi demandées (« montre-moi les offres », « qui recrute à Koungou ? ») : la liste s'ouvre à coup sûr,
   // avec les sites lus (Emploi Territorial toujours, France Travail quand l'accès est accordé).
-  const jobs = !body.voice && features.includes("emploi") && detectJobs(body.message) ? { ville: jobsTownFor(body.message), sources: jobsSources() } : null;
+  // Les offres elles-mêmes (gardées 30 min, lues en 3 s au plus) : Tamilya sait ce qui existe vraiment, et le bloc
+  // qu'elle écrit est corrigé après coup pour que la liste ne s'ouvre jamais vide (fixJobsSpec).
+  const jobsAsked = !body.voice && features.includes("emploi") && detectJobs(body.message);
+  const jobOffers = jobsAsked
+    ? await Promise.race([getMayotteJobs(), new Promise<null>((resolve) => setTimeout(() => resolve(null), EVENTS_WAIT_MS))])
+        .then((result) => (result?.configured ? result.offers : null))
+        .catch(() => null)
+    : null;
+  const jobs = jobsAsked
+    ? (() => {
+        const ville = jobsTownFor(body.message);
+        const inTown = ville && jobOffers ? matchJobs(jobOffers, { ville }) : [];
+        const shown = (inTown.length ? inTown : (jobOffers ?? [])).slice(0, JOBS_IN_PROMPT);
+        return {
+          ville,
+          sources: jobsSources(),
+          inTown: jobOffers ? inTown.length : null,
+          total: jobOffers?.length ?? null,
+          lines: shown.map((o) => `- ${o.title}${o.job && o.job !== o.title ? ` (${o.job})` : ""}${o.company ? ` — ${o.company}` : ""}${o.place ? `, ${o.place}` : ""}`),
+        };
+      })()
+    : null;
   // Événements emploi (job datings, réunions, ateliers) : demandés (la carte s'ouvre à coup sûr), ou la personne
   // ne sait pas quoi faire de ses journées (Tamilya peut en parler d'elle-même, si ça colle). Lus en 3 s au plus.
   const eventsWanted = !body.voice && features.includes("evenements") && eventsConfigured();
@@ -859,6 +882,18 @@ ${block}`;
           const block = jobsBlock(jobs);
           text += block;
           send({ type: "delta", text: block });
+        }
+        // Filtres du bloc qui ne trouveraient aucune offre (« secrétaire » à Koungou) : corrigés, la liste ne s'ouvre jamais vide.
+        if (jobs && jobOffers?.length && text.includes("```" + JOBS_BLOCK)) {
+          const fixed = text.replace(new RegExp("```" + JOBS_BLOCK + "\\n([\\s\\S]*?)```"), (whole, inner: string) => {
+            const spec = jobsSpecOf(inner);
+            const next = fixJobsSpec(jobOffers, spec);
+            return next.metier === spec.metier && next.ville === spec.ville ? whole : jobsBlock(next).trimStart();
+          });
+          if (fixed !== text) {
+            text = fixed;
+            send({ type: "replace", text });
+          }
         }
         // Événements emploi demandés mais pas de bloc dans la réponse : on l'ajoute (pas quand elle en parle d'elle-même).
         if (jobEvents?.asked && text && !text.includes("```" + EVENTS_BLOCK)) {

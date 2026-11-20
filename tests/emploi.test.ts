@@ -106,3 +106,26 @@ describe("offres d'emploi : flux Emploi Territorial", () => {
     assert.deepEqual(parseTerritorialRss(bad), []);
   });
 });
+
+describe("offres d'emploi : la liste ne s'ouvre jamais vide", () => {
+  const offer = (title: string, place: string, job: string | null = null) => ({
+    id: title, title, company: null, place, contract: null, kind: "PUBLIC" as const, hours: null, salary: null, job, date: null, deadline: null, source: "Emploi Territorial", link: "",
+  });
+  const offers = [offer("Assistant (e ) administrative", "Koungou"), offer("Secrétaire de mairie", "Sada"), offer("Policier municipal", "Mamoudzou", "Agent de police")];
+
+  it("garde des filtres qui trouvent quelque chose", async () => {
+    const { fixJobsSpec, matchJobs } = await import("@/lib/emploi/intent");
+    assert.deepEqual(fixJobsSpec(offers, { metier: "administrative", ville: "Koungou" }), { metier: "administrative", ville: "Koungou" });
+    assert.equal(matchJobs(offers, { metier: "police" }).length, 1);
+  });
+
+  it("métier absent de la commune mais présent ailleurs : toute l'île", async () => {
+    const { fixJobsSpec } = await import("@/lib/emploi/intent");
+    assert.deepEqual(fixJobsSpec(offers, { metier: "secrétaire", ville: "Koungou" }), { metier: "secrétaire", ville: "" });
+  });
+
+  it("métier absent partout : sans métier, commune gardée", async () => {
+    const { fixJobsSpec } = await import("@/lib/emploi/intent");
+    assert.deepEqual(fixJobsSpec(offers, { metier: "boulanger", ville: "Koungou" }), { metier: "", ville: "Koungou" });
+  });
+});

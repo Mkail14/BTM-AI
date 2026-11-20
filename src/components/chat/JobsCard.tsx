@@ -3,7 +3,7 @@
 import { Briefcase, ChevronRight, Search, X } from "lucide-react";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { normalizeJobs, type JobContract, type JobOffer, type JobsResponse, type JobsSpec } from "@/lib/emploi/intent";
+import { jobHaystack, jobQueryWords, normalizeJobs, type JobContract, type JobOffer, type JobsResponse, type JobsSpec } from "@/lib/emploi/intent";
 
 const PERSONA = "var(--persona,var(--accent))";
 /** Un bloc affiché plus tard que ça après l'ouverture de la page vient d'être écrit par Tamilya. */
@@ -40,16 +40,6 @@ function published(iso: string | null) {
 const deadlineOf = (day: string | null) => (day ? `jusqu'au ${dayFmt.format(new Date(`${day}T12:00:00Z`))}` : null);
 
 const plural = (n: number, word: string) => `${n.toLocaleString("fr-FR")} ${word}${n > 1 ? "s" : ""}`;
-
-/** Texte où chercher, préparé une fois par offre. */
-const haystack = (o: JobOffer) => normalizeJobs([o.title, o.job, o.company, o.place].filter(Boolean).join(" "));
-
-/** Mots de la recherche (sans accents) : une offre doit tous les contenir. Le pluriel simple est toléré. */
-const wordsOf = (query: string) =>
-  normalizeJobs(query)
-    .split(" ")
-    .filter((w) => w.length > 1)
-    .map((w) => (w.length > 3 ? w.replace(/[sx]$/, "") : w));
 
 /**
  * Offres d'emploi dans la conversation (bloc ```offres-emploi```) : une carte
@@ -136,9 +126,9 @@ function JobsPanel({ data, spec, onClose }: { data: Loaded; spec: JobsSpec; onCl
   const [more, setMore] = useState({ key: "", n: STEP });
   const deferredQuery = useDeferredValue(query);
 
-  const indexed = useMemo(() => data.offers.map((o) => ({ o, text: haystack(o) })), [data.offers]);
+  const indexed = useMemo(() => data.offers.map((o) => ({ o, text: jobHaystack(o) })), [data.offers]);
   const results = useMemo(() => {
-    const words = wordsOf(deferredQuery);
+    const words = jobQueryWords(deferredQuery);
     return indexed
       .filter(({ o, text }) => (contract === "tous" || o.kind === contract) && (!town || o.place === town) && words.every((w) => text.includes(w)))
       .map(({ o }) => o);
