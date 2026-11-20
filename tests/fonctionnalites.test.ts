@@ -7,6 +7,8 @@ describe("Fonctionnalités allumées pour tous", () => {
   const DEFAULTS = {
     documents: true,
     cyclone: true,
+    emploi: true,
+    evenements: true,
     eau: false,
     attestation: true,
     signature: false,
@@ -31,7 +33,7 @@ describe("Fonctionnalités allumées pour tous", () => {
   it("donne tout aux administrateurs, et seulement ce qui est allumé aux autres", () => {
     const switches = readSwitches({ documents: false, livres: false, devis: false, trajet: false, code: false, chanson: false, youtube: false, vocal: true });
     assert.deepEqual(featuresFor({ isAdmin: true }, switches), FEATURE_IDS);
-    assert.deepEqual(featuresFor({ isAdmin: false }, switches), ["cyclone", "attestation", "vocal"]);
-    assert.deepEqual(featuresFor(null, switches), ["cyclone", "attestation", "vocal"]);
+    assert.deepEqual(featuresFor({ isAdmin: false }, switches), ["cyclone", "emploi", "evenements", "attestation", "vocal"]);
+    assert.deepEqual(featuresFor(null, switches), ["cyclone", "emploi", "evenements", "attestation", "vocal"]);
   });
 });

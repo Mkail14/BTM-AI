@@ -13,6 +13,8 @@ import { DOCUMENT_BLOCK } from "@/lib/document-signe/intent";
 import { BTM_DEVIS_BLOCK } from "@/lib/btm/intent";
 import { CYCLONE_BLOCK, cycloneZoneOf } from "@/lib/cyclone/intent";
 import { WATER_BLOCK } from "@/lib/water/intent";
+import { JOBS_BLOCK, jobsSpecOf } from "@/lib/emploi/intent";
+import { EVENTS_BLOCK } from "@/lib/emploi/events";
 import { SONG_BLOCK } from "@/lib/music/intent";
 import { READING_BLOCK } from "@/lib/lecture/intent";
 import { GROUP_BLOCK } from "@/lib/food/group-block";
@@ -32,6 +34,8 @@ const BtmDevis = dynamic(() => import("./BtmDevis").then((m) => m.BtmDevis));
 const CombinedBoard = dynamic(() => import("./CombinedBoard").then((m) => m.CombinedBoard));
 const CycloneCard = dynamic(() => import("./CycloneCard").then((m) => m.CycloneCard));
 const WaterCard = dynamic(() => import("./WaterCard").then((m) => m.WaterCard));
+const JobsCard = dynamic(() => import("./JobsCard").then((m) => m.JobsCard));
+const EventsCard = dynamic(() => import("./EventsCard").then((m) => m.EventsCard));
 const CodeExamSlots = dynamic(() => import("./CodeExamSlots").then((m) => m.CodeExamSlots));
 const FoodOrder = dynamic(() => import("./FoodOrder").then((m) => m.FoodOrder));
 const TripCard = dynamic(() => import("./TripCard").then((m) => m.TripCard));
@@ -63,6 +67,8 @@ const CARD_BLOCKS = [
   TRIP_BLOCK,
   CYCLONE_BLOCK,
   WATER_BLOCK,
+  JOBS_BLOCK,
+  EVENTS_BLOCK,
   SONG_BLOCK,
   READING_BLOCK,
   COMBINED_BLOCK,
@@ -139,6 +145,10 @@ function renderPre(children: ReactNode) {
     if (code === `language-${CYCLONE_BLOCK}`) return <CycloneCard zone={cycloneZoneOf(textOf(children))} />;
     // Bloc ```carte-eau``` : carte des tours d'eau (planning officiel de la SMAE), centrée sur le lieu écrit dedans s'il y en a un.
     if (code === `language-${WATER_BLOCK}`) return <WaterCard place={textOf(children).trim()} />;
+    // Bloc ```offres-emploi``` : toutes les offres de Mayotte (France Travail), avec un métier et une commune de départ.
+    if (code === `language-${JOBS_BLOCK}`) return <JobsCard spec={jobsSpecOf(textOf(children))} />;
+    // Bloc ```evenements-emploi``` : prochains job datings, réunions et ateliers à Mayotte (France Travail).
+    if (code === `language-${EVENTS_BLOCK}`) return <EventsCard />;
     // Bloc ```chanson``` : paroles écrites par Tamilya, chantées avec des instruments (Lyria) ; le globe chante.
     // Sans clé : la carte doit garder son état pendant que le bloc s'écrit.
     if (code === `language-${SONG_BLOCK}`) return <SongCard spec={textOf(children)} />;

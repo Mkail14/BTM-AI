@@ -7,6 +7,14 @@ import { canBuyBargeTickets } from "@/server/services/barge/access";
 import { CYCLONE_BLOCK, cycloneBlock, cycloneZoneFor, detectCyclone } from "@/lib/cyclone/intent";
 import { WATER_BLOCK, detectWater, waterBlock } from "@/lib/water/intent";
 import { waterContext } from "@/server/services/water/context";
+import { detectJobs, JOBS_BLOCK, jobsBlock, jobsTownFor } from "@/lib/emploi/intent";
+import { jobsConfigured } from "@/server/services/live/jobs";
+import { detectEvents, detectIdle, EVENTS_BLOCK, eventLine, eventsBlock } from "@/lib/emploi/events";
+import { eventsConfigured, getMayotteEvents } from "@/server/services/live/events";
+
+/** Événements emploi : attente maximale (gardés 30 min, c'est presque toujours instantané) et nombre donné au prompt. */
+const EVENTS_WAIT_MS = 3_000;
+const EVENTS_IN_PROMPT = 6;
 import { detectSong } from "@/lib/music/intent";
 import { readingMode, withSceneBlock } from "@/lib/lecture/intent";
 import { BARGE_BLOCK, bargeBlockFor, bargeSpec, detectBargeTicket } from "@/lib/barge/intent";
@@ -488,6 +496,24 @@ export async function POST(request: NextRequest) {
   const cyclone = !body.voice && features.includes("cyclone") && detectCyclone(body.message) ? cycloneZoneFor(body.message) : null;
   // Eau courante demandée (« y a de l'eau à Koungou ? ») : la carte de l'eau s'ouvre à coup sûr (planning officiel de la SMAE).
   const water = !body.voice && features.includes("eau") && detectWater(body.message) ? await waterContext(body.message).catch(() => null) : null;
+  // Offres d'emploi demandées (« montre-moi les offres », « qui recrute à Koungou ? ») : la liste s'ouvre à coup sûr,
+  // seulement si les clés France Travail sont posées (sinon la carte n'aurait rien à montrer).
+  const jobs = !body.voice && features.includes("emploi") && jobsConfigured() && detectJobs(body.message) ? { ville: jobsTownFor(body.message) } : null;
+  // Événements emploi (job datings, réunions, ateliers) : demandés (la carte s'ouvre à coup sûr), ou la personne
+  // ne sait pas quoi faire de ses journées (Tamilya peut en parler d'elle-même, si ça colle). Lus en 3 s au plus.
+  const eventsWanted = !body.voice && features.includes("evenements") && eventsConfigured();
+  const eventsAsked = eventsWanted && detectEvents(body.message);
+  // Ses deux messages d'avant comptent aussi : Tamilya demande souvent d'abord ce qui lui ferait envie.
+  const idle =
+    eventsWanted &&
+    !eventsAsked &&
+    [body.message, ...history.filter((turn) => turn.role === "user").slice(-2).map((turn) => turn.content)].some(detectIdle);
+  const jobEvents =
+    eventsAsked || idle
+      ? await Promise.race([getMayotteEvents(), new Promise<null>((resolve) => setTimeout(() => resolve(null), EVENTS_WAIT_MS))])
+          .then((result) => (result?.configured ? { asked: eventsAsked, lines: result.events.slice(0, EVENTS_IN_PROMPT).map(eventLine) } : null))
+          .catch(() => null)
+      : null;
   // Chanson demandée (« chante-moi quelque chose ») : Tamilya écrit une chanson, chantée sous son message.
   const song = !body.voice && features.includes("chanson") && detectSong(body.message);
   // Lecture en 3D demandée (« lis-moi cette page », ou demandée juste avant et le texte arrive) :
@@ -542,6 +568,8 @@ export async function POST(request: NextRequest) {
     trip,
     cyclone,
     water,
+    jobs,
+    jobEvents,
     song,
     reading: reading ? (reading.kind === "page" ? "photo" : reading.kind) : undefined,
     readingOffer: Boolean(user?.isAdmin),
@@ -563,7 +591,7 @@ export async function POST(request: NextRequest) {
   // Réservé d'abord aux administrateurs : l'équipe ajoute environ 10 s avant le premier mot (mesuré le 2026-11-08).
   const agentsMode = process.env.AI_AGENTS?.trim() || "admin";
   const agentsAllowed = agentsMode === "all" || (agentsMode === "admin" && Boolean(user?.isAdmin));
-  const dedicatedFlow = Boolean(foodQuery || foodGroup || bargeIntent || btmDevis || trip || cyclone || water || song || reading || attestation || documentTask || shimaoreTranslation || composition);
+  const dedicatedFlow = Boolean(foodQuery || foodGroup || bargeIntent || btmDevis || trip || cyclone || water || jobs || jobEvents?.asked || song || reading || attestation || documentTask || shimaoreTranslation || composition);
   // Fichier joint : seule Tamilya le reçoit, l'équipe d'agents ne le verrait pas.
   const teamPlan =
     !agentsAllowed || attached
@@ -814,15 +842,27 @@ ${block}`;
           text += block;
           send({ type: "delta", text: block });
         }
+        // Cyclones demandés mais pas de bloc dans la réponse : on l'ajoute.
+        if (cyclone && text && !text.includes("```" + CYCLONE_BLOCK)) {
+          const block = cycloneBlock(cyclone);
+          text += block;
+          send({ type: "delta", text: block });
+        }
         // Eau demandée mais pas de carte dans la réponse : on l'ajoute.
         if (water && text && !text.includes("```" + WATER_BLOCK)) {
           const block = waterBlock(water.place);
           text += block;
           send({ type: "delta", text: block });
         }
-        // Cyclones demandés mais pas de bloc dans la réponse : on l'ajoute.
-        if (cyclone && text && !text.includes("```" + CYCLONE_BLOCK)) {
-          const block = cycloneBlock(cyclone);
+        // Offres d'emploi demandées mais pas de bloc dans la réponse : on l'ajoute.
+        if (jobs && text && !text.includes("```" + JOBS_BLOCK)) {
+          const block = jobsBlock(jobs);
+          text += block;
+          send({ type: "delta", text: block });
+        }
+        // Événements emploi demandés mais pas de bloc dans la réponse : on l'ajoute (pas quand elle en parle d'elle-même).
+        if (jobEvents?.asked && text && !text.includes("```" + EVENTS_BLOCK)) {
+          const block = eventsBlock();
           text += block;
           send({ type: "delta", text: block });
         }

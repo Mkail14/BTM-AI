@@ -7,6 +7,7 @@ import { CODE_EXAM_OFFICES } from "@/lib/code-exam/offices";
 import { FOOD_CATALOG } from "@/lib/food/catalog";
 import { tripSpec, type TripSpec } from "@/lib/trip/intent";
 import type { CycloneZone } from "@/lib/cyclone/intent";
+import type { JobsSpec } from "@/lib/emploi/intent";
 import { READING_BLOCK } from "@/lib/lecture/intent";
 import { SONGWRITING } from "@/lib/music/songwriting";
 import type { ValidatedExample } from "@/lib/language/types";
@@ -118,6 +119,14 @@ export type PromptContext = {
   cyclone?: CycloneZone | null;
   /** Ce message parle de l'eau courante (detectWater) : la carte de l'eau s'ouvre ; résumé du planning SMAE et lieu à montrer. */
   water?: { place: string; summary: string } | null;
+  /** Ce message demande des offres d'emploi (detectJobs) : la liste des offres de Mayotte s'ouvre ; la commune est déjà lue (jobsTownFor). */
+  jobs?: Pick<JobsSpec, "ville"> | null;
+  /**
+   * Prochains événements emploi à Mayotte (France Travail), une ligne chacun. `asked` : la personne les demande
+   * (detectEvents, la carte s'ouvre) ; sinon elle ne sait pas quoi faire de ses journées (detectIdle) et Tamilya
+   * peut en parler d'elle-même.
+   */
+  jobEvents?: { asked: boolean; lines: string[] } | null;
   /** Ce message demande à Tamilya de chanter (detectSong) : elle écrit une chanson, chantée par la carte SongCard. */
   song?: boolean;
   /**
@@ -684,6 +693,43 @@ export function buildSystemPrompt(
         "Tu restes honnête : tu ne grossis rien et tu ne rassures pas plus que les données du « risque pour Mayotte ». Tu n'inventes jamais un effet (pluie, vent, mer) ni une date ; ceux-là viennent seulement d'un journal de Mayotte ou d'une source officielle, que tu nommes.",
         "Si tu donnes l'estimation BTM, tu dis que c'est un calcul maison, un deuxième avis à côté de Météo-France, jamais une alerte. Pour les alertes officielles : la préfecture de Mayotte.",
       ].join("\n"),
+    );
+  }
+  // Offres d'emploi demandées : la liste de toutes les offres de Mayotte s'ouvre.
+  if (context.jobs && !context.site && !context.voice) {
+    sections.push(
+      [
+        "POUR CE MESSAGE : la personne veut voir les offres d'emploi à Mayotte.",
+        "Une ou deux phrases simples et encourageantes, puis ce bloc, seul sur ses lignes. Après « metier: », mets le métier ou le mot qu'elle cherche s'il y en a un (« infirmier », « chauffeur », « BTP »), sinon rien ; ne change pas la ligne « ville: » :",
+        `\`\`\`offres-emploi\nmetier: <métier cherché ou rien>\nville: ${context.jobs.ville}\n\`\`\``,
+        "Le bloc affiche toutes les offres en cours publiées sur France Travail, avec une recherche, le type de contrat et la commune, et le lien pour postuler : tu ne recopies pas la liste. Tu peux citer une ou deux offres récentes des informations du moment si elles collent à sa demande. Tu n'inventes jamais une offre, un salaire ni un employeur.",
+      ].join("\n"),
+    );
+  }
+  // Événements emploi : demandés (la carte s'ouvre), ou la personne ne sait pas quoi faire de ses journées.
+  if (context.jobEvents && !context.site && !context.voice) {
+    const { asked, lines } = context.jobEvents;
+    const list = lines.length
+      ? ["Prochains événements emploi à Mayotte (France Travail, « Mes évènements emploi », heure de Mayotte) :", ...lines].join("\n")
+      : "Aucun événement emploi n'est prévu à Mayotte pour l'instant (France Travail).";
+    const block = `\`\`\`evenements-emploi\nmayotte\n\`\`\``;
+    sections.push(
+      asked
+        ? [
+            "POUR CE MESSAGE : la personne veut connaître les événements emploi (job datings, réunions d'information, ateliers).",
+            list,
+            "Une ou deux phrases à toi pour dire ce qui arrive bientôt (le plus proche ou celui qui lui irait le mieux), puis ce bloc, seul sur ses lignes :",
+            block,
+            "La carte montre la liste, les places et le lien pour s'inscrire : tu ne la recopies pas. Tu n'inventes jamais un événement, une date ni un lieu.",
+          ].join("\n")
+        : [
+            "CE MESSAGE : la personne a l'air de ne pas savoir quoi faire de ses journées.",
+            list,
+            "D'abord, tu réponds à ce qu'elle dit vraiment, comme une amie. Si elle cherche du travail, une occupation ou à bouger, et qu'un de ces événements lui irait, tu peux lui en parler de toi-même, avec tes mots, comme une idée qu'on glisse en passant (pas une publicité, pas une liste). Si elle va mal ou veut juste parler, tu n'en parles pas.",
+            "Si tu en parles, ajoute ce bloc à la fin, seul sur ses lignes, pour qu'elle puisse s'inscrire :",
+            block,
+            "Tu n'inventes jamais un événement, une date ni un lieu. S'il n'y en a aucun, tu n'en parles pas.",
+          ].join("\n"),
     );
   }
   // Chanson demandée : Tamilya écrit des paroles originales, chantées avec des instruments sous ses mots.

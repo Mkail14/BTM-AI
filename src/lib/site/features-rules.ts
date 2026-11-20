@@ -18,6 +18,18 @@ export const FEATURES = [
     default: true,
   },
   {
+    id: "emploi",
+    label: "Offres d'emploi",
+    description: "Toutes les offres d'emploi en cours à Mayotte (France Travail), avec recherche et filtres, quand on les demande à Tamilya. Attend l'accès à l'API Offres d'emploi (FRANCE_TRAVAIL_OFFRES=on).",
+    default: true,
+  },
+  {
+    id: "evenements",
+    label: "Événements emploi",
+    description: "Job datings, réunions d'information et ateliers à Mayotte (France Travail) : quand on les demande, ou quand quelqu'un ne sait pas quoi faire de ses journées.",
+    default: true,
+  },
+  {
     id: "eau",
     label: "Carte de l'eau",
     description: "La carte des tours d'eau (où il y a de l'eau en ce moment), d'après le planning officiel de la SMAE, lu automatiquement toutes les heures (/admin/eau).",
