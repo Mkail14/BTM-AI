@@ -1443,6 +1443,11 @@ public class MainActivity extends Activity {
                 siteHomeReached();
                 return;
             }
+            // Premiers pas (/bienvenue) : le site les ouvre depuis l'accueil, derrière l'accueil natif.
+            if ("/bienvenue".equals(visited.getPath())) {
+                if (home.isOpen()) home.close();
+                return;
+            }
             if (!isHelpPage(visited)) return;
             if (view.canGoBack()) view.goBack();
             else view.loadUrl(HOME);
