@@ -63,7 +63,7 @@ export function EventsCard() {
           : state.message;
 
   return (
-    <div className="booking-step w-full p-4">
+    <div className="booking-step carte-cadre w-full p-4">
       <div className="flex items-center gap-4">
         <span className="grid size-12 shrink-0 place-items-center rounded-2xl text-white" style={{ background: PERSONA }}>
           <CalendarDays aria-hidden="true" className="size-6" />
