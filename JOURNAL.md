@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `4e5fe4c` (2026-11-20, main et develop)**
+**Dernier commit noté : `3d5b0a9` (2026-11-20, main et develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -106,6 +106,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Paramètres : Profil en un seul cadre, code de paiement dans Sécurité** (`3d5b0a9`, 2026-11-20, main et develop). Demande de l’utilisateur : faire le Profil comme la Sécurité, et mettre « payer avec le code » dans Sécurité plutôt que dans Tamilya. Profil : un seul cadre (nom, téléphone, e-mail, Maison, autres adresses, « Ajouter une adresse ») ; titre « Adresses » et sa phrase retirés ; le lien `#adresses` des commandes marche toujours. Code de paiement : ligne de Sécurité sous Proches SOS (toujours réservé aux admins) ; les textes qui disaient « rubrique Tamilya » pour le code (erreur du serveur, vocal, Confidentialité, Conditions) disent « rubrique Sécurité ». L’empreinte de voix reste dans Tamilya. Vérifié : 804 tests, types, lint. Pas encore vu à l’écran.
 
 - **Premiers pas : barres pleine largeur, boutons côte à côte, retour par glissé** (`4e5fe4c`, 2026-11-20, main et develop). Retour de l’utilisateur sur la Pad 6 : les barres n’occupaient que le centre (« pas comme Insta ») et les deux boutons s’empilaient alors qu’il y a la place. Barres d’un bord à l’autre ; à partir de la largeur tablette, « Plus tard » à gauche et le bouton rose à droite (téléphone : l’un sous l’autre) ; pas de bouton retour : glisser de gauche à droite n’importe où ramène à l’étape d’avant (l’étape arrive alors par la gauche). Vérifié : types, lint, capture en largeur tablette. Note : le serveur local d’une autre session écoute sur localhost:3100 ; ouvert par 127.0.0.1, la page ne s’hydrate pas (ressources de dev refusées) — utiliser localhost.
 - **Verrou admin : fond de Tamilya animé, lien de retour en haut** (`2f9e0d4`, 2026-11-20, main et develop). Demande de l’utilisateur : sur la Pad 6 en paysage, le bouton « Retour au site » seul sous la case paraissait mal placé à côté du pavé, et le fond gris était vide. Sur tablette en paysage, il devient un petit lien « ← Retour au site » en haut à gauche de la carte (portrait et téléphone : bouton d’avant). Fond : celui de la conversation (teinte de Tamilya, halo, filet rose, courbes du lagon) au lieu du gris ; à l’ouverture, les courbes apparaissent doucement puis la carte monte (une seule fois, rien si l’appareil demande moins d’animations). Vérifié : types, lint ; page d’essai en local sur la Pad 6 (rendu final vu ; animation non capturée, seulement vérifiée dans la feuille de style servie). Envoi sur main fait par l’utilisateur (le contrôle de sécurité a refusé à Claude un envoi depuis la branche feat/bienvenue-story, où une autre session avait basculé le dossier).
