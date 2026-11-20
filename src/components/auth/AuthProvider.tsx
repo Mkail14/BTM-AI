@@ -196,8 +196,9 @@ export function AuthProvider({
     if (!userId || window.location.pathname !== "/") return;
     if (!newAccount && !navigator.userAgent.includes(APP_USER_AGENT)) return;
     if (welcomeDone(userId)) return;
-    router.push("/bienvenue");
-  }, [userId, newAccount, router]);
+    // Vraie navigation : un router.push lancé pendant l'ouverture de l'accueil se perdait (vu sur la Pad 6).
+    window.location.replace("/bienvenue");
+  }, [userId, newAccount]);
 
   const value = useMemo(
     () => ({ user, authAvailable, openAuthDialog, signOut }),
