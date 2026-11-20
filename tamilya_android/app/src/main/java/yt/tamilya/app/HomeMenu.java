@@ -115,16 +115,15 @@ final class HomeMenu extends FrameLayout {
         // Pas de croix : on referme en touchant la zone floutée à côté.
         panel.addView(top);
 
-        // Administrateurs : bouton rose « Tableau de bord » (px-3 autour, rounded-lg bg-accent px-3 py-2 text-sm font-medium).
+        // Administrateurs : bouton rose « Tableau de bord » (rounded-lg bg-accent px-3 py-2 text-sm font-medium),
+        // placé en bas, juste au-dessus de « Mes documents » (voir fillAccount).
         adminBox = new LinearLayout(context);
-        adminBox.setPadding(dp(12), 0, dp(12), 0);
         LinearLayout board = row(R.drawable.ic_site_dashboard, 18, theme.accentFg, "Tableau de bord", 14, 20, theme.medium, theme.accentFg, 8);
         board.setPadding(dp(12), dp(8), dp(12), dp(8));
         board.setBackground(round(theme.accent, 8));
         board.setOnClickListener(v -> go(() -> actions.openPage("/admin")));
         adminBox.addView(board, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         adminBox.setVisibility(GONE);
-        panel.addView(adminBox);
 
         // Historique : mt-5 flex-1 overflow-y-auto px-3.
         middle = new ScrollView(context);
@@ -367,6 +366,11 @@ final class HomeMenu extends FrameLayout {
 
     /** Compte connecté : « Mes documents », puis la ligne du compte et le solde (AccountMenu.tsx). */
     private void fillAccount(String name, String email, boolean documents, Long balanceCents, boolean demo) {
+        if (adminBox.getVisibility() == VISIBLE) {
+            LinearLayout.LayoutParams adminParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            adminParams.bottomMargin = dp(4);
+            bottom.addView(adminBox, adminParams);
+        }
         if (documents) {
             // mb-1 flex gap-3 rounded-lg px-2 py-2 font-medium.
             LinearLayout docs = row(R.drawable.ic_site_folder, 18, theme.fg, "Mes documents", 14, 20, theme.medium, theme.fg, 12);
