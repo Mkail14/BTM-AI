@@ -1,13 +1,32 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
-import { IconLock } from "@/components/ui/icons";
+import { IconBackspace, IconLock } from "@/components/ui/icons";
+import { hapticPress } from "@/lib/chat/haptics";
 import { lostOk } from "@/lib/safe-action";
 import { startEnrollAction, verifyCodeAction } from "./actions";
 
 type Setup = { factorId: string; qr: string; secret: string };
+
+/** Tablette tenue en paysage : le clavier du système cacherait la carte, on montre notre pavé à côté. */
+const PAD_QUERY = "(orientation: landscape) and (pointer: coarse) and (min-width: 900px)";
+
+function usePadMode() {
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia(PAD_QUERY);
+    const sync = () => setOn(mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  return on;
+}
+
+const padKey =
+  "grid h-14 place-items-center rounded-xl bg-bg-muted text-2xl font-medium text-fg transition active:scale-95 active:bg-border disabled:opacity-40";
 
 /**
  * Code à 6 chiffres de l'application d'authentification. Sans application
@@ -19,6 +38,13 @@ export function CodeForm({ enrolled, next, email, minutes }: { enrolled: boolean
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const asking = enrolled || setup !== null;
+  const pad = usePadMode() && asking;
+
+  const press = (key: string) => {
+    hapticPress();
+    setError(null);
+    setCode((c) => (key === "del" ? c.slice(0, -1) : (c + key).slice(0, 6)));
+  };
 
   const beginSetup = () =>
     start(async () => {
@@ -30,7 +56,7 @@ export function CodeForm({ enrolled, next, email, minutes }: { enrolled: boolean
 
   return (
     <form
-      className="w-full max-w-sm rounded-2xl border border-border bg-bg p-6 shadow-sm"
+      className={`w-full rounded-2xl border border-border bg-bg p-6 shadow-sm ${pad ? "grid max-w-3xl grid-cols-2 items-center gap-8" : "max-w-sm"}`}
       onSubmit={(e) => {
         e.preventDefault();
         if (!asking) return beginSetup();
@@ -45,6 +71,7 @@ export function CodeForm({ enrolled, next, email, minutes }: { enrolled: boolean
         });
       }}
     >
+      <div>
       <span className="mx-auto grid size-12 place-items-center rounded-full bg-accent-soft text-accent">
         <IconLock width={22} height={22} />
       </span>
@@ -85,7 +112,7 @@ export function CodeForm({ enrolled, next, email, minutes }: { enrolled: boolean
             id="admin-code"
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
-            inputMode="numeric"
+            inputMode={pad ? "none" : "numeric"}
             autoComplete="one-time-code"
             pattern="\d{6}"
             maxLength={6}
@@ -106,10 +133,32 @@ export function CodeForm({ enrolled, next, email, minutes }: { enrolled: boolean
         <Link href="/" className={`${secondaryButton} flex-1 text-center`}>
           Retour au site
         </Link>
-        <button type="submit" disabled={pending || (asking && code.length !== 6)} className={`${primaryButton} flex-1`}>
-          {pending ? "Un instant…" : asking ? "Entrer" : "Lier l'application"}
-        </button>
+        {pad ? null : (
+          <button type="submit" disabled={pending || (asking && code.length !== 6)} className={`${primaryButton} flex-1`}>
+            {pending ? "Un instant…" : asking ? "Entrer" : "Lier l'application"}
+          </button>
+        )}
       </div>
+      </div>
+
+      {pad ? (
+        <div className="grid grid-cols-3 gap-3" aria-label="Pavé numérique">
+          {["1", "2", "3", "4", "5", "6", "7", "8", "9"].map((n) => (
+            <button key={n} type="button" onClick={() => press(n)} disabled={pending} className={padKey}>
+              {n}
+            </button>
+          ))}
+          <button type="button" onClick={() => press("del")} disabled={pending || code === ""} aria-label="Effacer" className={padKey}>
+            <IconBackspace width={26} height={26} />
+          </button>
+          <button type="button" onClick={() => press("0")} disabled={pending} className={padKey}>
+            0
+          </button>
+          <button type="submit" onClick={() => hapticPress()} disabled={pending || code.length !== 6} className={`${primaryButton} h-14 rounded-xl text-base`}>
+            {pending ? "…" : "Entrer"}
+          </button>
+        </div>
+      ) : null}
     </form>
   );
 }

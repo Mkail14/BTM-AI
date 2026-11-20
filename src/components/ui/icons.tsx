@@ -97,6 +97,14 @@ export const IconLock = (p: IconProps) => (
   </Icon>
 );
 
+export const IconBackspace = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M9 5h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H9l-6-7z" />
+    <path d="m12 9 5 6" />
+    <path d="m17 9-5 6" />
+  </Icon>
+);
+
 export const IconTrash = (p: IconProps) => (
   <Icon {...p}>
     <path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" />
