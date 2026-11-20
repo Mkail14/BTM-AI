@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `444cf2d` (2026-11-20, main et develop)**
+**Dernier commit noté : `2a2a4fb` (2026-11-20, main et develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -55,11 +55,16 @@ Comment le tenir :
 | Lecture de la voix en direct | Programmation d'origine (20 ms) + fondu de 4 ms à chaque reprise + limiteur -3 dB et coupe des graves à 70 Hz | Plus de clic ni de saturation, sans retarder la voix | Marge d'avance adaptative (40 à 250 ms) : en simulation, plus de silence au total et première voix plus tardive |
 | Sons réglables des histoires | Fichier catalogue.json + sons ajoutés dans le stockage Supabase (dossier public « lecture-sons », créé tout seul au premier ajout) ; le navigateur envoie le fichier directement au stockage | Marche tout de suite, sans migration à appliquer ; pas de limite de taille de Vercel (4,5 Mo) | Table Postgres (migration à appliquer à la main) ; envoi par le serveur du site |
 | 3D du devis BTM | CSS 3D fait main (boîtes à six faces : parpaings, béton, treillis, tranchées, carreaux), tourne seule et au doigt | Rien à télécharger (débit de Mayotte), suit chaque chiffre tapé ; vu dans Chrome, clair et sombre | three.js (déjà sur btm.yt, mais ~600 Ko de plus pour Tamilya) |
+| Carte de l'eau (tours d'eau) | Images du planning SMAE lues par Gemini, mises en service sans validation ; vérification toutes les heures par GitHub ; planning et coupures en JSON dans le stockage Supabase | La SMAE ne publie qu'en images ; l'utilisateur ne veut pas valider à la main ; pas de migration à appliquer | Page texte du Journal de Mayotte (pas la source officielle, refusée par l'utilisateur) ; table Postgres |
 | Affichage du chat pendant l'écriture | Début terminé relu une fois, seule la fin relue à chaque lettre | Avant, toute la réponse était relue 60 fois par seconde : de plus en plus lent avec la longueur | Paquet externe de découpe du Markdown (marked) : une dépendance de plus |
 
 ---
 
 ## Idées en attente
+
+### Carte de l'eau : suite (noté le 2026-11-20)
+- Lire aussi les coupures imprévues annoncées par la SMAE (casse, panne) pour ne plus les ajouter à la main dans /admin/eau.
+- Ouvrir la carte à tous une fois vue en vrai (interrupteur « Carte de l'eau » dans Fonctionnalités) ; la donner aussi au vocal.
 
 ### Ton de Tamilya selon le pouls (noté le 2026-11-18)
 - Idée de l'utilisateur : lire le pouls (doigt sur la caméra et le flash, ou montre connectée via Health Connect) pour choisir le ton, voire proposer quelque chose (se calmer, respirer). Pas lancé : donnée de santé, accord clair de la personne obligatoire.
@@ -106,6 +111,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Carte de l’eau : où il y a de l’eau en ce moment** (`2a2a4fb`, 2026-11-20, main et develop ; admins seulement, fonctionnalité « Carte de l’eau » éteinte pour les autres). Demande de l’utilisateur : que Tamilya affiche la carte de Mayotte, en bleu les villages qui ont l’eau, en rouge ceux qui n’en ont pas, hachuré en tirets là où il n’y a pas d’info officielle ; source SMAE seulement ; validation automatique, avec une phrase qui dit que les données viennent de la SMAE. La SMAE publie son planning en images (accueil → « Planning des tours d’eau du … au … » → 4 JPG) : Gemini les lit (tableau jour × secteur et villages de chaque secteur) et le résultat est utilisé tel quel. GitHub regarde l’accueil de la SMAE toutes les heures (`.github/workflows/tours-d-eau.yml` → `/api/cron/eau`) et ne relit que si le planning annoncé change. Dans la conversation : « y a de l’eau à Koungou ? », « carte de l’eau » ouvrent la carte (bloc `carte-eau`), centrée sur le lieu demandé ; Tamilya répond d’après le planning, sans inventer d’heure. Règle des heures : ouverture 10 h, fermeture 16 h, secteur 4 de 7 h à 17 h (heure de Mayotte). Les 95 lieux du planning du 02-22/11 sont placés à la main (OpenStreetMap, positions approchées : la SMAE ne publie pas le tracé des secteurs) ; les villages dont le planning ne parle pas sont hachurés. Page `/admin/eau` : planning en service, « Relire maintenant », coupures imprévues à ajouter à la main (lieux en rouge jusqu’à l’heure dite). Gardé dans le stockage Supabase (dossier privé « eau »), sans migration. Commit fait avec mes seules lignes : une autre session avait en cours, dans les mêmes fichiers, les offres d’emploi (non commitées, laissées telles quelles). Vérifié : 21 tests nouveaux (heures recopiées de l’image officielle du 02-08/11), types, lint, 853 tests au total. **Pas essayé en vrai** : Gemini refuse les appels depuis le PC (« pays non pris en charge ») ; la première lecture se fera en ligne.
 
 - **Paramètres : Tamilya en un seul cadre, empreinte de voix dans Sécurité** (`444cf2d`, 2026-11-20, main et develop). Demande de l’utilisateur : faire l’onglet Tamilya comme Profil et Sécurité, et mettre l’empreinte de voix dans Sécurité avec le code de paiement. Tamilya : un cadre, deux lignes, sans titres ni phrases : Vocal (mode choisi, « Changer » ouvre les deux choix et se referme au choix ; admins seulement) et Mémoire (« Activée » / « Coupée », interrupteur, Gérer). Sécurité : ligne « Empreinte de voix » sous le code de paiement (admins) ; le texte d’accord avant l’enregistrement ne change pas. Corrigé au passage : les boutons « Créer mon code » (paiement vocal et fenêtre du code) ouvraient encore l’onglet Tamilya, ils ouvrent Sécurité ; Confidentialité dit « rubrique Sécurité » pour l’empreinte. Vérifié : 804 tests, types, lint. Pas encore vu à l’écran.
 
