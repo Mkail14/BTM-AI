@@ -33,7 +33,7 @@ export const FEATURES = [
     id: "eau",
     label: "Carte de l'eau",
     description: "La carte des tours d'eau (où il y a de l'eau en ce moment), d'après le planning officiel de la SMAE, lu automatiquement toutes les heures (/admin/eau).",
-    default: false,
+    default: true,
   },
   {
     id: "attestation",
