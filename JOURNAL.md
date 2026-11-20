@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `c31d067` (2026-11-20, feat/bienvenue-story)**
+**Dernier commit noté : `8b58ba9` (2026-11-20, feat/bienvenue-story)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -118,6 +118,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Carte de l'eau : panneau depuis la droite, île colorée par village** (`8b58ba9`, 2026-11-20, main et develop). Demande de l'utilisateur : pas fan des ronds ; voir Mayotte entière et chaque ville colorée, la carte qui arrive de la droite comme la page livreur. Dans la conversation : une petite carte (période du planning, état du lieu demandé) et « Voir la carte ». Le panneau reprend celui du suivi de commande (`order-sheet` : plein écran sur téléphone, glisse depuis la droite sur ordinateur). L'île est découpée en zones « lieu le plus proche » (`lib/water/cells.ts`, Voronoï maison, pas de dépendance) peintes sous la couche `water` du fond OpenFreeMap : la mer recoupe les zones au bord de l'eau, donc pas besoin du tracé de la côte. Premier planning lu en vrai (2 au 22 novembre, identique à l'image officielle). 2 nouveaux tests.
 
 - **Tours d'eau : relance automatique chaque jour par Vercel** (`c31d067`, 2026-11-20, main et develop). Demande de l'utilisateur : que la carte de l'eau se mette à jour toute seule, sans dépendre de lui. Le planning de la SMAE n'avait pas encore été lu (le clic sur « Relire maintenant » n'est pas arrivé au site, et GitHub n'avait pas encore lancé la nouvelle tâche toutes les heures). Ajouté : une relance Vercel chaque jour à 2 h UTC (5 h à Mayotte, `crons` dans `vercel.json`), qui appelle `/api/cron/eau` avec `CRON_SECRET` comme GitHub. GitHub reste toutes les heures pour voir vite un nouveau planning. Gemini ne lit que si la SMAE annonce un nouveau planning.
 
