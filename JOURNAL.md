@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `9f8d88a` (2026-11-20, feat/bienvenue-story, develop et main)**
+**Dernier commit noté : `bf3a254` (2026-11-20, feat/bienvenue-story, pas encore envoyé)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -63,6 +63,14 @@ Comment le tenir :
 
 ## Idées en attente
 
+### Conformité : reste à faire (noté le 2026-11-20)
+- Donner le prénom et le nom officiels → remplir `OWNER_NAME` dans `src/app/mentions-legales/page.tsx`, ajouter les liens (barre latérale, pied de l'accueil, AuthDialog), remplacer « GROUPE BTM est responsable » par l'EI dans /confidentialite.
+- S'inscrire auprès d'un médiateur de la consommation et le nommer dans /conditions (rubrique litiges).
+- Vérifier que la clé Gemini est en offre payante (l'offre gratuite est interdite pour des utilisateurs européens et peut servir à entraîner Google).
+- Portefeuille prépayé : vérifier avec Stripe que le montage n'oblige pas à un agrément de monnaie électronique.
+- Relais vocal : le `console.log` des 5 premiers messages Gemini peut garder des bouts de transcription dans les journaux Cloudflare ; à couper.
+- Règlement européen sur l'IA : vérifier l'obligation de marquage des contenus audio fabriqués par IA.
+
 ### Emploi : suite (noté le 2026-11-20)
 - Demander l'accès à l'API « Offres d'emploi v2 » par le formulaire de contact de francetravail.io ; une fois accordée, mettre `FRANCE_TRAVAIL_OFFRES=on` sur Vercel : la liste complète des offres (recherche, contrat, commune) s'allume.
 - Autres API déjà ajoutées à l'application : La Bonne Boîte (entreprises qui vont embaucher), agences France Travail de Mayotte, formations (Open Formation, Anotéa).
@@ -118,6 +126,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Conformité RGPD et IA : pages légales mises au vrai** (`bf3a254`, 2026-11-20, feat/bienvenue-story). Audit demandé « pour ne pas sauter ». /confidentialite disait que BTM ne recevait aucun son : faux depuis l'appel vocal (voix envoyée par le relais Cloudflare à Gemini Live) ; corrigé, voix de synthèse signalée. Prestataires ajoutés : Cloudflare (relais vocal), OVH (e-mails). Nouvelle rubrique « Pourquoi et combien de temps » (base légale et durée de chaque donnée, exigée par le RGPD). /conditions : lien vers la plateforme européenne des litiges retiré (fermée en juillet 2025). Nouvelle page /mentions-legales prête, mais en 404 tant que `OWNER_NAME` est vide (nom de l'entrepreneur pas encore donné) ; aucun lien vers elle pour l'instant. Brouillon d'analyse d'impact de l'empreinte de voix dans `Conformité/AIPD empreinte de voix.md` (hors dépôt).
 
 - **Sécurité : mises à jour PDF.js, Next.js et fflate** (`9f8d88a`, 2026-11-20, feat/bienvenue-story, develop `aee624e` et main `e56a558`). Audit rapide : PDF.js 5 laissait un PDF piégé lancer du code dans la page (faille haute, touche « Mes documents », la signature et « Lecture ») ; Next.js 16.4.3 avait 7 failles moyennes (cache, cookie) ; fflate 0.8.2 bouclait sans fin sur un ZIP malformé. Passés à PDF.js 6.5.438, Next.js 16.4.5 (et eslint-config-next), fflate 0.8.3. PDF.js 6 ferme un PDF par sa tâche de chargement : adapté dans `document-signe/pdf.ts` et `lecture/book-pdf.ts`. Vérifié : types, 52 tests PDF, `pnpm audit` sans faille. Reste à essayer un vrai PDF dans le navigateur. Le reste de l'audit (routes protégées, webhooks signés, tâches planifiées, pas de secret dans le code) était bon ; pas de CSP globale, à envisager.
 
