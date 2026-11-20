@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `2f35d0a` (2026-11-20, feat/bienvenue-story, develop et main)**
+**Dernier commit noté : `9f8d88a` (2026-11-20, feat/bienvenue-story)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -118,6 +118,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Sécurité : mises à jour PDF.js, Next.js et fflate** (`9f8d88a`, 2026-11-20, feat/bienvenue-story, pas encore sur develop ni main). Audit rapide : PDF.js 5 laissait un PDF piégé lancer du code dans la page (faille haute, touche « Mes documents », la signature et « Lecture ») ; Next.js 16.4.3 avait 7 failles moyennes (cache, cookie) ; fflate 0.8.2 bouclait sans fin sur un ZIP malformé. Passés à PDF.js 6.5.438, Next.js 16.4.5 (et eslint-config-next), fflate 0.8.3. PDF.js 6 ferme un PDF par sa tâche de chargement : adapté dans `document-signe/pdf.ts` et `lecture/book-pdf.ts`. Vérifié : types, 52 tests PDF, `pnpm audit` sans faille. Reste à essayer un vrai PDF dans le navigateur. Le reste de l'audit (routes protégées, webhooks signés, tâches planifiées, pas de secret dans le code) était bon ; pas de CSP globale, à envisager.
 
 - **Cartes de la conversation : un cadre autour de chaque carte** (`2f35d0a`, 2026-11-20, feat/bienvenue-story, develop et main). Demandé sur la tablette : icône, texte et bouton « Voir » flottaient sur le fond, on ne voyait pas que c'était un tableau. Nouvelle classe `.carte-cadre` (bordure fine, coins arrondis, fond un peu plus clair) sur Eau, Emploi, Cyclones, Itinéraire, Événements emploi et Suivi de commande. Vérifié : types, capture dans l'APK.
 - **Carte de l'eau : petit bouton « Voir » comme les autres cartes** (`e76ab00`, 2026-11-20, feat/bienvenue-story, develop et main). Demandé sur la tablette : le grand « Voir la carte » rose clair ne ressemblait pas aux boutons « Voir » des cartes Emploi et Cyclones. Même bouton maintenant (petit, rose plein, à droite du titre, une seule ligne) ; remplace la mise en page de `2511191`. Vérifié : types.
