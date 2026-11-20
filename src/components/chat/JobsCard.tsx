@@ -11,7 +11,7 @@ const FRESH_AFTER_MS = 3000;
 /** Lignes montrées d'un coup ; « Voir plus » ajoute la suite (des centaines d'offres ralentiraient le téléphone). */
 const STEP = 60;
 
-type Loaded = { offers: JobOffer[]; total: number; updatedAt: string };
+type Loaded = { offers: JobOffer[]; total: number; updatedAt: string; sources: string[] };
 type State = { status: "loading" } | ({ status: "ok" } & Loaded) | { status: "off" } | { status: "error"; message: string };
 
 const CONTRACTS: { id: JobContract | "tous"; label: string }[] = [
@@ -19,6 +19,7 @@ const CONTRACTS: { id: JobContract | "tous"; label: string }[] = [
   { id: "CDI", label: "CDI" },
   { id: "CDD", label: "CDD" },
   { id: "MIS", label: "Intérim" },
+  { id: "PUBLIC", label: "Fonction publique" },
   { id: "AUTRE", label: "Autres" },
 ];
 
@@ -34,6 +35,9 @@ function published(iso: string | null) {
   if (days < 7) return `il y a ${days} j`;
   return dayFmt.format(new Date(iso));
 }
+
+/** « jusqu'au 14 déc. » : date limite de candidature. */
+const deadlineOf = (day: string | null) => (day ? `jusqu'au ${dayFmt.format(new Date(`${day}T12:00:00Z`))}` : null);
 
 const plural = (n: number, word: string) => `${n.toLocaleString("fr-FR")} ${word}${n > 1 ? "s" : ""}`;
 
@@ -65,7 +69,7 @@ export function JobsCard({ spec }: { spec: JobsSpec }) {
         if (!alive) return;
         if ("error" in body) return setState({ status: "error", message: body.error });
         if (!body.configured) return setState({ status: "off" });
-        setState({ status: "ok", offers: body.offers, total: body.total, updatedAt: body.updatedAt });
+        setState({ status: "ok", offers: body.offers, total: body.total, updatedAt: body.updatedAt, sources: body.sources ?? [] });
         // Écrit à l'instant par Tamilya (pas relu dans l'historique) : la liste s'ouvre d'elle-même.
         if (autoOpen.current === null) {
           autoOpen.current = performance.now() > FRESH_AFTER_MS;
@@ -81,7 +85,7 @@ export function JobsCard({ spec }: { spec: JobsSpec }) {
   const data = state.status === "ok" ? state : null;
   const line =
     state.status === "loading"
-      ? "Je regarde les offres de France Travail…"
+      ? "Je regarde les offres…"
       : state.status === "ok"
         ? state.total
           ? `${plural(state.total, "offre")} en ce moment${spec.ville ? ` · ${spec.ville}` : ""}`
@@ -119,6 +123,12 @@ function JobsPanel({ data, spec, onClose }: { data: Loaded; spec: JobsSpec; onCl
     return [...count.entries()].sort((a, b) => a[0].localeCompare(b[0], "fr"));
   }, [data.offers]);
   const startTown = towns.find(([t]) => normalizeJobs(t) === normalizeJobs(spec.ville))?.[0] ?? "";
+
+  // Familles de contrat présentes : un filtre qui ne trie rien n'est pas montré.
+  const contracts = useMemo(() => {
+    const kinds = new Set(data.offers.map((o) => o.kind));
+    return kinds.size > 1 ? CONTRACTS.filter((c) => c.id === "tous" || kinds.has(c.id)) : [];
+  }, [data.offers]);
 
   const [query, setQuery] = useState(spec.metier);
   const [contract, setContract] = useState<JobContract | "tous">("tous");
@@ -194,8 +204,8 @@ function JobsPanel({ data, spec, onClose }: { data: Loaded; spec: JobsSpec; onCl
               type="search"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Métier, entreprise…"
-              aria-label="Chercher un métier ou une entreprise"
+              placeholder="Métier, employeur…"
+              aria-label="Chercher un métier ou un employeur"
               className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-fg-muted"
             />
             {query ? (
@@ -205,7 +215,7 @@ function JobsPanel({ data, spec, onClose }: { data: Loaded; spec: JobsSpec; onCl
             ) : null}
           </label>
           <div className="flex items-center gap-1.5 overflow-x-auto">
-            {CONTRACTS.map((c) => (
+            {contracts.map((c) => (
               <button
                 key={c.id}
                 type="button"
@@ -246,9 +256,9 @@ function JobsPanel({ data, spec, onClose }: { data: Loaded; spec: JobsSpec; onCl
                         {[o.company, o.place].filter(Boolean).join(" · ") || "Mayotte"}
                       </span>
                       <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-fg-muted">
-                        <span className="rounded-full bg-bg-subtle px-2 py-0.5 font-semibold text-fg">{o.kind === "MIS" ? "Intérim" : o.kind === "AUTRE" ? (o.contract ?? "Autre") : o.kind}</span>
+                        <span className="rounded-full bg-bg-subtle px-2 py-0.5 font-semibold text-fg">{o.kind === "MIS" ? "Intérim" : o.kind === "AUTRE" || o.kind === "PUBLIC" ? (o.contract ?? "Autre") : o.kind}</span>
                         {o.hours ? <span>{o.hours}</span> : null}
-                        {published(o.date) ? <span>· {published(o.date)}</span> : null}
+                        {deadlineOf(o.deadline) ? <span>· {deadlineOf(o.deadline)}</span> : published(o.date) ? <span>· {published(o.date)}</span> : null}
                       </span>
                     </span>
                     <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-fg-muted" />
@@ -279,7 +289,8 @@ function JobsPanel({ data, spec, onClose }: { data: Loaded; spec: JobsSpec; onCl
             </button>
           ) : null}
           <p className="px-3 pt-2 text-center text-[11px] text-fg-muted">
-            Offres publiées sur France Travail, lues à {clock.format(new Date(data.updatedAt))}. Touche une offre pour la lire et postuler.
+            {data.sources.includes("France Travail") ? null : "Postes des mairies, du Département et des intercommunalités. "}
+            Offres publiées sur {data.sources.join(" et ") || "les sites d'emploi"}, lues à {clock.format(new Date(data.updatedAt))}. Touche une offre pour la lire et postuler.
           </p>
         </div>
       </div>

@@ -119,8 +119,8 @@ export type PromptContext = {
   cyclone?: CycloneZone | null;
   /** Ce message parle de l'eau courante (detectWater) : la carte de l'eau s'ouvre ; résumé du planning SMAE et lieu à montrer. */
   water?: { place: string; summary: string } | null;
-  /** Ce message demande des offres d'emploi (detectJobs) : la liste des offres de Mayotte s'ouvre ; la commune est déjà lue (jobsTownFor). */
-  jobs?: Pick<JobsSpec, "ville"> | null;
+  /** Ce message demande des offres d'emploi (detectJobs) : la liste des offres de Mayotte s'ouvre ; la commune est déjà lue (jobsTownFor) ; sites lus (« Emploi Territorial »…). */
+  jobs?: (Pick<JobsSpec, "ville"> & { sources: string[] }) | null;
   /**
    * Prochains événements emploi à Mayotte (France Travail), une ligne chacun. `asked` : la personne les demande
    * (detectEvents, la carte s'ouvre) ; sinon elle ne sait pas quoi faire de ses journées (detectIdle) et Tamilya
@@ -702,7 +702,12 @@ export function buildSystemPrompt(
         "POUR CE MESSAGE : la personne veut voir les offres d'emploi à Mayotte.",
         "Une ou deux phrases simples et encourageantes, puis ce bloc, seul sur ses lignes. Après « metier: », mets le métier ou le mot qu'elle cherche s'il y en a un (« infirmier », « chauffeur », « BTP »), sinon rien ; ne change pas la ligne « ville: » :",
         `\`\`\`offres-emploi\nmetier: <métier cherché ou rien>\nville: ${context.jobs.ville}\n\`\`\``,
-        "Le bloc affiche toutes les offres en cours publiées sur France Travail, avec une recherche, le type de contrat et la commune, et le lien pour postuler : tu ne recopies pas la liste. Tu peux citer une ou deux offres récentes des informations du moment si elles collent à sa demande. Tu n'inventes jamais une offre, un salaire ni un employeur.",
+        `Le bloc affiche toutes les offres en cours publiées sur ${context.jobs.sources.join(" et ")}, avec une recherche, la commune, la date limite et le lien pour postuler : tu ne recopies pas la liste. Tu peux citer une ou deux offres récentes des informations du moment si elles collent à sa demande. Tu n'inventes jamais une offre, un salaire ni un employeur.`,
+        ...(context.jobs.sources.includes("France Travail")
+          ? []
+          : [
+              "Ce que tu sais de cette liste : ce sont les postes de la fonction publique territoriale (mairies, Département, intercommunalités…), pas les offres des entreprises privées, que tu ne peux pas encore lire. Fais-le comprendre à ta façon, sans en faire tout un discours ; pour le privé, elle peut chercher sur francetravail.fr.",
+            ]),
       ].join("\n"),
     );
   }

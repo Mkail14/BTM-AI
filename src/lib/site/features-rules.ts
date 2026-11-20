@@ -20,7 +20,7 @@ export const FEATURES = [
   {
     id: "emploi",
     label: "Offres d'emploi",
-    description: "Toutes les offres d'emploi en cours à Mayotte (France Travail), avec recherche et filtres, quand on les demande à Tamilya. Attend l'accès à l'API Offres d'emploi (FRANCE_TRAVAIL_OFFRES=on).",
+    description: "Les offres d'emploi en cours à Mayotte, avec recherche et filtres, quand on les demande à Tamilya : postes des mairies, du Département… (Emploi Territorial) ; France Travail s'y ajoutera quand l'accès à son API sera accordé (FRANCE_TRAVAIL_OFFRES=on).",
     default: true,
   },
   {

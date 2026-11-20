@@ -23,13 +23,14 @@ const when = (iso: string | null) => (iso ? day.format(new Date(iso)) : "date in
 async function jobsBlock(): Promise<string | null> {
   const result = await getMayotteJobs();
   if (!result.configured) return null;
-  if (!result.offers.length) return "Offres d'emploi à Mayotte (France Travail) : aucune offre récupérée pour l'instant.";
+  const from = result.sources.join(" et ");
+  if (!result.offers.length) return `Offres d'emploi à Mayotte (${from}) : aucune offre récupérée pour l'instant.`;
   return [
-    `Offres d'emploi à Mayotte, publiées sur France Travail (${result.total} en ce moment ; les ${Math.min(JOBS_IN_PROMPT, result.offers.length)} plus récentes) :`,
+    `Offres d'emploi à Mayotte, publiées sur ${from} (${result.total} en ce moment ; les ${Math.min(JOBS_IN_PROMPT, result.offers.length)} plus récentes) :`,
     ...result.offers.slice(0, JOBS_IN_PROMPT).map(
-      (o) => `- ${o.title}${o.company ? ` — ${o.company}` : ""}${o.place ? `, ${o.place}` : ""}${o.contract ? ` (${o.contract})` : ""}, le ${when(o.date)} : ${o.link}`,
+      (o) =>
+        `- ${o.title}${o.company ? ` — ${o.company}` : ""}${o.place ? `, ${o.place}` : ""}${o.contract ? ` (${o.contract})` : ""}, publiée le ${when(o.date)}${o.deadline ? `, candidature jusqu'au ${when(o.deadline)}` : ""} : ${o.link}`,
     ),
-    "Pour en voir plus : https://candidat.francetravail.fr/offres/recherche?lieux=976D",
   ].join("\n");
 }
 

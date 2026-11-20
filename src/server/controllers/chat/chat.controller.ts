@@ -8,7 +8,7 @@ import { CYCLONE_BLOCK, cycloneBlock, cycloneZoneFor, detectCyclone } from "@/li
 import { WATER_BLOCK, detectWater, waterBlock } from "@/lib/water/intent";
 import { waterContext } from "@/server/services/water/context";
 import { detectJobs, JOBS_BLOCK, jobsBlock, jobsTownFor } from "@/lib/emploi/intent";
-import { jobsConfigured } from "@/server/services/live/jobs";
+import { jobsSources } from "@/server/services/live/jobs";
 import { detectEvents, detectIdle, EVENTS_BLOCK, eventLine, eventsBlock } from "@/lib/emploi/events";
 import { eventsConfigured, getMayotteEvents } from "@/server/services/live/events";
 
@@ -497,8 +497,8 @@ export async function POST(request: NextRequest) {
   // Eau courante demandée (« y a de l'eau à Koungou ? ») : la carte de l'eau s'ouvre à coup sûr (planning officiel de la SMAE).
   const water = !body.voice && features.includes("eau") && detectWater(body.message) ? await waterContext(body.message).catch(() => null) : null;
   // Offres d'emploi demandées (« montre-moi les offres », « qui recrute à Koungou ? ») : la liste s'ouvre à coup sûr,
-  // seulement si les clés France Travail sont posées (sinon la carte n'aurait rien à montrer).
-  const jobs = !body.voice && features.includes("emploi") && jobsConfigured() && detectJobs(body.message) ? { ville: jobsTownFor(body.message) } : null;
+  // avec les sites lus (Emploi Territorial toujours, France Travail quand l'accès est accordé).
+  const jobs = !body.voice && features.includes("emploi") && detectJobs(body.message) ? { ville: jobsTownFor(body.message), sources: jobsSources() } : null;
   // Événements emploi (job datings, réunions, ateliers) : demandés (la carte s'ouvre à coup sûr), ou la personne
   // ne sait pas quoi faire de ses journées (Tamilya peut en parler d'elle-même, si ça colle). Lus en 3 s au plus.
   const eventsWanted = !body.voice && features.includes("evenements") && eventsConfigured();

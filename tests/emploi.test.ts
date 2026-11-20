@@ -60,3 +60,49 @@ describe("événements emploi", async () => {
     assert.match(line, /jeudi 26 novembre.*08:30.*Mamoudzou.*10 places/);
   });
 });
+
+describe("offres d'emploi : flux Emploi Territorial", () => {
+  const item = (guid: string, title: string, employer: string, place: string, deadline: string, type = "Emploi permanent - vacance d'emploi") => `
+    <item>
+      <guid isPermaLink="false">https://www.emploi-territorial.fr/:${guid}</guid>
+      <title><![CDATA[${title}]]></title>
+      <link><![CDATA[https://www.emploi-territorial.fr/offre/${guid.toLowerCase()}-poste?mtm_campaign=rss]]></link>
+      <description><![CDATA[
+        <div class="employeur"><strong>Employeur : </strong> ${employer}</div>
+        <div class="metier"><strong>Métier(s) : </strong> Chargé d&#039;accueil</div>
+        <div class="datecand"><strong>Date limite de candidature : </strong> ${deadline}</div>
+        <div class="typeemploi"><strong>Type d'emploi : </strong> ${type}</div>
+        <div class="tempstravail"><strong>Temps de travail : </strong> Temps complet (35h00)</div>
+        <div class="lieutravail"><strong>Lieu de travail : </strong> ${place}</div>
+      ]]></description>
+      <pubDate>Fri, 13 Nov 2026 00:00:00 +0000</pubDate>
+    </item>`;
+  const xml = `<rss><channel><title>Emploi-Territorial</title>${item("O976261112000177", "Agent (e ) administratif (ve)", "COMMUNE DE CHIRONGUI", "Chirongui", "14/12/2026")}${item("O976261112000200", "Gardien", "CONSEIL DEPARTEMENTAL DE MAYOTTE", "M'Tsangamouji", "01/12/2026", "Remplacement temporaire d'un agent sur emploi permanent")}</channel></rss>`;
+
+  it("lit chaque offre avec employeur, commune, date limite et lien propre", async () => {
+    const { parseTerritorialRss } = await import("@/server/services/live/emploi-territorial");
+    const [first, second] = parseTerritorialRss(xml);
+    assert.equal(first.id, "et-O976261112000177");
+    assert.equal(first.title, "Agent (e ) administratif (ve)");
+    assert.equal(first.company, "Commune de Chirongui");
+    assert.equal(first.place, "Chirongui");
+    assert.equal(first.contract, "Emploi permanent");
+    assert.equal(first.kind, "PUBLIC");
+    assert.equal(first.job, "Chargé d'accueil");
+    assert.equal(first.hours, "Temps complet (35h00)");
+    assert.equal(first.deadline, "2026-12-14");
+    assert.equal(first.date, "2026-11-13T00:00:00.000Z");
+    assert.equal(first.source, "Emploi Territorial");
+    assert.equal(first.link, "https://www.emploi-territorial.fr/offre/o976261112000177-poste");
+    // « M'Tsangamouji » devient la commune telle que la liste l'écrit, pour que le filtre de commune les regroupe.
+    assert.equal(second.place, "Mtsangamouji");
+    assert.equal(second.company, "Conseil Departemental de Mayotte");
+    assert.equal(second.contract, "Remplacement");
+  });
+
+  it("ignore un élément sans titre ou avec un lien étranger", async () => {
+    const { parseTerritorialRss } = await import("@/server/services/live/emploi-territorial");
+    const bad = `<rss><item><title>Pub</title><link>https://exemple.com/x</link></item><item><title></title><link>https://www.emploi-territorial.fr/offre/x</link></item></rss>`;
+    assert.deepEqual(parseTerritorialRss(bad), []);
+  });
+});

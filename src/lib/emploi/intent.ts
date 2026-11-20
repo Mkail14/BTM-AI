@@ -1,7 +1,8 @@
 /**
  * Offres d'emploi demandées (« montre-moi les offres d'emploi », « qui recrute à Koungou ? ») :
  * lu par le serveur sur le message. Le bloc ```offres-emploi``` ouvre, dans la conversation,
- * toutes les offres de Mayotte publiées sur France Travail (recherche, contrat, commune).
+ * les offres en cours à Mayotte : Emploi Territorial (fonction publique territoriale), et France Travail
+ * le jour où l'accès à son API est accordé (recherche, contrat, commune).
  */
 
 /** Bloc remplacé dans la conversation par la liste des offres (JobsCard). */
@@ -55,17 +56,17 @@ const ASK_JOBS = new RegExp(
 /** La personne veut voir des offres d'emploi. */
 export const detectJobs = (message: string) => ASK_JOBS.test(normalizeJobs(message));
 
-/** Les 17 communes de Mayotte, telles que France Travail les écrit (sans accents, en minuscules). */
+/** Les 17 communes de Mayotte : motif sans accents, nom affiché. */
 const COMMUNES: [RegExp, string][] = [
   [/\bacoua\b/, "Acoua"],
   [/\bbandraboua\b/, "Bandraboua"],
-  [/\bbandrele\b/, "Bandrele"],
-  [/\bboueni\b/, "Boueni"],
+  [/\bbandrele\b/, "Bandrélé"],
+  [/\bboueni\b/, "Bouéni"],
   [/\bchiconi\b/, "Chiconi"],
   [/\bchirongui\b/, "Chirongui"],
-  [/\bdembeni\b/, "Dembeni"],
+  [/\bdembeni\b/, "Dembéni"],
   [/\b(?:dzaoudzi|labattoir)\b/, "Dzaoudzi"],
-  [/\bkani k?eli\b/, "Kani-Keli"],
+  [/\bkani k?eli\b/, "Kani-Kéli"],
   [/\bkoungou\b/, "Koungou"],
   [/\b(?:mamoudzou|kaweni|cavani|mtsapere|passamainty|tsoundzou)\b/, "Mamoudzou"],
   [/\bmtsamboro\b/, "Mtsamboro"],
@@ -86,8 +87,8 @@ export function jobsTownFor(message: string): string {
 /* Données envoyées à la liste                                                */
 /* -------------------------------------------------------------------------- */
 
-/** Famille de contrat, pour les filtres : CDI, CDD, intérim, ou autre (saisonnier, libéral…). */
-export type JobContract = "CDI" | "CDD" | "MIS" | "AUTRE";
+/** Famille de contrat, pour les filtres : CDI, CDD, intérim, fonction publique (mairies, Département…), ou autre (saisonnier, libéral…). */
+export type JobContract = "CDI" | "CDD" | "MIS" | "PUBLIC" | "AUTRE";
 
 export type JobOffer = {
   id: string;
@@ -105,10 +106,14 @@ export type JobOffer = {
   job: string | null;
   /** Publication, heure ISO. */
   date: string | null;
+  /** Date limite de candidature (« 2026-12-14 ») ; null : pas annoncée. */
+  deadline: string | null;
+  /** Site d'où vient l'offre (« Emploi Territorial », « France Travail »). */
+  source: string;
   link: string;
 };
 
 export type JobsResponse =
-  | { configured: true; offers: JobOffer[]; total: number; updatedAt: string }
+  | { configured: true; offers: JobOffer[]; total: number; updatedAt: string; sources: string[] }
   | { configured: false }
   | { error: string };
