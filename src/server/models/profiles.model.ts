@@ -18,7 +18,8 @@ export const getProfile = cache(async (supabase: SupabaseClient, userId: string)
   // undefined : colonne absente (migration non appliquée), le choix n'est pas proposé.
   const personality: PersonalityId | null | undefined =
     data && "personality" in data ? (isPersonalityId(data.personality) ? data.personality : null) : undefined;
-  return { displayName: (data?.display_name as string | null) ?? null, personality };
+  const createdAt = typeof data?.created_at === "string" ? data.created_at : null;
+  return { displayName: (data?.display_name as string | null) ?? null, personality, createdAt };
 });
 
 export async function updatePersonality(

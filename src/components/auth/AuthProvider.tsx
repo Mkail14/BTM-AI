@@ -9,6 +9,7 @@ import { APP_USER_AGENT } from "@/components/ui/ThemeScript";
 import dynamic from "next/dynamic";
 import type { AuthDialogOptions } from "./AuthDialog";
 import type { FeatureId } from "@/lib/site/features-rules";
+import { welcomeDone } from "@/lib/welcome";
 
 /** Client Supabase du navigateur, chargé à la demande (hors du premier chargement de chaque page). */
 const loadSupabase = () => import("@/lib/supabase/client").then((m) => m.getSupabaseBrowserClient());
@@ -27,6 +28,8 @@ export type AuthUser = {
   personality?: PersonalityId | null;
   /** Fonctionnalités allumées pour cette personne (/admin/fonctionnalites) : affichage seulement, le serveur revérifie. */
   features?: FeatureId[];
+  /** Compte créé il y a moins de 3 jours : la page /bienvenue est proposée une fois. */
+  newAccount?: boolean;
 };
 
 type AuthContextValue = {
@@ -180,6 +183,17 @@ export function AuthProvider({
       window.setTimeout(() => void signOut(), 0);
     }
   }, [signOut]);
+
+  // Premiers pas (/bienvenue) : une fois par appareil, pour un compte qui vient d'être créé ou
+  // dans l'app qui vient d'être installée. Seulement depuis l'accueil, jamais au milieu d'une page.
+  const userId = user?.id;
+  const newAccount = user?.newAccount === true;
+  useEffect(() => {
+    if (!userId || window.location.pathname !== "/") return;
+    if (!newAccount && !navigator.userAgent.includes(APP_USER_AGENT)) return;
+    if (welcomeDone(userId)) return;
+    router.push("/bienvenue");
+  }, [userId, newAccount, router]);
 
   const value = useMemo(
     () => ({ user, authAvailable, openAuthDialog, signOut }),

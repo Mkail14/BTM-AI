@@ -19,6 +19,9 @@ import { isSupabaseConfigured } from "@/lib/supabase/config";
 import { userFeatures } from "@/server/services/site/features";
 import "./globals.css";
 
+/** Durée pendant laquelle un compte est « nouveau » (page /bienvenue proposée). */
+const NEW_ACCOUNT_MS = 3 * 24 * 60 * 60 * 1000;
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -54,13 +57,16 @@ async function loadInitialUser(): Promise<AuthUser | null> {
   if (!supabase || !user) return null;
   let displayName: string | null = null;
   let personality: AuthUser["personality"];
+  let createdAt: string | null = null;
   try {
-    ({ displayName, personality } = await getProfile(supabase, user.id));
+    ({ displayName, personality, createdAt } = await getProfile(supabase, user.id));
   } catch {
     // Profil indisponible (migrations non appliquées ?) : sans incidence sur la session.
   }
   const features = await userFeatures(user);
-  return { id: user.id, email: user.email, displayName, isAdmin: user.isAdmin, personality, features };
+  // Compte de moins de 3 jours : la page /bienvenue lui est proposée une fois.
+  const newAccount = createdAt !== null && Date.now() - Date.parse(createdAt) < NEW_ACCOUNT_MS;
+  return { id: user.id, email: user.email, displayName, isAdmin: user.isAdmin, personality, features, newAccount };
 }
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
