@@ -1,18 +1,18 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getAuthContext } from "@/server/middlewares/session";
-import { disconnectDrive, isDriveConnected } from "@/server/services/drive/connection";
+import { disconnectDrive, driveEmail } from "@/server/services/drive/connection";
 import { isSameOrigin } from "@/server/middlewares/request";
 import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
 
 const NO_STORE = { "Cache-Control": "no-store" };
 
-/** Le compte a-t-il relié son Google Drive ? */
+/** Le compte a-t-il relié son Google Drive, et lequel ? */
 export async function GET() {
   const { user } = await getAuthContext();
   const admin = getSupabaseAdminClient();
   if (!user || !admin) return NextResponse.json({ connected: false }, { headers: NO_STORE });
-  const connected = await isDriveConnected(admin, user.id).catch(() => false);
-  return NextResponse.json({ connected }, { headers: NO_STORE });
+  const link = await driveEmail(admin, user.id).catch(() => null);
+  return NextResponse.json({ connected: link !== null, email: link?.email ?? null }, { headers: NO_STORE });
 }
 
 /** Déconnecte le Drive : les fichiers y restent. */

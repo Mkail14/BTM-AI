@@ -13,6 +13,13 @@ export async function isDriveConnected(admin: SupabaseClient, userId: string): P
   return data !== null;
 }
 
+/** Adresse du compte Google où vont les documents ; null si le Drive n’est pas relié. */
+export async function driveEmail(admin: SupabaseClient, userId: string): Promise<{ email: string | null } | null> {
+  const { data, error } = await admin.from(TABLE).select("google_email").eq("user_id", userId).maybeSingle();
+  if (error) throw new Error("Lecture du lien Google Drive impossible");
+  return data ? { email: (data.google_email as string | null) ?? null } : null;
+}
+
 export async function saveDriveConnection(admin: SupabaseClient, userId: string, refreshToken: string, email: string | null): Promise<void> {
   const { error } = await admin
     .from(TABLE)

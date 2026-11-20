@@ -10,6 +10,7 @@ import dynamic from "next/dynamic";
 import type { AuthDialogOptions } from "./AuthDialog";
 import type { FeatureId } from "@/lib/site/features-rules";
 import { welcomeDone } from "@/lib/welcome";
+import { rememberLastLogin } from "@/lib/auth/last-login";
 
 /** Client Supabase du navigateur, chargé à la demande (hors du premier chargement de chaque page). */
 const loadSupabase = () => import("@/lib/supabase/client").then((m) => m.getSupabaseBrowserClient());
@@ -130,6 +131,9 @@ export function AuthProvider({
     void loadSupabase().then((supabase) => {
       if (!supabase || cancelled) return;
       const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      // Rappel « Dernière connexion » de l’écran de connexion (session ouverte ou retrouvée).
+      const login = session?.user;
+      if (login?.email) rememberLastLogin({ email: login.email, google: login.app_metadata?.provider === "google" });
       if (event === "SIGNED_OUT") {
         clearAnonymousDraft();
         setUser(null);

@@ -20,6 +20,8 @@ import {
 } from "@/lib/auth/signup";
 import { hasNativeGoogle, nativeGoogleSignIn, renderGoogleButton, subscribeNativeGoogle, watchGoogleButton } from "@/lib/auth/google-identity";
 import { PASSWORD_RESET_DELAY_SECONDS, PASSWORD_RESET_ERRORS, requestPasswordReset } from "@/lib/auth/password-reset";
+import { maskEmail } from "@/app/parametres/mask-email";
+import { readLastLogin } from "@/lib/auth/last-login";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { AuthUser } from "./AuthProvider";
 
@@ -169,6 +171,8 @@ function AuthPanel({
   const [welcome, setWelcome] = useState(authAvailable);
   // L'adresse est partagée entre les écrans : pas besoin de la retaper.
   const [email, setEmail] = useState("");
+  // Dernier compte connecté sur cet appareil : rappelé pour qui a oublié son mail.
+  const [lastLogin] = useState(readLastLogin);
   const next = options.next ?? "/";
   const isSignup = view === "signup";
   // Passage d'un écran à l'autre : le focus suit (le bouton touché disparaît avec son écran).
@@ -260,6 +264,22 @@ function AuthPanel({
           </p>
         ) : null}
         <div className="mt-auto w-full max-w-[400px] pt-[clamp(14px,3vh,30px)]">
+          {lastLogin && !isSignup ? (
+            <button
+              type="button"
+              onClick={() => {
+                if (lastLogin.google) return;
+                setEmail(lastLogin.email);
+                setWelcome(false);
+              }}
+              className="mb-3 flex w-full items-center gap-3 rounded-2xl bg-fg/[0.05] px-4 py-2.5 text-left transition hover:bg-fg/[0.08]"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block text-xs text-fg-muted">Dernière connexion{lastLogin.google ? " avec Google" : ""}</span>
+                <span className="block truncate text-sm font-medium">{maskEmail(lastLogin.email)}</span>
+              </span>
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => setWelcome(false)}
