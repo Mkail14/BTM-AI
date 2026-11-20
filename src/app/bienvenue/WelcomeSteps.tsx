@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState, type ComponentType, type ReactNode, type SVGProps } from "react";
+import { useEffect, useRef, useState, type ComponentType, type ReactNode, type SVGProps } from "react";
 import { IconFolder, IconLanguage, IconLock, IconMic, IconShield, IconUser, IconWallet } from "@/components/ui/icons";
 import { maskEmail } from "../parametres/mask-email";
 import { markWelcomeDone, WELCOME_LANGUAGES, type WelcomeLanguage } from "@/lib/welcome";
@@ -10,7 +10,10 @@ import { saveWelcomeLanguage, saveWelcomeName, type WelcomeResult } from "./acti
 import { WelcomeVoice } from "./WelcomeVoice";
 
 /** Bouton principal : le rose plein du site, sur toute la largeur. */
-const MAIN = "btn-rose h-13 w-full rounded-full text-base font-semibold disabled:opacity-50";
+const MAIN = "btn-rose h-13 w-full rounded-full text-base font-semibold disabled:opacity-50 sm:flex-1";
+
+/** Glissé de gauche à droite (n'importe où sur l'écran) : étape d'avant. */
+const SWIPE_MIN = 70;
 
 type StepId = "prenom" | "langue" | "micro" | "code" | "voix" | "donnees" | "recharge";
 
@@ -66,6 +69,9 @@ export function WelcomeSteps({ userId, hasName, wallet, email, documents }: Prop
   const router = useRouter();
   const [steps, setSteps] = useState<StepId[] | null>(null);
   const [index, setIndex] = useState(0);
+  // Sens de l'arrivée de l'étape : de la droite (suivante) ou de la gauche (retour par glissé).
+  const [back, setBack] = useState(false);
+  const touch = useRef<{ x: number; y: number } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -110,12 +116,25 @@ export function WelcomeSteps({ userId, hasName, wallet, email, documents }: Prop
     router.replace(path);
   }
 
-  function next() {
+  function clear() {
     setError(null);
     setNotice(null);
     setNewEmail(null);
+  }
+
+  function next() {
+    clear();
+    setBack(false);
     if (!steps || index >= steps.length - 1) return finish();
     setIndex(index + 1);
+  }
+
+  function previous() {
+    if (index === 0 || busy) return;
+    clear();
+    setVoiceConsent(false);
+    setBack(true);
+    setIndex(index - 1);
   }
 
   async function run(task: () => Promise<WelcomeResult>) {
@@ -333,10 +352,25 @@ export function WelcomeSteps({ userId, hasName, wallet, email, documents }: Prop
   }
 
   return (
-    <main className="relative flex h-dvh flex-col overflow-hidden bg-bg text-fg">
+    <main
+      className="relative flex h-dvh flex-col overflow-hidden bg-bg text-fg"
+      onTouchStart={(event) => {
+        const point = event.touches[0];
+        touch.current = point ? { x: point.clientX, y: point.clientY } : null;
+      }}
+      onTouchEnd={(event) => {
+        const start = touch.current;
+        const point = event.changedTouches[0];
+        touch.current = null;
+        if (!start || !point) return;
+        const dx = point.clientX - start.x;
+        // Glissé franc vers la droite, plus horizontal que vertical.
+        if (dx > SWIPE_MIN && Math.abs(point.clientY - start.y) < dx / 2) previous();
+      }}
+    >
       <div aria-hidden="true" className="fond-lagon fond-lagon--page" />
       <form
-        className="relative z-10 mx-auto flex h-full w-full max-w-md flex-col px-6 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]"
+        className="relative z-10 flex h-full w-full flex-col px-4 pt-[calc(0.75rem+env(safe-area-inset-top))] pb-[calc(1rem+env(safe-area-inset-bottom))]"
         onSubmit={(event) => {
           event.preventDefault();
           if (busy) return;
@@ -355,7 +389,8 @@ export function WelcomeSteps({ userId, hasName, wallet, email, documents }: Prop
           ))}
         </div>
 
-        <div key={step} className="bienvenue-step flex flex-1 flex-col items-center justify-center text-center">
+        <div key={step} className={`${back ? "bienvenue-step-back" : "bienvenue-step"} mx-auto flex w-full max-w-md flex-1 px-2`}>
+        <div className="flex flex-1 flex-col items-center justify-center text-center">
           <span className="grid size-20 place-items-center rounded-[1.6rem] bg-accent text-accent-fg shadow-[0_12px_32px_-12px_var(--accent)]">
             <Icon width={36} height={36} />
           </span>
@@ -373,12 +408,19 @@ export function WelcomeSteps({ userId, hasName, wallet, email, documents }: Prop
             </p>
           ) : null}
         </div>
+        </div>
 
-        <div className="flex flex-col items-center gap-4">
-          {action}
-          <button type="button" disabled={busy} onClick={next} className="px-4 py-1 text-sm text-fg-muted transition hover:text-fg disabled:opacity-50">
+        {/* Téléphone : bouton puis « Plus tard » dessous. Tablette : côte à côte, « Plus tard » à gauche. */}
+        <div className="mx-auto flex w-full max-w-md flex-col-reverse items-center gap-4 px-2 sm:max-w-xl sm:flex-row sm:gap-3">
+          <button
+            type="button"
+            disabled={busy}
+            onClick={next}
+            className={`px-4 py-1 text-sm text-fg-muted transition hover:text-fg disabled:opacity-50 sm:h-13 sm:rounded-full sm:bg-fg/[0.06] sm:text-base sm:font-medium ${action ? "sm:flex-1" : "sm:mx-auto sm:px-10"}`}
+          >
             Plus tard
           </button>
+          {action}
         </div>
       </form>
     </main>
