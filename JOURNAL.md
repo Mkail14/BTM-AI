@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `25fe578` (2026-11-20, feat/bienvenue-story)**
+**Dernier commit noté : `1f4b23f` (2026-11-20, feat/bienvenue-story)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -118,6 +118,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Carte de l'eau : bouton « Voir la carte » sur le côté** (`1f4b23f`, 2026-11-20, branche feat/bienvenue-story). Retour de l'utilisateur : le bouton prenait toute la largeur pour rien. Il est maintenant petit, à droite du titre « L'eau à Mayotte en ce moment » ; le lieu demandé reste dessous. Vérifié : types.
 
 - **Carte de l'eau : bouton « Voir la carte » mis en lumière** (`25fe578`, 2026-11-20, branche feat/bienvenue-story). Retour de l'utilisateur : le bouton paraissait sombre, on ne voyait pas que c'était un bouton. Il garde son rose plein, mais en plus clair (rose de Tamilya mêlé de blanc), avec une lueur rose autour, une icône de carte devant et une flèche après. Vérifié : types.
 
