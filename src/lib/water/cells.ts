@@ -1,20 +1,21 @@
+import { ISLANDS } from "./coast";
+
 /**
- * Découpe Mayotte en zones : chaque endroit revient au lieu le plus proche (cellules de Voronoï).
- * La carte peint ces zones sous la mer du fond de carte : la mer les recoupe au bord de l'eau,
- * et toute l'île apparaît colorée, village par village.
+ * Découpe Mayotte en zones : chaque endroit de Grande-Terre et de Petite-Terre revient au lieu le
+ * plus proche (cellules de Voronoï), découpées dans le vrai contour des deux îles. Les couleurs
+ * s'arrêtent au bord de mer, et les îlots restent sans couleur.
  */
 
 type Pt = [number, number];
 
-/** Cadre découpé : Mayotte entière avec de la marge (lng, lat). */
-const FRAME: [Pt, Pt] = [
-  [44.85, -13.15],
-  [45.45, -12.5],
-];
 const LAT0 = -12.82;
 const K = Math.cos((LAT0 * Math.PI) / 180);
 
-/** Garde la partie du polygone du côté de `p` par rapport à la médiatrice de p et q. */
+/**
+ * Garde la partie du polygone du côté de `p` par rapport à la médiatrice de p et q. Marche aussi
+ * pour un contour creusé (une côte) : là où il sort puis revient, il reste un bord plat sur la
+ * médiatrice, sans surface.
+ */
 function clip(poly: Pt[], p: Pt, q: Pt): Pt[] {
   const nx = q[0] - p[0];
   const ny = q[1] - p[1];
@@ -35,33 +36,37 @@ function clip(poly: Pt[], p: Pt, q: Pt): Pt[] {
   return out;
 }
 
+/** Calcul à plat : longitude resserrée par cos(latitude) pour garder des distances justes. */
+const flat = (lng: number, lat: number): Pt => [lng * K, lat];
+const ISLANDS_FLAT = ISLANDS.map((ring) => {
+  const closed = ring[0]![0] === ring.at(-1)![0] && ring[0]![1] === ring.at(-1)![1];
+  return (closed ? ring.slice(0, -1) : ring).map(([lng, lat]) => flat(lng, lat));
+});
+
 /**
- * Une zone (anneau fermé [lng, lat]) par lieu, dans le même ordre ; `null` pour un lieu en double
- * (même position qu'un précédent) ou hors du cadre.
+ * Une zone par lieu, dans le même ordre : liste d'anneaux fermés [lng, lat] (un par île touchée),
+ * ou `null` pour un lieu en double (même position qu'un précédent) ou sans terre à lui.
  */
-export function waterCells(points: readonly { lat: number; lng: number }[]): ([number, number][] | null)[] {
-  // Calcul à plat : longitude resserrée par cos(latitude) pour garder des distances justes.
-  const xy = points.map((p): Pt => [p.lng * K, p.lat]);
-  const box: Pt[] = [
-    [FRAME[0][0] * K, FRAME[0][1]],
-    [FRAME[1][0] * K, FRAME[0][1]],
-    [FRAME[1][0] * K, FRAME[1][1]],
-    [FRAME[0][0] * K, FRAME[1][1]],
-  ];
+export function waterCells(points: readonly { lat: number; lng: number }[]): ([number, number][][] | null)[] {
+  const xy = points.map((p) => flat(p.lng, p.lat));
   const seen = new Set<string>();
   return xy.map((p, i) => {
     const key = `${p[0].toFixed(6)},${p[1].toFixed(6)}`;
-    if (seen.has(key) || p[0] < box[0]![0] || p[0] > box[1]![0] || p[1] < box[0]![1] || p[1] > box[2]![1]) return null;
+    if (seen.has(key)) return null;
     seen.add(key);
-    let poly = box;
-    for (let j = 0; j < xy.length && poly.length; j++) {
-      const q = xy[j]!;
-      if (j === i || (q[0] === p[0] && q[1] === p[1])) continue;
-      poly = clip(poly, p, q);
+    const rings: [number, number][][] = [];
+    for (const island of ISLANDS_FLAT) {
+      let poly = island;
+      for (let j = 0; j < xy.length && poly.length; j++) {
+        const q = xy[j]!;
+        if (j === i || (q[0] === p[0] && q[1] === p[1])) continue;
+        poly = clip(poly, p, q);
+      }
+      if (poly.length < 3) continue;
+      const ring = poly.map(([x, y]): [number, number] => [x / K, y]);
+      ring.push(ring[0]!);
+      rings.push(ring);
     }
-    if (poly.length < 3) return null;
-    const ring = poly.map(([x, y]): [number, number] => [x / K, y]);
-    ring.push(ring[0]!);
-    return ring;
+    return rings.length ? rings : null;
   });
 }

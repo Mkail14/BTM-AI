@@ -8,9 +8,8 @@ import { waterCells } from "@/lib/water/cells";
 import type { WaterSpot } from "@/lib/water/map";
 
 /**
- * Carte de l'eau (MapLibre, fond OpenFreeMap) : toute l'île colorée, une zone par lieu (le lieu le
- * plus proche). Les zones sont peintes sous la mer du fond de carte, qui les recoupe au bord de
- * l'eau. Bleu : de l'eau ; rouge : coupé ; hachuré en tirets : pas d'information officielle.
+ * Carte de l'eau (MapLibre, fond OpenFreeMap) : Grande-Terre et Petite-Terre colorées, une zone par
+ * lieu (le lieu le plus proche), découpées dans le contour des deux îles (lib/water/cells.ts). Bleu : de l'eau ; rouge : coupé ; hachuré en tirets : pas d'information officielle.
  * Toucher une zone montre ce qu'en dit le planning.
  */
 
@@ -29,8 +28,8 @@ function collection(spots: readonly WaterSpot[]) {
   return {
     type: "FeatureCollection",
     features: spots.flatMap((s, i) => {
-      const ring = cells[i];
-      return ring ? [{ type: "Feature", id: i, properties: { i, state: s.state }, geometry: { type: "Polygon", coordinates: [ring] } }] : [];
+      const rings = cells[i];
+      return rings ? [{ type: "Feature", id: i, properties: { i, state: s.state }, geometry: { type: "MultiPolygon", coordinates: rings.map((r) => [r]) } }] : [];
     }),
   };
 }
