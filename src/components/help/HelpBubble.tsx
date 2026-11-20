@@ -75,7 +75,8 @@ export function HelpBubble() {
   }, []);
 
   // Premiers pas : plein écran, sans bulle par-dessus le bouton.
-  const hidden = pathname.startsWith("/admin") || pathname === "/bienvenue";
+  // Carte seule montrée dans l'application (/apercu/carte) : pas de bulle par-dessus.
+  const hidden = pathname.startsWith("/admin") || pathname === "/bienvenue" || pathname.startsWith("/apercu/carte");
   // Panneau préchargé quand le navigateur n'a plus rien à faire (après la conversation de l'accueil).
   useEffect(() => {
     if (hidden) return;
