@@ -35,7 +35,7 @@ import java.util.Locale;
 /**
  * Le menu des trois tirets de Tamilya : le tiroir du site sur téléphone (Sidebar.tsx,
  * ConversationItem.tsx, AccountMenu.tsx, ConfirmDialog.tsx), aux mêmes mesures (les « px » du
- * CSS sont des dp ici). En haut le logo, le « + » rond et la croix ; le bouton « Tableau de
+ * CSS sont des dp ici). En haut le logo et le « + » rond (pas de croix) ; le bouton « Tableau de
  * bord » des administrateurs ; l'historique (appui long ou « ⋯ » pour supprimer) ; en bas
  * « Mes documents », le compte et le solde. Le compte ouvre Paramètres, Utilisation, Obtenir de
  * l'aide et Se déconnecter. Il glisse depuis la gauche et se referme en touchant à côté, en
@@ -112,15 +112,7 @@ final class HomeMenu extends FrameLayout {
         plus.setOnClickListener(v -> go(actions::newConversation));
         plus.addView(icon(R.drawable.ic_site_plus_fort, theme.fgMuted), new LayoutParams(dp(18), dp(18), Gravity.CENTER));
         top.addView(plus, new LinearLayout.LayoutParams(dp(36), dp(36)));
-        FrameLayout cross = new FrameLayout(context);
-        cross.setBackground(pressable(8, theme.bgMuted));
-        cross.setContentDescription("Fermer le menu");
-        cross.setClickable(true);
-        cross.setOnClickListener(v -> close());
-        cross.addView(icon(R.drawable.ic_site_close, theme.fgMuted), new LayoutParams(dp(18), dp(18), Gravity.CENTER));
-        LinearLayout.LayoutParams crossParams = new LinearLayout.LayoutParams(dp(40), dp(40));
-        crossParams.leftMargin = dp(6);
-        top.addView(cross, crossParams);
+        // Pas de croix : on referme en touchant la zone floutée à côté.
         panel.addView(top);
 
         // Administrateurs : bouton rose « Tableau de bord » (px-3 autour, rounded-lg bg-accent px-3 py-2 text-sm font-medium).
