@@ -81,3 +81,24 @@ describe("moteur du shimaoré : « comment on dit … »", () => {
     assert.match(compositionBlock({ ...base, known: [], shimaore: "", validated: false, unsure: [] }), /Ne donne aucun mot shimaoré/);
   });
 });
+
+describe("moteur du shimaoré : phrases proches comme modèles", () => {
+  const entries = [
+    { french: "soif", shimaore: "gnora" },
+    { french: "j'ai soif", shimaore: "nisi kiya gnora" },
+    { french: "j'ai froid", shimaore: "nisi kiya baridih" },
+    { french: "la plage", shimaore: "i plagi" },
+    { french: "tu aimes la mer", shimaore: "ousi védza bahari" },
+  ];
+  // Mesure du 2026-11-20 : « j'ai faim » ne recevait pas « j'ai soif », faute de mot commun exact.
+  it("donne les phrases de même construction, pas les mots isolés", async () => {
+    const { nearestExamples } = await import("@/lib/language/compose");
+    const got = nearestExamples(entries, "j'ai faim").map((e) => e.shimaore);
+    assert.deepEqual(got.slice(0, 2).sort(), ["nisi kiya baridih", "nisi kiya gnora"]);
+    assert.ok(!got.includes("gnora"));
+  });
+  it("un seul petit mot commun ne suffit pas", async () => {
+    const { nearestExamples } = await import("@/lib/language/compose");
+    assert.deepEqual(nearestExamples(entries, "la voiture"), []);
+  });
+});
