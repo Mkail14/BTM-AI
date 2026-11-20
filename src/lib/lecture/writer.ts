@@ -1,5 +1,6 @@
 import { geminiHeaders, geminiRoot } from "@/server/services/ai/providers/gemini";
 import { usableSounds, type CatalogSound } from "./catalog";
+import { recordGeminiUsage, type GeminiUsageMetadata } from "@/server/services/ai/usage";
 
 /**
  * Le conteur : pour une histoire demandée, Gemini Pro l'écrit d'abord, seule, sans s'occuper
@@ -39,7 +40,7 @@ Demande de la personne : « ${request} »
 - Phrases simples, faciles à dire à voix haute. Pas de titre, pas de mise en forme, pas de commentaire : seulement le texte de l'histoire, avec les paroles entre guillemets « ».`;
 }
 
-type Reply = { candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[] };
+type Reply = { candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[]; usageMetadata?: GeminiUsageMetadata };
 
 /** L'histoire écrite par Pro, ou null s'il n'a pas pu (on retombe alors sur Flash seul). */
 export async function writeStory(
@@ -66,6 +67,7 @@ export async function writeStory(
         continue;
       }
       const json = (await response.json()) as Reply;
+      recordGeminiUsage(model, json.usageMetadata);
       const text = (json.candidates?.[0]?.content?.parts ?? [])
         .filter((p) => !p.thought)
         .map((p) => p.text ?? "")

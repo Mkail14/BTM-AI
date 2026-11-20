@@ -4,6 +4,7 @@ import { errorFromStatus } from "@/server/services/ai/providers/openai-compatibl
 import { geminiHeaders, geminiRoot, isGeminiUrl, listKeyModels } from "@/server/services/ai/providers/gemini";
 import { AIProviderError } from "@/lib/ai/types";
 import type { GeminiVoiceId } from "@/lib/ai/voice/voices";
+import { recordGeminiUsage, type GeminiUsageMetadata } from "@/server/services/ai/usage";
 
 /**
  * Voix de Tamilya par la synthèse vocale de Gemini, avec la clé Gemini déjà
@@ -151,7 +152,7 @@ async function encode(pcm: Uint8Array, rate: number, format: SpeechFormat): Prom
   return { audio: await pcmToMp3(clean, rate, format === "mp3-hq" ? 96 : 48), contentType: "audio/mpeg" };
 }
 
-type TtsResponse = { candidates?: { content?: { parts?: { inlineData?: { mimeType?: string; data?: string } }[] } }[] };
+type TtsResponse = { candidates?: { content?: { parts?: { inlineData?: { mimeType?: string; data?: string } }[] } }[]; usageMetadata?: GeminiUsageMetadata };
 
 /** Son de la voix, et le trajet (modèles essayés, statut, durée) pour l’en-tête x-voice-trace. */
 export async function synthesizeSpeech(text: string, voice: GeminiVoiceId, signal: AbortSignal, format: SpeechFormat = "mp3"): Promise<Speech> {
@@ -196,6 +197,7 @@ export async function synthesizeSpeech(text: string, voice: GeminiVoiceId, signa
     }
 
     const json = (await response.json()) as TtsResponse;
+    recordGeminiUsage(model, json.usageMetadata);
     // Le son peut arriver en plusieurs morceaux : on les met bout à bout.
     const parts = (json.candidates?.[0]?.content?.parts ?? []).map((p) => p.inlineData).filter((d) => d?.data);
     if (!parts.length) {

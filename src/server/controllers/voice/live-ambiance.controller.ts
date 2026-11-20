@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { geminiHeaders, geminiRoot, listKeyModels, thinkingSettings } from "@/server/services/ai/providers/gemini";
 import { geminiKey } from "@/server/services/ai/voice/gemini-tts";
+import { recordGeminiUsage, type GeminiUsageMetadata } from "@/server/services/ai/usage";
 import { getAuthContext } from "@/server/middlewares/session";
 import { canUse } from "@/server/services/site/features";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/server/middlewares/rate-limit";
@@ -60,7 +61,8 @@ export async function POST(request: NextRequest) {
       });
       // Sans quota ou surchargé : modèle suivant.
       if (!response.ok) continue;
-      const json = (await response.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
+      const json = (await response.json()) as { candidates?: { content?: { parts?: { text?: string }[] } }[]; usageMetadata?: GeminiUsageMetadata };
+      recordGeminiUsage(model, json.usageMetadata);
       const heard = (json.candidates?.[0]?.content?.parts ?? []).map((p) => p.text ?? "").join("").trim();
       if (heard) return NextResponse.json({ heard: heard.slice(0, 300) });
     }

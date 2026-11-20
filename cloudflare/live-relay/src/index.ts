@@ -38,6 +38,26 @@ const MAX_SESSION_MS = 15 * 60_000;
 /** Messages du téléphone autorisés vers Gemini : la voix et les réponses des boutons (pas de nouvelles consignes). */
 const ALLOWED_FROM_PHONE = new Set(["realtimeInput", "toolResponse"]);
 
+type Modality = { modality?: string; tokenCount?: number };
+type LiveUsage = { promptTokenCount?: number; responseTokenCount?: number; thoughtsTokenCount?: number; promptTokensDetails?: Modality[]; responseTokensDetails?: Modality[] };
+const audioOf = (details?: Modality[]) => (details ?? []).filter((d) => d.modality === "AUDIO").reduce((n, d) => n + (d.tokenCount ?? 0), 0);
+
+/**
+ * Ce que Google compte pour un tour : il refacture toute la conversation (consignes comprises) à
+ * chaque tour, donc on additionne les tours. Son et texte à part : le son coûte bien plus cher.
+ * Sans détail par type, la réponse est comptée comme du son (elle l'est presque toujours ici).
+ */
+function turnTokens(usage: LiveUsage) {
+  const audioIn = audioOf(usage.promptTokensDetails);
+  const audioOut = usage.responseTokensDetails ? audioOf(usage.responseTokensDetails) : (usage.responseTokenCount ?? 0);
+  return {
+    audioIn,
+    textIn: Math.max(0, (usage.promptTokenCount ?? 0) - audioIn),
+    audioOut,
+    textOut: Math.max(0, (usage.responseTokenCount ?? 0) - audioOut) + (usage.thoughtsTokenCount ?? 0),
+  };
+}
+
 const base64UrlToBytes = (value: string) => {
   const base64 = value.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(value.length / 4) * 4, "=");
   return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
@@ -188,8 +208,36 @@ export class LiveRelay {
       try {
         gemini.close(1000, "fin");
       } catch {}
+      void report();
     };
     const timer = setTimeout(() => closeBoth(1000, "durée maximale atteinte"), MAX_SESSION_MS);
+
+    // Dépense de la conversation, envoyée au site à la fin (jauge « Crédit Google » du tableau de bord).
+    const spent = { audioIn: 0, textIn: 0, audioOut: 0, textOut: 0 };
+    let turnUsage: LiveUsage | null = null;
+    const addTurn = () => {
+      if (!turnUsage) return;
+      const t = turnTokens(turnUsage);
+      spent.audioIn += t.audioIn;
+      spent.textIn += t.textIn;
+      spent.audioOut += t.audioOut;
+      spent.textOut += t.textOut;
+      turnUsage = null;
+    };
+    let reported = false;
+    const report = async () => {
+      addTurn();
+      if (reported || spent.audioIn + spent.textIn + spent.audioOut + spent.textOut === 0) return;
+      reported = true;
+      console.log(`dépense : ${JSON.stringify(spent)}`);
+      try {
+        const signed = await signTicket({ sid: crypto.randomUUID(), uid: "relais", exp: Date.now() + 60_000, model: setup.setup?.model ?? "", ...spent }, env.LIVE_TICKET_SECRET);
+        const response = await fetch(`${env.SITE_URL}/api/voice/live/usage`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ report: signed }) });
+        if (!response.ok) console.log(`dépense non enregistrée : ${response.status}`);
+      } catch (error) {
+        console.log(`dépense non enregistrée : ${error}`);
+      }
+    };
 
     // Téléphone → Gemini : seulement la voix (realtimeInput).
     phone.addEventListener("message", (event) => {
@@ -228,6 +276,14 @@ export class LiveRelay {
       const text = await toText(event.data);
       // Journal : les premiers messages de Gemini (sans le son), pour comprendre un blocage.
       if (fromGemini++ < 5) console.log(`gemini → ${text.replace(/"data":"[^"]{40,}"/g, "\"data\":\"…\"").slice(0, 300)}`);
+      // Le compte de Google arrive avec la fin d'un tour ; les morceaux de son ne sont pas relus.
+      if (text.includes("usageMetadata") || text.includes("turnComplete")) {
+        try {
+          const message = JSON.parse(text) as { usageMetadata?: LiveUsage; serverContent?: { turnComplete?: boolean } };
+          if (message.usageMetadata) turnUsage = message.usageMetadata;
+          if (message.serverContent?.turnComplete) addTurn();
+        } catch {}
+      }
       try {
         phone.send(text);
       } catch {}

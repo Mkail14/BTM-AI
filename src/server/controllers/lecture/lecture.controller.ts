@@ -3,6 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { geminiHeaders, geminiRoot, listKeyModels, thinkingSettings } from "@/server/services/ai/providers/gemini";
 import { createSseDataParser } from "@/lib/ai/sse";
+import { recordGeminiUsage, type GeminiUsageMetadata } from "@/server/services/ai/usage";
 import { geminiKey } from "@/server/services/ai/voice/gemini-tts";
 import { loadVoice } from "@/server/services/ai/voice/settings";
 import { getAuthContext } from "@/server/middlewares/session";
@@ -51,7 +52,7 @@ function pickModels(available: string[]): string[] {
   return available.filter((id) => MODEL.test(id)).sort((a, b) => version(b) - version(a)).slice(0, 3);
 }
 
-type GeminiChunk = { candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[] };
+type GeminiChunk = { candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[]; usageMetadata?: GeminiUsageMetadata };
 
 const BUSY = "Je n'arrive pas à préparer la page en ce moment : réessaie dans un instant.";
 
@@ -76,6 +77,7 @@ export async function POST(request: NextRequest) {
   const catalog = await catalogLoad;
 
   let upstream: Response | null = null;
+  let upstreamModel = "";
   let narrator: Awaited<ReturnType<typeof loadVoice>>;
   let signal = request.signal;
   try {
@@ -117,6 +119,7 @@ export async function POST(request: NextRequest) {
       // Sans quota ou surchargé : modèle suivant.
       if (response.ok && response.body) {
         upstream = response;
+        upstreamModel = model;
         break;
       }
       console.error("[lecture] Gemini", model, response.status, (await response.text().catch(() => "")).slice(0, 300));
@@ -140,6 +143,8 @@ export async function POST(request: NextRequest) {
       let cast: Cast | null = null;
       let sent = 0;
       let failed = false;
+      // Google redonne le total à chaque morceau : seul le dernier compte.
+      let usage: GeminiUsageMetadata = null;
       const emit = (pieces: { meta?: unknown; lines: unknown[] }) => {
         if (failed) return;
         if (pieces.meta !== undefined) {
@@ -172,6 +177,7 @@ export async function POST(request: NextRequest) {
             } catch {
               continue;
             }
+            if (chunk.usageMetadata) usage = chunk.usageMetadata;
             const text = (chunk.candidates?.[0]?.content?.parts ?? [])
               .filter((p) => !p.thought)
               .map((p) => p.text ?? "")
@@ -206,6 +212,7 @@ export async function POST(request: NextRequest) {
           send({ type: "error", message: BUSY });
         }
       } finally {
+        recordGeminiUsage(upstreamModel, usage);
         void reader.cancel().catch(() => {});
         controller.close();
       }

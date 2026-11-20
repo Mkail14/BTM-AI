@@ -8,8 +8,18 @@ import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
  * l'API), pour la barre « Crédit Google » du tableau de bord.
  */
 
-/** Tarifs Gemini en dollars par million de jetons (réflexion comptée en sortie). Estimation. */
+/**
+ * Tarifs Gemini en dollars par million de jetons (réflexion comptée en sortie). Estimation.
+ * Le son coûte bien plus que le texte : avant le 2026-11-20, la voix (vocal en direct, lecture
+ * à voix haute, histoires, chansons) n'était pas comptée du tout, et la jauge annonçait environ
+ * 1 € quand le crédit était épuisé. Le vocal en direct est rangé en deux lignes :
+ * « …:son » (son reçu et dit) et « …:texte » (consignes, réflexion, transcriptions).
+ */
 const GEMINI_PRICES: { match: RegExp; input: number; output: number }[] = [
+  { match: /:son$/, input: 3, output: 12 },
+  { match: /native-audio|live/, input: 0.5, output: 2 },
+  { match: /pro.*tts/, input: 1, output: 20 },
+  { match: /tts/, input: 0.5, output: 10 },
   { match: /flash-lite/, input: 0.1, output: 0.4 },
   { match: /flash/, input: 0.5, output: 3 },
   { match: /pro/, input: 2, output: 12 },
@@ -43,6 +53,16 @@ export function recordAiUsage(model: string, inputTokens: number, outputTokens: 
     // Hors requête (tests, tâches de fond) : enregistrement sans attente.
     void task();
   }
+}
+
+/** usageMetadata d'une réponse Gemini (appels directs à l'API, hors fournisseur du chat). */
+export type GeminiUsageMetadata = { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number } | null | undefined;
+
+/** Enregistre la consommation donnée par Google pour un appel direct (voix lue, histoires, chansons…). */
+export function recordGeminiUsage(model: string, usage: GeminiUsageMetadata): void {
+  if (!usage) return;
+  const name = model.replace(/^models\//, "");
+  recordAiUsage(name.startsWith("gemini") ? name : `gemini:${name}`, usage.promptTokenCount ?? 0, (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0));
 }
 
 export type GeminiSpend = { spentEur: number; budgetEur: number; requests: number; today: number };
