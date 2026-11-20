@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `3d5b0a9` (2026-11-20, main et develop)**
+**Dernier commit noté : `444cf2d` (2026-11-20, main et develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -106,6 +106,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Paramètres : Tamilya en un seul cadre, empreinte de voix dans Sécurité** (`444cf2d`, 2026-11-20, main et develop). Demande de l’utilisateur : faire l’onglet Tamilya comme Profil et Sécurité, et mettre l’empreinte de voix dans Sécurité avec le code de paiement. Tamilya : un cadre, deux lignes, sans titres ni phrases : Vocal (mode choisi, « Changer » ouvre les deux choix et se referme au choix ; admins seulement) et Mémoire (« Activée » / « Coupée », interrupteur, Gérer). Sécurité : ligne « Empreinte de voix » sous le code de paiement (admins) ; le texte d’accord avant l’enregistrement ne change pas. Corrigé au passage : les boutons « Créer mon code » (paiement vocal et fenêtre du code) ouvraient encore l’onglet Tamilya, ils ouvrent Sécurité ; Confidentialité dit « rubrique Sécurité » pour l’empreinte. Vérifié : 804 tests, types, lint. Pas encore vu à l’écran.
 
 - **Paramètres : Profil en un seul cadre, code de paiement dans Sécurité** (`3d5b0a9`, 2026-11-20, main et develop). Demande de l’utilisateur : faire le Profil comme la Sécurité, et mettre « payer avec le code » dans Sécurité plutôt que dans Tamilya. Profil : un seul cadre (nom, téléphone, e-mail, Maison, autres adresses, « Ajouter une adresse ») ; titre « Adresses » et sa phrase retirés ; le lien `#adresses` des commandes marche toujours. Code de paiement : ligne de Sécurité sous Proches SOS (toujours réservé aux admins) ; les textes qui disaient « rubrique Tamilya » pour le code (erreur du serveur, vocal, Confidentialité, Conditions) disent « rubrique Sécurité ». L’empreinte de voix reste dans Tamilya. Vérifié : 804 tests, types, lint. Pas encore vu à l’écran.
 
