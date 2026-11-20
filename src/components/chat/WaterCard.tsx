@@ -174,25 +174,27 @@ export function WaterCard({ place }: { place: string }) {
             {state.status === "loading" ? "Je regarde le planning de la SMAE…" : state.status === "error" ? state.message : periodOf(state.data)}
           </span>
         </span>
-      </div>
-      {data ? (
-        <div className="space-y-3 px-4 pb-4">
-          {spot ? <SpotLine spot={spot} /> : null}
+        {data ? (
+          // Petit bouton à droite du titre : rose clair et lueur, il se voit tout de suite, même en mode sombre.
           <button
             type="button"
             onClick={() => setOpen(true)}
             aria-haspopup="dialog"
-            className="flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.99]"
+            className="flex shrink-0 items-center gap-1.5 rounded-full py-2 pl-3 pr-2 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.97]"
             style={{
-              // Rose plus clair et lueur : le bouton se voit tout de suite, même en mode sombre.
               background: `color-mix(in srgb, ${PERSONA} 78%, white)`,
               boxShadow: `0 0 0 1px color-mix(in srgb, ${PERSONA} 40%, transparent), 0 6px 20px -4px color-mix(in srgb, ${PERSONA} 65%, transparent)`,
             }}
           >
-            <MapIcon width={18} height={18} aria-hidden />
+            <MapIcon width={16} height={16} aria-hidden />
             Voir la carte
-            <ChevronRight width={18} height={18} aria-hidden />
+            <ChevronRight width={16} height={16} aria-hidden />
           </button>
+        ) : null}
+      </div>
+      {spot ? (
+        <div className="px-4 pb-4">
+          <SpotLine spot={spot} />
         </div>
       ) : null}
       {open && data ? <WaterSheet data={data} start={asked} onClose={() => setOpen(false)} /> : null}
