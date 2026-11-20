@@ -19,7 +19,7 @@ final class ChatMarkdown {
     static final Set<String> CARDS = new HashSet<>(Arrays.asList(
             "ticket-barge", "devis-btm", "carte-cyclones", "document-a-signer", "commande-groupee",
             "commande-repas", "lecture-3d", "chanson", "itineraire", "tableau-combine", "creneaux-code",
-            "attestation-hebergement"));
+            "attestation-hebergement", "carte-eau", "offres-emploi", "evenements-emploi"));
 
     /** Un morceau : du texte, ou une carte (nom du bloc, texte brut du bloc). */
     static final class Part {
@@ -53,7 +53,32 @@ final class ChatMarkdown {
             case "tableau-combine": return "Tableau";
             case "creneaux-code": return "Créneaux du code";
             case "attestation-hebergement": return "Attestation d'hébergement";
+            case "carte-eau": return "Carte de l'eau";
+            case "offres-emploi": return "Offres d'emploi";
+            case "evenements-emploi": return "Événements emploi";
             default: return "Carte";
+        }
+    }
+
+    /** Bouton montré quand la carte ne peut pas s'afficher dans la conversation (sans internet) : dit ce qu'il ouvre. */
+    static String cardButton(String name) {
+        switch (name) {
+            case "ticket-barge": return "Voir le ticket de barge";
+            case "devis-btm": return "Voir le devis BTM";
+            case "carte-cyclones": return "Voir la carte des cyclones";
+            case "carte-eau": return "Voir la carte de l'eau";
+            case "offres-emploi": return "Voir les offres d'emploi";
+            case "evenements-emploi": return "Voir les événements emploi";
+            case "document-a-signer": return "Voir le document à signer";
+            case "commande-groupee":
+            case "commande-repas": return "Voir la commande de repas";
+            case "lecture-3d": return "Voir la lecture";
+            case "chanson": return "Écouter la chanson";
+            case "itineraire": return "Voir l'itinéraire";
+            case "tableau-combine": return "Voir le tableau";
+            case "creneaux-code": return "Voir les créneaux du code";
+            case "attestation-hebergement": return "Voir l'attestation d'hébergement";
+            default: return "Voir la réponse complète";
         }
     }
 

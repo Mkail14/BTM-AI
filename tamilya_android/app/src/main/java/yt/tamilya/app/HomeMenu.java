@@ -35,7 +35,7 @@ import java.util.Locale;
 /**
  * Le menu des trois tirets de Tamilya : le tiroir du site sur téléphone (Sidebar.tsx,
  * ConversationItem.tsx, AccountMenu.tsx, ConfirmDialog.tsx), aux mêmes mesures (les « px » du
- * CSS sont des dp ici). En haut le logo, le « + » rond et la croix ; le bouton « Tableau de
+ * CSS sont des dp ici). En haut le logo et le « + » rond (pas de croix) ; le bouton « Tableau de
  * bord » des administrateurs ; l'historique (appui long ou « ⋯ » pour supprimer) ; en bas
  * « Mes documents », le compte et le solde. Le compte ouvre Paramètres, Utilisation, Obtenir de
  * l'aide et Se déconnecter. Il glisse depuis la gauche et se referme en touchant à côté, en
@@ -99,40 +99,25 @@ final class HomeMenu extends FrameLayout {
         top.addView(logo, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         top.addView(new View(context), new LinearLayout.LayoutParams(0, 1, 1f));
         FrameLayout plus = new FrameLayout(context);
-        GradientDrawable glass = round(SiteTheme.alpha(theme.bg, 0.6f), 999);
-        glass.setStroke(line, theme.border);
-        StateListDrawable plusBack = new StateListDrawable();
-        GradientDrawable glassPressed = round(theme.bgMuted, 999);
-        glassPressed.setStroke(line, theme.border);
-        plusBack.addState(new int[]{android.R.attr.state_pressed}, glassPressed);
-        plusBack.addState(new int[]{}, glass);
-        plus.setBackground(plusBack);
+        // Juste le « + », sans rond ; un léger fond gris seulement sous le doigt.
+        plus.setBackground(pressable(999, theme.bgMuted));
         plus.setContentDescription("Nouvelle conversation");
         plus.setClickable(true);
         plus.setOnClickListener(v -> go(actions::newConversation));
         plus.addView(icon(R.drawable.ic_site_plus_fort, theme.fgMuted), new LayoutParams(dp(18), dp(18), Gravity.CENTER));
         top.addView(plus, new LinearLayout.LayoutParams(dp(36), dp(36)));
-        FrameLayout cross = new FrameLayout(context);
-        cross.setBackground(pressable(8, theme.bgMuted));
-        cross.setContentDescription("Fermer le menu");
-        cross.setClickable(true);
-        cross.setOnClickListener(v -> close());
-        cross.addView(icon(R.drawable.ic_site_close, theme.fgMuted), new LayoutParams(dp(18), dp(18), Gravity.CENTER));
-        LinearLayout.LayoutParams crossParams = new LinearLayout.LayoutParams(dp(40), dp(40));
-        crossParams.leftMargin = dp(6);
-        top.addView(cross, crossParams);
+        // Pas de croix : on referme en touchant la zone floutée à côté.
         panel.addView(top);
 
-        // Administrateurs : bouton rose « Tableau de bord » (px-3 autour, rounded-lg bg-accent px-3 py-2 text-sm font-medium).
+        // Administrateurs : bouton rose « Tableau de bord » (rounded-lg bg-accent px-3 py-2 text-sm font-medium),
+        // placé en bas, juste au-dessus de « Mes documents » (voir fillAccount).
         adminBox = new LinearLayout(context);
-        adminBox.setPadding(dp(12), 0, dp(12), 0);
         LinearLayout board = row(R.drawable.ic_site_dashboard, 18, theme.accentFg, "Tableau de bord", 14, 20, theme.medium, theme.accentFg, 8);
         board.setPadding(dp(12), dp(8), dp(12), dp(8));
         board.setBackground(round(theme.accent, 8));
         board.setOnClickListener(v -> go(() -> actions.openPage("/admin")));
         adminBox.addView(board, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         adminBox.setVisibility(GONE);
-        panel.addView(adminBox);
 
         // Historique : mt-5 flex-1 overflow-y-auto px-3.
         middle = new ScrollView(context);
@@ -375,6 +360,11 @@ final class HomeMenu extends FrameLayout {
 
     /** Compte connecté : « Mes documents », puis la ligne du compte et le solde (AccountMenu.tsx). */
     private void fillAccount(String name, String email, boolean documents, Long balanceCents, boolean demo) {
+        if (adminBox.getVisibility() == VISIBLE) {
+            LinearLayout.LayoutParams adminParams = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+            adminParams.bottomMargin = dp(4);
+            bottom.addView(adminBox, adminParams);
+        }
         if (documents) {
             // mb-1 flex gap-3 rounded-lg px-2 py-2 font-medium.
             LinearLayout docs = row(R.drawable.ic_site_folder, 18, theme.fg, "Mes documents", 14, 20, theme.medium, theme.fg, 12);
