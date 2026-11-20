@@ -888,24 +888,35 @@ public class MainActivity extends Activity {
 
     /**
      * Accueil sans compte : l'app cache la barre du site (globals.css, html[data-app]), et avec elle
-     * « Se connecter ». Un bouton rose plein le remet en haut à droite, sous le bandeau d'annonce ;
-     * il ouvre la même fenêtre de connexion que le bouton caché de la barre.
+     * « Se connecter ». Une vraie barre du haut la remplace, comme l'en-tête de l'accueil natif
+     * connecté (HomeScreen : 56 de haut, logo BTM AI à gauche, filet dessous) : juste sous la barre
+     * d'infos d'Android, au-dessus du bandeau d'annonce, « Se connecter » rose plein à droite.
+     * Le bouton ouvre la même fenêtre de connexion que le bouton caché de la barre du site.
      */
     private String guestLoginScript() {
         return "(function(){if(window.__tcLogin)return;window.__tcLogin=1;"
-                + "var b=document.createElement('button');b.type='button';b.id='tc-login';b.textContent='Se connecter';"
-                + "b.className='btn-rose h-10 rounded-full px-4 text-[13px] font-medium whitespace-nowrap';"
-                + "b.style.cssText='position:fixed;right:16px;z-index:56;display:none';"
+                + "var h=document.createElement('div');h.id='tc-topbar';h.className='border-b border-border';"
+                + "h.style.cssText='display:flex;align-items:center;justify-content:space-between;height:56px;padding:0 16px;flex:none;position:relative;z-index:20';"
+                + "var b=document.createElement('button');b.type='button';b.textContent='Se connecter';"
+                + "b.className='btn-rose rounded-full whitespace-nowrap';"
+                + "b.style.cssText='height:36px;padding:0 16px;font-size:14px;font-weight:600;letter-spacing:0.01em';"
                 + "b.addEventListener('click',function(){var n=document.querySelectorAll('.landing-home .landing-nav button');"
                 + "for(var i=0;i<n.length;i++){if(n[i].textContent.trim()==='Se connecter'){n[i].click();return;}}"
                 + "location.href='/?auth=required&next=%2F';});"
-                + "var place=function(){if(!b.isConnected)document.body&&document.body.appendChild(b);"
-                + "var home=document.querySelector('.landing-home:not([data-leaving])');"
-                + "var show=home&&!document.querySelector('[role=dialog]');"
-                + "b.style.display=show?'':'none';if(!show)return;"
-                + "var c=home.querySelector('.landing-content'),w=c&&c.firstElementChild,bar=w&&w.firstElementChild;"
-                + "var top=bar&&bar.tagName!=='SECTION'?bar.getBoundingClientRect().bottom:(c?c.getBoundingClientRect().top:0);"
-                + "b.style.top=Math.max(0,top)+12+'px';};"
+                + "var logo=null;"
+                + "var place=function(){var home=document.querySelector('.landing-home:not([data-leaving])');"
+                + "var c=home&&home.querySelector('.landing-content'),w=c&&c.firstElementChild;"
+                + "if(!w){h.style.display='none';return;}"
+                // Logo un peu plus grand (26 au lieu de 22), « AI » centré en hauteur avec la marque.
+                + "if(!logo){var l=home.querySelector('.landing-nav [role=img]');if(!l)return;logo=l.cloneNode(true);"
+                + "logo.style.fontSize='26px';logo.style.alignItems='center';logo.style.gap='5px';"
+                + "var m=logo.firstElementChild;if(m){m.style.width='56px';m.style.height='26px';}"
+                + "h.appendChild(logo);h.appendChild(b);}"
+                + "if(w.firstElementChild!==h)w.insertBefore(h,w.firstElementChild);"
+                // Fond plein de la page (le décor ne passe plus derrière) ; un seul filet : celui du bandeau s'il suit.
+                + "h.style.background=getComputedStyle(document.body).backgroundColor;"
+                + "var next=h.nextElementSibling;h.classList.toggle('border-b',!(next&&next.tagName==='ASIDE'));"
+                + "h.style.display='flex';};"
                 + "place();setInterval(place,400);})();";
     }
 
