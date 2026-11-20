@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `2511191` (2026-11-20, feat/bienvenue-story, develop, main)**
+**Dernier commit noté : `4a3eb1f` (2026-11-20, feat/bienvenue-story)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -119,6 +119,7 @@ Comment le tenir :
 
 ## Journal (le plus récent en haut)
 
+- **Offres d'emploi : « chercher un poste » reconnu** (`4a3eb1f`, 2026-11-20, branche feat/bienvenue-story). Essai sur tamilya.yt : « je cherche un poste de boulanger » n'ouvrait pas les offres ; Tamilya cherchait sur Google et citait des entreprises non vérifiées. Ajouté à la détection : chercher/vouloir un poste ou un contrat, vouloir travailler (« j'aimerais travailler comme chauffeur »). Pas pris : « je cherche le bureau de poste », « je dois travailler demain ». Vérifié : 38 tests emploi, types.
 - **Carte de l'eau : bouton « Voir la carte » sous le titre sur téléphone** (`2511191`, 2026-11-20, feat/bienvenue-story, develop et main). Vérifié en ligne à 360 et 320 px : à côté du titre, le bouton coupait le titre (« L'eau à… ») et étirait le planning sur 4 à 6 lignes. Sur téléphone, il passe maintenant sous le titre, petit et à droite ; sur ordinateur, il reste sur la même ligne. Les deux commits précédents du bouton (`25fe578`, `1f4b23f`) sont aussi sur develop et main.
 
 - **Carte de l'eau : bouton « Voir la carte » sur le côté** (`1f4b23f`, 2026-11-20, branche feat/bienvenue-story). Retour de l'utilisateur : le bouton prenait toute la largeur pour rien. Il est maintenant petit, à droite du titre « L'eau à Mayotte en ce moment » ; le lieu demandé reste dessous. Vérifié : types.
