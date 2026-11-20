@@ -163,7 +163,7 @@ export function WaterCard({ place }: { place: string }) {
   const spot = data && asked !== null ? data.spots[asked] : null;
 
   return (
-    <div className="booking-step w-full overflow-hidden">
+    <div className="booking-step carte-cadre w-full overflow-hidden">
       {/* Même rangée que les cartes Emploi et Cyclones : pastille, texte, petit bouton à droite. */}
       <div className="flex items-center gap-4 p-4">
         <span className="grid size-12 shrink-0 place-items-center rounded-2xl text-white" style={{ background: PERSONA }}>

@@ -1845,6 +1845,12 @@ html.chargement body {
 .booking-step {
   animation: booking-step-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
+/* Cadre des cartes de la conversation (eau, emploi, cyclones…) : de l'icône au bouton « Voir », on voit que c'est un tableau. */
+.carte-cadre {
+  border: 1px solid color-mix(in srgb, var(--fg) 14%, transparent);
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--bg-subtle) 70%, transparent);
+}
 .booking-shake {
   animation: booking-shake 300ms ease-out;
 }

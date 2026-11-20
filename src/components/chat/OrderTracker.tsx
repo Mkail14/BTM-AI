@@ -304,7 +304,7 @@ export function OrderTracker({ order }: { order: PlacedOrder }) {
 
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="booking-step flex w-full items-center gap-4 p-4 text-left transition hover:bg-bg-muted/50" aria-haspopup="dialog">
+      <button type="button" onClick={() => setOpen(true)} className="booking-step carte-cadre flex w-full items-center gap-4 p-4 text-left transition hover:bg-bg-muted/50" aria-haspopup="dialog">
         <ProgressRing fills={clock.fills} phase={phase} size={56} />
         <span className="min-w-0 flex-1">
           <span className="block font-semibold">{titleOf(phase, order.restaurant, clock.accepted, clock.waiting)}</span>
