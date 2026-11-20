@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `2a2a4fb` (2026-11-20, main et develop)**
+**Dernier commit noté : `b1899b8` (2026-11-20, feat/bienvenue-story)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -57,10 +57,17 @@ Comment le tenir :
 | 3D du devis BTM | CSS 3D fait main (boîtes à six faces : parpaings, béton, treillis, tranchées, carreaux), tourne seule et au doigt | Rien à télécharger (débit de Mayotte), suit chaque chiffre tapé ; vu dans Chrome, clair et sombre | three.js (déjà sur btm.yt, mais ~600 Ko de plus pour Tamilya) |
 | Carte de l'eau (tours d'eau) | Images du planning SMAE lues par Gemini, mises en service sans validation ; vérification toutes les heures par GitHub ; planning et coupures en JSON dans le stockage Supabase | La SMAE ne publie qu'en images ; l'utilisateur ne veut pas valider à la main ; pas de migration à appliquer | Page texte du Journal de Mayotte (pas la source officielle, refusée par l'utilisateur) ; table Postgres |
 | Affichage du chat pendant l'écriture | Début terminé relu une fois, seule la fin relue à chaque lettre | Avant, toute la réponse était relue 60 fois par seconde : de plus en plus lent avec la longueur | Paquet externe de découpe du Markdown (marked) : une dépendance de plus |
+| Emploi à Mayotte | API France Travail (francetravail.io, application « tamilya ») : « Mes évènements emploi v1 » en service ; « Offres d'emploi v2 » codée mais éteinte | Officiel et gratuit ; l'utilisateur a choisi France Travail plutôt que Gemini + recherche Google (liste incomplète). Offres d'emploi v2 retirée de l'accès libre (data.gouv.fr, nov. 2026 : accès sur demande) | Gemini + recherche Google pour les offres ; La Bonne Boîte, Marché du travail (ne donnent pas les offres en cours) |
 
 ---
 
 ## Idées en attente
+
+### Emploi : suite (noté le 2026-11-20)
+- Demander l'accès à l'API « Offres d'emploi v2 » par le formulaire de contact de francetravail.io ; une fois accordée, mettre `FRANCE_TRAVAIL_OFFRES=on` sur Vercel : la liste complète des offres (recherche, contrat, commune) s'allume.
+- Autres API déjà ajoutées à l'application : La Bonne Boîte (entreprises qui vont embaucher), agences France Travail de Mayotte, formations (Open Formation, Anotéa).
+- Événements emploi en vocal (seulement à l'écrit pour l'instant).
+- Régénérer la clé secrète France Travail (collée dans une conversation), puis la changer dans `.env.local` et sur Vercel.
 
 ### Carte de l'eau : suite (noté le 2026-11-20)
 - Lire aussi les coupures imprévues annoncées par la SMAE (casse, panne) pour ne plus les ajouter à la main dans /admin/eau.
@@ -111,6 +118,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Événements emploi, et offres d'emploi en attente** (`b1899b8`, 2026-11-20, branche feat/bienvenue-story ; pas encore en ligne). Demande de l'utilisateur : que Tamilya affiche tous les postes actuels à Mayotte. Codé d'abord : la liste complète des offres France Travail du 976 (toutes les pages, 150 par appel, cache 30 min ; carte `offres-emploi` avec recherche, CDI/CDD/intérim, commune, lien pour postuler). Mais France Travail a retiré l'API Offres d'emploi v2 de l'accès libre (accès sur demande) : elle reste éteinte tant que `FRANCE_TRAVAIL_OFFRES` n'est pas « on ». À la place, choisi avec l'utilisateur : « Mes évènements emploi » (job datings, réunions d'information, ateliers ; 12 à Mayotte le 20/11). Carte `evenements-emploi` avec l'heure de Mayotte, les places et « S'inscrire ». Quand on les demande, elle s'ouvre à coup sûr ; quand quelqu'un ne sait pas quoi faire de ses journées (ce message ou ses deux précédents), Tamilya peut en parler d'elle-même si ça colle, pas si la personne va mal. Filtre de l'API trouvé à l'essai : `{ departements: ["976"] }` (au singulier, ignoré) ; heures fiables dans `sessions` (UTC). Jeton France Travail commun aux deux (`france-travail.ts`). Interrupteurs « Offres d'emploi » et « Événements emploi » dans /admin/fonctionnalites. Clés sur Vercel (production, preview, development) et dans `.env.local`. Vérifié : 853 tests, types, lint ; en local avec le vrai Gemini : « il y a des job datings ? » cite le job dating restauration du jeudi et ouvre la carte ; « je sais pas quoi faire de mes journées » puis « plutôt chercher du boulot » propose l'atelier CV et le job dating. Pas en vocal.
 
 - **Carte de l’eau : où il y a de l’eau en ce moment** (`2a2a4fb`, 2026-11-20, main et develop ; admins seulement, fonctionnalité « Carte de l’eau » éteinte pour les autres). Demande de l’utilisateur : que Tamilya affiche la carte de Mayotte, en bleu les villages qui ont l’eau, en rouge ceux qui n’en ont pas, hachuré en tirets là où il n’y a pas d’info officielle ; source SMAE seulement ; validation automatique, avec une phrase qui dit que les données viennent de la SMAE. La SMAE publie son planning en images (accueil → « Planning des tours d’eau du … au … » → 4 JPG) : Gemini les lit (tableau jour × secteur et villages de chaque secteur) et le résultat est utilisé tel quel. GitHub regarde l’accueil de la SMAE toutes les heures (`.github/workflows/tours-d-eau.yml` → `/api/cron/eau`) et ne relit que si le planning annoncé change. Dans la conversation : « y a de l’eau à Koungou ? », « carte de l’eau » ouvrent la carte (bloc `carte-eau`), centrée sur le lieu demandé ; Tamilya répond d’après le planning, sans inventer d’heure. Règle des heures : ouverture 10 h, fermeture 16 h, secteur 4 de 7 h à 17 h (heure de Mayotte). Les 95 lieux du planning du 02-22/11 sont placés à la main (OpenStreetMap, positions approchées : la SMAE ne publie pas le tracé des secteurs) ; les villages dont le planning ne parle pas sont hachurés. Page `/admin/eau` : planning en service, « Relire maintenant », coupures imprévues à ajouter à la main (lieux en rouge jusqu’à l’heure dite). Gardé dans le stockage Supabase (dossier privé « eau »), sans migration. Commit fait avec mes seules lignes : une autre session avait en cours, dans les mêmes fichiers, les offres d’emploi (non commitées, laissées telles quelles). Vérifié : 21 tests nouveaux (heures recopiées de l’image officielle du 02-08/11), types, lint, 853 tests au total. **Pas essayé en vrai** : Gemini refuse les appels depuis le PC (« pays non pris en charge ») ; la première lecture se fera en ligne.
 
