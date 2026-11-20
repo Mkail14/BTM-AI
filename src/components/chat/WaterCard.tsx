@@ -3,7 +3,7 @@
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { X } from "lucide-react";
+import { ChevronRight, Map as MapIcon, X } from "lucide-react";
 import { IconDrop } from "@/components/ui/icons";
 import type { WaterMapData, WaterSpot } from "@/lib/water/map";
 import { waterKey } from "@/lib/water/schedule";
@@ -182,10 +182,16 @@ export function WaterCard({ place }: { place: string }) {
             type="button"
             onClick={() => setOpen(true)}
             aria-haspopup="dialog"
-            className="w-full rounded-full px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.99]"
-            style={{ background: PERSONA }}
+            className="flex w-full items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.99]"
+            style={{
+              // Rose plus clair et lueur : le bouton se voit tout de suite, même en mode sombre.
+              background: `color-mix(in srgb, ${PERSONA} 78%, white)`,
+              boxShadow: `0 0 0 1px color-mix(in srgb, ${PERSONA} 40%, transparent), 0 6px 20px -4px color-mix(in srgb, ${PERSONA} 65%, transparent)`,
+            }}
           >
+            <MapIcon width={18} height={18} aria-hidden />
             Voir la carte
+            <ChevronRight width={18} height={18} aria-hidden />
           </button>
         </div>
       ) : null}
