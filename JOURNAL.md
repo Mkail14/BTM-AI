@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `403fb5f` (2026-11-20, main et develop)**
+**Dernier commit noté : `86c22f9` (2026-11-20, feat/bienvenue-story)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -106,6 +106,9 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Paramètres, Sécurité : une seule page, sans défilement** (`86c22f9`, 2026-11-20, feat/bienvenue-story). Demande de l’utilisateur : trop de texte, la page défilait pour rien et ne faisait pas pro. Désormais un seul cadre de 4 lignes : Proches SOS (« 2 proches » ou « Aucun », Modifier), Mot de passe (Changer), Session (Se déconnecter), Supprimer le compte (bouton rouge). Les paragraphes sur le SOS, le relais et le 112 sont remplacés par une phrase visible seulement quand la ligne SOS est ouverte ; la liste de ce qui est effacé tient en une phrase ; le titre « Zone sensible » est retiré. Le mot de confirmation à recopier pour supprimer le compte reste. Vérifié : types, lint. Pas encore vu à l’écran.
+- **Premiers pas : style stories, étapes « Ta voix » et « Où sont tes données »** (`cc687dd` puis `6bd7e2b`, 2026-11-20, feat/bienvenue-story ; rattrapés dans le journal). Barres d’étapes en haut comme des stories, fond lagon, grande icône, bouton rose sur toute la largeur, « Plus tard » discret en bas, chaque étape glisse en arrivant. Nouvelles étapes : empreinte de voix pour la double vérification du paiement (avec accord) et adresse du compte / Google Drive des documents (changeables). Connexion : « Dernière connexion » rappelle l’adresse masquée du dernier compte de l’appareil.
 
 - **Verrou admin : pavé du site sur tablette en paysage** (`403fb5f`, 2026-11-20, main et develop). Demande de l’utilisateur : sur la Pad 6 en paysage, le clavier Android couvrait la moitié de la page du code admin, jugé moche. Tablette en paysage (écran tactile, 900 px de large ou plus) : le clavier du système ne s’ouvre plus, la carte se coupe en deux, texte et case du code à gauche, pavé à droite (0-9, effacer, « Entrer » rose plein), petite vibration à chaque touche. Portrait et téléphone : rien ne change. Vérifié : types, lint ; page d’essai en local ouverte sur la Pad 6 (pavé à côté, pas de clavier Android, chiffres et effacer corrects). App : rien à reconstruire, la page vient du site.
 - **Premiers pas après l’inscription ou l’installation** (`62c9a1b`, 2026-11-20, main et develop, mis en ligne à la demande de l’utilisateur ; app : `e1a7299` sur feat/coeur-natif). Demande de l’utilisateur : comme les autres applis, demander quelques choses avant de commencer, chaque étape pouvant être passée. Page `/bienvenue` : prénom, langue (gardée comme souvenir de Tamilya, rien si la mémoire est coupée), micro, code de paiement à 4 chiffres et recharge (ces deux-là seulement pour qui a le portefeuille). Proposée une fois par appareil, depuis l’accueil, pour un compte de moins de 3 jours ou dans l’app ; les étapes déjà faites sont sautées. Bluetooth (Tamilya Connect) et localisation : pas dans cette page, ils restent demandés au moment où on s’en sert (les gens refusent moins quand ils voient à quoi ça sert ; conseil de Google). Notifications : écartées, le site n’en envoie pas encore sur le téléphone. App : l’accueil natif s’efface quand le site ouvre /bienvenue. Vérifié : 804 tests, types, lint ; sans compte, /bienvenue renvoie à la connexion. Pas encore vu à l’écran avec un vrai compte.
