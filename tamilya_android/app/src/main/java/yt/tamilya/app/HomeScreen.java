@@ -1317,11 +1317,20 @@ final class HomeScreen extends FrameLayout {
             if (inProgress) body.addView(thinking());
             return;
         }
-        for (ChatMarkdown.Part part : parts) {
+        for (int i = 0; i < parts.size(); i++) {
+            ChatMarkdown.Part part = parts.get(i);
             if (part.isCard()) {
-                TextView card = outlinedButton(ChatMarkdown.cardLabel(part.card) + "  ›");
-                card.setOnClickListener(v -> actions.openOnSite());
-                body.addView(card, spaced(6));
+                // Bloc encore en train de s'écrire : son contenu n'est pas fini, la carte attend.
+                boolean writing = inProgress && i == parts.size() - 1;
+                if (writing) {
+                    body.addView(outlinedButton(ChatMarkdown.cardLabel(part.card) + "…"), spaced(6));
+                    continue;
+                }
+                CardFrame card = cardFrame(part.card, part.text);
+                if (card.getParent() != null) ((ViewGroup) card.getParent()).removeView(card);
+                LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+                params.topMargin = dp(6);
+                body.addView(card, params);
                 continue;
             }
             TextView view = text("", 16, 27.2f, theme.fg, theme.sans);
@@ -1330,6 +1339,44 @@ final class HomeScreen extends FrameLayout {
             view.setTextIsSelectable(!inProgress);
             body.addView(view, spaced(body.getChildCount() == 0 ? 0 : 6));
         }
+    }
+
+    /**
+     * Carte d'une réponse, gardée d'un affichage à l'autre : la conversation est reconstruite
+     * souvent (nouveau mot, nouveau message), la carte ne se recharge pas pour autant.
+     */
+    private final java.util.LinkedHashMap<String, CardFrame> cards = new java.util.LinkedHashMap<String, CardFrame>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(java.util.Map.Entry<String, CardFrame> eldest) {
+            if (size() <= 12) return false;
+            eldest.getValue().destroy();
+            return true;
+        }
+    };
+
+    private CardFrame cardFrame(String name, String body) {
+        String key = name + "\n" + body;
+        CardFrame card = cards.get(key);
+        if (card != null) return card;
+        // Sans internet : bouton qui dit ce qu'il ouvre ; touché, il montre la carte dès que le réseau revient.
+        TextView button = outlinedButton(ChatMarkdown.cardButton(name) + "  ›");
+        card = new CardFrame(getContext(), name, body, button);
+        CardFrame shown = card;
+        button.setOnClickListener(v -> {
+            if (!shown.show()) actions.openOnSite();
+        });
+        cards.put(key, card);
+        return card;
+    }
+
+    /** Une carte a ouvert son panneau plein écran (« Voir la carte »). */
+    boolean cardFullScreen() {
+        for (CardFrame card : cards.values()) if (card.isFull()) return true;
+        return false;
+    }
+
+    void closeCardFullScreen() {
+        for (CardFrame card : cards.values()) card.closeFull();
     }
 
     /** Trois points de la couleur de Tamilya qui sautillent jusqu'au premier mot (h-6, gap-1, animate-bounce). */

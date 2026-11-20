@@ -1726,7 +1726,7 @@ public class MainActivity extends Activity {
         return hex.toString();
     }
 
-    private static final class BuildInfo {
+    static final class BuildInfo {
         static final String VERSION = "1.2.1";
     }
 }

@@ -173,12 +173,13 @@ final class HomeChat implements HomeScreen.Actions {
     }
 
     boolean menuOpen() {
-        return screen.menuOpen() || screen.notificationsOpen();
+        return screen.menuOpen() || screen.notificationsOpen() || screen.cardFullScreen();
     }
 
-    /** Bouton retour : le petit menu ou la fenêtre ouverts dans le menu d'abord, puis le menu. */
+    /** Bouton retour : carte en plein écran, puis le petit menu ou la fenêtre ouverts dans le menu, puis le menu. */
     void closeMenu() {
-        if (screen.notificationsOpen()) screen.closeNotifications();
+        if (screen.cardFullScreen()) screen.closeCardFullScreen();
+        else if (screen.notificationsOpen()) screen.closeNotifications();
         else if (!screen.dismissMenuPopup()) screen.closeMenu();
     }
 
