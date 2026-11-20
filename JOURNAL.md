@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `1f4b23f` (2026-11-20, feat/bienvenue-story)**
+**Dernier commit noté : `2511191` (2026-11-20, feat/bienvenue-story, develop, main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -118,6 +118,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Carte de l'eau : bouton « Voir la carte » sous le titre sur téléphone** (`2511191`, 2026-11-20, feat/bienvenue-story, develop et main). Vérifié en ligne à 360 et 320 px : à côté du titre, le bouton coupait le titre (« L'eau à… ») et étirait le planning sur 4 à 6 lignes. Sur téléphone, il passe maintenant sous le titre, petit et à droite ; sur ordinateur, il reste sur la même ligne. Les deux commits précédents du bouton (`25fe578`, `1f4b23f`) sont aussi sur develop et main.
 
 - **Carte de l'eau : bouton « Voir la carte » sur le côté** (`1f4b23f`, 2026-11-20, branche feat/bienvenue-story). Retour de l'utilisateur : le bouton prenait toute la largeur pour rien. Il est maintenant petit, à droite du titre « L'eau à Mayotte en ce moment » ; le lieu demandé reste dessous. Vérifié : types.
 
