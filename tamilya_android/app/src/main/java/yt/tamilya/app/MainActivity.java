@@ -195,6 +195,7 @@ public class MainActivity extends Activity {
     /** La page du site annonce le choix de thème (pageScript) : l'écran natif est refait s'il n'a plus le bon. */
     private void themeChosen(String choice) {
         if (isFinishing() || isDestroyed() || !ThemePref.save(this, choice)) return;
+        paintSystemBars(ThemePref.dark(this));
         themeStale = ThemePref.dark(this) != ThemePref.night(this);
         // Accueil natif à l'écran (premier lancement après un choix fait sur le site) : tout de suite.
         // Sinon au retour à l'accueil, pour ne pas recharger la page des paramètres sous le doigt.
@@ -405,6 +406,8 @@ public class MainActivity extends Activity {
         root.addView(content, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
         setContentView(root);
         applySystemBars(root);
+        barsRoot = root;
+        paintSystemBars(ThemePref.dark(this));
 
         loadSounds();
         voiceVolume = new VoiceVolume(this, main);
@@ -414,6 +417,27 @@ public class MainActivity extends Activity {
 
     private static FrameLayout.LayoutParams match() {
         return new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
+    }
+
+    private View barsRoot;
+
+    /**
+     * Barre d'infos (heure, batterie) et barre du bas de la couleur de l'app, comme une vraie app :
+     * fond du site (SiteTheme.bg) et icônes foncées en clair, fond sombre et icônes claires en sombre.
+     * Les barres sont transparentes (bord à bord) : c'est le fond de la vue racine qui se voit dessous.
+     */
+    private void paintSystemBars(boolean dark) {
+        int color = dark ? 0xFF131516 : 0xFFFFFFFF;
+        if (barsRoot != null) barsRoot.setBackgroundColor(color);
+        // Jusqu'à Android 14, la barre garde la couleur du thème (statusBarColor, noire) par-dessus le contenu.
+        getWindow().setStatusBarColor(color);
+        getWindow().setNavigationBarColor(color);
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return;
+        android.view.WindowInsetsController bars = getWindow().getInsetsController();
+        if (bars == null) return;
+        int light = android.view.WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
+                | android.view.WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
+        bars.setSystemBarsAppearance(dark ? 0 : light, light);
     }
 
     /** Android 11+ : le contenu s'arrête aux barres système et remonte avec le clavier. */
@@ -903,6 +927,14 @@ public class MainActivity extends Activity {
                 + "b.addEventListener('click',function(){var n=document.querySelectorAll('.landing-home .landing-nav button');"
                 + "for(var i=0;i<n.length;i++){if(n[i].textContent.trim()==='Se connecter'){n[i].click();return;}}"
                 + "location.href='/?auth=required&next=%2F';});"
+                // Bouton rond clair/sombre à gauche de « Se connecter » : il actionne le bouton de thème caché
+                // de la barre du site et reprend son icône (soleil ou lune) et son libellé.
+                + "var siteTheme=function(){return document.querySelector('.landing-home .landing-nav button[aria-label^=\"Passer en mode\"]');};"
+                + "var t=document.createElement('button');t.type='button';t.className='border border-border text-fg';"
+                + "t.style.cssText='width:36px;height:36px;border-radius:9999px;display:grid;place-items:center;flex:none';"
+                + "t.addEventListener('click',function(){var s=siteTheme();if(s)s.click();setTimeout(place,50);});"
+                + "var right=document.createElement('div');right.style.cssText='display:flex;align-items:center;gap:10px';"
+                + "right.appendChild(t);right.appendChild(b);"
                 + "var logo=null;"
                 + "var place=function(){var home=document.querySelector('.landing-home:not([data-leaving])');"
                 + "var c=home&&home.querySelector('.landing-content'),w=c&&c.firstElementChild;"
@@ -911,7 +943,10 @@ public class MainActivity extends Activity {
                 + "if(!logo){var l=home.querySelector('.landing-nav [role=img]');if(!l)return;logo=l.cloneNode(true);"
                 + "logo.style.fontSize='26px';logo.style.alignItems='center';logo.style.gap='5px';"
                 + "var m=logo.firstElementChild;if(m){m.style.width='56px';m.style.height='26px';}"
-                + "h.appendChild(logo);h.appendChild(b);}"
+                + "h.appendChild(logo);h.appendChild(right);}"
+                + "var s=siteTheme();t.style.display=s?'grid':'none';"
+                // Icône recopiée dès qu'elle change (le site la dessine après le chargement).
+                + "if(s){t.setAttribute('aria-label',s.getAttribute('aria-label')||'Thème');if(t.innerHTML!==s.innerHTML)t.innerHTML=s.innerHTML;}"
                 + "if(w.firstElementChild!==h)w.insertBefore(h,w.firstElementChild);"
                 // Fond plein de la page (le décor ne passe plus derrière) ; un seul filet : celui du bandeau s'il suit.
                 + "h.style.background=getComputedStyle(document.body).backgroundColor;"
