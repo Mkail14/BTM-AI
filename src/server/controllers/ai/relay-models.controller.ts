@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { listKeyModels } from "@/server/services/ai/providers/gemini";
-import { relayEnabled, verifyRelay } from "@/server/services/ai/relay";
+import { claimRelaySignature, relayEnabled, verifyRelay } from "@/server/services/ai/relay";
 import { keysSecret } from "@/lib/ai/secret-box";
 import { geminiKey } from "@/server/services/ai/voice/gemini-tts";
 
@@ -14,6 +14,15 @@ export async function POST(request: NextRequest) {
   const raw = await request.text();
   const signed = verifyRelay(raw, request.headers.get("x-relay-time"), request.headers.get("x-relay-signature"), keysSecret() ?? undefined);
   if (!signed) return NextResponse.json({ error: "Relais refusé." }, { status: 401 });
+  try {
+    // Une signature déjà vue : demande copiée et renvoyée.
+    if (!(await claimRelaySignature(request.headers.get("x-relay-signature")))) {
+      return NextResponse.json({ error: "Relais refusé." }, { status: 401 });
+    }
+  } catch (error) {
+    console.error("[relais modèles] Compteurs indisponibles", error);
+    return NextResponse.json({ error: "Relais indisponible." }, { status: 503 });
+  }
   try {
     const models = await listKeyModels(await geminiKey(), AbortSignal.timeout(10_000));
     return NextResponse.json({ models: models.filter((m) => m.startsWith("gemini-")).sort() });

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { AIProviderError } from "@/server/services/ai";
-import { relayEnabled, verifyRelay } from "@/server/services/ai/relay";
+import { claimRelaySignature, relayEnabled, verifyRelay } from "@/server/services/ai/relay";
 import { keysSecret } from "@/lib/ai/secret-box";
 import { synthesizeSpeech } from "@/server/services/ai/voice/gemini-tts";
 import { streamSpeech } from "@/server/services/ai/voice/stream-tts";
@@ -30,6 +30,10 @@ export async function POST(request: NextRequest) {
   if (!signed) return NextResponse.json({ error: "Relais refusé." }, { status: 401 });
 
   try {
+    // Une signature déjà vue : demande copiée et renvoyée.
+    if (!(await claimRelaySignature(request.headers.get("x-relay-signature")))) {
+      return NextResponse.json({ error: "Relais refusé." }, { status: 401 });
+    }
     const limit = await consumeRateLimits([{ key: "ai-relay", rules: RATE_LIMIT_POLICIES.aiRelay }]);
     if (!limit.allowed) return NextResponse.json({ error: "Trop de demandes." }, { status: 429 });
   } catch (error) {

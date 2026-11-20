@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { AIProviderError, getAIProvider } from "@/server/services/ai";
-import { RELAY_LIMITS, relayEnabled, verifyRelay } from "@/server/services/ai/relay";
+import { claimRelaySignature, RELAY_LIMITS, relayEnabled, verifyRelay } from "@/server/services/ai/relay";
 import { keysSecret } from "@/lib/ai/secret-box";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/server/middlewares/rate-limit";
@@ -41,6 +41,10 @@ export async function POST(request: NextRequest) {
 
   // Même signée, une demande ne passe pas sans limite : un secret volé ne vide pas la clé de BTM.
   try {
+    // Une signature déjà vue : demande copiée et renvoyée.
+    if (!(await claimRelaySignature(request.headers.get("x-relay-signature")))) {
+      return NextResponse.json({ error: "Relais refusé." }, { status: 401 });
+    }
     const limit = await consumeRateLimits([{ key: "ai-relay", rules: RATE_LIMIT_POLICIES.aiRelay }]);
     if (!limit.allowed) {
       return NextResponse.json({ error: "Trop de demandes." }, { status: 429, headers: { "Retry-After": String(limit.retryAfterSeconds) } });

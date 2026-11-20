@@ -2,6 +2,7 @@ import "server-only";
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import type { AIConfig } from "@/lib/ai/config";
 import { AIProviderError, type AIErrorCode, type AIProvider, type AIStreamChunk } from "@/lib/ai/types";
+import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/server/middlewares/rate-limit";
 
 /**
  * Relais pour le développement local. Google refuse l'API Gemini depuis
@@ -45,6 +46,15 @@ export function verifyRelay(body: string, time: string | null, signature: string
   if (Math.abs(now - Number(time)) > MAX_SKEW_MS) return false;
   const expected = Buffer.from(signRelay(body, Number(time), secret), "hex");
   return timingSafeEqual(expected, Buffer.from(signature, "hex"));
+}
+
+/**
+ * Vrai la première fois qu'une signature (déjà vérifiée) arrive, faux si on l'a déjà vue :
+ * une demande copiée en route ne peut pas être rejouée. Lève si les compteurs sont en panne.
+ */
+export async function claimRelaySignature(signature: string | null): Promise<boolean> {
+  const decision = await consumeRateLimits([{ key: `sig:${signature ?? ""}`, rules: RATE_LIMIT_POLICIES.relaySignature }]);
+  return decision.allowed;
 }
 
 /** Réglages affichés et bornes de la chaîne locale (le site en ligne applique les siens). */

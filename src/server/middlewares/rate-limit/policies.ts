@@ -144,6 +144,9 @@ export const RATE_LIMIT_POLICIES = {
   // E-mails de sécurité : nouvel appareil (un par appareil inconnu) et mot de passe changé.
   authDevice: [{ name: "auth-device-hour", limit: 10, windowSeconds: 3_600 }],
   passwordNotice: [{ name: "password-notice-hour", limit: 3, windowSeconds: 3_600 }],
+  // Une signature du relais ne sert qu'une fois : copiée en route, elle ne peut pas être renvoyée
+  // (valable 10 minutes au plus autour de son heure, gardée 15 minutes).
+  relaySignature: [{ name: "relay-once", limit: 1, windowSeconds: 900 }],
   // Relais IA (seulement s'il est ouvert) : protège la clé de BTM contre un secret volé.
   aiRelay: [
     { name: "relay-min", limit: 120, windowSeconds: 60 },
