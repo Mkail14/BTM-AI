@@ -2,7 +2,27 @@ import type { NextConfig } from "next";
 
 // cacheComponents est volontairement désactivé : toutes les pages de BTM AI
 // dépendent de la session (cookies) et sont rendues à la demande.
+/**
+ * Bouclier contre les scripts piégés (CSP). Volontairement large sur les connexions, images et cadres
+ * (Supabase, voix en direct, cartes, photos des restaurants) pour ne rien casser ; strict là où une
+ * attaque passe : aucun script venu d'un autre site (sauf la connexion Google), aucun plugin,
+ * aucune balise <base> détournée, aucun formulaire envoyé ailleurs, aucun affichage du site
+ * dans le cadre d'un autre site. 'unsafe-eval' et 'wasm-unsafe-eval' : moteur de voix (onnxruntime).
+ * blob: : les cartes (maplibre) lancent leurs calculs dans un « worker » créé par le site.
+ */
+const contentSecurityPolicy = (frameAncestors: string) =>
+  [
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://accounts.google.com",
+    "worker-src 'self' blob:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    `frame-ancestors ${frameAncestors}`,
+    "upgrade-insecure-requests",
+  ].join("; ");
+
 const securityHeaders = [
+  { key: "Content-Security-Policy", value: contentSecurityPolicy("'none'") },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -42,7 +62,10 @@ const nextConfig: NextConfig = {
     return [
       { source: "/:path*", headers: securityHeaders },
       // Aperçu de la conversation : affiché dans le téléphone de l'accueil, donc dans un cadre du site lui-même (et de lui seul).
-      { source: "/apercu/:path*", headers: [{ key: "X-Frame-Options", value: "SAMEORIGIN" }] },
+      { source: "/apercu/:path*", headers: [
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Content-Security-Policy", value: contentSecurityPolicy("'self'") },
+        ] },
       // Moteur des cartes : l'adresse porte la version (?v=), le fichier ne change donc jamais à la même adresse.
       { source: "/maplibre/:file*", headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }] },
       // Lecteur de PDF (livres) : la version est dans l'adresse (scripts/copy-vad.mjs).
