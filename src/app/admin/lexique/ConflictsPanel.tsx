@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { secondaryButton } from "@/components/admin/form";
-import type { ActionResult } from "@/lib/admin/action-auth";
+import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { lostOk } from "@/lib/safe-action";
 import { keepBothAction, setTranslationAction } from "./actions";
 import type { ConflictRow } from "./limits";

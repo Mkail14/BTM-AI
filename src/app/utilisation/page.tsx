@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { requireUser } from "@/lib/auth/session";
+import { requireUser } from "@/server/middlewares/session";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
-import { loadRateLimitPolicies } from "@/lib/rate-limit/settings";
+import { loadRateLimitPolicies } from "@/server/middlewares/rate-limit/settings";
 import { SettingsFrame } from "../parametres/SettingsFrame";
 
 export const metadata: Metadata = { title: "Utilisation" };

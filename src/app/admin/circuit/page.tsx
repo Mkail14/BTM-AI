@@ -1,19 +1,19 @@
 import type { Metadata } from "next";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AdminHeader } from "@/components/admin/AdminHeader";
-import { slotHealthId } from "@/lib/ai";
-import { loadAIChain, loadRemovedApis } from "@/lib/ai/registry";
+import { slotHealthId } from "@/server/services/ai";
+import { loadAIChain, loadRemovedApis } from "@/server/services/ai/registry";
 import { readAIChain } from "@/lib/ai/config";
 import { AI_ERROR_LABELS, VOICE_NODE } from "@/lib/ai/flow-events";
-import { flowCutStop, loadFlowCuts } from "@/lib/ai/flow-cuts";
+import { flowCutStop, loadFlowCuts } from "@/server/services/ai/flow-cuts";
 import { canEncrypt } from "@/lib/ai/secret-box";
 import { averageLatency, deriveModelStatus, freeDailyQuota, getHealth, requestsToday, type NodeStatus } from "@/lib/ai/health";
-import { checkKey } from "@/lib/ai/key-check";
+import { checkKey } from "@/server/services/ai/key-check";
 import { DEFAULT_IDENTITY, DEFAULT_RULES } from "@/lib/ai/system-prompt";
-import { requireAdmin } from "@/lib/auth/session";
-import { loadRateLimitSettings } from "@/lib/rate-limit/settings";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { liveRelayUrl, liveTicketSecret } from "@/lib/voice-live/ticket";
+import { requireAdmin } from "@/server/middlewares/session";
+import { loadRateLimitSettings } from "@/server/middlewares/rate-limit/settings";
+import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
+import { liveRelayUrl, liveTicketSecret } from "@/server/services/voice-live/ticket";
 import { AIFlow } from "./AIFlow";
 import type { ApiDetails, FlowEdge, FlowNode } from "./flow";
 

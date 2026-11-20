@@ -2,10 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { describe, it } from "node:test";
-import { hasActiveBooking } from "@/lib/code-exam/duplicate";
-import { codeExamPartnerReady, PARTNER_IMPLEMENTED } from "@/lib/code-exam/partner";
+import { hasActiveBooking } from "../src/server/services/code-exam/duplicate";
+import { codeExamPartnerReady, PARTNER_IMPLEMENTED } from "../src/server/services/code-exam/partner";
 import { bargeDemoText, foodDemoText, settleAction, type PreparedAction, type SettleSteps } from "@/lib/mesh/pay";
-import { CLAIM_STALE_MS, claimMessage, MAX_DEVICES_PER_USER, registerDevice, spendAction } from "@/lib/mesh/store";
+import { CLAIM_STALE_MS, claimMessage, MAX_DEVICES_PER_USER, registerDevice, spendAction } from "../src/server/services/mesh/store";
 import { fakeClient, fakeDb } from "./fake-supabase";
 
 const ago = (ms: number, now = Date.now()) => new Date(now - ms).toISOString();
@@ -44,8 +44,8 @@ describe("examen du code : même créneau demandé deux fois", () => {
 
 describe("repas et barge : le code de paiement n'est pris que juste avant le débit", () => {
   for (const [file, refusals] of [
-    ["src/app/api/food/route.ts", ["Indique ton numéro", "Solde insuffisant : il te manque", "consumeRateLimits(["]],
-    ["src/app/api/barge/route.ts", ["Solde insuffisant : il te manque", "consumeRateLimits(["]],
+    ["src/server/controllers/food/food.controller.ts", ["Indique ton numéro", "Solde insuffisant : il te manque", "consumeRateLimits(["]],
+    ["src/server/controllers/barge/barge.controller.ts", ["Solde insuffisant : il te manque", "consumeRateLimits(["]],
   ] as const) {
     it(file, () => {
       const source = readFileSync(file, "utf8");

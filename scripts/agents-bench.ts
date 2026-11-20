@@ -9,9 +9,9 @@
 import { planTeam } from "../src/lib/ai/agents/plan";
 import { runTeam, teamBlock, teamSummary } from "../src/lib/ai/agents/team";
 import { mayotteClock } from "../src/lib/ai/clock";
-import { createRelayProvider } from "../src/lib/ai/relay";
+import { createRelayProvider } from "../src/server/services/ai/relay";
 import { keysSecret } from "../src/lib/ai/secret-box";
-import { loadTamilyaBrain } from "../src/lib/ai/brain";
+import { loadTamilyaBrain } from "../src/server/services/ai/brain";
 
 const url = process.env.AI_RELAY_URL?.trim().replace(/\/+$/, "");
 const secret = keysSecret();

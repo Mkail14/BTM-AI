@@ -10,10 +10,10 @@
  * Limite : le relais en ligne n'a pas encore le réglage « réflexion légère » tant que le site n'est pas mis à jour ;
  * cette part se mesure donc seulement après la mise en ligne.
  */
-import { knowledgeFor, lexiconFor, loadTamilyaBrain, wordsFor, glossFor } from "@/lib/ai/brain";
+import { knowledgeFor, lexiconFor, loadTamilyaBrain, wordsFor, glossFor } from "../src/server/services/ai/brain";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
-import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
-import { createRelayProvider, relayUrl } from "@/lib/ai/relay";
+import { loadPersonalityInstructions } from "../src/server/services/ai/personality-store";
+import { createRelayProvider, relayUrl } from "../src/server/services/ai/relay";
 import { keysSecret } from "@/lib/ai/secret-box";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { understand } from "@/lib/ai/understanding";

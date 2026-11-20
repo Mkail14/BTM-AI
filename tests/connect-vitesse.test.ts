@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { describe, it } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { handleMeshPayload } from "@/lib/mesh/handle";
+import { handleMeshPayload } from "../src/server/services/mesh/handle";
 
 const replyKey = "A".repeat(43) + "=";
 

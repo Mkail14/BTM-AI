@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
 import { IconBook, IconClose, IconPlus, IconTrash } from "@/components/ui/icons";
-import type { ActionResult } from "@/lib/admin/action-auth";
+import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { parseWordList } from "@/lib/language/teaching";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { lostOk } from "@/lib/safe-action";

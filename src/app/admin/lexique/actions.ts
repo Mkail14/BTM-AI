@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/action-auth";
-import { invalidateTamilyaBrain } from "@/lib/ai/brain";
-import { teachWords } from "@/lib/ai/words-store";
-import { freeHue, listBranches, suggestBranch, type BranchSuggestion } from "@/lib/language/branches";
+import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/server/middlewares/admin-auth";
+import { invalidateTamilyaBrain } from "@/server/services/ai/brain";
+import { teachWords } from "@/server/services/ai/words-store";
+import { freeHue, listBranches, suggestBranch, type BranchSuggestion } from "@/server/services/language/branches";
 import { parseWordList, shimaoreEntryKey } from "@/lib/language/teaching";
 import { LEXICON_LIMITS, WORD_LIMITS } from "./limits";
 

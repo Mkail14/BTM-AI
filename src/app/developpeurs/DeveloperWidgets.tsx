@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { inputClass, secondaryButton } from "@/components/admin/form";
-import type { DeveloperWidget } from "@/lib/developers/widgets";
+import type { DeveloperWidget } from "@/server/services/developers/widgets";
 import { lostOk } from "@/lib/safe-action";
 import { createDeveloperWidgetAction, revokeDeveloperWidgetAction, updateWidgetMissionAction } from "./actions";
 

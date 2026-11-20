@@ -1,9 +1,9 @@
 import { ChatViewLazy as ChatView } from "@/components/chat/ChatViewLazy";
 import { GuestHome } from "@/components/landing/GuestHome";
-import { getAuthContext } from "@/lib/auth/session";
+import { getAuthContext } from "@/server/middlewares/session";
 import { safeNextPath } from "@/lib/auth/redirect";
-import { listPublishedReviews } from "@/lib/reviews";
-import { getAnnouncement } from "@/lib/site/announcement";
+import { listPublishedReviews } from "@/server/services/reviews";
+import { getAnnouncement } from "@/server/services/site/announcement";
 import { showsAnnouncement } from "@/lib/site/announcement-rules";
 
 export default async function HomePage({ searchParams }: PageProps<"/">) {

@@ -13,10 +13,10 @@ import { PressHaptics } from "@/components/ui/PressHaptics";
 import { SongStage } from "@/components/chat/SongStage";
 import { StoryStage } from "@/components/chat/StoryStage";
 import { ThemeScript } from "@/components/ui/ThemeScript";
-import { getAuthContext } from "@/lib/auth/session";
-import { getProfile } from "@/lib/conversations/repository";
+import { getAuthContext } from "@/server/middlewares/session";
+import { getProfile } from "@/server/models/profiles.model";
 import { isSupabaseConfigured } from "@/lib/supabase/config";
-import { userFeatures } from "@/lib/site/features";
+import { userFeatures } from "@/server/services/site/features";
 import "./globals.css";
 
 const geistSans = Geist({

@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import { combinedBlock, parseCombined } from "../src/lib/voice-live/combined";
-import { hashPin, isAcceptablePin } from "../src/lib/wallet/pin";
-import { liveToolBlock } from "../src/lib/voice-live/tools";
+import { hashPin, isAcceptablePin } from "../src/server/services/wallet/pin";
+import { liveToolBlock } from "../src/server/services/voice-live/tools";
 
 test("codes trop simples refusés", () => {
   for (const pin of ["1111", "0000", "1234", "4321", "6789", "123", "12a4", "12345"]) assert.equal(isAcceptablePin(pin), false, pin);

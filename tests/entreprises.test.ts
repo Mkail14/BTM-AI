@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { activityOf, companyAsk, companyAskFromVoice, companyLine, namesMatch, toCompany } from "@/lib/live/companies";
+import { activityOf, companyAsk, companyAskFromVoice, companyLine, namesMatch, toCompany } from "../src/server/services/live/companies";
 
 describe("entreprises de Mayotte", () => {
   it("comprend le nom cherché", () => {

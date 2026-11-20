@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { buildLexiconTree } from "@/lib/language/curriculum";
-import { parseSuggestion } from "@/lib/language/branches";
+import { parseSuggestion } from "../src/server/services/language/branches";
 
 describe("branches proposées par Tamilya", () => {
   it("lit la proposition, même entourée de texte, sans les mots déjà connus", () => {

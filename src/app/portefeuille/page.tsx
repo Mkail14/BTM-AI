@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { MigrationWarning } from "@/components/admin/form";
-import { requireUser } from "@/lib/auth/session";
-import { loadWallet, settleTopup } from "@/lib/wallet";
-import { canUseWallet } from "@/lib/wallet/access";
-import { readDemoWallet, usesDemoWallet } from "@/lib/wallet/demo";
-import { stripeConfigured } from "@/lib/wallet/stripe";
+import { requireUser } from "@/server/middlewares/session";
+import { loadWallet, settleTopup } from "@/server/services/wallet";
+import { canUseWallet } from "@/server/services/wallet/access";
+import { readDemoWallet, usesDemoWallet } from "@/server/services/wallet/demo";
+import { stripeConfigured } from "@/server/services/wallet/stripe";
 import { SettingsFrame } from "../parametres/SettingsFrame";
 import { WalletView } from "./WalletView";
 

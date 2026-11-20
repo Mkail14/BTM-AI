@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 import { normalizeAddressLine } from "@/lib/auth/signup";
 import { moveBlockValue, saveBlockValue } from "@/lib/chat/block-key";
-import { readingSubject } from "@/lib/voice-live/tools";
+import { readingSubject } from "../src/server/services/voice-live/tools";
 
 /** Contrôle qualité du 2026-11-08 : chaque correction a sa preuve ici. */
 

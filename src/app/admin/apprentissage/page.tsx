@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { PageIntro } from "@/components/admin/form";
-import { requireAdmin } from "@/lib/auth/session";
+import { requireAdmin } from "@/server/middlewares/session";
 import { LexiconTabs } from "../lexique/LexiconTabs";
 import { GrammarPanel } from "./GrammarPanel";
 import type { GrammarRow, QuestionRow } from "./limits";

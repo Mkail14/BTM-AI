@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Field, inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
 import { IconClose } from "@/components/ui/icons";
 import { PasswordInput } from "@/components/ui/PasswordInput";
-import type { ActionResult } from "@/lib/admin/action-auth";
+import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { lostOk } from "@/lib/safe-action";
 import { addApiAction, listModelsAction } from "./actions";
 import { API_LIMITS, API_PRESETS, detectPreset } from "./presets";

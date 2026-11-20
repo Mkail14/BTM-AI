@@ -1,11 +1,11 @@
 "use server";
 
 import { z } from "zod";
-import { NOT_ADMIN, requireAdminRoleAction, type ActionResult } from "@/lib/admin/action-auth";
-import { getAIProvider } from "@/lib/ai";
-import { invalidateTamilyaBrain, loadTamilyaBrain, wordsFor } from "@/lib/ai/brain";
-import { completeText } from "@/lib/ai/complete";
-import { teachWords } from "@/lib/ai/words-store";
+import { NOT_ADMIN, requireAdminRoleAction, type ActionResult } from "@/server/middlewares/admin-auth";
+import { getAIProvider } from "@/server/services/ai";
+import { invalidateTamilyaBrain, loadTamilyaBrain, wordsFor } from "@/server/services/ai/brain";
+import { completeText } from "@/server/services/ai/complete";
+import { teachWords } from "@/server/services/ai/words-store";
 import { TAUGHT_WORD_MAX } from "@/lib/language/teaching";
 
 const PHRASE_MAX = 200; // contrainte de awa_lexicon

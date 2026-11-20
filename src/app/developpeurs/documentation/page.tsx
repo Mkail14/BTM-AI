@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { MAX_ACTIVE_KEYS } from "@/lib/developers/keys";
-import { MAX_WIDGET_ORIGINS, MAX_WIDGETS } from "@/lib/developers/widgets";
-import { RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
+import { MAX_ACTIVE_KEYS } from "@/server/services/developers/keys";
+import { MAX_WIDGET_ORIGINS, MAX_WIDGETS } from "@/server/services/developers/widgets";
+import { RATE_LIMIT_POLICIES } from "@/server/middlewares/rate-limit";
 import { DocCode } from "../DocCode";
 import { apiEndpoint, widgetScriptUrl } from "../endpoint";
 import { DevShell } from "../ui";

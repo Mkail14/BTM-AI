@@ -20,7 +20,7 @@
  *
  * ⚠ Ces fichiers contiennent des données personnelles et les empreintes des mots
  * de passe : ne les mettez ni dans git, ni dans un dossier partagé, ni en pièce jointe.
- * Durée de conservation : voir supabase/local/README.md.
+ * Durée de conservation : voir database/README.md.
  */
 import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, writeFileSync, existsSync } from "node:fs";
@@ -127,7 +127,7 @@ for (const sql of [`drop database if exists ${RESTORE_DB} with (force)`, `create
   if (r.status !== 0) fail(r.stderr);
 }
 const local = localEnv(RESTORE_DB);
-const stub = psql(local, ["-1", "-f", path.join(ROOT, "supabase", "local", "00_supabase_stub.sql")]);
+const stub = psql(local, ["-1", "-f", path.join(ROOT, "database", "imitation-supabase.sql")]);
 if (stub.status !== 0) fail(`Imitation de Supabase impossible :\n${stub.stderr}`);
 // Les tables pointent vers auth.users : on y met seulement les identifiants des comptes.
 const ids = psql(remote, ["-c", "select id from auth.users"]);

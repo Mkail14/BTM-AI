@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { SimplePage } from "@/components/layout/SimplePage";
-import { requireUser } from "@/lib/auth/session";
+import { requireUser } from "@/server/middlewares/session";
 import { UpdatePasswordForm } from "./UpdatePasswordForm";
 
 export const metadata: Metadata = { title: "Nouveau mot de passe" };

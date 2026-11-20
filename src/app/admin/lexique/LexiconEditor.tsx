@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
 import { IconClose, IconLanguage, IconPlus, IconTrash } from "@/components/ui/icons";
-import type { ActionResult } from "@/lib/admin/action-auth";
+import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { lostOk } from "@/lib/safe-action";
 import { deleteLexiconAction, saveLexiconAction } from "./actions";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";

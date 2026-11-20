@@ -4,7 +4,7 @@
  *
  * DÉMONSTRATION PRIVÉE : les restaurants et menus sont ceux de Jéjé Livraison
  * (jeje-catalog.ts), repris pour leur présenter le projet. La fonctionnalité
- * n'est visible que des administrateurs (src/lib/food/access.ts) et ne sera
+ * n'est visible que des administrateurs (src/server/services/food/access.ts) et ne sera
  * jamais publique sans leur accord écrit ; en cas de refus, tout est retiré.
  * Aucune commande n'est transmise aux restaurants.
  */

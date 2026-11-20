@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { PageIntro } from "@/components/admin/form";
-import { loadVoice } from "@/lib/ai/voice/settings";
-import { requireAdmin } from "@/lib/auth/session";
-import { listVoiceCorrections } from "@/lib/voice-live/corrections";
+import { loadVoice } from "@/server/services/ai/voice/settings";
+import { requireAdmin } from "@/server/middlewares/session";
+import { listVoiceCorrections } from "@/server/services/voice-live/corrections";
 import { ListeningCorrections } from "./ListeningCorrections";
 import { VoiceMetrics } from "./VoiceMetrics";
 import { VoicePicker } from "./VoicePicker";

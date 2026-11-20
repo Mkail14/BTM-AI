@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it, mock } from "node:test";
-import { createProvider } from "@/lib/ai";
+import { createProvider } from "../src/server/services/ai";
 import type { AIConfig } from "@/lib/ai/config";
-import { listModels } from "@/lib/ai/key-check";
+import { listModels } from "../src/server/services/ai/key-check";
 
 const config: AIConfig = {
   provider: "openai-compatible",

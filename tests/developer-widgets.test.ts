@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { normalizeOrigin } from "@/lib/developers/widgets";
+import { normalizeOrigin } from "../src/server/services/developers/widgets";
 
 describe("Widget des développeurs : adresses autorisées", () => {
   it("ramène l'adresse saisie à son origine https", () => {

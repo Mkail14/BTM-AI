@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { liveIntent } from "@/lib/live/intent";
-import { parseRss } from "@/lib/live/news";
+import { parseRss } from "../src/server/services/live/news";
 
 describe("sources en direct", () => {
   it("lit un flux RSS (CDATA, entités, balises)", () => {
@@ -57,7 +57,7 @@ describe("carte du shimaoré", () => {
 
 describe("rangement automatique des mots", () => {
   it("garde les catégories de la liste, « ? » devient « À ranger »", async () => {
-    const { parseSorting } = await import("@/lib/language/sort-words");
+    const { parseSorting } = await import("../src/server/services/language/sort-words");
     const sorted = parseSorting("1|Nourriture › Plats\n2|?\n3|Inventé › Rien\n9|Couleurs › Vives\n4 | Nature & animaux > Animaux", 4);
     assert.deepEqual([...sorted], [
       [0, "Nourriture › Plats"],
@@ -83,14 +83,14 @@ describe("rangement automatique des mots", () => {
 
 describe("journal parlé", () => {
   it("dit la météo en mots simples", async () => {
-    const { weatherWords } = await import("@/lib/live/weather");
+    const { weatherWords } = await import("../src/server/services/live/weather");
     assert.equal(weatherWords(0), "grand soleil");
     assert.equal(weatherWords(81), "averses");
     assert.equal(weatherWords(95), "orages");
   });
 
   it("prend les articles du jour à Mayotte, sans doublon, sinon ceux des 2 derniers jours", async () => {
-    const { pickJournalArticles } = await import("@/lib/live/journal");
+    const { pickJournalArticles } = await import("../src/server/services/live/journal");
     const now = new Date("2026-11-05T08:00:00Z"); // 11 h à Mayotte
     const item = (title: string, date: string) => ({ source: "T", title, link: "https://x.yt", date, summary: "…" });
     const items = [

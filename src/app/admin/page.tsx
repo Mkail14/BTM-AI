@@ -8,13 +8,13 @@ import {
   listAdminUsers,
   type AdminOverview,
   type AdminUserRow,
-} from "@/lib/admin/stats";
+} from "@/server/services/admin/stats";
 import { supabaseDashboardLink } from "@/lib/admin/supabase-links";
-import { getAIProvider } from "@/lib/ai";
-import { getCodeExamHealth } from "@/lib/code-exam/laposte";
-import { requireAdmin } from "@/lib/auth/session";
-import { getGeminiSpend, type GeminiSpend } from "@/lib/ai/usage";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getAIProvider } from "@/server/services/ai";
+import { getCodeExamHealth } from "@/server/services/code-exam/laposte";
+import { requireAdmin } from "@/server/middlewares/session";
+import { getGeminiSpend, type GeminiSpend } from "@/server/services/ai/usage";
+import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
 import { supabaseUrl } from "@/lib/supabase/config";
 
 export const metadata: Metadata = { title: "Tableau de bord", robots: { index: false, follow: false } };

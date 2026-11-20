@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { ActionStatus, inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
-import type { ActionResult } from "@/lib/admin/action-auth";
+import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { GEMINI_VOICES, type GeminiVoiceId } from "@/lib/ai/voice/voices";
 import { lostOk } from "@/lib/safe-action";
 import { saveVoiceAction } from "./actions";

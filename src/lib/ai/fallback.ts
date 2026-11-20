@@ -1,5 +1,5 @@
 import { getHealth, isCoolingDown, recordFailure, recordSuccess } from "./health";
-import { recordAiUsage } from "./usage";
+import { recordAiUsage } from "@/server/services/ai/usage";
 import { AIProviderError, type AIProvider, type AIStreamChunk, type AIStreamInput } from "./types";
 
 export type ChainEntry = { healthId: string; provider: AIProvider; slotId?: string };

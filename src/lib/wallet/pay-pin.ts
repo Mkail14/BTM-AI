@@ -3,7 +3,7 @@
  * examen du code). Affiché par <PayPinHost /> (layout racine).
  *
  * Le serveur vérifie le code (/api/wallet/pin, « tap ») et donne l'accord pour
- * UN paiement : les routes de paiement refusent sans lui (src/lib/wallet/pay-auth.ts).
+ * UN paiement : les routes de paiement refusent sans lui (src/server/services/wallet/pay-auth.ts).
  * Quand Tamilya paie à la voix, le code a déjà été donné (voice-pay.ts) : rien
  * n'est redemandé.
  */

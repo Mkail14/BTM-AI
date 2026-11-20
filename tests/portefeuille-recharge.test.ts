@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { settleTopup } from "@/lib/wallet";
-import type { CheckoutSession } from "@/lib/wallet/stripe";
-import { isSameOrigin } from "@/lib/security/request";
+import { settleTopup } from "../src/server/services/wallet";
+import type { CheckoutSession } from "../src/server/services/wallet/stripe";
+import { isSameOrigin } from "@/server/middlewares/request";
 
 /**
  * Recharge du portefeuille (vrai argent) : quand le solde est crédité, quand la

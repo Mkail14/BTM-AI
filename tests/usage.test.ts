@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { geminiBudgetEur, geminiCostEur } from "@/lib/ai/usage";
+import { geminiBudgetEur, geminiCostEur } from "../src/server/services/ai/usage";
 
 describe("crédit Google", () => {
   it("estime le coût Gemini selon la famille de modèle", () => {

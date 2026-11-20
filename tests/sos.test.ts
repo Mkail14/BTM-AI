@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { sosAlertEmail, sosContactAddedEmail } from "../src/lib/email/templates";
 import { payloadSchema } from "../src/lib/mesh/envelope";
-import { sosContactsSchema } from "../src/lib/sos/contacts";
+import { sosContactsSchema } from "../src/server/services/sos/contacts";
 
 const replyKey = "A".repeat(43) + "=";
 

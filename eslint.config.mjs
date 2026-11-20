@@ -16,6 +16,8 @@ const eslintConfig = defineConfig([
     "public/maplibre/**",
     // Moteur onnxruntime-web copié tel quel (scripts/copy-vad.mjs).
     "public/vad/**",
+    // Lecteur de PDF copié tel quel (scripts/copy-vad.mjs).
+    "public/pdfjs/**",
     // Relais Cloudflare du vocal en direct : déployé à part (wrangler), types de Workers.
     "cloudflare/**",
   ]),

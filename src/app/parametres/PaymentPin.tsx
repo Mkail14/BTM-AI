@@ -37,14 +37,21 @@ export function PaymentPin() {
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const [loadError, setLoadError] = useState<string | null>(null);
+
   useEffect(() => {
+    // Une lecture ratée n'est pas « aucun code » : on le dit, sans proposer d'en créer un.
     fetch("/api/wallet/pin", { cache: "no-store" })
-      .then((r) => (r.ok ? (r.json() as Promise<{ hasPin: boolean; consented?: boolean }>) : null))
-      .then((body) => {
-        setHasPin(body?.hasPin ?? false);
-        setConsented(Boolean(body?.consented));
+      .then(async (r) => {
+        const body = (await r.json().catch(() => null)) as { hasPin?: boolean; consented?: boolean; error?: string } | null;
+        if (!r.ok || typeof body?.hasPin !== "boolean") throw new Error(body?.error ?? "");
+        setHasPin(body.hasPin);
+        setConsented(Boolean(body.consented));
       })
-      .catch(() => setHasPin(false));
+      .catch((error: unknown) => {
+        setLoadError((error instanceof Error && error.message) || "Ton code n'a pas pu être lu : recharge la page.");
+        setHasPin(false);
+      });
   }, []);
 
   function close() {
@@ -101,6 +108,8 @@ export function PaymentPin() {
     >
       {hasPin === null ? (
         <div className="m-4 h-8 animate-pulse rounded-lg bg-bg-muted" />
+      ) : loadError ? (
+        <SettingsRow label="Code de paiement" value={<span role="alert" className="text-danger">{loadError}</span>} />
       ) : mode === null ? (
         <SettingsRow label="Code de paiement" value={hasPin ? "Actif" : "Aucun code"}>
           <div className="flex gap-2">

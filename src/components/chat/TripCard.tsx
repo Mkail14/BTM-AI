@@ -4,10 +4,10 @@ import { Bus, CarFront, CarTaxiFront, Clock, Footprints, House, LocateFixed, Map
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import type { TripResponse } from "@/app/api/trip/route";
+import type { TripResponse } from "@/server/controllers/trip/trip.controller";
 import { locateMe, type Point } from "@/lib/geo/communes";
 import { formatMinutes, parseTripSpec } from "@/lib/trip/intent";
-import type { TripPlan } from "@/lib/trip/plan";
+import type { TripPlan } from "@/server/services/trip/plan";
 
 // Carte (MapLibre et sa feuille de style) : chargée seulement quand le panneau s'ouvre.
 const CourierMap = dynamic(() => import("./CourierMap").then((m) => m.CourierMap), { ssr: false });

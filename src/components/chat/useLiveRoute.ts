@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { RouteResponse } from "@/app/api/route/route";
+import type { RouteResponse } from "@/server/controllers/route/route.controller";
 import { closestOnPath, OFF_ROUTE_KM, type Point } from "@/lib/food/route";
 
 /** Trajets sur les vraies routes (le plus rapide, puis un de rechange), ou null si le calcul échoue. */

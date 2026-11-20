@@ -5,10 +5,10 @@
  *
  *   NODE_ENV=development node --conditions=react-server --env-file=.env.local --import tsx scripts/voice-comprehension.ts [essais]
  */
-import { knowledgeFor, lexiconFor, loadTamilyaBrain, wordsFor } from "@/lib/ai/brain";
+import { knowledgeFor, lexiconFor, loadTamilyaBrain, wordsFor } from "../src/server/services/ai/brain";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
-import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
-import { createRelayProvider, relayUrl } from "@/lib/ai/relay";
+import { loadPersonalityInstructions } from "../src/server/services/ai/personality-store";
+import { createRelayProvider, relayUrl } from "../src/server/services/ai/relay";
 import { keysSecret } from "@/lib/ai/secret-box";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { listeningRules } from "@/lib/voice-live/listening";

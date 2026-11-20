@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { inputClass, secondaryButton } from "@/components/admin/form";
-import type { DeveloperKey } from "@/lib/developers/keys";
+import type { DeveloperKey } from "@/server/services/developers/keys";
 import { lostOk } from "@/lib/safe-action";
 import { createDeveloperKeyAction, revokeDeveloperKeyAction } from "./actions";
 

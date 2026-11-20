@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ActionStatus, Counter, inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
 import { AnnouncementBar } from "@/components/landing/AnnouncementBar";
-import type { ActionResult } from "@/lib/admin/action-auth";
+import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { ANNOUNCEMENT_LIMITS, isSafeAnnouncementLink, type Announcement } from "@/lib/site/announcement-rules";
 import { lostOk } from "@/lib/safe-action";
 import { saveAnnouncementAction } from "./actions";

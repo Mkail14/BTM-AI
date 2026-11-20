@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import { speechDetection } from "../src/lib/voice-live/detection";
 import { createNoiseGate } from "../src/lib/voice-live/noise-gate";
-import { readLiveTicket, signLiveTicket } from "../src/lib/voice-live/ticket";
+import { readLiveTicket, signLiveTicket } from "../src/server/services/voice-live/ticket";
 
 const SIZE = 1600;
 const noise = (amount: number) => Float32Array.from({ length: SIZE }, () => (Math.random() * 2 - 1) * amount);

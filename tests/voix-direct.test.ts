@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { rankLiveModels } from "@/lib/voice-live/models";
-import { readLiveTicket, signLiveTicket } from "@/lib/voice-live/ticket";
+import { rankLiveModels } from "../src/server/services/voice-live/models";
+import { readLiveTicket, signLiveTicket } from "../src/server/services/voice-live/ticket";
 
 describe("vocal en direct", () => {
   it("ticket : accepté signé et à l'heure, refusé sinon", () => {
@@ -29,7 +29,7 @@ describe("vocal en direct", () => {
 
 describe("boutons du vocal en direct", () => {
   it("affiche le même tableau qu'à l'écrit, selon les droits du compte", async () => {
-    const { liveToolBlock, liveToolDeclarations } = await import("@/lib/voice-live/tools");
+    const { liveToolBlock, liveToolDeclarations } = await import("../src/server/services/voice-live/tools");
     const code = liveToolBlock("reserver_code", { bureau: "Mamoudzou", jour: "" }, { food: false, barge: false });
     assert.ok(code?.startsWith("```creneaux-code\nMamoudzou"));
     assert.ok(liveToolBlock("devis_btm", { demande: "un mur" }, { food: false, barge: false })?.includes("```"));

@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/action-auth";
-import { saveFeatureSwitch } from "@/lib/site/features";
+import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/server/middlewares/admin-auth";
+import { saveFeatureSwitch } from "@/server/services/site/features";
 import { FEATURES, FEATURE_IDS, type FeatureId } from "@/lib/site/features-rules";
 
 const schema = z.strictObject({ feature: z.enum(FEATURE_IDS as [FeatureId, ...FeatureId[]]), enabled: z.boolean() });

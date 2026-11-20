@@ -4,7 +4,7 @@ import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { inputClass, primaryButton } from "@/components/admin/form";
-import type { ActionResult } from "@/lib/admin/action-auth";
+import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { lostOk } from "@/lib/safe-action";
 import { ignoreRequestAction, translateRequestAction } from "./actions";
 import { WORD_LIMITS, type WordRequestRow } from "./limits";

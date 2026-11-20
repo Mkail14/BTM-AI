@@ -8,9 +8,9 @@ import {
   type DirectoryUser,
   type UserDirectory,
   type UserFilter,
-} from "@/lib/admin/users";
-import { requireAdmin } from "@/lib/auth/session";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+} from "@/server/services/admin/users";
+import { requireAdmin } from "@/server/middlewares/session";
+import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
 
 export const metadata: Metadata = { title: "Utilisateurs", robots: { index: false, follow: false } };
 

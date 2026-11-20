@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/action-auth";
-import { developerEmail, emailDeveloper, reviewDeveloperAccount, SUSPENSION_SUBJECT, type DeveloperStatus } from "@/lib/developers/accounts";
+import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/server/middlewares/admin-auth";
+import { developerEmail, emailDeveloper, reviewDeveloperAccount, SUSPENSION_SUBJECT, type DeveloperStatus } from "@/server/services/developers/accounts";
 
 const reviewSchema = z.strictObject({
   userId: z.uuid(),

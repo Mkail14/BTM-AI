@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { BRAND } from "@/components/brand/brand";
-import { getSiteFlags } from "@/lib/site/settings";
+import { getSiteFlags } from "@/server/services/site/settings";
 import type { SiteStatus } from "@/lib/site/status";
 import { AdminSignIn } from "./AdminSignIn";
 import { TamilyaGlobe } from "./TamilyaGlobe";

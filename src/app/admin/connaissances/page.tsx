@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { MigrationWarning } from "@/components/admin/form";
-import { requireAdmin } from "@/lib/auth/session";
+import { requireAdmin } from "@/server/middlewares/session";
 import { KnowledgeEditor } from "./KnowledgeEditor";
 import type { KnowledgeRow } from "./limits";
 

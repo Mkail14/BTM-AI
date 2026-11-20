@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { requireUser } from "@/lib/auth/session";
-import { isDriveConnected } from "@/lib/drive/connection";
+import { requireUser } from "@/server/middlewares/session";
+import { isDriveConnected } from "@/server/services/drive/connection";
 import { googleLoginEmail } from "@/lib/drive/identity";
-import { driveConfigured } from "@/lib/drive/oauth";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { canUse } from "@/lib/site/features";
+import { driveConfigured } from "@/server/services/drive/oauth";
+import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
+import { canUse } from "@/server/services/site/features";
 import { SettingsFrame } from "../parametres/SettingsFrame";
 import { DocumentsView } from "./DocumentsView";
 

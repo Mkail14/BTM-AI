@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { MigrationWarning } from "@/components/admin/form";
-import { requireAdmin } from "@/lib/auth/session";
+import { requireAdmin } from "@/server/middlewares/session";
 import { LexiconEditor } from "./LexiconEditor";
 import { LexiconMap } from "./LexiconMap";
 import { LexiconTabs } from "./LexiconTabs";
 import { buildLexiconTree } from "@/lib/language/curriculum";
-import { listBranches } from "@/lib/language/branches";
-import { sortNewWords } from "@/lib/language/sort-words";
+import { listBranches } from "@/server/services/language/branches";
+import { sortNewWords } from "@/server/services/language/sort-words";
 import { findConflicts } from "@/lib/language/word-conflicts";
 import { ConflictsPanel } from "./ConflictsPanel";
 import type { ConflictRow, LexiconRow, WordRequestRow, WordRow } from "./limits";

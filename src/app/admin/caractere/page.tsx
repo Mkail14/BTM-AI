@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { MigrationWarning } from "@/components/admin/form";
 import { DEFAULT_IDENTITY, DEFAULT_RULES } from "@/lib/ai/system-prompt";
-import { requireAdmin } from "@/lib/auth/session";
+import { requireAdmin } from "@/server/middlewares/session";
 import { CharacterForm } from "./CharacterForm";
 
 export const metadata: Metadata = { title: "Caractère et règles", robots: { index: false, follow: false } };

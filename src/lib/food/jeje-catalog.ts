@@ -2,7 +2,7 @@
  * Restaurants partenaires de Jéjé Livraison (https://jejelivraison.com/stores),
  * repris le 2026-11-02 pour leur présenter le projet.
  *
- * DÉMONSTRATION PRIVÉE : réservée aux administrateurs (src/lib/food/access.ts)
+ * DÉMONSTRATION PRIVÉE : réservée aux administrateurs (src/server/services/food/access.ts)
  * et jamais ouverte au public sans l'accord écrit de Jéjé Livraison. En cas de
  * refus, ce fichier est supprimé. Généré automatiquement : ne pas modifier à la
  * main, relancer l'extraction.

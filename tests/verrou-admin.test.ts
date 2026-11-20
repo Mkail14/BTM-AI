@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { adminGateValue, adminLockPath, isAdminGatedPath, isAdminGateOpen } from "@/lib/admin/gate";
+import { adminGateValue, adminLockPath, isAdminGatedPath, isAdminGateOpen } from "../src/server/services/admin/gate";
 
 const MINUTE = 60_000;
 const now = Date.UTC(2026, 10, 13, 9);

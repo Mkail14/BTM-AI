@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { relayUrl, signRelay, verifyRelay } from "@/lib/ai/relay";
+import { relayUrl, signRelay, verifyRelay } from "../src/server/services/ai/relay";
 
 describe("relais local vers le site en ligne", () => {
   const body = JSON.stringify({ system: "s", messages: [{ role: "user", content: "Bonjour" }], maxOutputTokens: 100 });

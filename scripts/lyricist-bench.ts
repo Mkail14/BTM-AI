@@ -3,11 +3,11 @@
  * temps des deux réécritures en parallèle, notes des trois versions, version gardée.
  * Lancer : node --env-file=.env.local --conditions=react-server --import tsx scripts/lyricist-bench.ts
  */
-import { createRelayProvider } from "../src/lib/ai/relay";
+import { createRelayProvider } from "../src/server/services/ai/relay";
 import { keysSecret } from "../src/lib/ai/secret-box";
 import { parseSongSpec } from "../src/lib/music/intent";
 import { scoreLyrics } from "../src/lib/music/lyric-score";
-import { LYRICIST_ANGLES, lyricistPrompt, pickBest } from "../src/lib/music/lyricist";
+import { LYRICIST_ANGLES, lyricistPrompt, pickBest } from "../src/server/services/music/lyricist";
 
 const url = process.env.AI_RELAY_URL?.trim().replace(/\/+$/, "");
 const secret = keysSecret();

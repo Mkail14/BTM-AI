@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
-import { CodeExamSourceError, centerName, extractAccess, parseCenters, parseSessions } from "@/lib/code-exam/laposte";
+import { CodeExamSourceError, centerName, extractAccess, parseCenters, parseSessions } from "../src/server/services/code-exam/laposte";
 import { enforceShimaore } from "@/lib/language/unknown-words";
 import { fieldError, normalizePhone, requestSchema } from "@/lib/code-exam/candidate";
 import { FOOD_CATALOG, FOOD_DELIVERY_FEE_CENTS, priceOrder } from "@/lib/food/catalog";

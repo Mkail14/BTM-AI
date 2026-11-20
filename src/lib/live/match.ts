@@ -1,5 +1,5 @@
 import { normalize } from "./intent";
-import type { NewsItem } from "./news";
+import type { NewsItem } from "@/server/services/live/news";
 
 /** Mots trop courants pour relier un message à un article. */
 const COMMON = new Set(

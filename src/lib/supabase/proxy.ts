@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { hasAdminRole } from "@/lib/auth/roles";
+import { hasAdminRole } from "@/server/middlewares/roles";
 import {
   isSupabaseConfigured,
   supabasePublishableKey,

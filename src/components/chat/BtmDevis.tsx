@@ -5,9 +5,9 @@ import { Pictogram, WorksIcon } from "@/components/ui/Pictogram";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import { boardDone } from "@/lib/voice-live/stage";
-import type { BtmDevisChoice, BtmDevisInfo, BtmDevisSaved } from "@/app/api/btm-devis/route";
-import type { BtmFournisseursInfo } from "@/app/api/btm-devis/fournisseurs/route";
-import type { OffreFournisseur } from "@/lib/btm/partner";
+import type { BtmDevisChoice, BtmDevisInfo, BtmDevisSaved } from "@/server/controllers/btm-devis/btm-devis.controller";
+import type { BtmFournisseursInfo } from "@/server/controllers/btm-devis/fournisseurs.controller";
+import type { OffreFournisseur } from "@/server/services/btm/partner";
 import { parseBtmDevisSpec } from "@/lib/btm/intent";
 import {
   BTM_SITE,

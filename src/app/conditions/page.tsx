@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { SimplePage } from "@/components/layout/SimplePage";
 import { TAMILYA_BIRTH_LABEL } from "@/lib/ai/tamilya-identity";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
-import { MAX_ACTIVE_KEYS } from "@/lib/developers/keys";
+import { MAX_ACTIVE_KEYS } from "@/server/services/developers/keys";
 import { CANCEL_LEAD_MS } from "@/lib/food/cancel";
 import { formatEuros, WALLET_MAX_BALANCE, WALLET_MAX_TOPUP, WALLET_MIN_TOPUP } from "@/lib/wallet/limits";
 

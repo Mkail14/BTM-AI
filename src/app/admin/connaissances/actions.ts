@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/action-auth";
-import { invalidateTamilyaBrain } from "@/lib/ai/brain";
+import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/server/middlewares/admin-auth";
+import { invalidateTamilyaBrain } from "@/server/services/ai/brain";
 import { KNOWLEDGE_LIMITS } from "./limits";
 
 const schema = z.object({

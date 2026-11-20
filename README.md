@@ -36,7 +36,7 @@ Sans variables d'environnement, l'application démarre quand même : la page s'a
 | `AI_EFFORT` | Anthropic uniquement : `low` (défaut, adapté au chat) … `max` |
 | `AI_DISABLE_REASONING` | `openai-compatible` uniquement : `true` coupe la réflexion des modèles qui en ont une (format OpenRouter `reasoning.enabled`), pour un premier mot bien plus rapide. Défaut `false` |
 
-Pour Claude, l'adaptateur active aussi la **mise en cache du préfixe** de conversation et le **repli côté serveur** d'Anthropic (`fallbacks: "default"`) : si un classifieur de sécurité refuse une demande, Anthropic peut la relancer sur un modèle adapté. Ces options sont regroupées dans `src/lib/ai/providers/anthropic.ts`.
+Pour Claude, l'adaptateur active aussi la **mise en cache du préfixe** de conversation et le **repli côté serveur** d'Anthropic (`fallbacks: "default"`) : si un classifieur de sécurité refuse une demande, Anthropic peut la relancer sur un modèle adapté. Ces options sont regroupées dans `src/server/services/ai/providers/anthropic.ts`.
 
 ### 2. Supabase
 
@@ -92,6 +92,7 @@ L'inscription demande un nom affiché (obligatoire), l'e-mail (avec suggestion e
 | `npm run typecheck` | Génération des types de routes + `tsc --noEmit` |
 | `npm test` | Tests unitaires (`tests/*.test.ts`) |
 | `npm run check` | Lint + types + tests |
+| `npm run db:complet` | Regénère `database/btm-ai.sql` après une nouvelle migration |
 
 ## Tester le parcours complet
 
@@ -105,37 +106,55 @@ L'inscription demande un nom affiché (obligatoire), l'e-mail (avec suggestion e
 
 ## Architecture
 
+Une seule application Next.js (full-stack) : le frontend et le backend vivent dans
+le même dépôt et sont déployés ensemble sur Vercel. La séparation se fait par dossier.
+
 ```
-src/
-  proxy.ts                     Rafraîchit la session, redirige les pages privées (vérification optimiste)
-  app/
-    (chat)/page.tsx            Accueil = conversation immédiate
-    (chat)/c/[id]/page.tsx     Conversation enregistrée (privée)
-    api/chat/route.ts          Validation → quotas → contexte → flux NDJSON → persistance
-    api/tamilya/route.ts           Tamilya pour les autres sites de GROUPE BTM (btm.yt), secret par site (awa_partner_keys)
-    api/orchestr/route.ts          Tamilya pour Orchestr AI seulement : même secret de site, sans quota ni plafond de longueur
-    api/conversations/…        Liste, import après connexion, suppression
-    auth/…                     Callback e-mail, mot de passe oublié / nouveau, lien invalide
-    parametres/                Profil (Server Action)
-    admin/                     Administration (rôle app_metadata, statistiques agrégées)
-    confidentialite/           Règles de conservation des données
-  components/
-    brand/                     Marque séparée (logo typographique, emplacement du futur symbole)
-    auth/                      Contexte de session + fenêtre de connexion/inscription
-    chat/                      Vue de conversation, saisie, messages, Markdown
-    layout/                    Shell avec barre latérale, pages secondaires
-  lib/
-    ai/                        Interface fournisseur, adaptateurs, message système
-    language/                  Consignes shimaoré + exemples validés (vide pour l'instant)
-    auth/                      Lecture de session, chemins protégés, redirections sûres
-    chat/                      Limites, types, validation zod, protocole de flux, historique
-    conversations/             Accès aux données (toujours via le client RLS de l'utilisateur)
-    rate-limit/                Quotas (Postgres partagé, repli mémoire en dev)
-    security/                  IP, hachage HMAC, contrôle d'origine
-    supabase/                  Clients navigateur, serveur, proxy, admin
-supabase/migrations/           Schéma, RLS, fonction de limitation de débit
-tests/                         Tests unitaires
+├── database/                 Base de données (PostgreSQL hébergé par Supabase)
+│   ├── btm-ai.sql            Base complète : tables, règles, RLS, déclencheurs, vues, données (généré)
+│   ├── donnees-demo.sql      Comptes fictifs pour la base locale
+│   ├── tests-regles.sql      Preuves des règles et des droits (tout est annulé à la fin)
+│   └── README.md             Base locale, empreinte du schéma, sauvegardes
+├── supabase/migrations/      Source de la base, appliquée par Supabase dans l'ordre
+│
+├── src/                      ── FRONTEND (envoyé au navigateur) ──
+│   ├── app/                  Pages (page.tsx), mises en page, actions serveur des formulaires
+│   ├── components/           Composants React (chat, admin, connexion, marque…)
+│   ├── lib/                  Code partagé navigateur/serveur : types, schémas zod, calculs
+│   ├── types/                Déclarations de types
+│   │
+│   │                         ── BACKEND (jamais envoyé au navigateur) ──
+│   ├── app/api/              Routes : adresses de l'API et middlewares de chaque route
+│   ├── server/
+│   │   ├── config/           Connexion Supabase : client de session (RLS) et client à clé secrète
+│   │   ├── controllers/      Lecture de la requête -> appel du service -> réponse JSON
+│   │   ├── middlewares/      Session, rôles, accès admin, origine (CSRF), quotas, garde des routes
+│   │   ├── models/           Requêtes Supabase uniquement
+│   │   └── services/         Règles de gestion et contrôles de propriété, par domaine
+│   └── proxy.ts              Rafraîchit la session, redirige les pages privées
+├── tests/                    Tests automatiques : unitaires et d'intégration (npm test)
+├── scripts/                  Base locale, sauvegardes, bancs d'essai
+├── .env.example
+└── package.json
 ```
+
+Règle : tout fichier qui touche aux secrets ou à la base commence par
+`import "server-only"` et vit dans `src/server`. Un composant du navigateur qui
+l'importerait ferait échouer le build.
+
+Chaque route de `src/app/api` ne contient que son adresse ; le code est dans son
+contrôleur (`src/server/controllers/<domaine>/`). Exemple,
+`src/app/api/conversations/route.ts` :
+
+```ts
+export const GET = signedIn(conversations.list);
+export const POST = signedIn(conversations.importGuest, { write: true });
+```
+
+Les conversations vont jusqu'au bout des couches (route -> middleware ->
+contrôleur -> service -> model). Dans les autres domaines, les requêtes Supabase
+sont encore écrites dans les services ; elles passent dans `models/` au fil des
+modifications.
 
 ### Changer de logo
 
@@ -152,7 +171,7 @@ Le modèle n'est pas présenté comme maîtrisant le shimaoré. Le message syst�
 - **Administration** : `/admin` exige `app_metadata.role = "admin"`, revérifié à chaque rendu (le proxy ne fait qu'un contrôle de session). La clé secrète n'y sert qu'à des comptages et à la liste des comptes, jamais au contenu des conversations.
 - **Historique** : pour un utilisateur connecté, le contexte est relu en base, jamais repris du client.
 - **Validation** : schémas zod stricts (champs inconnus refusés, tailles bornées, UUID), corps limité à 128 Ko, contrôle d'origine sur les requêtes qui modifient des données.
-- **Quotas** (côté serveur, `src/lib/rate-limit/policies.ts`) :
+- **Quotas** (côté serveur, `src/server/middlewares/rate-limit/policies.ts`) :
   - visiteur, par appareil (cookie httpOnly) : 6 messages/min, 30/jour ;
   - visiteur, par IP hachée : 30/min, 300/jour — volontairement large car de nombreux abonnés mobiles à Mayotte partagent une même IP (CGNAT) ;
   - utilisateur connecté : 15/min, 300/jour ; import : 10/heure ;

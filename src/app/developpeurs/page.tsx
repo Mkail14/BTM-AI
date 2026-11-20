@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { getAuthContext } from "@/lib/auth/session";
-import { getDeveloperAccount, type DeveloperAccount } from "@/lib/developers/accounts";
-import { listDeveloperKeys, MAX_ACTIVE_KEYS } from "@/lib/developers/keys";
-import { listDeveloperWidgets, MAX_WIDGETS } from "@/lib/developers/widgets";
-import { RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
+import { getAuthContext } from "@/server/middlewares/session";
+import { getDeveloperAccount, type DeveloperAccount } from "@/server/services/developers/accounts";
+import { listDeveloperKeys, MAX_ACTIVE_KEYS } from "@/server/services/developers/keys";
+import { listDeveloperWidgets, MAX_WIDGETS } from "@/server/services/developers/widgets";
+import { RATE_LIMIT_POLICIES } from "@/server/middlewares/rate-limit";
 import { AccessRequest } from "./AccessRequest";
 import { ApiReference } from "./ApiReference";
 import { CodeExamples } from "./CodeExamples";

@@ -7,12 +7,12 @@ import { ActionStatus, inputClass, primaryButton, secondaryButton } from "@/comp
 import { IconExternal, IconLock, IconPencil, IconSettings, IconUsers, IconWallet } from "@/components/ui/icons";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { PasswordInput } from "@/components/ui/PasswordInput";
-import type { ActionResult } from "@/lib/admin/action-auth";
+import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { lostOk } from "@/lib/safe-action";
-import type { AdminAccount } from "@/lib/admin/delegation";
+import type { AdminAccount } from "@/server/services/admin/delegation";
 import { bankFromBic, bankFromIban, formatIban, isValidBic, isValidIban, normalizeIban, parseRib } from "@/lib/site/iban";
-import type { Partner } from "@/lib/site/partners";
-import type { BankDetails, SiteFlags, StatusChange } from "@/lib/site/settings";
+import type { Partner } from "@/server/services/site/partners";
+import type { BankDetails, SiteFlags, StatusChange } from "@/server/services/site/settings";
 import { SITE_STATUS_LABELS, type SiteStatus } from "@/lib/site/status";
 import {
   addPartnerAction,

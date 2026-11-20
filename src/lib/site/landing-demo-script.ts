@@ -1,6 +1,6 @@
 /**
  * Conversation d'exemple de la page d'accueil, écrite en français. Tamilya la
- * traduit elle-même en shimaoré avec son vocabulaire (src/lib/site/landing-demo.ts) :
+ * traduit elle-même en shimaoré avec son vocabulaire (src/server/services/site/landing-demo.ts) :
  * quand on la corrige dans une conversation, l'accueil suit tout seul.
  * Changer ces phrases fait retraduire la conversation.
  * Elle tourne en boucle (ChatDemo) : la dernière réplique de Tamilya invite à

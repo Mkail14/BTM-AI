@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { ActionStatus } from "@/components/admin/form";
-import type { ActionResult } from "@/lib/admin/action-auth";
+import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { FEATURES, type FeatureId, type FeatureSwitches as Switches } from "@/lib/site/features-rules";
 import { lostOk } from "@/lib/safe-action";
 import { setFeatureAction } from "./actions";

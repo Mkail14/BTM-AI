@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/action-auth";
-import { getAIProvider } from "@/lib/ai";
-import { invalidateTamilyaBrain } from "@/lib/ai/brain";
-import { completeText } from "@/lib/ai/complete";
+import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/server/middlewares/admin-auth";
+import { getAIProvider } from "@/server/services/ai";
+import { invalidateTamilyaBrain } from "@/server/services/ai/brain";
+import { completeText } from "@/server/services/ai/complete";
 import { tidy, type EntryTable } from "@/lib/language/cleanup";
 import { GRAMMAR_LIMITS } from "./limits";
 

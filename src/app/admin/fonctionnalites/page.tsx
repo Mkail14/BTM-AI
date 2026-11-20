@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { MigrationWarning } from "@/components/admin/form";
-import { requireAdmin } from "@/lib/auth/session";
-import { getFeatureSwitches } from "@/lib/site/features";
+import { requireAdmin } from "@/server/middlewares/session";
+import { getFeatureSwitches } from "@/server/services/site/features";
 import { readSwitches } from "@/lib/site/features-rules";
 import { FeatureSwitches } from "./FeatureSwitches";
 

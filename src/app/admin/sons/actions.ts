@@ -2,9 +2,9 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/action-auth";
+import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/server/middlewares/admin-auth";
 import { BUILTIN_CATALOG, SOUND_ID, type StoredSound } from "@/lib/lecture/catalog";
-import { checkSoundFile, createSoundUpload, readStoredCatalog, removeSoundFile, writeStoredCatalog } from "@/lib/lecture/catalog-store";
+import { checkSoundFile, createSoundUpload, readStoredCatalog, removeSoundFile, writeStoredCatalog } from "@/server/services/lecture/catalog-store";
 
 /**
  * Sons de Tamilya (/admin/sons) : brancher, débrancher, renommer, remplacer le fichier, ajouter.

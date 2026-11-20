@@ -10,6 +10,7 @@
     "typecheck": "next typegen && tsc --noEmit",
     "test": "node --conditions=react-server --import tsx --test \"tests/**/*.test.ts\"",
     "check": "npm run lint && npm run typecheck && npm test",
+    "db:complet": "node --import tsx scripts/db/complet.ts",
     "db:local": "node --import tsx scripts/db/local.ts",
     "db:tests-securite": "node --import tsx scripts/db/tests-securite.ts",
     "db:sauvegarde": "node --import tsx scripts/db/sauvegarde.ts"

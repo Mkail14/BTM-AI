@@ -1,11 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { redirect } from "next/navigation";
-import { requireUser } from "@/lib/auth/session";
-import { readDriveAccount } from "@/lib/drive/client";
-import { saveDriveConnection } from "@/lib/drive/connection";
+import { requireUser } from "@/server/middlewares/session";
+import { readDriveAccount } from "@/server/services/drive/client";
+import { saveDriveConnection } from "@/server/services/drive/connection";
 import { googleSubject, ownsGoogleIdentity } from "@/lib/drive/identity";
-import { exchangeDriveCode, readDriveState } from "@/lib/drive/oauth";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { exchangeDriveCode, readDriveState } from "@/server/services/drive/oauth";
+import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
 
 const text = (value: string | string[] | undefined) => (typeof value === "string" ? value : undefined);
 

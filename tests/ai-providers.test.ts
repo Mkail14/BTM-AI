@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { storedSlot } from "@/lib/ai/registry";
+import { storedSlot } from "../src/server/services/ai/registry";
 import { canEncrypt, decryptSecret, encryptSecret } from "@/lib/ai/secret-box";
 
 const env = { AI_KEYS_SECRET: "secret-de-test", AI_MAX_OUTPUT_TOKENS: "2048" };

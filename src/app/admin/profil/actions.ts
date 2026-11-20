@@ -3,16 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
-import { NOT_PRINCIPAL, requirePrincipalAdminAction, type ActionResult } from "@/lib/admin/action-auth";
-import { grantSecondaryAdmin, revokeSecondaryAdmin } from "@/lib/admin/delegation";
-import { lock, unlock, unlockedUntil } from "@/lib/admin/unlock";
-import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
+import { NOT_PRINCIPAL, requirePrincipalAdminAction, type ActionResult } from "@/server/middlewares/admin-auth";
+import { grantSecondaryAdmin, revokeSecondaryAdmin } from "@/server/services/admin/delegation";
+import { lock, unlock, unlockedUntil } from "@/server/services/admin/unlock";
+import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/server/middlewares/rate-limit";
 import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
 import { isValidBic, isValidIban, normalizeBic, normalizeIban } from "@/lib/site/iban";
-import { addPartner, removePartner, validatePartner } from "@/lib/site/partners";
-import { saveBankDetails, saveSiteFlags, saveSiteStatus } from "@/lib/site/settings";
+import { addPartner, removePartner, validatePartner } from "@/server/services/site/partners";
+import { saveBankDetails, saveSiteFlags, saveSiteStatus } from "@/server/services/site/settings";
 import { SITE_STATUSES, type SiteStatus } from "@/lib/site/status";
-import { forgetDemoWallet } from "@/lib/wallet/demo";
+import { forgetDemoWallet } from "@/server/services/wallet/demo";
 
 const FAILED: ActionResult = { ok: false, message: "L'enregistrement a échoué (migration site_settings appliquée ?)." };
 

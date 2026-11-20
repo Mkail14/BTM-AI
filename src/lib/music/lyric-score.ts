@@ -1,6 +1,6 @@
 /**
  * Note des paroles d'une chanson, calculée par le code (aucun appel) : sert à choisir la
- * meilleure de plusieurs versions écrites en même temps (src/lib/music/lyricist.ts).
+ * meilleure de plusieurs versions écrites en même temps (src/server/services/music/lyricist.ts).
  *
  * Remarque de l'utilisateur (2026-11-09) : les paroles « sentent vraiment l'IA ». On enlève des
  * points pour ce qui trahit une IA (clichés, mots vagues, même mot qui rime avec lui-même) et on

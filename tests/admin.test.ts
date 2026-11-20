@@ -2,7 +2,7 @@ import { detectPreset } from "@/app/admin/circuit/presets";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { buildAdminAlerts } from "@/lib/admin/alerts";
-import type { AdminOverview } from "@/lib/admin/stats";
+import type { AdminOverview } from "../src/server/services/admin/stats";
 import { supabaseDashboardLink } from "@/lib/admin/supabase-links";
 
 const baseOverview: AdminOverview = {

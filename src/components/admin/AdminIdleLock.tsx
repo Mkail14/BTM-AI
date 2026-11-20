@@ -11,7 +11,7 @@ const INPUTS = ["pointerdown", "pointermove", "keydown", "wheel", "touchstart", 
  * Verrou de l'espace admin côté écran : souris, clavier ou défilement comptent
  * comme une utilisation et prolongent le verrou ; après `minutes` sans rien,
  * il se referme et la page du code s'affiche. Le serveur applique la même
- * limite de son côté (src/lib/admin/gate.ts).
+ * limite de son côté (src/server/services/admin/gate.ts).
  */
 export function AdminIdleLock({ minutes }: { minutes: number }) {
   useEffect(() => {

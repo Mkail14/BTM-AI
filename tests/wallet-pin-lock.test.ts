@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { RATE_LIMIT_POLICIES } from "../src/lib/rate-limit/policies";
-import { describePinWait, hashPin, pinLockMs, pinTriesLeft, removePin, savePin, verifyPin } from "../src/lib/wallet/pin";
+import { RATE_LIMIT_POLICIES } from "../src/server/middlewares/rate-limit/policies";
+import { describePinWait, hashPin, pinLockMs, pinTriesLeft, removePin, savePin, verifyPin } from "../src/server/services/wallet/pin";
 
 /**
  * Faux client Supabase : une seule table wallet_pins en mémoire. Chaque requête

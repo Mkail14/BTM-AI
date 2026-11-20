@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { describeRoute, describeTown, findTown } from "@/lib/mayotte/towns";
 import { MAP_RULES, MAP_TOOLS, mapToolDeclarations } from "@/lib/voice-live/map-mode";
-import { readLiveTicket, signLiveTicket } from "@/lib/voice-live/ticket";
+import { readLiveTicket, signLiveTicket } from "../src/server/services/voice-live/ticket";
 
 describe("carte de la page Mayotte", () => {
   it("trouve une commune, même mal écrite", () => {

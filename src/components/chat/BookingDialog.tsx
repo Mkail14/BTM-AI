@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, useState, type InputHTMLAttributes, type ReactNode } from "react";
-import type { BookingPayment, CandidatePrefill } from "@/app/api/code-exam/requests/route";
+import type { BookingPayment, CandidatePrefill } from "@/server/controllers/code-exam/requests.controller";
 import { celebrate } from "@/components/ui/Celebration";
 import { IconClose } from "@/components/ui/icons";
 import { boardDone } from "@/lib/voice-live/stage";

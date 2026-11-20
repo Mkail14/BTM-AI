@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { getAuthContext } from "@/lib/auth/session";
-import { acceptDeveloperTerms, getDeveloperStatus, suspendForIdentity } from "@/lib/developers/accounts";
+import { getAuthContext } from "@/server/middlewares/session";
+import { acceptDeveloperTerms, getDeveloperStatus, suspendForIdentity } from "@/server/services/developers/accounts";
 import { findIdentityViolation, IDENTITY_LABELS } from "@/lib/developers/identity";
-import { createDeveloperKey, MAX_ACTIVE_KEYS, revokeDeveloperKey } from "@/lib/developers/keys";
+import { createDeveloperKey, MAX_ACTIVE_KEYS, revokeDeveloperKey } from "@/server/services/developers/keys";
 import {
   createDeveloperWidget,
   MAX_WIDGET_ORIGINS,
@@ -13,8 +13,8 @@ import {
   normalizeOrigin,
   revokeDeveloperWidget,
   updateWidgetMission,
-} from "@/lib/developers/widgets";
-import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
+} from "@/server/services/developers/widgets";
+import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/server/middlewares/rate-limit";
 
 export type ActionMessage = { ok: true } | { ok: false; message: string };
 export type CreateKeyActionResult = { ok: true; key: string } | { ok: false; message: string };

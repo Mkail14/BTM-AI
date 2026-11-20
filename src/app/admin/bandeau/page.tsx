@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { MigrationWarning } from "@/components/admin/form";
-import { requireAdmin } from "@/lib/auth/session";
-import { getAnnouncement } from "@/lib/site/announcement";
+import { requireAdmin } from "@/server/middlewares/session";
+import { getAnnouncement } from "@/server/services/site/announcement";
 import { NO_ANNOUNCEMENT } from "@/lib/site/announcement-rules";
 import { AnnouncementForm } from "./AnnouncementForm";
 

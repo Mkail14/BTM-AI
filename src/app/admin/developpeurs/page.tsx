@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { MigrationWarning } from "@/components/admin/form";
-import { requireAdmin } from "@/lib/auth/session";
-import { developerEmail, listDeveloperAccounts } from "@/lib/developers/accounts";
+import { requireAdmin } from "@/server/middlewares/session";
+import { developerEmail, listDeveloperAccounts } from "@/server/services/developers/accounts";
 import { ReviewButtons } from "./ReviewButtons";
 
 export const metadata: Metadata = { title: "Développeurs", robots: { index: false, follow: false } };

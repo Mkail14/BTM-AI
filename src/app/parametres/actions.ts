@@ -2,24 +2,24 @@
 
 import { revalidatePath } from "next/cache";
 import { addressSchema, MAX_SAVED_ADDRESSES, savedAddressSchema } from "@/lib/address";
-import { MEMORY_OFF_KEY } from "@/lib/ai/memory-store";
-import { getAuthContext } from "@/lib/auth/session";
+import { MEMORY_OFF_KEY } from "@/server/services/ai/memory-store";
+import { getAuthContext } from "@/server/middlewares/session";
 import { maskPhone, normalizePhone } from "@/lib/code-exam/candidate";
-import { disconnectDrive } from "@/lib/drive/connection";
-import { notifyAccountChange, notifyAccountDeleted } from "@/lib/email/notify";
-import { saveProfileAddress, saveProfilePhone } from "@/lib/profile-contact";
-import { deleteSavedAddress, saveSavedAddress } from "@/lib/saved-addresses";
+import { disconnectDrive } from "@/server/services/drive/connection";
+import { notifyAccountChange, notifyAccountDeleted } from "@/server/services/email/notify";
+import { saveProfileAddress, saveProfilePhone } from "@/server/services/profile-contact";
+import { deleteSavedAddress, saveSavedAddress } from "@/server/services/saved-addresses";
 import { profileSchema } from "@/lib/chat/validation";
-import { getProfile, updateProfile } from "@/lib/conversations/repository";
-import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
-import { deleteMyReview, saveMyReview } from "@/lib/reviews";
+import { getProfile, updateProfile } from "@/server/models/profiles.model";
+import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/server/middlewares/rate-limit";
+import { deleteMyReview, saveMyReview } from "@/server/services/reviews";
 import { publicName, reviewSchema } from "@/lib/reviews/rules";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
-import { EMAIL_FROM_ADDRESS, emailConfigured, sendEmail } from "@/lib/email/send";
+import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
+import { EMAIL_FROM_ADDRESS, emailConfigured, sendEmail } from "@/server/services/email/send";
 import { euros, refundDecision, refundRequestEmail } from "@/lib/wallet/refund-on-delete";
 import { siteOrigin } from "@/lib/email/device";
 import { sosContactAddedEmail } from "@/lib/email/templates";
-import { listSosContacts, saveSosContacts, sosContactsSchema } from "@/lib/sos/contacts";
+import { listSosContacts, saveSosContacts, sosContactsSchema } from "@/server/services/sos/contacts";
 import { DELETE_CONFIRMATION } from "./confirmation";
 
 export type ProfileFormState = { status: "idle" | "saved" | "error"; message?: string };

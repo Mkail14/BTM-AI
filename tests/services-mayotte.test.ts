@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { liveIntent } from "@/lib/live/intent";
-import { matchServices, servicesAsked, toService, type PublicService } from "@/lib/live/services";
+import { matchServices, servicesAsked, toService, type PublicService } from "../src/server/services/live/services";
 
 const service = (name: string, commune: string): PublicService => ({
   name,

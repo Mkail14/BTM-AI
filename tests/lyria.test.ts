@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { readInteraction } from "../src/lib/music/lyria";
+import { readInteraction } from "../src/server/services/music/lyria";
 
 describe("Lyria : lecture de la réponse", () => {
   it("prend le son (base64) et le texte des étapes model_output", () => {

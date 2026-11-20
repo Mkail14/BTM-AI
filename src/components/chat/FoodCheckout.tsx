@@ -4,7 +4,7 @@ import { Pictogram } from "@/components/ui/Pictogram";
 import { House, MapPin, PhoneCall } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
-import type { FoodOrderPlaced, FoodResponse } from "@/app/api/food/route";
+import type { FoodOrderPlaced, FoodResponse } from "@/server/controllers/food/food.controller";
 import { AddressFields, EMPTY_ADDRESS, type AddressDraft } from "@/components/ui/AddressFields";
 import { IconClose } from "@/components/ui/icons";
 import { addressFieldErrors } from "@/lib/address";

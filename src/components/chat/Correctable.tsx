@@ -5,7 +5,7 @@ import { createContext, use, useEffect, useRef, useState, type MouseEvent, type 
 import { createPortal } from "react-dom";
 import { guessFrenchAction } from "@/app/(chat)/actions";
 import { IconCheck, IconClose, IconPencil } from "@/components/ui/icons";
-import type { ActionResult } from "@/lib/admin/action-auth";
+import type { ActionResult } from "@/server/middlewares/admin-auth";
 
 export type Correction = { wrote: string; shimaore: string; french: string; context: string };
 

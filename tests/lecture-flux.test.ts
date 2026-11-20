@@ -7,7 +7,7 @@ import { buildLine, buildMeta } from "../src/lib/lecture/script";
 import { createScriptStream } from "../src/lib/lecture/stream";
 import { pickWriterModels, writerPrompt } from "../src/lib/lecture/writer";
 import { LIVE_RULES } from "../src/lib/voice-live/rules";
-import { liveToolDeclarations } from "../src/lib/voice-live/tools";
+import { liveToolDeclarations } from "../src/server/services/voice-live/tools";
 
 const script = {
   lisible: true,

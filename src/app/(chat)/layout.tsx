@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ChatShell } from "@/components/layout/ChatShell";
-import { getAuthContext } from "@/lib/auth/session";
-import { getSiteFlags } from "@/lib/site/settings";
+import { getAuthContext } from "@/server/middlewares/session";
+import { getSiteFlags } from "@/server/services/site/settings";
 import { SITE_STATUS_LABELS } from "@/lib/site/status";
 import { AddressCheckNotice } from "@/components/layout/AddressCheckNotice";
 import { needsAddressCheck } from "@/lib/auth/address-notice";

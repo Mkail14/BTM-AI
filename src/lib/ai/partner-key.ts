@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { SiteId } from "@/lib/ai/sites";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
 
 /**
  * Secret partagé avec un site de GROUPE BTM qui fait parler Tamilya

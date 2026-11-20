@@ -2,11 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { MigrationWarning } from "@/components/admin/form";
-import { listAdmins } from "@/lib/admin/delegation";
-import { requirePrincipalAdmin } from "@/lib/auth/session";
-import { listPartners } from "@/lib/site/partners";
-import { getBankDetails, getLastChange, getSiteFlags, getStatusLog } from "@/lib/site/settings";
-import { unlockedUntil } from "@/lib/admin/unlock";
+import { listAdmins } from "@/server/services/admin/delegation";
+import { requirePrincipalAdmin } from "@/server/middlewares/session";
+import { listPartners } from "@/server/services/site/partners";
+import { getBankDetails, getLastChange, getSiteFlags, getStatusLog } from "@/server/services/site/settings";
+import { unlockedUntil } from "@/server/services/admin/unlock";
 import { BankForm, Delegation, LockBar, ProfileLock, SitePanel } from "./ProfileForms";
 
 export const metadata: Metadata = { title: "Profil de l'entreprise", robots: { index: false, follow: false } };

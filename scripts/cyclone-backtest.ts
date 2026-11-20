@@ -4,7 +4,7 @@
  *
  *   node --conditions=react-server --import tsx scripts/cyclone-backtest.ts
  */
-import { backtest, TUNING, type Tuning } from "../src/lib/cyclone/engine";
+import { backtest, TUNING, type Tuning } from "../src/server/services/cyclone/engine";
 
 const show = (label: string, t: Tuning) => {
   const r = backtest({ tuning: t });

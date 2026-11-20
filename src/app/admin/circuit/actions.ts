@@ -2,18 +2,18 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { NOT_ADMIN, NOT_PRINCIPAL, requireAdminAction, requirePrincipalAdminAction, type ActionResult } from "@/lib/admin/action-auth";
-import { createProvider, slotHealthId } from "@/lib/ai";
+import { NOT_ADMIN, NOT_PRINCIPAL, requireAdminAction, requirePrincipalAdminAction, type ActionResult } from "@/server/middlewares/admin-auth";
+import { createProvider, slotHealthId } from "@/server/services/ai";
 import { AI_PROVIDERS } from "@/lib/ai/config";
-import { isCuttableBlock } from "@/lib/ai/flow-cuts";
+import { isCuttableBlock } from "@/server/services/ai/flow-cuts";
 import { recordFailure, recordSuccess } from "@/lib/ai/health";
-import { checkKey, listModels } from "@/lib/ai/key-check";
-import { invalidateAIChain, loadAIChain, loadRemovedApis, storedSlot } from "@/lib/ai/registry";
+import { checkKey, listModels } from "@/server/services/ai/key-check";
+import { invalidateAIChain, loadAIChain, loadRemovedApis, storedSlot } from "@/server/services/ai/registry";
 import { canEncrypt, encryptSecret } from "@/lib/ai/secret-box";
 import { AIProviderError } from "@/lib/ai/types";
-import { invalidateRateLimits, rateLimitSettingsSchema } from "@/lib/rate-limit/settings";
+import { invalidateRateLimits, rateLimitSettingsSchema } from "@/server/middlewares/rate-limit/settings";
 import { isPublicHttpsUrl } from "@/lib/security/public-url";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
 import { API_LIMITS } from "./presets";
 
 export type SlotTestResult = { ok: boolean; message: string; latencyMs: number | null };

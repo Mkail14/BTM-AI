@@ -1,10 +1,10 @@
 import Link from "next/link";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { IconMessage } from "@/components/ui/icons";
-import { getAuthContext } from "@/lib/auth/session";
-import { getSiteFlags } from "@/lib/site/settings";
+import { getAuthContext } from "@/server/middlewares/session";
+import { getSiteFlags } from "@/server/services/site/settings";
 import { SITE_STATUS_LABELS } from "@/lib/site/status";
-import { ADMIN_IDLE_MINUTES } from "@/lib/admin/gate";
+import { ADMIN_IDLE_MINUTES } from "@/server/services/admin/gate";
 import { AdminAccountMenu } from "./AdminAccountMenu";
 import { AdminIdleLock } from "./AdminIdleLock";
 import { AdminGroupTabs, AdminMenu, AdminTabs } from "./AdminMenu";

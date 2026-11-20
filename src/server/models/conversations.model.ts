@@ -1,0 +1,176 @@
+import "server-only";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
+import type {
+  ChatRole,
+  ChatTurn,
+  ConversationSummary,
+  MessageStatus,
+  StoredMessage,
+} from "@/lib/chat/types";
+
+/**
+ * Requêtes des tables conversations et messages. Toutes les fonctions reçoivent
+ * un client lié à la session de l'utilisateur : RLS garantit qu'il ne lit que
+ * ses propres données, même si un identifiant est modifié côté client.
+ *
+ * Les créations (conversation, message) passent par le serveur seul (clé
+ * secrète) : un compte ne peut plus écrire de faux message de Tamilya ni
+ * contourner les quotas en appelant la base directement. Le compte vient
+ * toujours de la session, et la base refuse un message dont le compte n'est
+ * pas celui de la conversation (déclencheur messages_owner_matches).
+ */
+
+/** Client d'écriture : la clé secrète si elle est là, sinon celui de la session (développement). */
+const writer = (supabase: SupabaseClient) => getSupabaseAdminClient() ?? supabase;
+
+type ConversationRow = { id: string; title: string; updated_at: string; source?: string };
+type MessageRow = {
+  id: string;
+  role: ChatRole;
+  content: string;
+  status: MessageStatus;
+  created_at: string;
+};
+
+function toSummary(row: ConversationRow): ConversationSummary {
+  return { id: row.id, title: row.title, updatedAt: row.updated_at, source: row.source === "connect" ? "connect" : "tamilya" };
+}
+
+function toMessage(row: MessageRow): StoredMessage {
+  return {
+    id: row.id,
+    role: row.role,
+    content: row.content,
+    status: row.status,
+    createdAt: row.created_at,
+  };
+}
+
+export async function listConversations(supabase: SupabaseClient, limit = 50) {
+  const { data, error } = await supabase
+    .from("conversations")
+    // « * » : l'historique reste lisible avant la migration de « source ».
+    .select("*")
+    .order("updated_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data as ConversationRow[]).map(toSummary);
+}
+
+export async function getConversation(supabase: SupabaseClient, id: string) {
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("id, title, updated_at")
+    .eq("id", id)
+    .maybeSingle();
+  if (error) throw error;
+  return data ? toSummary(data as ConversationRow) : null;
+}
+
+/** Derniers messages d'une conversation, du plus ancien au plus récent. */
+export async function getRecentMessages(
+  supabase: SupabaseClient,
+  conversationId: string,
+  limit: number,
+) {
+  const { data, error } = await supabase
+    .from("messages")
+    .select("id, role, content, status, created_at")
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return (data as MessageRow[]).map(toMessage).reverse();
+}
+
+export async function countMessages(supabase: SupabaseClient, conversationId: string) {
+  const { count, error } = await supabase
+    .from("messages")
+    .select("id", { count: "exact", head: true })
+    .eq("conversation_id", conversationId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/**
+ * Marque une conversation née dans Tamilya Connect. À part de la création, et sans
+ * bloquer : avant la migration de « source », le message doit quand même passer.
+ */
+export async function markConnectConversation(supabase: SupabaseClient, id: string) {
+  const { error } = await writer(supabase).from("conversations").update({ source: "connect" }).eq("id", id);
+  if (error) console.warn("[conversations] Marque Connect impossible", error.message);
+}
+
+export async function createConversation(
+  supabase: SupabaseClient,
+  userId: string,
+  title: string,
+) {
+  const { data, error } = await writer(supabase)
+    .from("conversations")
+    .insert({ user_id: userId, title })
+    .select("id, title, updated_at")
+    .single();
+  if (error) throw error;
+  return toSummary(data as ConversationRow);
+}
+
+export async function insertMessage(
+  supabase: SupabaseClient,
+  input: {
+    conversationId: string;
+    userId: string;
+    role: ChatRole;
+    content: string;
+    status?: MessageStatus;
+  },
+) {
+  const { error } = await writer(supabase).from("messages").insert({
+    conversation_id: input.conversationId,
+    user_id: input.userId,
+    role: input.role,
+    content: input.content,
+    status: input.status ?? "complete",
+  });
+  if (error) throw error;
+}
+
+/** Plusieurs messages d'un coup, horodatés dans l'ordre du tableau. */
+export async function insertMessages(
+  supabase: SupabaseClient,
+  conversationId: string,
+  userId: string,
+  turns: ChatTurn[],
+) {
+  // Horodatages croissants pour conserver l'ordre d'origine.
+  const base = Date.now() - turns.length;
+  const { error } = await writer(supabase).from("messages").insert(
+    turns.map((turn, index) => ({
+      conversation_id: conversationId,
+      user_id: userId,
+      role: turn.role,
+      content: turn.content,
+      status: "complete",
+      created_at: new Date(base + index).toISOString(),
+    })),
+  );
+  if (error) throw error;
+}
+
+/** Renvoie true si une conversation a bien été supprimée. */
+export async function deleteConversation(supabase: SupabaseClient, id: string) {
+  const { data, error } = await supabase
+    .from("conversations")
+    .delete()
+    .eq("id", id)
+    .select("id");
+  if (error) throw error;
+  return (data?.length ?? 0) > 0;
+}
+
+/** Suppression par le serveur (clé secrète), toujours limitée au compte donné. */
+export async function deleteOwnedConversation(supabase: SupabaseClient, id: string, userId: string) {
+  const { error } = await writer(supabase).from("conversations").delete().eq("id", id).eq("user_id", userId);
+  if (error) throw error;
+}

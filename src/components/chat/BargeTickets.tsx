@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { createPortal } from "react-dom";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { boardDone } from "@/lib/voice-live/stage";
-import type { BargeResponse, BargeTicketBought } from "@/app/api/barge/route";
+import type { BargeResponse, BargeTicketBought } from "@/server/controllers/barge/barge.controller";
 import { bargeTicketIdOf, splitBargePasses, type BargePass } from "@/lib/barge/catalog";
 import { parseBargeRequest } from "@/lib/barge/intent";
 import { blockKey as keyOf, moveBlockValue, readBlockValue, saveBlockValue } from "@/lib/chat/block-key";

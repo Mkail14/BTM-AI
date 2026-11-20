@@ -11,7 +11,7 @@ import {
   requestsToday,
   type AIHealth,
 } from "@/lib/ai/health";
-import { errorFromStatus } from "@/lib/ai/providers/openai-compatible";
+import { errorFromStatus } from "../src/server/services/ai/providers/openai-compatible";
 import { AIProviderError, type AIProvider, type AIStreamChunk } from "@/lib/ai/types";
 
 const primary = {

@@ -4,7 +4,7 @@ import { Pictogram } from "@/components/ui/Pictogram";
 import { MapPin } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import type { FoodResponse } from "@/app/api/food/route";
+import type { FoodResponse } from "@/server/controllers/food/food.controller";
 import type { FoodCartLine, FoodItem, FoodRestaurant } from "@/lib/food/catalog";
 import { MAYOTTE_COMMUNES, type GeoPoint } from "@/lib/address-fields";
 import { blockKey as keyOf, moveBlockValue, readBlockValue, saveBlockValue } from "@/lib/chat/block-key";

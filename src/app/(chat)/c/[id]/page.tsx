@@ -2,12 +2,12 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { ChatView } from "@/components/chat/ChatView";
 import type { UiMessage } from "@/components/chat/MessageItem";
-import { knownTranslations, loadTamilyaBrain } from "@/lib/ai/brain";
-import { requireUser } from "@/lib/auth/session";
+import { knownTranslations, loadTamilyaBrain } from "@/server/services/ai/brain";
+import { requireUser } from "@/server/middlewares/session";
 import { fillKnownWords } from "@/lib/language/unknown-words";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
 import { conversationIdSchema } from "@/lib/chat/validation";
-import { getConversation, getRecentMessages } from "@/lib/conversations/repository";
+import { getConversation, getRecentMessages } from "@/server/models/conversations.model";
 
 export const metadata: Metadata = { title: "Conversation" };
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { TERMS_VERSION } from "@/lib/developers/accounts";
+import { TERMS_VERSION } from "@/server/services/developers/accounts";
 import { DevShell } from "../ui";
 
 export const metadata: Metadata = {

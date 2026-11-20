@@ -40,7 +40,7 @@ test("à l'oral, elle fait d'abord et ne salue qu'une fois", async () => {
 
 test("à l'oral, pas de répliques toutes faites à recopier : elle trouve ses mots et varie", async () => {
   const { LIVE_PRIORITY, LIVE_RULES } = await import("../src/lib/voice-live/rules");
-  const { liveToolDeclarations } = await import("../src/lib/voice-live/tools");
+  const { liveToolDeclarations } = await import("../src/server/services/voice-live/tools");
   assert.doesNotMatch(VOICE_TONE, /Exemples :|Tout baigne|Ah super|Bien vu/);
   assert.match(VOICE_TONE, /joie de vivre/);
   assert.match(VOICE_TONE, /Jamais deux fois pareil/);

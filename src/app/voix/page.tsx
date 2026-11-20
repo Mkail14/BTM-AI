@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { VoiceRoom } from "@/components/chat/VoiceRoom";
-import { requireAdmin } from "@/lib/auth/session";
+import { requireAdmin } from "@/server/middlewares/session";
 
 export const metadata: Metadata = { title: "Parler à Tamilya", robots: { index: false, follow: false } };
 

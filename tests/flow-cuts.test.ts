@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { flowCutStop, isCuttableBlock } from "@/lib/ai/flow-cuts";
+import { flowCutStop, isCuttableBlock } from "../src/server/services/ai/flow-cuts";
 
 describe("flowCutStop", () => {
   it("laisse passer les messages quand rien n'est coupé", () => {

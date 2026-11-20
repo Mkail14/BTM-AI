@@ -20,6 +20,8 @@ function capitalize(value: string): string {
  * courantes (« je m'appel Mario », « j habite a Koungou »).
  */
 export function extractMemories(message: string): MemoryFact[] {
+  // « comment on dit je m'appelle Claude » : la phrase est à traduire, ce n'est pas son prénom (essai du 2026-11-16).
+  if (isHowToSay(message)) return [];
   const facts: MemoryFact[] = [];
   const text = message.replace(/[’`]/g, "'");
 
@@ -54,9 +56,15 @@ export type MemoryUpdate = { kind: string; content: string | null };
 const MEMORY_KIND = /^[a-z][a-z0-9_]{0,39}$/;
 const LEARN_HINT = /\b(?:je|j|moi|mon|ma|mes|nous|notre|nos|retiens|souviens|rappelle|oublie|non|faux|erreur|tromp\w*|plut\w*)\b/i;
 /** Vaut-il la peine de demander au modèle ce qu'il faut retenir ? (évite un appel par question ordinaire) */
-export function shouldLearnFrom(message: string): boolean {
+export function shouldLearnFrom(message: string, previousAsk: string | null = null): boolean {
   // « comment on dit j'aime pas les hommes » : la phrase est à traduire, elle ne dit rien de la personne.
-  return message.trim().length >= 8 && LEARN_HINT.test(message.replace(/[’`]/g, " ").replace(/'/g, " ")) && !isHowToSay(message);
+  // « non c'est tsi vedzé … » juste après : la correction de cette traduction non plus (retenue le 2026-11-16).
+  return (
+    message.trim().length >= 8 &&
+    LEARN_HINT.test(message.replace(/[’`]/g, " ").replace(/'/g, " ")) &&
+    !isHowToSay(message) &&
+    !(previousAsk !== null && isHowToSay(previousAsk))
+  );
 }
 
 /** Consigne du modèle chargé de tenir la mémoire de Tamilya à jour. */

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { CodeExamResponse } from "@/app/api/code-exam/route";
+import type { CodeExamResponse } from "@/server/controllers/code-exam/code-exam.controller";
 import { IconExternal } from "@/components/ui/icons";
 import { formatWhenDay, readCodeExamBlock, type Moment } from "@/lib/code-exam/when";
 import { BookingDialog } from "./BookingDialog";

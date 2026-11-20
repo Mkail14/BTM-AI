@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { FoodResponse } from "@/app/api/food/route";
+import type { FoodResponse } from "@/server/controllers/food/food.controller";
 import type { GeoPoint } from "@/lib/address-fields";
 import { clientPoint, groupDeliveryCents, groupRestaurant, parseWishes, pickNote, planGroupOrder, stopCart, type GroupPick, type GroupStop } from "@/lib/food/group-order";
 import { formatEuros } from "@/lib/wallet/limits";

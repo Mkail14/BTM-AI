@@ -1,7 +1,7 @@
 /**
  * Chansons de Tamilya : la personne lui demande de chanter. Tamilya écrit des paroles
  * originales dans un bloc ```chanson```, que la conversation remplace par la carte
- * SongCard : Lyria (src/lib/music/lyria.ts) en fait la musique, et le globe chante.
+ * SongCard : Lyria (src/server/services/music/lyria.ts) en fait la musique, et le globe chante.
  *
  * Format du bloc :
  *   style: chant de rue joyeux, chœur et violons, environ 130 BPM

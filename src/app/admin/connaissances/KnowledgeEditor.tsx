@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { ActionStatus, Counter, inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
 import { IconPlus } from "@/components/ui/icons";
-import type { ActionResult } from "@/lib/admin/action-auth";
+import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { lostOk } from "@/lib/safe-action";
 import { deleteKnowledgeAction, saveKnowledgeAction } from "./actions";

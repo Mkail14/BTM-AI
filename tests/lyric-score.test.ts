@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { frenchShare, rhymeStrength, scoreLyrics, syllables } from "../src/lib/music/lyric-score";
-import { lyricistPrompt, pickBest } from "../src/lib/music/lyricist";
+import { lyricistPrompt, pickBest } from "../src/server/services/music/lyricist";
 
 const AI = `[Couplet]
 Ensemble on va briller sous la lumière

@@ -51,3 +51,6 @@ next-env.d.ts
 
 # lecteur de PDF (livres lus par Tamilya), copié par scripts/copy-vad.mjs
 /public/pdfjs/
+
+# Navigateur de test (Playwright MCP)
+.playwright-mcp/

@@ -1,7 +1,7 @@
 import { stripEmoji } from "@/lib/chat/no-emoji";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { EMPTY_BRAIN, lexiconFor } from "@/lib/ai/brain";
+import { EMPTY_BRAIN, lexiconFor } from "../src/server/services/ai/brain";
 import { selectKnowledge } from "@/lib/ai/knowledge";
 import { extractMemories, isMemoryAllowed, parseMemoryUpdates, shouldLearnFrom } from "@/lib/ai/memory";
 import { mayBeTeaching, parseTaughtWords, parseTeaching, parseWordList, shimaoreEntryKey } from "@/lib/language/teaching";

@@ -1,4 +1,4 @@
-import { geminiHeaders, geminiRoot } from "@/lib/ai/providers/gemini";
+import { geminiHeaders, geminiRoot } from "@/server/services/ai/providers/gemini";
 import { usableSounds, type CatalogSound } from "./catalog";
 
 /**

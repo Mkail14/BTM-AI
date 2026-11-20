@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { hasAdminRole, hasPrincipalAdminRole } from "@/lib/auth/roles";
+import { hasAdminRole, hasPrincipalAdminRole } from "@/server/middlewares/roles";
 import { formatIban, isValidBic, isValidIban, parseRib } from "@/lib/site/iban";
 import { siteClosure } from "@/lib/site/status";
 

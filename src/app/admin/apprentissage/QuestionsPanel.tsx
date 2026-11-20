@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ActionStatus, inputClass, primaryButton } from "@/components/admin/form";
-import type { ActionResult } from "@/lib/admin/action-auth";
+import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { lostOk } from "@/lib/safe-action";
 import { answerQuestionAction, ignoreQuestionAction } from "./actions";
 import { GRAMMAR_LIMITS, type QuestionRow } from "./limits";

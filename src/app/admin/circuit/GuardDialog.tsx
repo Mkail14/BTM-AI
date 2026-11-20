@@ -4,8 +4,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
 import { IconClose } from "@/components/ui/icons";
-import type { ActionResult } from "@/lib/admin/action-auth";
-import type { RateLimitSettings, RateLimitSubjectName } from "@/lib/rate-limit/settings";
+import type { ActionResult } from "@/server/middlewares/admin-auth";
+import type { RateLimitSettings, RateLimitSubjectName } from "@/server/middlewares/rate-limit/settings";
 import { lostOk } from "@/lib/safe-action";
 import { saveRateLimitsAction } from "./actions";
 

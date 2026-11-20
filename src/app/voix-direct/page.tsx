@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { requireAdmin } from "@/lib/auth/session";
+import { requireAdmin } from "@/server/middlewares/session";
 import { LiveVoice } from "./LiveVoice";
 
 export const metadata: Metadata = { title: "Vocal en direct", robots: { index: false, follow: false } };

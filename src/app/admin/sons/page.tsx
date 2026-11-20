@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { PageIntro } from "@/components/admin/form";
-import { requireAdmin } from "@/lib/auth/session";
+import { requireAdmin } from "@/server/middlewares/session";
 import { BUILTIN_CATALOG, mergeCatalog } from "@/lib/lecture/catalog";
-import { readStoredCatalog } from "@/lib/lecture/catalog-store";
+import { readStoredCatalog } from "@/server/services/lecture/catalog-store";
 import { SoundManager } from "./SoundManager";
 
 export const metadata: Metadata = { title: "Sons de Tamilya", robots: { index: false, follow: false } };

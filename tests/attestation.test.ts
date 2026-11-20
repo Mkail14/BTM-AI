@@ -7,7 +7,7 @@ import { applyPrefill, splitAddressLine, splitDisplayName } from "@/lib/attestat
 import { checkFields, dateFr, EMPTY_FIELDS, todayMayotte, type AttestationFields } from "@/lib/attestation/fields";
 import { attestationFileName, buildAttestationPdf, pdfText, splitAddress } from "@/lib/attestation/pdf";
 import { SIGNATURE_HELP, signaturesBlock } from "@/lib/attestation/intent";
-import { liveToolBlock } from "@/lib/voice-live/tools";
+import { liveToolBlock } from "../src/server/services/voice-live/tools";
 import { pdfBase64 } from "@/lib/attestation/pdf-base64";
 import { removeSignatureBackground, type Pixels } from "@/lib/attestation/signature";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";

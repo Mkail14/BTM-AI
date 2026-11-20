@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { MigrationWarning, PageIntro } from "@/components/admin/form";
-import { listAllAuthUsers } from "@/lib/admin/stats";
-import { requireAdmin } from "@/lib/auth/session";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { listAllAuthUsers } from "@/server/services/admin/stats";
+import { requireAdmin } from "@/server/middlewares/session";
+import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
 import { MemoryList, type MemoryAccount } from "./MemoryList";
 
 export const metadata: Metadata = { title: "Mémoire de Tamilya", robots: { index: false, follow: false } };

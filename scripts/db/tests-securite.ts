@@ -4,7 +4,7 @@
  *   pnpm db:tests-securite
  *
  * Recrée btm_test (imitation de Supabase + migrations), ajoute les données
- * fictives, puis joue supabase/local/20_tests_securite.sql. Sortie en échec
+ * fictives, puis joue database/tests-regles.sql. Sortie en échec
  * s'il y a une régression (ÉCHEC) ; les failles connues de l'audit sont
  * listées à part tant qu'elles ne sont pas corrigées.
  */
@@ -21,14 +21,14 @@ if (setup.status !== 0) {
 }
 
 const env = localEnv(DATABASE);
-const seed = psql(env, ["-1", "-f", path.join(ROOT, "supabase", "local", "10_donnees_fictives.sql")]);
+const seed = psql(env, ["-1", "-f", path.join(ROOT, "database", "donnees-demo.sql")]);
 if (seed.status !== 0) {
   console.error(`✗ Données fictives :\n${seed.stderr}`);
   process.exit(1);
 }
 
 // -q masque les NOTICE : on les veut ici, mais pas les « SET », « BEGIN »…
-const result = psql(env, ["-v", "VERBOSITY=terse", "-o", process.platform === "win32" ? "NUL" : "/dev/null", "-f", path.join(ROOT, "supabase", "local", "20_tests_securite.sql")]);
+const result = psql(env, ["-v", "VERBOSITY=terse", "-o", process.platform === "win32" ? "NUL" : "/dev/null", "-f", path.join(ROOT, "database", "tests-regles.sql")]);
 const lines = result.stderr.split(/\r?\n/).map((l) => l.replace(/^.*?(NOTICE|REMARQUE)\s*:\s*/, "")).filter((l) => / \| /.test(l));
 const errors = result.stderr.split(/\r?\n/).filter((l) => /ERROR|ERREUR/.test(l));
 

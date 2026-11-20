@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useTransition, type ComponentType, type SVGProps } from "react";
 import { IconBook, IconLock, IconRetry, IconShield, IconSparkle } from "@/components/ui/icons";
-import type { ActionResult } from "@/lib/admin/action-auth";
+import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { TAMILYA_BIRTH_LABEL, TAMILYA_NAME, tamilyaAge } from "@/lib/ai/tamilya-identity";
 import { lostOk } from "@/lib/safe-action";
 import { saveCharacterAction } from "./actions";

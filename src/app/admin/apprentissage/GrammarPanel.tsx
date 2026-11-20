@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ActionStatus, Counter, inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
-import type { ActionResult } from "@/lib/admin/action-auth";
+import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { lostOk } from "@/lib/safe-action";
 import { deleteGrammarAction, reorderGrammarAction, saveGrammarAction, suggestRulesAction, type SuggestedRule } from "./actions";
 import { GRAMMAR_LIMITS, type GrammarRow } from "./limits";

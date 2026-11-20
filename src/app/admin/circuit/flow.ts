@@ -1,5 +1,5 @@
 import type { NodeStatus } from "@/lib/ai/health";
-import type { RateLimitSettings } from "@/lib/rate-limit/settings";
+import type { RateLimitSettings } from "@/server/middlewares/rate-limit/settings";
 import type { CharacterDraft } from "../caractere/limits";
 
 /** Données du schéma, construites côté serveur et transmises telles quelles au canevas. */

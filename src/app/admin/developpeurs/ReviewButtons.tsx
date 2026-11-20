@@ -3,8 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ActionStatus, inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
-import type { ActionResult } from "@/lib/admin/action-auth";
-import type { DeveloperStatus } from "@/lib/developers/accounts";
+import type { ActionResult } from "@/server/middlewares/admin-auth";
+import type { DeveloperStatus } from "@/server/services/developers/accounts";
 import { lostOk } from "@/lib/safe-action";
 import { messageDeveloperAction, reviewDeveloperAction } from "./actions";
 

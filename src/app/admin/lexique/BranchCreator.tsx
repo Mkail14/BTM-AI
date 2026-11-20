@@ -2,7 +2,7 @@
 
 import { BranchIcon, Pictogram } from "@/components/ui/Pictogram";
 import { useEffect, useRef, useState, useTransition, type CSSProperties } from "react";
-import type { BranchSuggestion } from "@/lib/language/branches";
+import type { BranchSuggestion } from "@/server/services/language/branches";
 import { lostOk } from "@/lib/safe-action";
 import { X } from "lucide-react";
 import { createBranchAction, suggestBranchAction } from "./actions";

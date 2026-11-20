@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { ADMIN_IDLE_MINUTES, adminGateOpen, isAdminGatedPath } from "@/lib/admin/gate";
+import { ADMIN_IDLE_MINUTES, adminGateOpen, isAdminGatedPath } from "@/server/services/admin/gate";
 import { safeNextPath } from "@/lib/auth/redirect";
-import { requireUser } from "@/lib/auth/session";
+import { requireUser } from "@/server/middlewares/session";
 import { CodeForm } from "./CodeForm";
 
 export const metadata: Metadata = { title: "Code d'accès", robots: { index: false, follow: false } };

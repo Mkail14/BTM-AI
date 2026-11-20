@@ -70,5 +70,11 @@ describe("leçons relevées dans la conversation", () => {
     assert.equal(shouldLearnFrom("comment on dit j'aime pas les Hommes"), false);
     assert.equal(shouldLearnFrom("comment ça se dit je suis fatigué en shimaoré"), false);
     assert.equal(shouldLearnFrom("j'ai deux enfants, Inaya et Soufiane"), true);
+    // Essai du 2026-11-16 : la correction d'une traduction finissait en souvenir (« A signalé que la forme correcte est … »).
+    assert.equal(shouldLearnFrom("non c'est tsi vedzé ou hedrah la plagi", "comment on dit j'aime pas aller à la plage"), false);
+    assert.equal(shouldLearnFrom("non j'habite à Sada", "tu habites où ?"), true);
+    const { extractMemories } = await import("@/lib/ai/memory");
+    assert.deepEqual(extractMemories("comment on dit je m'appelle Claude et j'habite à Mamoudzou"), []);
+    assert.ok(extractMemories("je m'appelle Inaya").length > 0);
   });
 });

@@ -3,7 +3,7 @@ import { describe, it } from "node:test";
 import { liveIntent } from "../src/lib/live/intent";
 import { cleanMessage, understand } from "../src/lib/ai/understanding";
 import { buildSystemPrompt } from "../src/lib/ai/system-prompt";
-import { carefulThinking } from "../src/lib/ai/providers/gemini";
+import { carefulThinking } from "../src/server/services/ai/providers/gemini";
 
 const talk = (...lines: string[]) => lines.map((content, i) => ({ role: i % 2 ? ("assistant" as const) : ("user" as const), content }));
 

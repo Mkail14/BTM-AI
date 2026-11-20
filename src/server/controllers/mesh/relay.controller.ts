@@ -1,0 +1,95 @@
+import { after, NextResponse, type NextRequest } from "next/server";
+import { loadServerKey, openRequest, readDevicePublicKey, sealReply, verifySignature } from "@/lib/mesh/crypto";
+import { isStale, MESH_MAX_BODY_BYTES, payloadSchema, requestEnvelopeSchema, type ReplyEnvelope } from "@/lib/mesh/envelope";
+import { handleMeshPayload } from "@/server/services/mesh/handle";
+import { claimMessage, findDevice, releaseMessage, saveReply, touchDevice } from "@/server/services/mesh/store";
+import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/server/middlewares/rate-limit";
+import { getClientIp, hashIdentifier } from "@/server/middlewares/request";
+import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
+
+/**
+ * Tamilya Connect : un téléphone avec internet poste ici le message d'un autre
+ * téléphone, arrivé de proche en proche. Pas de session : le message est signé
+ * par l'appareil d'origine et chiffré pour le serveur. La réponse est chiffrée
+ * pour lui seul ; le relais la renvoie par le même chemin.
+ */
+
+const fail = (status: number, error: string) => NextResponse.json({ error }, { status, headers: { "Cache-Control": "no-store" } });
+const ok = (envelope: ReplyEnvelope) => NextResponse.json(envelope, { headers: { "Cache-Control": "no-store" } });
+
+export async function POST(request: NextRequest) {
+  const raw = await request.text();
+  if (raw.length > MESH_MAX_BODY_BYTES) return fail(413, "too_large");
+  let json: unknown;
+  try {
+    json = JSON.parse(raw);
+  } catch {
+    return fail(400, "invalid_envelope");
+  }
+  const parsed = requestEnvelopeSchema.safeParse(json);
+  if (!parsed.success) return fail(400, "invalid_envelope");
+  const envelope = parsed.data;
+
+  const server = loadServerKey();
+  const admin = getSupabaseAdminClient();
+  if (!server || !admin) return fail(503, "unavailable");
+  // Clé du serveur changée depuis que l'app l'a gardée : elle doit la relire avec internet.
+  if (envelope.keyId !== server.keyId) return fail(409, "key_changed");
+  if (isStale(envelope.createdAt)) return fail(400, "stale");
+
+  // Limite du relais et appareil d'origine : deux allers-retours qui ne dépendent pas l'un de l'autre, faits en même temps.
+  const deviceTask = findDevice(admin, envelope.deviceId).then(
+    (device) => ({ device }),
+    () => null,
+  );
+  const relayLimit = await consumeRateLimits([
+    { key: `mesh-relay:${hashIdentifier(`ip:${getClientIp(request.headers)}`)}`, rules: RATE_LIMIT_POLICIES.meshRelay },
+  ]).catch(() => null);
+  if (!relayLimit?.allowed) return fail(429, "rate_limited");
+
+  const found = await deviceTask;
+  // Panne passagère de la base : ce n'est pas la faute du message, le téléphone réessaie tout seul.
+  if (!found) return fail(503, "unavailable");
+  const { device } = found;
+  if (!device) {
+    console.warn("[tamilya connect] Appareil inconnu ou révoqué");
+    return fail(403, "unknown_device");
+  }
+  const deviceKey = readDevicePublicKey(device.publicKey);
+  if (!deviceKey || !verifySignature(envelope, envelope.sig, deviceKey)) {
+    console.warn("[tamilya connect] Signature refusée");
+    return fail(403, "bad_signature");
+  }
+
+  const payload = payloadSchema.safeParse(openRequest(server, envelope));
+  if (!payload.success) return fail(400, "invalid_payload");
+
+  let claimed = false;
+  try {
+    const claim = await claimMessage(admin, envelope.id, device);
+    // Même message arrivé par un autre chemin : même réponse, rien n'est refait.
+    if (claim.state === "done") return ok(claim.reply);
+    if (claim.state === "pending") return fail(409, "pending");
+    if (claim.state === "foreign") return fail(409, "duplicate_id");
+    claimed = true;
+
+    // Limite de l'appareil et pause de Tamilya : vérifiées dans handleMeshPayload, en même temps que ses lectures.
+    const body = await handleMeshPayload(admin, device, payload.data);
+
+    const sealed = sealReply(payload.data.replyKey, body);
+    if (!sealed) {
+      await releaseMessage(admin, envelope.id);
+      return fail(400, "invalid_payload");
+    }
+    const reply: ReplyEnvelope = { v: 1, type: "reply", id: envelope.id, ...sealed };
+    await saveReply(admin, envelope.id, reply);
+    // « Vu pour la dernière fois » : noté après l'envoi de la réponse, sans la retarder.
+    after(() => touchDevice(admin, device.id).catch(() => {}));
+    return ok(reply);
+  } catch (error) {
+    console.error("[tamilya connect] Message non traité", error instanceof Error ? error.message : "erreur");
+    // Rien n'est gardé : le téléphone pourra renvoyer le même message (un choix déjà payé reste « utilisé »).
+    if (claimed) await releaseMessage(admin, envelope.id).catch(() => {});
+    return fail(500, "unavailable");
+  }
+}

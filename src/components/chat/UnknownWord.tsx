@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, use, useEffect, useRef, useState, type ReactNode } from "react";
-import type { ActionResult } from "@/lib/admin/action-auth";
+import type { ActionResult } from "@/server/middlewares/admin-auth";
 
 /** Fourni par le chat au maître de Tamilya : enregistre la traduction d'un [[mot]]. */
 export const TeachWordContext = createContext<((french: string, shimaore: string) => Promise<ActionResult>) | null>(null);

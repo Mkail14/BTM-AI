@@ -36,7 +36,7 @@ describe("trajet demandé", () => {
 });
 
 it("départ approximatif : Tamilya le dit et propose un repère ou l'épingle, au lieu de faire semblant", async () => {
-  const { describeTrip } = await import("../src/lib/trip/plan");
+  const { describeTrip } = await import("../src/server/services/trip/plan");
   const base = {
     to: { label: "CSSM", detail: null, point: { lat: -12.78, lng: 45.23 }, phones: [], hours: null, link: null },
     car: { minutes: 15, km: 9, path: [] },

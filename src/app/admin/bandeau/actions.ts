@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/action-auth";
-import { saveAnnouncement } from "@/lib/site/announcement";
+import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/server/middlewares/admin-auth";
+import { saveAnnouncement } from "@/server/services/site/announcement";
 import { ANNOUNCEMENT_LIMITS, isSafeAnnouncementLink } from "@/lib/site/announcement-rules";
 
 const schema = z

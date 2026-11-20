@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { DRIVE_FOLDER_MIME, formatBytes, guessDriveFolder, organizeDrive, type DriveItem } from "@/lib/drive/folders";
-import { buildDriveAuthUrl, DRIVE_SCOPE, readDriveState } from "@/lib/drive/oauth";
+import { buildDriveAuthUrl, DRIVE_SCOPE, readDriveState } from "../src/server/services/drive/oauth";
 import { googleLoginEmail } from "@/lib/drive/identity";
 
 const folder = (id: string, mark: string): DriveItem => ({ id, name: id, mimeType: DRIVE_FOLDER_MIME, appProperties: { tamilya: mark } });

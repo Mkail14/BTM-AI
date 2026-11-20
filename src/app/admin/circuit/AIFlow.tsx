@@ -26,10 +26,10 @@ import {
   IconSparkle,
   IconTrash,
 } from "@/components/ui/icons";
-import type { ActionResult } from "@/lib/admin/action-auth";
+import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { lostOk } from "@/lib/safe-action";
 import { deleteApiAction, restoreApisAction, setFlowCutAction, testSlotAction } from "./actions";
-import type { RateLimitSettings } from "@/lib/rate-limit/settings";
+import type { RateLimitSettings } from "@/server/middlewares/rate-limit/settings";
 import { AddApiDialog } from "./AddApiDialog";
 import { CharacterDialog } from "./CharacterDialog";
 import { GuardDialog } from "./GuardDialog";

@@ -2,12 +2,12 @@
 
 import QRCode from "qrcode";
 import { z } from "zod";
-import { NOT_ADMIN, requireAdminAction, requireAdminRoleAction, type ActionResult } from "@/lib/admin/action-auth";
-import { closeAdminGate, openAdminGate } from "@/lib/admin/gate";
-import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/lib/rate-limit";
+import { NOT_ADMIN, requireAdminAction, requireAdminRoleAction, type ActionResult } from "@/server/middlewares/admin-auth";
+import { closeAdminGate, openAdminGate } from "@/server/services/admin/gate";
+import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/server/middlewares/rate-limit";
 
 /**
- * Verrou de l'espace admin (src/lib/admin/gate.ts). Le code est vérifié par
+ * Verrou de l'espace admin (src/server/services/admin/gate.ts). Le code est vérifié par
  * Supabase Auth (MFA TOTP) : le secret de l'application d'authentification
  * n'est jamais gardé par le site.
  */

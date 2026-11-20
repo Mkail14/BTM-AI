@@ -9,12 +9,12 @@
  * Les API viennent de la chaîne réelle (variables du serveur + /admin/circuit).
  */
 import { writeFileSync } from "node:fs";
-import { createProvider } from "@/lib/ai";
-import { knowledgeFor, lexiconFor, loadTamilyaBrain, wordsFor } from "@/lib/ai/brain";
+import { createProvider } from "../src/server/services/ai";
+import { knowledgeFor, lexiconFor, loadTamilyaBrain, wordsFor } from "../src/server/services/ai/brain";
 import type { AIConfig } from "@/lib/ai/config";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
-import { loadPersonalityInstructions } from "@/lib/ai/personality-store";
-import { loadAIChain } from "@/lib/ai/registry";
+import { loadPersonalityInstructions } from "../src/server/services/ai/personality-store";
+import { loadAIChain } from "../src/server/services/ai/registry";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 import type { AIProvider } from "@/lib/ai/types";
 

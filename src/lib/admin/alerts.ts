@@ -1,4 +1,4 @@
-import type { AdminOverview } from "./stats";
+import type { AdminOverview } from "@/server/services/admin/stats";
 
 export type AdminAlert = {
   level: "critical" | "warning" | "info";
@@ -106,7 +106,7 @@ export function buildAdminAlerts({
     alerts.push({
       level: "warning",
       title: "Horaires du code de la route illisibles",
-      detail: `${codeExamProblem} Tamilya renvoie vers le site de La Poste en attendant : le site a sans doute changé, la lecture est à mettre à jour (src/lib/code-exam/laposte.ts).`,
+      detail: `${codeExamProblem} Tamilya renvoie vers le site de La Poste en attendant : le site a sans doute changé, la lecture est à mettre à jour (src/server/services/code-exam/laposte.ts).`,
       action: { label: "Voir le site de La Poste", href: "https://www.lecode.laposte.fr/recherche-salle" },
     });
   }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { ttsModels } from "@/lib/ai/voice/gemini-tts";
+import { ttsModels } from "../src/server/services/ai/voice/gemini-tts";
 import { isGeminiVoice } from "@/lib/ai/voice/voices";
 
 describe("voix de Tamilya", () => {
@@ -20,7 +20,7 @@ describe("voix de Tamilya", () => {
 
 describe("voix compressée", () => {
   it("encode le son de Gemini en MP3, bien plus léger que le WAV", async () => {
-    const { pcmToMp3 } = await import("@/lib/ai/voice/gemini-tts");
+    const { pcmToMp3 } = await import("../src/server/services/ai/voice/gemini-tts");
     const samples = new Int16Array(24_000);
     for (let i = 0; i < samples.length; i++) samples[i] = Math.round(8000 * Math.sin((i / 24_000) * 2 * Math.PI * 220));
     const mp3 = await pcmToMp3(samples, 24_000);
@@ -31,7 +31,7 @@ describe("voix compressée", () => {
 
 describe("voix sans grésillement ni attente", () => {
   it("coupe le petit bruit isolé de la fin et du début", async () => {
-    const { cleanSpeech } = await import("@/lib/ai/voice/gemini-tts");
+    const { cleanSpeech } = await import("../src/server/services/ai/voice/gemini-tts");
     const rate = 24_000;
     const ms = (n: number) => Math.round((rate * n) / 1000);
     const tone = (n: number) => Array.from({ length: ms(n) }, (_, i) => Math.round(6000 * Math.sin(i / 3)));
@@ -45,7 +45,7 @@ describe("voix sans grésillement ni attente", () => {
   });
 
   it("garde un vrai mot court à la fin quand il suit de près", async () => {
-    const { cleanSpeech } = await import("@/lib/ai/voice/gemini-tts");
+    const { cleanSpeech } = await import("../src/server/services/ai/voice/gemini-tts");
     const rate = 24_000;
     const ms = (n: number) => Math.round((rate * n) / 1000);
     const tone = (n: number) => Array.from({ length: ms(n) }, (_, i) => Math.round(6000 * Math.sin(i / 3)));
@@ -102,8 +102,8 @@ describe("voix en continu", () => {
   const silence = (n: number) => new Array(ms(n)).fill(0);
 
   it("nettoie le son reçu par morceaux comme le son entier", async () => {
-    const { cleanSpeech } = await import("@/lib/ai/voice/gemini-tts");
-    const { createSpeechCleaner } = await import("@/lib/ai/voice/stream-tts");
+    const { cleanSpeech } = await import("../src/server/services/ai/voice/gemini-tts");
+    const { createSpeechCleaner } = await import("../src/server/services/ai/voice/stream-tts");
     const all = Int16Array.from([...tone(40), ...silence(200), ...tone(1500), ...silence(150), ...tone(900), ...silence(400), ...tone(150)]);
     const cleaner = createSpeechCleaner(rate);
     const out: number[] = [];
@@ -116,7 +116,7 @@ describe("voix en continu", () => {
   });
 
   it("rassemble les octets coupés entre deux morceaux", async () => {
-    const { createPcmReader } = await import("@/lib/ai/voice/stream-tts");
+    const { createPcmReader } = await import("../src/server/services/ai/voice/stream-tts");
     const read = createPcmReader();
     const bytes = Buffer.from(new Int16Array([1000, -2000, 3000]).buffer);
     const a = read(bytes.subarray(0, 3).toString("base64"));

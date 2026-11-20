@@ -1,15 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { relayEnabled } from "@/lib/ai/relay";
+import { relayEnabled } from "../src/server/services/ai/relay";
 import { BARGE_TICKETS, priceBargeOrder } from "@/lib/barge/catalog";
 import { fieldError, mayotteToday } from "@/lib/code-exam/candidate";
 import { parseCodeExamWhen } from "@/lib/code-exam/when";
 import { siteOrigin } from "@/lib/email/device";
 import { renderEmailHtml, renderEmailText } from "@/lib/email/layout";
 import { FOOD_CATALOG, priceOrder } from "@/lib/food/catalog";
-import { describeOrder, type LastOrder } from "@/lib/food/last-order";
+import { describeOrder, type LastOrder } from "../src/server/services/food/last-order";
 import { isPublicHttpsUrl } from "@/lib/security/public-url";
-import { signJson, verifyJson } from "@/lib/security/signed-cookie";
+import { signJson, verifyJson } from "../src/server/services/security/signed-cookie";
 
 describe("cookies signés (portefeuille fictif, dernière commande)", () => {
   it("relit un cookie signé avec le même secret", () => {

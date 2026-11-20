@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import { test } from "node:test";
 import { formatEuros, parseEuros, topupError } from "../src/lib/wallet/limits";
-import { verifyWebhook } from "../src/lib/wallet/stripe";
+import { verifyWebhook } from "../src/server/services/wallet/stripe";
 
 test("montants en euros", () => {
   assert.equal(formatEuros(1000).replace(/\s/g, " "), "10 €");

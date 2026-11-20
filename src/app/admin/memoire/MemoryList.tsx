@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ActionStatus } from "@/components/admin/form";
 import { IconTrash } from "@/components/ui/icons";
-import type { ActionResult } from "@/lib/admin/action-auth";
+import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { lostOk } from "@/lib/safe-action";
 import { deleteMemoryAction } from "./actions";

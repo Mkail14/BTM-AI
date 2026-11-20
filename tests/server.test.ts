@@ -5,10 +5,10 @@ import { createSseDataParser } from "@/lib/ai/sse";
 import { BEHAVIOR_LIMITS, composePersonalityInstructions, isPersonalityId, parseBehavior } from "@/lib/ai/personalities";
 import { buildSystemPrompt } from "@/lib/ai/system-prompt";
 import { isProtectedPath, safeNextPath } from "@/lib/auth/redirect";
-import { hasAdminRole } from "@/lib/auth/roles";
+import { hasAdminRole } from "@/server/middlewares/roles";
 import { buildLanguageGuidance } from "@/lib/language/shimaore";
-import { MemoryRateLimitStore } from "@/lib/rate-limit/memory";
-import { getClientIp, hashIdentifier } from "@/lib/security/request";
+import { MemoryRateLimitStore } from "@/server/middlewares/rate-limit/memory";
+import { getClientIp, hashIdentifier } from "@/server/middlewares/request";
 
 describe("readAIConfig", () => {
   it("signale explicitement l'absence de clé", () => {

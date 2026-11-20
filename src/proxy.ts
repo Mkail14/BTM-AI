@@ -6,7 +6,7 @@ import {
   adminLockPath,
   isAdminGatedPath,
   isAdminGateOpen,
-} from "@/lib/admin/gate";
+} from "@/server/services/admin/gate";
 import { authRequiredPath, isProtectedPath } from "@/lib/auth/redirect";
 import { getSiteFlags } from "@/lib/site/flags";
 import { siteClosure } from "@/lib/site/status";

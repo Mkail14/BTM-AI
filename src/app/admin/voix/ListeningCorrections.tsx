@@ -3,9 +3,9 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { ActionStatus, inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
-import type { ActionResult } from "@/lib/admin/action-auth";
+import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { CORRECTION_MAX_CHARS } from "@/lib/voice-live/listening";
-import type { VoiceCorrectionRow } from "@/lib/voice-live/corrections";
+import type { VoiceCorrectionRow } from "@/server/services/voice-live/corrections";
 import { lostOk } from "@/lib/safe-action";
 import { addCorrectionAction, removeCorrectionAction } from "./actions";
 

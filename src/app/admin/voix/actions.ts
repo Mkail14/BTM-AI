@@ -2,10 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/action-auth";
-import { saveVoice } from "@/lib/ai/voice/settings";
+import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/server/middlewares/admin-auth";
+import { saveVoice } from "@/server/services/ai/voice/settings";
 import { GEMINI_VOICES, isGeminiVoice } from "@/lib/ai/voice/voices";
-import { addVoiceCorrection, removeVoiceCorrection } from "@/lib/voice-live/corrections";
+import { addVoiceCorrection, removeVoiceCorrection } from "@/server/services/voice-live/corrections";
 import { CORRECTION_MAX_CHARS } from "@/lib/voice-live/listening";
 
 export async function saveVoiceAction(voice: unknown): Promise<ActionResult> {

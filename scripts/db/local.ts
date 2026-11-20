@@ -2,7 +2,7 @@
  * Base PostgreSQL locale de test (sans Docker).
  *
  *   pnpm db:local            recrée la base btm_test : imitation de Supabase
- *                            (supabase/local/00_supabase_stub.sql) puis toutes
+ *                            (database/imitation-supabase.sql) puis toutes
  *                            les migrations, dans l'ordre, chacune dans une transaction
  *   pnpm db:local -- --keep  n'efface pas la base existante
  *
@@ -34,7 +34,7 @@ if (!keep) {
 
 const env = localEnv(DATABASE);
 const files = [
-  path.join(ROOT, "supabase", "local", "00_supabase_stub.sql"),
+  path.join(ROOT, "database", "imitation-supabase.sql"),
   ...readdirSync(path.join(ROOT, "supabase", "migrations"))
     .filter((f) => f.endsWith(".sql"))
     .sort()

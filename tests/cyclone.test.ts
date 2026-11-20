@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { backtest, closestOf, estimate, stateOf } from "@/lib/cyclone/engine";
+import { backtest, closestOf, estimate, stateOf } from "../src/server/services/cyclone/engine";
 import { cycloneBlock, cycloneZoneFor, cycloneZoneOf } from "@/lib/cyclone/intent";
 import { motionOf, positionAt } from "@/lib/cyclone/motion";
 

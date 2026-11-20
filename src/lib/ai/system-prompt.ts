@@ -1,5 +1,6 @@
 import { buildLanguageGuidance } from "@/lib/language/shimaore";
 import { SHIMAORE_TRANSLATION } from "@/lib/language/translate-request";
+import { compositionBlock, type Composition } from "@/lib/language/compose";
 import { TAMILYA_BIRTH_LABEL, TAMILYA_NAME, tamilyaAge, isTamilyaBirthday } from "./tamilya-identity";
 import { VOICE_TONE } from "./voice-tone";
 import { CODE_EXAM_OFFICES } from "@/lib/code-exam/offices";
@@ -85,11 +86,11 @@ export type PromptContext = {
   search?: boolean;
   /** Tamilya signale les mots shimaoré qu'elle ne connaît pas (balise retirée par le serveur). */
   reportUnknownWords?: boolean;
-  /** Ce que la personne a fait sur le site (réservations du code…), en lignes de faits (buildDossier, src/lib/ai/dossier.ts). */
+  /** Ce que la personne a fait sur le site (réservations du code…), en lignes de faits (buildDossier, src/server/services/ai/dossier.ts). */
   dossier?: string | null;
   /** Adresse du compte : sa commune et les bureaux du code du plus proche au plus loin (nearestOfficesLine). */
   home?: { commune: string; nearestOffices: string | null } | null;
-  /** Commande de repas ouverte à ce compte (prototype : administrateurs, voir src/lib/food/access.ts). */
+  /** Commande de repas ouverte à ce compte (prototype : administrateurs, voir src/server/services/food/access.ts). */
   foodOrdering?: boolean;
   /** false : le code de la route est éteint pour ce compte (/admin/fonctionnalites), pas de bloc creneaux-code. */
   codeExamOffer?: boolean;
@@ -101,7 +102,7 @@ export type PromptContext = {
   foodQuery?: string | null;
   /** Ce message demande plusieurs articles (detectGroupOrder) : contenu du bloc commande-groupee, un article par ligne. */
   foodGroup?: string | null;
-  /** Achat de tickets de barge ouvert à ce compte (démonstration : administrateurs, voir src/lib/barge/access.ts). */
+  /** Achat de tickets de barge ouvert à ce compte (démonstration : administrateurs, voir src/server/services/barge/access.ts). */
   bargeTickets?: boolean;
   /** Ce message demande un ticket de barge (detectBargeTicket) : « buy » ouvre l'achat, « free » (départ de Petite-Terre) rappelle que c'est gratuit. */
   bargeIntent?: "buy" | "free" | null;
@@ -133,9 +134,13 @@ export type PromptContext = {
   documentOffer?: boolean;
   /** Un administrateur demande de traduire un texte en shimaoré (isShimaoreTranslationRequest). */
   shimaoreTranslation?: boolean;
+  /** Administrateur : le shimaoré qu'il enseigne va au dictionnaire (les autres ne font que corriger la conversation). */
+  teachesShimaore?: boolean;
+  /** « Comment on dit … » : phrase préparée et vérifiée par le moteur (src/server/services/ai/compose.ts). */
+  shimaoreComposition?: Composition;
   /** Ce message demande de signer ou remplir un document (detectDocumentTask). */
   documentTask?: { sign: boolean; fill: boolean };
-  /** Dernière commande de repas et son état à l'instant (describeOrder, src/lib/food/last-order.ts). */
+  /** Dernière commande de repas et son état à l'instant (describeOrder, src/server/services/food/last-order.ts). */
   foodOrder?: string | null;
   /** Lecture de ce message faite par le serveur (suite de la demande précédente, fautes corrigées : understanding.ts). */
   understanding?: string | null;
@@ -303,10 +308,17 @@ const COMPREHENSION = [
   "- Réponds d'abord à la question posée, dès la première phrase, puis seulement ce qui aide.",
 ].join("\n");
 
+/**
+ * Personne qui n'est pas administrateur : ce qu'elle dit en shimaoré ne va pas au dictionnaire
+ * (learnWordsFromMessage). En fin de prompt : « je la garderai pour la prochaine fois » restait (essai du 2026-11-16).
+ */
+export const NOT_LEARNED =
+  "Shimaoré : seuls les maîtres de shimaoré de GROUPE BTM t'apprennent des mots. Si cette personne te donne ou te corrige une phrase en shimaoré, remercie-la et reprends sa phrase dans cette conversation, mais ne dis jamais que tu l'as notée, retenue, apprise ou que tu la garderas pour la prochaine fois, et ne lui demande pas de te l'apprendre : demande-lui seulement si elle la connaît.";
+
 /** Réponse contestée (isChallenge) : en fin de message, seulement pour ce message. */
 const CHALLENGED =
   "POUR CE MESSAGE : la personne conteste ce que tu viens de dire. Relis ta réponse et vérifie-la vraiment (cherche, si tu le peux). Si tu t'es trompée, dis-le et donne la bonne réponse. Si tu avais raison, dis-le calmement et explique pourquoi. Si tu ne peux pas trancher, dis-le. Ne cède pas pour lui faire plaisir, n'invente pas une erreur et ne t'entête pas. Reste courte.\n" +
-  "Sauf en shimaoré : ta maîtrise n'est pas vérifiée, c'est lui qui la parle. S'il corrige ta traduction ou un mot, il a raison : ne défends pas ta version (« c'est plus simple, non ? »), reprends la sienne avec le sens de sa demande et dis que tu la retiens. Pour réparer, n'invente pas d'autre mot (« mutsana ») : s'il te manque quelque chose, demande-lui.";
+  "Sauf en shimaoré : ta maîtrise n'est pas vérifiée, c'est lui qui la parle. S'il corrige ta traduction ou un mot, il a raison : ne défends pas ta version (« c'est plus simple, non ? »), reprends la sienne avec le sens de sa demande. Pour réparer, n'invente pas d'autre mot (« mutsana ») : s'il te manque quelque chose, demande-lui.";
 
 /** Recherche Google : elle remplace la règle « pas d'accès à internet » pour ce message. */
 const SEARCH =
@@ -413,7 +425,7 @@ export function buildSystemPrompt(
     [context.identity || DEFAULT_IDENTITY, birth(new Date()), HONESTY, CONTINUITY].join("\n"),
     context.personalityInstructions?.trim() || defaultPersonalityInstructions(personality),
     PERSONALITY_GUARDRAILS,
-    buildLanguageGuidance(context.lexicon, { master: context.teacher }),
+    buildLanguageGuidance(context.lexicon, { master: context.teacher, teaches: context.teachesShimaore }),
     context.rules || DEFAULT_RULES,
   ];
 
@@ -718,6 +730,9 @@ export function buildSystemPrompt(
   }
   // Traduction en shimaoré demandée par un administrateur : elle essaie tout le texte au lieu de refuser.
   if (context.shimaoreTranslation && !context.teacher && !context.site && !context.voice) sections.push(SHIMAORE_TRANSLATION);
+  // « Comment on dit … » : elle redonne la phrase du moteur, avec l'assurance qu'il a vérifiée.
+  if (context.shimaoreComposition && !context.teacher && !context.site && !context.voice) sections.push(compositionBlock(context.shimaoreComposition, Boolean(context.teachesShimaore)));
+  if (!context.teachesShimaore && !context.teacher && !context.site) sections.push(NOT_LEARNED);
   // Vers la fin : l'heure change à chaque message, le début du prompt reste identique (cache Gemini).
   sections.push(`Heure exacte : à Mayotte, nous sommes le ${mayotteClock()}. Pour dire l'heure ou le jour, sers-toi de cette information : ne cherche pas sur internet et ne devine pas.`);
   if (context.voice) sections.push(VOICE, VOICE_TONE);

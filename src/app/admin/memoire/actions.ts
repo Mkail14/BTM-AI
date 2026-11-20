@@ -2,8 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
-import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/lib/admin/action-auth";
-import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/server/middlewares/admin-auth";
+import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
 
 const target = z.union([z.object({ memoryId: z.uuid() }), z.object({ userId: z.uuid() })]);
 
