@@ -716,6 +716,8 @@ final class HomeScreen extends FrameLayout {
 
     /** Fond du vocal, posé sous le globe pendant l'ouverture (retiré par resetVoiceMorph). */
     private VoiceBackdrop voiceBackdrop;
+    /** Globe posé à la place du globe vocal quand l'ouverture part d'une conversation (pas de globe d'accueil). */
+    private GreyGlobe voiceGlobe;
 
     /**
      * Même fond que le vocal du site (.voice-overlay::before et .voice-aurora, globals.css) :
@@ -798,7 +800,6 @@ final class HomeScreen extends FrameLayout {
         else addView(voiceBackdrop, 0, new LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         voiceBackdrop.setAlpha(0f);
         voiceBackdrop.animate().alpha(1f).setStartDelay(0).setDuration(260).start();
-        if (globe == null) return;
         int[] at = new int[2];
         if (width <= 0f) {
             // Page vocale du site : titre en haut, boutons en bas, globe de min(60vw, 16rem) centré entre les deux.
@@ -807,6 +808,26 @@ final class HomeScreen extends FrameLayout {
             float top = dpf(44), bottom = getHeight() - dpf(112), content = width + dpf(112);
             centerX = at[0] + getWidth() / 2f;
             centerY = at[1] + top + (bottom - top - content) / 2f + width / 2f;
+        }
+        if (globe == null) {
+            // Conversation ouverte, pas de globe à faire grandir : un globe naît à la place exacte
+            // de celui de la page vocale, qui le recouvre ensuite sans saut.
+            getLocationOnScreen(at);
+            float density = getResources().getDisplayMetrics().density;
+            voiceGlobe = new GreyGlobe(getContext(), theme.persona, width / density);
+            voiceGlobe.setClickable(false);
+            voiceGlobe.setImportantForAccessibility(IMPORTANT_FOR_ACCESSIBILITY_NO);
+            int size = Math.round(width * 1.8f);
+            LayoutParams params = new LayoutParams(size, size);
+            params.leftMargin = Math.round(centerX - at[0] - size / 2f);
+            params.topMargin = Math.round(centerY - at[1] - size / 2f);
+            addView(voiceGlobe, params);
+            voiceGlobe.setAlpha(0f);
+            voiceGlobe.setScaleX(0.6f);
+            voiceGlobe.setScaleY(0.6f);
+            voiceGlobe.animate().alpha(1f).scaleX(1f).scaleY(1f).setStartDelay(80).setDuration(620)
+                    .setInterpolator(new android.view.animation.PathInterpolator(0.22f, 1f, 0.36f, 1f)).start();
+            return;
         }
         unclipGlobe(voiceOpened);
         // Tout ce qui n'est pas sur le chemin du globe s'efface.
@@ -836,6 +857,11 @@ final class HomeScreen extends FrameLayout {
         if (voiceBackdrop != null && voiceBackdrop.getParent() != null) {
             voiceBackdrop.animate().cancel();
             removeView(voiceBackdrop);
+        }
+        if (voiceGlobe != null) {
+            voiceGlobe.animate().cancel();
+            removeView(voiceGlobe);
+            voiceGlobe = null;
         }
         for (java.util.Map.Entry<View, Float> entry : voiceFaded.entrySet()) {
             entry.getKey().animate().cancel();
@@ -1830,7 +1856,11 @@ final class HomeScreen extends FrameLayout {
     /** Le doigt monte : les messages suivent, le rond se remplit au-dessus de la barre. */
     void setPull(float progress) {
         pull = progress;
-        body.setTranslationY(-dp(112) * progress);
+        int shift = Math.round(dp(112) * progress);
+        body.setTranslationY(-shift);
+        // Les messages montent sous la barre du haut, jamais par-dessus : on ne montre que
+        // la place d'origine de la conversation.
+        body.setClipBounds(shift > 0 ? new android.graphics.Rect(0, shift, body.getWidth(), body.getHeight() + shift) : null);
         invalidate();
     }
 
