@@ -710,8 +710,7 @@ export default function TermsPage() {
           </p>
           <p>
             Si vous êtes consommateur et qu&apos;aucune solution n&apos;est trouvée, vous pouvez recourir gratuitement à un
-            médiateur de la consommation, dont les coordonnées vous sont communiquées sur demande, ou utiliser la
-            plateforme européenne de règlement en ligne des litiges (ec.europa.eu/consumers/odr). À défaut d&apos;accord, les
+            médiateur de la consommation, dont les coordonnées vous sont communiquées sur demande. À défaut d&apos;accord, les
             tribunaux compétents sont ceux prévus par la loi ; pour un consommateur résidant à Mayotte, il s&apos;agit
             notamment des juridictions de Mamoudzou.
           </p>

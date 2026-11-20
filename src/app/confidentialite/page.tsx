@@ -37,6 +37,7 @@ const SECTIONS = [
   { id: "services", label: "Réservations et portefeuille" },
   { id: "prestataires", label: "Nos prestataires" },
   { id: "securite", label: "Sécurité" },
+  { id: "regles", label: "Pourquoi et combien de temps" },
   { id: "droits", label: "Vos droits" },
 ];
 
@@ -229,9 +230,25 @@ export default function PrivacyPage() {
 
         <Section id="voix" title="La voix">
           <p>
-            Le micro ne s&apos;allume que lorsque vous appuyez sur son bouton. La transcription de votre voix en texte est
-            faite par votre navigateur (par exemple Google dans Chrome, Apple dans Safari), puis traitée comme un message
-            écrit. BTM ne reçoit et ne garde aucun enregistrement audio.
+            Le micro ne s&apos;allume que lorsque vous appuyez sur son bouton ou ouvrez un appel vocal. Il y a deux façons
+            de parler à Tamilya :
+          </p>
+          <List
+            items={[
+              <>
+                <span className={strong}>Dicter un message.</span> Votre navigateur transforme votre voix en texte (par
+                exemple Google dans Chrome, Apple dans Safari), puis ce texte est traité comme un message écrit.
+              </>,
+              <>
+                <span className={strong}>L&apos;appel vocal.</span> Votre voix est envoyée en direct, par notre relais
+                (Cloudflare), au modèle vocal de Google (Gemini), qui l&apos;écoute et répond à voix haute. Le relais ne fait
+                que transmettre le son : il ne l&apos;enregistre pas.
+              </>,
+            ]}
+          />
+          <p>
+            Dans les deux cas, BTM ne garde aucun enregistrement audio. La voix de Tamilya est une voix de synthèse,
+            fabriquée par intelligence artificielle : ce n&apos;est pas une personne qui vous parle.
           </p>
         </Section>
 
@@ -318,7 +335,14 @@ export default function PrivacyPage() {
                 <span className={strong}>Vercel</span> : hébergement du site.
               </>,
               <>
-                <span className={strong}>Google (Gemini)</span> : modèle d&apos;intelligence artificielle.
+                <span className={strong}>Google (Gemini)</span> : modèle d&apos;intelligence artificielle, à l&apos;écrit et à la
+                voix.
+              </>,
+              <>
+                <span className={strong}>Cloudflare</span> : relais de l&apos;appel vocal.
+              </>,
+              <>
+                <span className={strong}>OVH</span> : envoi des e-mails (confirmation de compte, reçus).
               </>,
               <>
                 <span className={strong}>Google Drive</span> : vos documents, si vous reliez votre compte.
@@ -341,6 +365,41 @@ export default function PrivacyPage() {
               <>Chaque compte ne peut lire que ses propres données : la règle est appliquée par la base de données elle-même.</>,
               <>Les clés techniques sont chiffrées et ne quittent jamais nos serveurs.</>,
               <>Le nombre de messages est limité pour empêcher les abus.</>,
+            ]}
+          />
+        </Section>
+
+        <Section id="regles" title="Pourquoi et combien de temps">
+          <p>Le RGPD demande de dire sur quelle base chaque donnée est utilisée, et combien de temps elle est gardée :</p>
+          <List
+            items={[
+              <>
+                <span className={strong}>Compte, conversations, mémoire, adresses, documents, réservations</span> : pour
+                vous rendre le service que vous demandez (exécution du contrat). Gardés tant que votre compte existe, effacés
+                quand vous les supprimez ou supprimez votre compte.
+              </>,
+              <>
+                <span className={strong}>Empreinte de voix</span> : uniquement avec votre accord exprès. Gardée jusqu&apos;à ce
+                que vous l&apos;effaciez ou supprimiez votre compte.
+              </>,
+              <>
+                <span className={strong}>Portefeuille et paiements</span> : exécution du contrat et obligations légales
+                (comptabilité, lutte contre la fraude). Votre solde et votre historique sont effacés avec votre compte ; la
+                trace des paiements reste chez Stripe et dans notre comptabilité pendant la durée imposée par la loi (10 ans
+                pour les pièces comptables).
+              </>,
+              <>
+                <span className={strong}>Compteurs anti-abus</span> : notre intérêt légitime à protéger le service. Deux
+                jours au plus.
+              </>,
+              <>
+                <span className={strong}>Conversation sans compte</span> : gardée seulement dans votre navigateur,{" "}
+                {draftHours} heures au plus.
+              </>,
+              <>
+                <span className={strong}>Mots shimaoré inconnus</span> : notre intérêt légitime à améliorer Tamilya. Sans
+                lien avec votre nom ni votre compte.
+              </>,
             ]}
           />
         </Section>
