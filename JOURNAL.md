@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `3ed5d06` (2026-11-20, feat/bienvenue-story)**
+**Dernier commit noté : `2dd3c19` (2026-11-20, feat/bienvenue-story)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -71,7 +71,7 @@ Comment le tenir :
 
 ### Carte de l'eau : suite (noté le 2026-11-20)
 - Lire aussi les coupures imprévues annoncées par la SMAE (casse, panne) pour ne plus les ajouter à la main dans /admin/eau.
-- Ouvrir la carte à tous une fois vue en vrai (interrupteur « Carte de l'eau » dans Fonctionnalités) ; la donner aussi au vocal.
+- La donner aussi au vocal (ouverte à tous à l'écrit depuis `2dd3c19`).
 
 ### Ton de Tamilya selon le pouls (noté le 2026-11-18)
 - Idée de l'utilisateur : lire le pouls (doigt sur la caméra et le flash, ou montre connectée via Health Connect) pour choisir le ton, voire proposer quelque chose (se calmer, respirer). Pas lancé : donnée de santé, accord clair de la personne obligatoire.
@@ -118,6 +118,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Carte de l'eau ouverte à tout le monde** (`2dd3c19`, 2026-11-20, main et develop). Demande de l'utilisateur, après l'avoir vue sur la tablette. Interrupteur « eau » allumé par défaut (rien n'était enregistré en base, donc le défaut s'applique ; on peut le couper dans /admin/fonctionnalites). `/api/eau` acceptait seulement les comptes connectés : ouvert aussi aux visiteurs sans compte, qui peuvent discuter avec Tamilya. Les lieux non placés restent visibles des seuls admins. Pas encore en vocal. 857 tests.
 
 - **Offres d'emploi : les postes des mairies et du Département** (`3ed5d06`, 2026-11-20, develop ; pas encore sur main). Proposition de l'utilisateur : faute d'accès aux offres France Travail, lire un autre site, Emploi Territorial. Son flux RSS public filtré sur le 976 donne 48 offres (communes, Département-Région, intercommunalités, MDPH…) avec employeur, métier, commune, date limite et lien. `emploi-territorial.ts` le lit (cache 30 min, offres dont la date limite est passée retirées) ; `jobs.ts` réunit les deux sites (France Travail seulement si `FRANCE_TRAVAIL_OFFRES=on`), un site en panne n'empêche pas l'autre. Carte : filtre « Fonction publique », filtres de contrat cachés quand il n'y a qu'une sorte, date limite sur chaque offre, mention « postes des mairies, du Département et des intercommunalités ». Tamilya sait que ce n'est pas le privé et le fait comprendre à sa façon. Communes affichées avec leurs accents (Bouéni, Bandrélé, Dembéni, Kani-Kéli). Vérifié : 857 tests, types, lint ; flux réel lu par le code (48 offres, 14 communes).
 - **Carte de l'eau : panneau depuis la droite, île colorée par village** (`8b58ba9`, 2026-11-20, main et develop). Demande de l'utilisateur : pas fan des ronds ; voir Mayotte entière et chaque ville colorée, la carte qui arrive de la droite comme la page livreur. Dans la conversation : une petite carte (période du planning, état du lieu demandé) et « Voir la carte ». Le panneau reprend celui du suivi de commande (`order-sheet` : plein écran sur téléphone, glisse depuis la droite sur ordinateur). L'île est découpée en zones « lieu le plus proche » (`lib/water/cells.ts`, Voronoï maison, pas de dépendance) peintes sous la couche `water` du fond OpenFreeMap : la mer recoupe les zones au bord de l'eau, donc pas besoin du tracé de la côte. Premier planning lu en vrai (2 au 22 novembre, identique à l'image officielle). 2 nouveaux tests.
