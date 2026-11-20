@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     );
   } catch (error) {
     console.error("[eau] Lecture automatique de la SMAE", error);
-    return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : "Erreur." }, { status: 503, headers: { "Cache-Control": "no-store" } });
+    // Le détail reste dans les journaux de Vercel (ligne au-dessus), pas dans la réponse.
+    return NextResponse.json({ ok: false, error: "Lecture de la SMAE impossible." }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }
 }
