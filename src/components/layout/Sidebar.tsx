@@ -284,22 +284,25 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
                 <IconSettings /> Paramètres
                 <IconLock width={14} height={14} className="ml-auto text-fg-muted" />
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  onClose();
-                  openAuthDialog();
-                }}
-                className="mt-1 w-full rounded-lg bg-accent px-3 py-2 font-medium text-accent-fg hover:bg-accent-hover"
-              >
-                Se connecter
-              </button>
               <Link prefetch={false} href="/conditions" onClick={onClose} className="mt-2 block px-2 text-xs text-fg-muted hover:underline">
                 Conditions d&apos;utilisation
               </Link>
               <Link prefetch={false} href="/confidentialite" onClick={onClose} className="mt-1 block px-2 text-xs text-fg-muted hover:underline">
                 Données et confidentialité
               </Link>
+              {/* Seul tout en bas, séparé par un filet : l'action principale, à part des liens secondaires. */}
+              <div className="mt-3 border-t border-border pt-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    openAuthDialog();
+                  }}
+                  className="w-full rounded-lg bg-accent px-3 py-2 font-medium text-accent-fg hover:bg-accent-hover"
+                >
+                  Se connecter
+                </button>
+              </div>
             </div>
           ) : null}
         </div>
