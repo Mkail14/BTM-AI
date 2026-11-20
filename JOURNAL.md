@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `bf3a254` (2026-11-20, feat/bienvenue-story, pas encore envoyé)**
+**Dernier commit noté : `45ea9c5` (2026-11-20, feat/bienvenue-story, develop et main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -23,6 +23,7 @@ Comment le tenir :
 | IA | Gemini (Google) uniquement | Crédit Gemini payé ; une seule IA à suivre | OpenRouter et toute API de secours, refusés le 2026-11-02 |
 | Gemini bloqué à Mayotte | Relais par le site en ligne (serveur en Irlande) | Google refuse les appels venant de Mayotte ; le relais garde Gemini | Changer d'IA |
 | Vocal | Gemini Live (parole à parole) | Première voix en 1 à 2 s au lieu de 4 à 6 s avec texte puis voix | Dictée Chrome + TTS phrase par phrase (gardé en secours) |
+| Bouclier anti-script | CSP souple (scripts du site et de Google seulement, pas de plugin, pas de cadre étranger) | Bloque les scripts venus d'ailleurs sans risquer la voix, les cartes ni la connexion Google | CSP stricte à « nonce » : plus sûre, mais pages fixes et moteur de voix à revoir ; remise à plus tard |
 | Relais vocal | Cloudflare Worker en Durable Object | Vercel ne tient pas les connexions WebSocket ; le Worker simple était coupé après 5 à 9 s (limite de calcul gratuite), le Durable Object non | Serveur payant dédié |
 | Modèle vocal | Comparé : 3.1 Flash Live (1,06 s, gigue 0,3 s) contre 2.5 native audio (2,8 s, gigue 1,1 s) | Règle : changer seulement si stable et gigue ≤ 2 s | — |
 | Son de la voix | MP3 48 kb/s | 8 fois plus léger que le WAV, important avec le débit de Mayotte (~20 Ko/s) | WAV |
@@ -126,6 +127,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Sécurité : bouclier CSP contre les scripts piégés** (`45ea9c5`, 2026-11-20, feat/bienvenue-story). Demandé : « protéger contre l'injection SQL et autres attaques ». Audit : injection SQL impossible (Supabase, aucune requête écrite à la main, recherches `ilike` échappées, aucun `EXECUTE` dynamique, `search_path` fixé sur les fonctions `security definer`), RLS sur toutes les tables, routes protégées (session, anti-CSRF, limites, secrets comparés en temps constant, webhook Stripe signé et daté), redirections limitées au site, Markdown sans HTML brut, `pnpm audit` sans faille. Seul manque : la CSP, ajoutée dans `next.config.ts` (scripts du site et de Google seulement, pas de plugin, pas de `<base>`, formulaires vers le site, aucun cadre étranger ; `/apercu` reste affichable par le site). Connexions, images et cadres laissés ouverts pour ne casser ni la voix ni les cartes. Vérifié dans Chrome : accueil, conditions, Mayotte, carte des cyclones, aucun blocage. Reste à essayer en ligne la connexion Google et l'appel vocal.
 
 - **Conformité RGPD et IA : pages légales mises au vrai** (`bf3a254`, 2026-11-20, feat/bienvenue-story). Audit demandé « pour ne pas sauter ». /confidentialite disait que BTM ne recevait aucun son : faux depuis l'appel vocal (voix envoyée par le relais Cloudflare à Gemini Live) ; corrigé, voix de synthèse signalée. Prestataires ajoutés : Cloudflare (relais vocal), OVH (e-mails). Nouvelle rubrique « Pourquoi et combien de temps » (base légale et durée de chaque donnée, exigée par le RGPD). /conditions : lien vers la plateforme européenne des litiges retiré (fermée en juillet 2025). Nouvelle page /mentions-legales prête, mais en 404 tant que `OWNER_NAME` est vide (nom de l'entrepreneur pas encore donné) ; aucun lien vers elle pour l'instant. Brouillon d'analyse d'impact de l'empreinte de voix dans `Conformité/AIPD empreinte de voix.md` (hors dépôt).
 
