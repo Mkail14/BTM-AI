@@ -5,6 +5,7 @@ import { createSseDataParser } from "@/lib/ai/sse";
 import { AIProviderError } from "@/lib/ai/types";
 import { cleanSpeech, geminiKey, resting, RESTING_MS, ttsModels } from "@/server/services/ai/voice/gemini-tts";
 import type { GeminiVoiceId } from "@/lib/ai/voice/voices";
+import { recordGeminiUsage, type GeminiUsageMetadata } from "@/server/services/ai/usage";
 
 /**
  * Voix de Tamilya en continu : Gemini envoie le son par morceaux
@@ -17,7 +18,7 @@ import type { GeminiVoiceId } from "@/lib/ai/voice/voices";
 const TIMEOUT_MS = 30_000;
 const KBPS = 48;
 
-type TtsChunk = { candidates?: { content?: { parts?: { inlineData?: { mimeType?: string; data?: string } }[] } }[] };
+type TtsChunk = { candidates?: { content?: { parts?: { inlineData?: { mimeType?: string; data?: string } }[] } }[]; usageMetadata?: GeminiUsageMetadata };
 
 /**
  * Nettoyage au fil de l'eau : les 0,6 premières secondes sont traitées et
@@ -141,6 +142,8 @@ export async function streamSpeech(text: string, voice: GeminiVoiceId, signal: A
     const toPcm = createPcmReader();
     let rate = 24_000;
     let chunks = 0;
+    // Google redonne le total à chaque morceau : seul le dernier compte.
+    let usage: GeminiUsageMetadata = null;
     const nextSamples = async (): Promise<Int16Array | null> => {
       for (;;) {
         const { value, done } = await reader.read();
@@ -153,6 +156,7 @@ export async function streamSpeech(text: string, voice: GeminiVoiceId, signal: A
           } catch {
             continue;
           }
+          if (json.usageMetadata) usage = json.usageMetadata;
           for (const part of json.candidates?.[0]?.content?.parts ?? []) {
             if (!part.inlineData?.data) continue;
             rate = Number(part.inlineData.mimeType?.match(/rate=(\d+)/)?.[1] ?? rate);
@@ -212,6 +216,7 @@ export async function streamSpeech(text: string, voice: GeminiVoiceId, signal: A
           // Coupure en cours de route (annulation, réseau) : le son s'arrête là.
           if (!gemini.signal.aborted) console.error("[voix] Flux interrompu", error);
         } finally {
+          recordGeminiUsage(model, usage);
           clearTimeout(timer);
           controller.close();
         }

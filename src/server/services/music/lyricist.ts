@@ -4,6 +4,7 @@ import { geminiKey } from "@/server/services/ai/voice/gemini-tts";
 import { parseSongSpec, type SongSpec } from "@/lib/music/intent";
 import { frenchShare, scoreLyrics, type LyricScore } from "@/lib/music/lyric-score";
 import { SONGWRITING } from "@/lib/music/songwriting";
+import { recordGeminiUsage, type GeminiUsageMetadata } from "@/server/services/ai/usage";
 
 /**
  * Le parolier : avant que Lyria chante, Flash réécrit les paroles de Tamilya deux fois, en même
@@ -40,7 +41,7 @@ ${angle}
 - Réponds seulement avec les paroles, sans titre, sans style, sans commentaire.`;
 }
 
-type Reply = { candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[] };
+type Reply = { candidates?: { content?: { parts?: { text?: string; thought?: boolean }[] } }[]; usageMetadata?: GeminiUsageMetadata };
 
 async function rewrite(spec: SongSpec, angle: string, model: string, key: { apiKey: string; baseUrl: string | undefined }, signal: AbortSignal): Promise<SongSpec | null> {
   try {
@@ -58,6 +59,7 @@ async function rewrite(spec: SongSpec, angle: string, model: string, key: { apiK
       return null;
     }
     const json = (await response.json()) as Reply;
+    recordGeminiUsage(model, json.usageMetadata);
     const text = (json.candidates?.[0]?.content?.parts ?? [])
       .filter((p) => !p.thought)
       .map((p) => p.text ?? "")
