@@ -6,15 +6,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { lostStatus } from "@/lib/safe-action";
 import { deleteAccountAction } from "./actions";
 import { DELETE_CONFIRMATION } from "./confirmation";
-import { DANGER, INPUT_CLASS, RowEditor, SECONDARY, SettingsGroup, SettingsRow } from "./ui";
-
-const LOST = [
-  "Toutes tes conversations avec Tamilya et leurs messages",
-  "Ton profil et ton nom affiché",
-  "Ce que Tamilya a retenu de toi, tes adresses et ton avis",
-  "Le solde de ton portefeuille (il t'est remboursé, sauf si ton compte a été banni)",
-  "Ton accès : il faudra créer un nouveau compte pour revenir",
-];
+import { DANGER, INPUT_CLASS, RowEditor, SECONDARY, SettingsRow } from "./ui";
 
 /** Suppression définitive : elle se déplie à la demande, puis il faut recopier le mot de confirmation. */
 export function DeleteAccount({ email, isAdmin }: { email: string | null; isAdmin: boolean }) {
@@ -41,9 +33,9 @@ export function DeleteAccount({ email, isAdmin }: { email: string | null; isAdmi
   }
 
   return (
-    <SettingsGroup title="Zone sensible">
+    <>
       {!opened ? (
-        <SettingsRow label="Mon compte" value="Efface ton compte et toutes tes données, pour de bon.">
+        <SettingsRow label="Supprimer le compte">
           <button type="button" onClick={() => setOpened(true)} className={DANGER}>
             Supprimer
           </button>
@@ -57,22 +49,10 @@ export function DeleteAccount({ email, isAdmin }: { email: string | null; isAdmi
               remove();
             }}
           >
-            <div className="text-sm">
-              <p>
-                Le compte <span className="font-medium">{email ?? "actuel"}</span> sera effacé, avec&nbsp;:
-              </p>
-              <ul className="mt-2 list-disc space-y-1 pl-5 text-fg-muted">
-                {LOST.map((item) => (
-                  <li key={item}>{item}</li>
-                ))}
-              </ul>
-            </div>
-
-            {isAdmin ? (
-              <p className="text-sm text-fg-muted">
-                Compte administrateur : tu perdras l&apos;accès au tableau de bord. Le compte administrateur principal de GROUPE BTM est protégé et ne peut pas être supprimé.
-              </p>
-            ) : null}
+            <p className="text-sm text-fg-muted">
+              <span className="font-medium text-fg">{email ?? "Ton compte"}</span> et tout ce qui va avec seront effacés : conversations, mémoire, adresses, avis. Ton solde t&apos;est remboursé (sauf compte banni).
+              {isAdmin ? " Tu perdras aussi l'accès au tableau de bord." : null}
+            </p>
 
             <div>
               <label htmlFor={inputId} className="block text-sm font-medium">
@@ -102,6 +82,6 @@ export function DeleteAccount({ email, isAdmin }: { email: string | null; isAdmi
           </form>
         </RowEditor>
       )}
-    </SettingsGroup>
+    </>
   );
 }

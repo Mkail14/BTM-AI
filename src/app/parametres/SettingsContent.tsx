@@ -57,22 +57,20 @@ export function SettingsContent({ data }: { data: SettingsData }) {
       </>
     ),
     securite: (
-      <>
+      <SettingsGroup>
         <div id="sos" className="scroll-mt-24">
           <SosContacts contacts={data.sosContacts} />
         </div>
-        <SettingsGroup>
-          <SettingsRow label="Mot de passe" value="Choisis-en un nouveau à tout moment.">
-            <Link href="/auth/nouveau-mot-de-passe" className={SECONDARY}>
-              Changer
-            </Link>
-          </SettingsRow>
-          <SettingsRow label="Session" value="Te déconnecter de cet appareil.">
-            <SignOutButton />
-          </SettingsRow>
-        </SettingsGroup>
+        <SettingsRow label="Mot de passe">
+          <Link href="/auth/nouveau-mot-de-passe" className={SECONDARY}>
+            Changer
+          </Link>
+        </SettingsRow>
+        <SettingsRow label="Session">
+          <SignOutButton />
+        </SettingsRow>
         <DeleteAccount email={data.email} isAdmin={data.isAdmin} />
-      </>
+      </SettingsGroup>
     ),
     tamilya: (
       <>

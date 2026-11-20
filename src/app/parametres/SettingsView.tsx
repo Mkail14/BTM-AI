@@ -15,7 +15,7 @@ const GROUPS: { title: string; sections: Section[] }[] = [
     title: "Mon compte",
     sections: [
       { id: "profil", label: "Profil", hint: "Ton nom, ton téléphone, ton adresse e-mail et tes adresses.", icon: IconUser },
-      { id: "securite", label: "Sécurité", hint: "Tes proches à prévenir (SOS), ton mot de passe, ta session et la suppression du compte.", icon: IconLock },
+      { id: "securite", label: "Sécurité", hint: "Proches SOS, mot de passe, session et suppression du compte.", icon: IconLock },
     ],
   },
   {
