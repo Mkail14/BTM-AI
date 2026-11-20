@@ -99,14 +99,8 @@ final class HomeMenu extends FrameLayout {
         top.addView(logo, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         top.addView(new View(context), new LinearLayout.LayoutParams(0, 1, 1f));
         FrameLayout plus = new FrameLayout(context);
-        GradientDrawable glass = round(SiteTheme.alpha(theme.bg, 0.6f), 999);
-        glass.setStroke(line, theme.border);
-        StateListDrawable plusBack = new StateListDrawable();
-        GradientDrawable glassPressed = round(theme.bgMuted, 999);
-        glassPressed.setStroke(line, theme.border);
-        plusBack.addState(new int[]{android.R.attr.state_pressed}, glassPressed);
-        plusBack.addState(new int[]{}, glass);
-        plus.setBackground(plusBack);
+        // Juste le « + », sans rond ; un léger fond gris seulement sous le doigt.
+        plus.setBackground(pressable(999, theme.bgMuted));
         plus.setContentDescription("Nouvelle conversation");
         plus.setClickable(true);
         plus.setOnClickListener(v -> go(actions::newConversation));
