@@ -1,0 +1,21 @@
+# Toutes les heures, demande au site de regarder l'accueil de la SMAE : si un nouveau planning
+# des tours d'eau y est annoncé, il est lu par Gemini et mis sur la carte de l'eau.
+# Utilise les mêmes secrets que l'actu : SITE_URL et CRON_SECRET.
+name: Tours d'eau (SMAE)
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+jobs:
+  regarder:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - name: Regarder le planning de la SMAE
+        env:
+          SITE_URL: ${{ secrets.SITE_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -sS -m 300 -H "Authorization: Bearer $CRON_SECRET" "$SITE_URL/api/cron/eau"; echo

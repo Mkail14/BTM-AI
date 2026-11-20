@@ -12,6 +12,7 @@ import { BARGE_BLOCK } from "@/lib/barge/intent";
 import { DOCUMENT_BLOCK } from "@/lib/document-signe/intent";
 import { BTM_DEVIS_BLOCK } from "@/lib/btm/intent";
 import { CYCLONE_BLOCK, cycloneZoneOf } from "@/lib/cyclone/intent";
+import { WATER_BLOCK } from "@/lib/water/intent";
 import { SONG_BLOCK } from "@/lib/music/intent";
 import { READING_BLOCK } from "@/lib/lecture/intent";
 import { GROUP_BLOCK } from "@/lib/food/group-block";
@@ -30,6 +31,7 @@ const BargeTickets = dynamic(() => import("./BargeTickets").then((m) => m.BargeT
 const BtmDevis = dynamic(() => import("./BtmDevis").then((m) => m.BtmDevis));
 const CombinedBoard = dynamic(() => import("./CombinedBoard").then((m) => m.CombinedBoard));
 const CycloneCard = dynamic(() => import("./CycloneCard").then((m) => m.CycloneCard));
+const WaterCard = dynamic(() => import("./WaterCard").then((m) => m.WaterCard));
 const CodeExamSlots = dynamic(() => import("./CodeExamSlots").then((m) => m.CodeExamSlots));
 const FoodOrder = dynamic(() => import("./FoodOrder").then((m) => m.FoodOrder));
 const TripCard = dynamic(() => import("./TripCard").then((m) => m.TripCard));
@@ -60,6 +62,7 @@ const CARD_BLOCKS = [
   DOCUMENT_BLOCK,
   TRIP_BLOCK,
   CYCLONE_BLOCK,
+  WATER_BLOCK,
   SONG_BLOCK,
   READING_BLOCK,
   COMBINED_BLOCK,
@@ -134,6 +137,8 @@ function renderPre(children: ReactNode) {
     }
     // Bloc ```carte-cyclones``` : carte des cyclones (« ocean-indien » autour de Mayotte, ou « monde »), en cours et en formation.
     if (code === `language-${CYCLONE_BLOCK}`) return <CycloneCard zone={cycloneZoneOf(textOf(children))} />;
+    // Bloc ```carte-eau``` : carte des tours d'eau (planning officiel de la SMAE), centrée sur le lieu écrit dedans s'il y en a un.
+    if (code === `language-${WATER_BLOCK}`) return <WaterCard place={textOf(children).trim()} />;
     // Bloc ```chanson``` : paroles écrites par Tamilya, chantées avec des instruments (Lyria) ; le globe chante.
     // Sans clé : la carte doit garder son état pendant que le bloc s'écrit.
     if (code === `language-${SONG_BLOCK}`) return <SongCard spec={textOf(children)} />;

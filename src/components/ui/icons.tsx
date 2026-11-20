@@ -319,6 +319,12 @@ export const IconMapPin = (p: IconProps) => (
   </Icon>
 );
 
+export const IconDrop = (p: IconProps) => (
+  <Icon {...p}>
+    <path d="M12 3s6 6.6 6 11a6 6 0 0 1-12 0c0-4.4 6-11 6-11Z" />
+  </Icon>
+);
+
 export const IconCopy = (p: IconProps) => (
   <Icon {...p}>
     <rect x="8" y="8" width="12" height="12" rx="2.5" />

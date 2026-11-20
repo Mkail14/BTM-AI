@@ -7,6 +7,7 @@ describe("Fonctionnalités allumées pour tous", () => {
   const DEFAULTS = {
     documents: true,
     cyclone: true,
+    eau: false,
     attestation: true,
     signature: false,
     livres: false,

@@ -116,6 +116,8 @@ export type PromptContext = {
   trip?: TripSpec | null;
   /** Ce message parle des cyclones (detectCyclone) : la carte des cyclones s'ouvre, sur notre océan ou sur le monde (cycloneZoneFor). */
   cyclone?: CycloneZone | null;
+  /** Ce message parle de l'eau courante (detectWater) : la carte de l'eau s'ouvre ; résumé du planning SMAE et lieu à montrer. */
+  water?: { place: string; summary: string } | null;
   /** Ce message demande à Tamilya de chanter (detectSong) : elle écrit une chanson, chantée par la carte SongCard. */
   song?: boolean;
   /**
@@ -654,6 +656,18 @@ export function buildSystemPrompt(
         "Réponds en UNE phrase courte, sans donner toi-même de durée, de distance ni de prix (tu ne les connais pas), puis ce bloc exactement, seul sur ses lignes :",
         `\`\`\`itineraire\n${tripSpec(context.trip)}\n\`\`\``,
         "La carte du trajet, les temps en voiture, en taxi et à pied, et les boutons Google Maps et Waze s'affichent dans ce bloc. Le prix des taxis et les bus ne sont pas encore disponibles.",
+      ].join("\n"),
+    );
+  }
+  // Eau courante demandée : la carte de l'eau s'ouvre, avec ce que dit le planning officiel de la SMAE.
+  if (context.water && !context.site && !context.voice) {
+    sections.push(
+      [
+        "POUR CE MESSAGE : la personne veut savoir s'il y a de l'eau courante (tours d'eau de la SMAE).",
+        context.water.summary,
+        "Réponds en une ou deux phrases simples avec ces informations seulement (le lieu demandé, sinon l'essentiel), puis ce bloc exactement, seul sur ses lignes :",
+        `\`\`\`carte-eau\n${context.water.place}\n\`\`\``,
+        "La carte montre déjà chaque village en couleur : tu ne récites pas la liste. Tu n'inventes jamais une heure ni un secteur : si un lieu n'est pas dans ces informations, dis que le planning officiel n'en parle pas.",
       ].join("\n"),
     );
   }

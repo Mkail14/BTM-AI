@@ -18,6 +18,12 @@ export const FEATURES = [
     default: true,
   },
   {
+    id: "eau",
+    label: "Carte de l'eau",
+    description: "La carte des tours d'eau (où il y a de l'eau en ce moment), d'après le planning officiel de la SMAE, lu automatiquement toutes les heures (/admin/eau).",
+    default: false,
+  },
+  {
     id: "attestation",
     label: "Attestation d'hébergement",
     description: "Le formulaire d'attestation d'hébergement, quand on la demande à Tamilya.",

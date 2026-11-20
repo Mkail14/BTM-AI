@@ -5,6 +5,8 @@ import { getAuthContext } from "@/server/middlewares/session";
 import { canOrderFood } from "@/server/services/food/access";
 import { canBuyBargeTickets } from "@/server/services/barge/access";
 import { CYCLONE_BLOCK, cycloneBlock, cycloneZoneFor, detectCyclone } from "@/lib/cyclone/intent";
+import { WATER_BLOCK, detectWater, waterBlock } from "@/lib/water/intent";
+import { waterContext } from "@/server/services/water/context";
 import { detectSong } from "@/lib/music/intent";
 import { readingMode, withSceneBlock } from "@/lib/lecture/intent";
 import { BARGE_BLOCK, bargeBlockFor, bargeSpec, detectBargeTicket } from "@/lib/barge/intent";
@@ -484,6 +486,8 @@ export async function POST(request: NextRequest) {
   const trip = user && !body.voice && features.includes("trajet") && !foodQuery && !foodGroup && !btmDevis ? detectTrip(body.message) : null;
   // Cyclones demandés (« il y a un cyclone ? ») : la carte des cyclones s'ouvre à coup sûr, sur le monde si la personne parle des autres.
   const cyclone = !body.voice && features.includes("cyclone") && detectCyclone(body.message) ? cycloneZoneFor(body.message) : null;
+  // Eau courante demandée (« y a de l'eau à Koungou ? ») : la carte de l'eau s'ouvre à coup sûr (planning officiel de la SMAE).
+  const water = !body.voice && features.includes("eau") && detectWater(body.message) ? await waterContext(body.message).catch(() => null) : null;
   // Chanson demandée (« chante-moi quelque chose ») : Tamilya écrit une chanson, chantée sous son message.
   const song = !body.voice && features.includes("chanson") && detectSong(body.message);
   // Lecture en 3D demandée (« lis-moi cette page », ou demandée juste avant et le texte arrive) :
@@ -537,6 +541,7 @@ export async function POST(request: NextRequest) {
     btmDevis,
     trip,
     cyclone,
+    water,
     song,
     reading: reading ? (reading.kind === "page" ? "photo" : reading.kind) : undefined,
     readingOffer: Boolean(user?.isAdmin),
@@ -558,7 +563,7 @@ export async function POST(request: NextRequest) {
   // Réservé d'abord aux administrateurs : l'équipe ajoute environ 10 s avant le premier mot (mesuré le 2026-11-08).
   const agentsMode = process.env.AI_AGENTS?.trim() || "admin";
   const agentsAllowed = agentsMode === "all" || (agentsMode === "admin" && Boolean(user?.isAdmin));
-  const dedicatedFlow = Boolean(foodQuery || foodGroup || bargeIntent || btmDevis || trip || cyclone || song || reading || attestation || documentTask || shimaoreTranslation || composition);
+  const dedicatedFlow = Boolean(foodQuery || foodGroup || bargeIntent || btmDevis || trip || cyclone || water || song || reading || attestation || documentTask || shimaoreTranslation || composition);
   // Fichier joint : seule Tamilya le reçoit, l'équipe d'agents ne le verrait pas.
   const teamPlan =
     !agentsAllowed || attached
@@ -806,6 +811,12 @@ ${block}`;
         // Trajet demandé mais pas de bloc dans la réponse : on l'ajoute.
         if (trip && text && !text.includes("```" + TRIP_BLOCK)) {
           const block = tripBlock(trip);
+          text += block;
+          send({ type: "delta", text: block });
+        }
+        // Eau demandée mais pas de carte dans la réponse : on l'ajoute.
+        if (water && text && !text.includes("```" + WATER_BLOCK)) {
+          const block = waterBlock(water.place);
           text += block;
           send({ type: "delta", text: block });
         }
