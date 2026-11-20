@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { MigrationWarning } from "@/components/admin/form";
 import { requireAdmin } from "@/server/middlewares/session";
+import { readAllRows } from "@/server/models/read-all";
 import { LexiconEditor } from "./LexiconEditor";
 import { LexiconMap } from "./LexiconMap";
 import { LexiconTabs } from "./LexiconTabs";
@@ -24,11 +25,10 @@ export default async function AdminLexiconPage() {
       .select("id, french, shimaore, context, validated_by, validated_at, is_active")
       .order("created_at", { ascending: false })
       .limit(1000),
-    supabase
-      .from("awa_words")
-      .select("id, french, shimaore, category, is_active")
-      .order("french")
-      .limit(5000),
+    // Page par page : une requête s'arrête à 1 000 lignes, la fin de l'alphabet n'apparaissait plus.
+    readAllRows<{ id: string; french: string; shimaore: string; category: string | null; is_active: boolean }>((from, to) =>
+      supabase.from("awa_words").select("id, french, shimaore, category, is_active").order("french").order("id").range(from, to),
+    ),
     supabase
       .from("awa_word_requests")
       // « * » : les colonnes kind et french peuvent ne pas exister encore (migration conflits_de_mots).

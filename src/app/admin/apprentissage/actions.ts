@@ -7,6 +7,7 @@ import { getAIProvider } from "@/server/services/ai";
 import { invalidateTamilyaBrain } from "@/server/services/ai/brain";
 import { completeText } from "@/server/services/ai/complete";
 import { tidy, type EntryTable } from "@/lib/language/cleanup";
+import { readAllRows } from "@/server/models/read-all";
 import { GRAMMAR_LIMITS } from "./limits";
 
 const MIGRATION = "20261125000000_apprentissage_shimaore.sql";
@@ -136,9 +137,11 @@ export async function fixAllSpacesAction(): Promise<ActionResult> {
   let fixed = 0;
   let skipped = 0;
   for (const table of ["words", "lexicon"] as const) {
-    const { data, error } = await auth.supabase.from(TABLES[table]).select("id, french, shimaore").limit(10000);
+    const { data, error } = await readAllRows<{ id: string; french: string; shimaore: string }>((from, to) =>
+      auth.supabase.from(TABLES[table]).select("id, french, shimaore").order("id").range(from, to),
+    );
     if (error) return { ok: false, message: "Lexique illisible." };
-    for (const row of data ?? []) {
+    for (const row of data) {
       const french = tidy(row.french);
       const shimaore = tidy(row.shimaore);
       if (french === row.french && shimaore === row.shimaore) continue;

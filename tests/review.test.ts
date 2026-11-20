@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { parseDoubts } from "@/lib/language/doubts";
+import { keepRealDoubts, parseDoubts } from "@/lib/language/doubts";
 import { acceptReview } from "@/lib/language/review";
 
 describe("acceptReview", () => {
@@ -36,5 +36,27 @@ describe("parseDoubts", () => {
   it("garde 2 doutes au plus", () => {
     const three = JSON.stringify([1, 2, 3].map((n) => ({ phrase: `p${n}`, question: "q" })));
     assert.equal(parseDoubts(three).length, 2);
+  });
+});
+
+describe("keepRealDoubts : on ne redemande pas au maître ce qu'il a validé", () => {
+  // Extrait de la vraie base du 2026-11-20.
+  const validated = ["Wawé hiriwa m’banni ?", "tsi vedzé gommu", "Tsi vedzé watchu baba", "Kwezi, wa fetché ?", "maji"];
+  const ask = (phrase: string, french = "") => ({ phrase, french, question: "Juste ?" });
+
+  it("écarte une phrase validée, même écrite autrement (apostrophe, majuscule, ponctuation)", () => {
+    assert.deepEqual(keepRealDoubts([ask("Wawé hiriwa m'banni ?", "Comment tu t'appelles ?")], validated), []);
+    assert.deepEqual(keepRealDoubts([ask("Tsi vedzé gommu", "je n'aime pas les hommes")], validated), []);
+  });
+
+  it("garde un morceau de phrase validée : il peut cacher une vraie question", () => {
+    // « Noh védza » (dans « Noh védza unwa ») : noh ou nisi ? Question de grammaire légitime.
+    assert.equal(keepRealDoubts([ask("vedzé watchu")], validated).length, 1);
+  });
+
+  it("garde une vraie phrase inventée, même faite de mots connus", () => {
+    // « Tsi vedzé maji » : mots connus, mais la phrase n'a jamais été validée.
+    assert.equal(keepRealDoubts([ask("Tsi vedzé maji", "je n'aime pas l'eau")], validated).length, 1);
+    assert.equal(keepRealDoubts([ask("Tsa fetché nami", "je vais bien aussi")], validated).length, 1);
   });
 });

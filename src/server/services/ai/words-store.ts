@@ -15,6 +15,7 @@ import {
 import { invalidateTamilyaBrain } from "@/server/services/ai/brain";
 import { completeText } from "@/server/services/ai/complete";
 import type { AIProvider } from "@/lib/ai/types";
+import { readAllRows } from "@/server/models/read-all";
 
 const key = (french: string) => french.trim().toLowerCase();
 
@@ -35,7 +36,11 @@ export async function teachWords(
 ): Promise<number> {
   if (words.length === 0) return 0;
 
-  const { data: existing, error: readError } = await supabase.from("awa_words").select("id, french, shimaore, is_active").limit(10000);
+  // Tout le dictionnaire, page par page : avec une seule requête (1 000 lignes au plus), l'ancienne traduction
+  // d'un mot pouvait rester active à côté de la correction, faute d'avoir été vue.
+  const { data: existing, error: readError } = await readAllRows<{ id: string; french: string; shimaore: string | null; is_active: boolean | null }>(
+    (from, to) => supabase.from("awa_words").select("id, french, shimaore, is_active").order("id").range(from, to),
+  );
   if (readError) throw readError;
 
   // Leçon relevée par le modèle dans une conversation : il peut se tromper (« je t'aime » est devenu
@@ -43,7 +48,7 @@ export async function teachWords(
   // jamais effacée : elle est seulement mise en pause (is_active = false) et se réactive dans /admin/lexique.
   const soft = Boolean(options.protectExisting);
   const pairKey = (french: string, shimaore: string) => `${key(french)}\u0000${shimaoreEntryKey(shimaore)}`;
-  const rowsExisting = existing ?? [];
+  const rowsExisting = existing;
 
   const taught = new Set(words.map((w) => key(w.french)));
   // Même shimaoré : seulement le même français écrit autrement (« il est ou » → « il est où ? »). Un mot a souvent

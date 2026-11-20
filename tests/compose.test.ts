@@ -75,5 +75,9 @@ describe("moteur du shimaoré : « comment on dit … »", () => {
     // Essai du 2026-11-16 : « la plage » lui faisait citer « là = vale ».
     const noisy = compositionBlock({ ...base, known: [{ french: "là", shimaore: "vale" }, ...base.known], shimaore: "", validated: false, unsure: [] });
     assert.doesNotMatch(noisy, /vale/);
+    // Essai du 2026-11-20 (« où est la plage ») : « i » pour « la », déduit d'un exemple, et « est » pris pour le point cardinal.
+    assert.match(unknown, /aucun autre mot shimaoré, même déduit d'un exemple/);
+    assert.match(unknown, /même sens que dans la phrase/);
+    assert.match(compositionBlock({ ...base, known: [], shimaore: "", validated: false, unsure: [] }), /Ne donne aucun mot shimaoré/);
   });
 });

@@ -1,10 +1,10 @@
 import "server-only";
-import { DOUBT_PROMPT, parseDoubts } from "@/lib/language/doubts";
+import { DOUBT_PROMPT, keepRealDoubts, parseDoubts } from "@/lib/language/doubts";
 import { mayContainShimaore } from "@/lib/language/unknown-tag";
 import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
 import { completeText } from "@/server/services/ai/complete";
 import type { AIProvider } from "@/lib/ai/types";
-import type { TamilyaBrain } from "@/server/services/ai/brain";
+import { lexiconFor, wordsFor, type TamilyaBrain } from "@/server/services/ai/brain";
 
 /**
  * Après une réponse (chat ou voix, même chemin) : Tamilya relit son shimaoré et
@@ -22,16 +22,27 @@ export async function collectDoubts(
   if (!admin) return;
 
   const rules = input.brain.grammar.map((g) => `- ${g.title} : ${g.rule}`).join("\n");
+  // La consigne parle du vocabulaire donné : on le donne vraiment (avant le 2026-11-20, seulement les règles,
+  // et elle redemandait des phrases déjà validées).
+  const list = (entries: readonly { french: string; shimaore: string }[]) => entries.map((e) => `- ${e.french} → ${e.shimaore}`).join("\n");
+  const phrases = lexiconFor(input.brain, input.reply) ?? [];
+  const words = wordsFor(input.brain, input.reply).slice(0, 80);
   const output = await completeText(provider, {
     system: DOUBT_PROMPT,
-    content: `Règles que tu connais :\n${rules || "(aucune)"}\n\nCe que tu as dit :\n${input.reply.slice(0, 1500)}`,
+    content: [
+      `Règles que tu connais :\n${rules || "(aucune)"}`,
+      `Phrases validées par ton maître :\n${list(phrases.slice(0, 60)) || "(aucune)"}`,
+      `Vocabulaire validé :\n${list(words) || "(aucun)"}`,
+      `Ce que tu as dit :\n${input.reply.slice(0, 1500)}`,
+    ].join("\n\n"),
     maxOutputTokens: 400,
   }).catch((error: unknown) => {
     console.error("[tamilya] Relecture du shimaoré impossible", error);
     return "";
   });
 
-  for (const doubt of parseDoubts(output)) {
+  // Le code a le dernier mot : rien de déjà validé ni de français recopié ne part au maître.
+  for (const doubt of keepRealDoubts(parseDoubts(output), known)) {
     const { error } = await admin.rpc("report_tamilya_doubt", {
       p_phrase: doubt.phrase,
       p_french: doubt.french,

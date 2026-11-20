@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { getAIProvider } from "@/server/services/ai";
 import { completeText } from "@/server/services/ai/complete";
 import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
+import { readAllRows } from "@/server/models/read-all";
 import { normalizeFrench, THEMES, type BranchDef } from "@/lib/language/curriculum";
 
 /**
@@ -94,7 +95,8 @@ export async function suggestBranch(supabase: SupabaseClient, avoid: readonly st
   // Messages des utilisateurs : clé secrète (tous les comptes), sinon ceux que l'admin peut lire.
   const reader = getSupabaseAdminClient() ?? supabase;
   const [words, requests, branches, messages] = await Promise.all([
-    supabase.from("awa_words").select("french").eq("is_active", true).limit(3000),
+    // Page par page : une requête s'arrête à 1 000 lignes.
+    readAllRows<{ french: string }>((from, to) => supabase.from("awa_words").select("french").eq("is_active", true).order("id").range(from, to)),
     // « * » : la colonne kind peut manquer (migration conflits_de_mots) ; les conflits sont écartés plus bas.
     supabase.from("awa_word_requests").select("*").eq("status", "pending").order("occurrences", { ascending: false }).limit(30),
     listBranches(supabase),

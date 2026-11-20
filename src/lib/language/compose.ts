@@ -143,9 +143,13 @@ export function compositionBlock(c: Composition, teaches = false): string {
     lines.push("Tous ses mots viennent de ton vocabulaire, mais la phrase entière n'a pas été validée : dis-le en quelques mots et demande-lui de confirmer.");
   } else {
     // Un seul mot deviné suffit : la phrase n'est pas donnée (« nisi veli mivo mivo mutsanga », essai du 2026-11-16).
-    lines.push(
-      `Tu ne sais pas encore dire cette phrase : dis-le franchement, en une phrase, et ${ask}.${known ? ` Tu peux donner les mots que tu connais : ${known}.` : ""} N'assemble aucune phrase toi-même.`,
-    );
+    // Essai du 2026-11-20 (« où est la plage ») : elle a ajouté « i » pour « la », déduit d'une phrase d'exemple,
+    // et donné « est = mashariki » (le point cardinal) pour le verbe. Seule la liste vérifiée peut sortir, et
+    // seulement les mots qui ont ce sens-là dans la phrase.
+    const words = known
+      ? ` Tu peux donner, au plus, ces mots-là, tels quels : ${known}. Seulement ceux qui ont le même sens que dans la phrase demandée (un mot français peut avoir plusieurs sens) ; aucun autre mot shimaoré, même déduit d'un exemple.`
+      : " Ne donne aucun mot shimaoré.";
+    lines.push(`Tu ne sais pas encore dire cette phrase : dis-le franchement, en une phrase, et ${ask}.${words} N'assemble aucune phrase toi-même.`);
   }
   // Essai du 2026-11-16 : une phrase donnée dans une conversation passée revenait, dite avec assurance.
   if (!c.validated) {

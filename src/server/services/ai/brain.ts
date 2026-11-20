@@ -5,6 +5,10 @@ import { selectKnowledge, type KnowledgeEntry } from "@/lib/ai/knowledge";
 import type { PersonalityId } from "@/lib/ai/personalities";
 import { glossMessage, selectWords, type Gloss, type WordEntry } from "@/lib/ai/words";
 import { translationTable } from "@/lib/language/unknown-words";
+import { readAllRows } from "@/server/models/read-all";
+
+/** Mots lus au plus pour le cerveau (1 860 actifs le 2026-11-20). */
+const WORDS_MAX = 10_000;
 
 /**
  * « Cerveau » de Tamilya stocké dans Supabase (réglages, connaissances, lexique).
@@ -29,19 +33,24 @@ export const EMPTY_BRAIN: TamilyaBrain = { name: null, identity: null, rules: nu
 
 /** Lu à part : une table absente ne prive pas Tamilya du reste de son cerveau. */
 async function loadWords(admin: NonNullable<ReturnType<typeof getSupabaseAdminClient>>): Promise<WordEntry[]> {
-  const { data, error } = await admin
-    .from("awa_words")
-    .select("french, shimaore, category")
-    .eq("is_active", true)
-    // Les plus récents d'abord pour la limite (les corrections du maître ne doivent pas
-    // tomber derrière les dictionnaires importés), remis ensuite du plus ancien au plus récent.
-    .order("created_at", { ascending: false })
-    .limit(5000);
+  // Page par page : une seule requête s'arrête à 1 000 lignes (voir read-all.ts).
+  const { data, error } = await readAllRows<{ french: string; shimaore: string; category: string | null }>((from, to) =>
+    admin
+      .from("awa_words")
+      .select("french, shimaore, category")
+      .eq("is_active", true)
+      // Les plus récents d'abord pour la limite (les corrections du maître ne doivent pas
+      // tomber derrière les dictionnaires importés), remis ensuite du plus ancien au plus récent.
+      .order("created_at", { ascending: false })
+      .order("id")
+      .range(from, to),
+    WORDS_MAX,
+  );
   if (error) {
     console.error("[tamilya] Dictionnaire illisible (migration awa_words appliquée ?)", error);
-    return [];
+    if (data.length === 0) return [];
   }
-  return (data ?? []).reverse().map((row) => ({ french: row.french, shimaore: row.shimaore, category: row.category ?? undefined }));
+  return data.reverse().map((row) => ({ french: row.french, shimaore: row.shimaore, category: row.category ?? undefined }));
 }
 
 /**
