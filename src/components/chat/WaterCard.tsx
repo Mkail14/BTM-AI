@@ -164,11 +164,12 @@ export function WaterCard({ place }: { place: string }) {
 
   return (
     <div className="booking-step w-full overflow-hidden">
-      <div className="flex items-center gap-4 p-4">
+      {/* Téléphone : le texte prend toute la ligne, le bouton passe dessous, à droite. Ordinateur : tout sur une ligne. */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-3 p-4">
         <span className="grid size-12 shrink-0 place-items-center rounded-2xl text-white" style={{ background: PERSONA }}>
           <IconDrop width={24} height={24} />
         </span>
-        <span className="min-w-0 flex-1">
+        <span className="min-w-0 flex-1 basis-[calc(100%-4rem)] sm:basis-0">
           <span className="block truncate font-semibold">L&apos;eau à Mayotte en ce moment</span>
           <span className="block text-xs text-fg-muted">
             {state.status === "loading" ? "Je regarde le planning de la SMAE…" : state.status === "error" ? state.message : periodOf(state.data)}
@@ -180,7 +181,7 @@ export function WaterCard({ place }: { place: string }) {
             type="button"
             onClick={() => setOpen(true)}
             aria-haspopup="dialog"
-            className="flex shrink-0 items-center gap-1.5 rounded-full py-2 pl-3 pr-2 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.97]"
+            className="ml-auto flex shrink-0 items-center gap-1.5 rounded-full py-2 pl-3 pr-2 text-sm font-semibold text-white transition hover:brightness-110 active:scale-[0.97]"
             style={{
               background: `color-mix(in srgb, ${PERSONA} 78%, white)`,
               boxShadow: `0 0 0 1px color-mix(in srgb, ${PERSONA} 40%, transparent), 0 6px 20px -4px color-mix(in srgb, ${PERSONA} 65%, transparent)`,
