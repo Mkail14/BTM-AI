@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `1bebe46` (2026-11-20, feat/bienvenue-story)**
+**Dernier commit noté : `25fe578` (2026-11-20, feat/bienvenue-story)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -118,6 +118,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Carte de l'eau : bouton « Voir la carte » mis en lumière** (`25fe578`, 2026-11-20, branche feat/bienvenue-story). Retour de l'utilisateur : le bouton paraissait sombre, on ne voyait pas que c'était un bouton. Il garde son rose plein, mais en plus clair (rose de Tamilya mêlé de blanc), avec une lueur rose autour, une icône de carte devant et une flèche après. Vérifié : types.
 
 - **Carte de l'eau : couleurs dans le vrai contour des îles** (`1bebe46`, 2026-11-20, main et develop). Retour de l'utilisateur : les couleurs dépassaient en mer, et les îlots (sans eau du réseau) étaient colorés. Cause : les zones étaient cachées sous la mer du fond de carte, dont la côte est grossière de loin, et ne cachait pas les îlots. Corrigé : contour de Grande-Terre et de Petite-Terre pris dans OpenStreetMap (relations 7174448 et 4099106, simplifié à ~30 m, `lib/water/coast.ts`, 20 Ko) ; chaque zone est découpée dedans. Calcul dans le navigateur : 30 ms pour 101 lieux. Test : rien dans le lagon, ni sur Mbouzi ni sur l'îlot de Mtsamboro.
 
