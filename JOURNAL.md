@@ -66,7 +66,7 @@ Comment le tenir :
 
 ### Conformité : reste à faire (noté le 2026-11-20)
 - Donner le prénom et le nom officiels → remplir `OWNER_NAME` dans `src/app/mentions-legales/page.tsx`, ajouter les liens (barre latérale, pied de l'accueil, AuthDialog), remplacer « GROUPE BTM est responsable » par l'EI dans /confidentialite.
-- S'inscrire auprès d'un médiateur de la consommation et le nommer dans /conditions (rubrique litiges).
+- S'inscrire auprès d'un médiateur de la consommation (CM2C, environ 48 € pour 3 ans) et le nommer dans /conditions (rubrique litiges). Remis à plus tard le 2026-11-20 : pas encore de revenus ni de nouveau SIRET ; à faire au premier vrai contrat de partenaire. D'ici là, aucune vente réelle à des particuliers (portefeuille Stripe en mode test).
 - Vérifier que la clé Gemini est en offre payante (l'offre gratuite est interdite pour des utilisateurs européens et peut servir à entraîner Google).
 - Portefeuille prépayé : vérifier avec Stripe que le montage n'oblige pas à un agrément de monnaie électronique.
 - Relais vocal : le `console.log` des 5 premiers messages Gemini peut garder des bouts de transcription dans les journaux Cloudflare ; à couper.
@@ -127,6 +127,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **App Android : bouton clair/sombre et barre d'infos aux couleurs de l'app** (`0b6ef8b` sur feat/coeur-natif, fusionné dans `android` par `840eb4a`, 2026-11-20 ; dépôt Android, rien sur develop ni main). Demandé : le bouton de thème à côté de « Se connecter », et rappel du but : faire une app, pas un site (ce qui est dans l'APK a un rendu d'app). Bouton rond clair/sombre à gauche de « Se connecter » dans la barre du haut de l'accueil sans compte ; il actionne le bouton de thème caché de la barre du site et reprend son icône (soleil ou lune), recopiée dès que le site la dessine. Barre d'infos et barre du bas d'Android : fond de l'app (`#131516` sombre, blanc clair) et icônes foncées en clair, au lancement et à chaque changement de thème ; avant elles restaient noires (`statusBarColor` du thème, encore appliqué sous Android 14). `paintSystemBars()` dans `MainActivity.java`. Vérifié par captures sur la Pad 6 dans les deux thèmes.
 
 - **App Android : vraie barre du haut sur l'accueil sans compte** (`711c3d7` sur feat/coeur-natif, fusionné dans `android` par `7708894`, 2026-11-20 ; dépôt Android, rien sur develop ni main). Jugé pas pro : « Se connecter » flottait seul sous le bandeau de la barge. Remplacé par une barre de 56 comme l'accueil natif connecté, juste sous la barre d'infos d'Android : logo BTM AI à gauche (un peu plus grand, « AI » centré et collé), « Se connecter » rose plein à droite (moins haut, semi-gras), fond plein (le décor ne passe plus derrière), un seul filet (celui du bandeau). Injectée par `guestLoginScript()` dans `MainActivity.java`. Vérifié par captures sur la Pad 6 ; le bouton ouvre bien la fenêtre de connexion. APK installé sur la Pad 6.
 
