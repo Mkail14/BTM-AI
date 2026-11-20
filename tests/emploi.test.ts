@@ -12,11 +12,14 @@ describe("offres d'emploi : demande reconnue", () => {
     "qui recrute en ce moment ?",
     "les postes à pourvoir",
     "il y a des jobs ?",
+    "je cherche un poste de boulanger",
+    "je voudrais un contrat dans le BTP",
+    "j'aimerais travailler comme chauffeur",
   ]) {
     it(message, () => assert.equal(detectJobs(message), true));
   }
 
-  for (const message of ["mon travail me fatigue", "je vais à la poste", "c'est quoi le chômage", "j'ai un poste de télé"]) {
+  for (const message of ["mon travail me fatigue", "je vais à la poste", "c'est quoi le chômage", "j'ai un poste de télé", "je cherche le bureau de poste", "je dois travailler demain"]) {
     it(`pas une demande : ${message}`, () => assert.equal(detectJobs(message), false));
   }
 });

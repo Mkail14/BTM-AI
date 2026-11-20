@@ -45,6 +45,9 @@ const ASK_JOBS = new RegExp(
     `\\boffres? (?:d |de |du )?${WORK}\\b`,
     `\\boffres? (?:a|sur) (?:france travail|pole emploi)\\b`,
     `\\b(?:cherch\\w*|recherch\\w*|trouv\\w*|veux|voudrais|besoin d) (?:du |un |une |de |d )?${WORK}\\b`,
+    // « je cherche un poste de boulanger », « je veux un contrat », « je voudrais travailler comme chauffeur ».
+    `\\b(?:cherch\\w*|recherch\\w*|trouv\\w*|veux|voudrais|aimerais|besoin d) (?:un |une |des |d )?(?:postes?|contrats?)\\b`,
+    `\\b(?:cherch\\w*|veux|voudrais|aimerais|envie de) (?:a )?travailler\\b`,
     `\\bpostes? (?:actuels?|actuellement|disponibles?|libres?|ouverts?|vacants?|a pourvoir|en cours)\\b`,
     `\\b(?:les|des|tous les|toutes les) (?:postes|emplois|jobs|boulots|offres)\\b`,
     `\\b(?:qui|ca|il y a|y a t il|on) (?:recrute|recrutent|embauche|embauchent)\\b`,
