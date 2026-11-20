@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { IconClose, IconTrash } from "@/components/ui/icons";
 import { forgetMemoryAction, setMemoryOnAction } from "./actions";
-import { DANGER, Feedback, SECONDARY, SettingsGroup, useSave } from "./ui";
+import { DANGER, Feedback, SECONDARY, useSave } from "./ui";
 
 /**
  * Mémoire de Tamilya, comme chez ChatGPT : une seule ligne (interrupteur + « Gérer ») ;
@@ -25,12 +25,14 @@ export function TamilyaMemory({ facts, on }: { facts: { kind: string; content: s
   }
 
   return (
-    <SettingsGroup title="Mémoire">
+    <>
       <div className="flex min-h-16 items-center gap-4 px-4 py-3 sm:px-5">
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-medium">Souvenirs</p>
-          <p className="mt-0.5 text-sm text-fg-muted">{on ? "Tamilya retient ce que tu lui dis sur toi pour mieux te répondre." : "Coupée : Tamilya ne retient plus rien."}</p>
-          <Feedback state={state} />
+        <div className="min-w-0 flex-1 sm:flex sm:items-center sm:gap-4">
+          <p className="text-sm font-medium sm:w-40 sm:shrink-0">Mémoire</p>
+          <div className="min-w-0 flex-1 text-sm text-fg-muted">
+            {on ? "Activée" : "Coupée"}
+            <Feedback state={state} />
+          </div>
         </div>
         <label className="flex shrink-0 cursor-pointer items-center">
           <input
@@ -100,6 +102,6 @@ export function TamilyaMemory({ facts, on }: { facts: { kind: string; content: s
           ) : null}
         </div>
       </dialog>
-    </SettingsGroup>
+    </>
   );
 }

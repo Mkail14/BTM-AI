@@ -5,7 +5,7 @@ import { IconMic } from "@/components/ui/icons";
 import { average, loadPrinter, similarity } from "@/lib/voice-live/speaker";
 import { speechSeconds, startRecording, type Recording } from "@/lib/voice-live/record";
 import { PinField } from "./PaymentPin";
-import { DANGER, PRIMARY, RowEditor, SECONDARY, SettingsGroup, SettingsRow } from "./ui";
+import { DANGER, PRIMARY, RowEditor, SECONDARY, SettingsRow } from "./ui";
 
 /** Trois phrases à lire : assez longues pour une empreinte fiable (au moins 2 s de voix chacune). */
 const PHRASES = [
@@ -183,17 +183,7 @@ export function VoicePrint() {
   );
 
   return (
-    <SettingsGroup
-      title="Ta voix"
-      description="Double vérification : avant de payer à ta place, Tamilya vérifie ton code et ta voix."
-      footer={
-        message ? (
-          <p role={message.ok ? "status" : "alert"} className={`text-sm ${message.ok ? "text-success" : "text-danger"}`}>
-            {message.text}
-          </p>
-        ) : null
-      }
-    >
+    <>
       {status === null ? (
         <div className="m-4 h-8 animate-pulse rounded-lg bg-bg-muted" />
       ) : removing || pending ? (
@@ -252,6 +242,11 @@ export function VoicePrint() {
           )}
         </RowEditor>
       )}
-    </SettingsGroup>
+      {message ? (
+        <p role={message.ok ? "status" : "alert"} className={`px-4 py-3 text-sm sm:px-5 ${message.ok ? "text-success" : "text-danger"}`}>
+          {message.text}
+        </p>
+      ) : null}
+    </>
   );
 }

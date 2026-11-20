@@ -269,7 +269,7 @@ export default function PrivacyPage() {
             d&apos;en calculer l&apos;empreinte, puis sont oubliées ; au moment de payer, seules ces empreintes sont envoyées
             et comparées par notre serveur. C&apos;est une donnée biométrique : elle n&apos;est enregistrée qu&apos;avec votre
             accord, sert uniquement à cette vérification, et vous pouvez l&apos;effacer à tout moment dans les paramètres,
-            rubrique Tamilya. Elle est effacée avec votre compte. Une voix peut être imitée : elle s&apos;ajoute à votre code,
+            rubrique Sécurité. Elle est effacée avec votre compte. Une voix peut être imitée : elle s&apos;ajoute à votre code,
             elle ne le remplace jamais.
           </p>
         </Section>

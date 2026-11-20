@@ -57,6 +57,7 @@ export function SettingsContent({ data }: { data: SettingsData }) {
         </div>
         {/* Code de paiement : réservé aux administrateurs pour l'instant, comme le portefeuille. */}
         {data.isAdmin ? <PaymentPin /> : null}
+        {data.isAdmin ? <VoicePrint /> : null}
         <SettingsRow label="Mot de passe">
           <Link href="/auth/nouveau-mot-de-passe" className={SECONDARY}>
             Changer
@@ -69,12 +70,11 @@ export function SettingsContent({ data }: { data: SettingsData }) {
       </SettingsGroup>
     ),
     tamilya: (
-      <>
+      <SettingsGroup>
         {/* Le vocal n'est ouvert qu'aux administrateurs pour l'instant. */}
         {data.isAdmin ? <VoiceTalkMode /> : null}
-        {data.isAdmin ? <VoicePrint /> : null}
         <TamilyaMemory facts={data.memories} on={data.memoryOn} />
-      </>
+      </SettingsGroup>
     ),
     apparence: <ThemeChoice />,
     avis: <ReviewForm review={data.review} publicName={data.publicName} defaultCommune={data.home?.commune ?? null} />,
