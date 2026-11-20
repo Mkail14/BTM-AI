@@ -102,7 +102,7 @@ export function TripCard({ spec }: { spec: string }) {
 
   return (
     <>
-      <div className="booking-step flex w-full items-center gap-4 p-4">
+      <div className="booking-step carte-cadre flex w-full items-center gap-4 p-4">
         <span className="grid size-12 shrink-0 place-items-center rounded-2xl text-white" style={{ background: PERSONA }}>
           <CarFront size={24} strokeWidth={1.8} aria-hidden="true" />
         </span>
