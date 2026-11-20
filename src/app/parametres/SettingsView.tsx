@@ -2,11 +2,11 @@
 
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, type ComponentType, type MouseEvent, type ReactNode, type SVGProps } from "react";
-import { IconFolder, IconLock, IconMapPin, IconShield, IconSparkle, IconStar, IconSun, IconUser, IconWallet } from "@/components/ui/icons";
+import { IconFolder, IconLock, IconSparkle, IconStar, IconSun, IconUser, IconWallet } from "@/components/ui/icons";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { SignOutButton } from "./SignOutButton";
 
-export type SettingsTab = "profil" | "adresse" | "sos" | "securite" | "tamilya" | "apparence" | "avis";
+export type SettingsTab = "profil" | "securite" | "tamilya" | "apparence" | "avis";
 
 type Section = { id: SettingsTab; label: string; hint: string; icon: ComponentType<SVGProps<SVGSVGElement>> };
 
@@ -14,10 +14,8 @@ const GROUPS: { title: string; sections: Section[] }[] = [
   {
     title: "Mon compte",
     sections: [
-      { id: "profil", label: "Profil", hint: "Ton nom, ton téléphone et ton adresse e-mail.", icon: IconUser },
-      { id: "adresse", label: "Adresses", hint: "Tu choisis l'une d'elles à chaque commande. Tamilya sait aussi ce qui est près de chez toi.", icon: IconMapPin },
-      { id: "sos", label: "SOS", hint: "Les proches prévenus si tu écris « SOS » à Tamilya Connect.", icon: IconShield },
-      { id: "securite", label: "Sécurité", hint: "Ton mot de passe, ta session et la suppression du compte.", icon: IconLock },
+      { id: "profil", label: "Profil", hint: "Ton nom, ton téléphone, ton adresse e-mail et tes adresses.", icon: IconUser },
+      { id: "securite", label: "Sécurité", hint: "Tes proches à prévenir (SOS), ton mot de passe, ta session et la suppression du compte.", icon: IconLock },
     ],
   },
   {
@@ -32,9 +30,10 @@ const GROUPS: { title: string; sections: Section[] }[] = [
 
 const SECTIONS = GROUPS.flatMap((group) => group.sections);
 
-/** Ancienne adresse encore possible dans un lien : ?rubrique=suppression ouvre la Sécurité. */
+/** Anciennes adresses encore possibles dans un lien : suppression et sos ouvrent la Sécurité, adresse le Profil. */
 function tabFrom(value: string | null): SettingsTab | null {
-  if (value === "suppression") return "securite";
+  if (value === "suppression" || value === "sos") return "securite";
+  if (value === "adresse") return "profil";
   return SECTIONS.find((section) => section.id === value)?.id ?? null;
 }
 

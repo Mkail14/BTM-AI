@@ -201,7 +201,7 @@ function WhereAreYou({ what, onSpot, onSkip }: { what: string; onSpot: (spot: Sp
         </select>
       </label>
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-        <a href="/parametres?rubrique=adresse" className="font-medium hover:underline" style={{ color: PERSONA }}>
+        <a href="/parametres?rubrique=profil#adresses" className="font-medium hover:underline" style={{ color: PERSONA }}>
           Enregistrer mon adresse
         </a>
         <button type="button" onClick={onSkip} className="text-fg-muted hover:underline">

@@ -24,7 +24,7 @@ export async function sendSosAlert(
 
   const contacts = await listSosContacts(admin, user.id).catch(() => []);
   if (!contacts.length) {
-    return { ok: false, text: `Aucun proche enregistré : ajoute-les dans Paramètres, rubrique SOS, quand tu auras internet. ${CALL}` };
+    return { ok: false, text: `Aucun proche enregistré : ajoute-les dans Paramètres, rubrique Sécurité, quand tu auras internet. ${CALL}` };
   }
   if (!emailConfigured()) {
     console.error("[sos] Envoi impossible : SMTP_PASSWORD manquant");

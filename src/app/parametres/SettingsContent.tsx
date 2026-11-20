@@ -41,16 +41,26 @@ export type SettingsData = {
 export function SettingsContent({ data }: { data: SettingsData }) {
   const panels: Record<SettingsTab, ReactNode> = {
     profil: (
-      <SettingsGroup>
-        <NameRow displayName={data.displayName} />
-        <PhoneRow maskedPhone={data.maskedPhone} />
-        <SettingsRow label="Adresse e-mail" value={<MaskedEmail email={data.email} />} />
-      </SettingsGroup>
+      <>
+        <SettingsGroup>
+          <NameRow displayName={data.displayName} />
+          <PhoneRow maskedPhone={data.maskedPhone} />
+          <SettingsRow label="Adresse e-mail" value={<MaskedEmail email={data.email} />} />
+        </SettingsGroup>
+        <section id="adresses" className="scroll-mt-24 space-y-2.5">
+          <div>
+            <h3 className="text-sm font-semibold">Adresses</h3>
+            <p className="mt-0.5 text-sm text-fg-muted">Tu choisis l&apos;une d&apos;elles à chaque commande. Tamilya sait aussi ce qui est près de chez toi.</p>
+          </div>
+          <AddressBook home={data.home} saved={data.saved} />
+        </section>
+      </>
     ),
-    adresse: <AddressBook home={data.home} saved={data.saved} />,
-    sos: <SosContacts contacts={data.sosContacts} />,
     securite: (
       <>
+        <div id="sos" className="scroll-mt-24">
+          <SosContacts contacts={data.sosContacts} />
+        </div>
         <SettingsGroup>
           <SettingsRow label="Mot de passe" value="Choisis-en un nouveau à tout moment.">
             <Link href="/auth/nouveau-mot-de-passe" className={SECONDARY}>
@@ -78,9 +88,8 @@ export function SettingsContent({ data }: { data: SettingsData }) {
   };
 
   const toComplete: SettingsTab[] = [];
-  if (!data.displayName || !data.maskedPhone) toComplete.push("profil");
-  if (!data.home) toComplete.push("adresse");
-  if (!data.sosContacts.length) toComplete.push("sos");
+  if (!data.displayName || !data.maskedPhone || !data.home) toComplete.push("profil");
+  if (!data.sosContacts.length) toComplete.push("securite");
 
   return (
     <SettingsView

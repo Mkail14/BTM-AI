@@ -43,7 +43,7 @@ export function AddressCheckNotice({ line }: { line: string }) {
           <span className="block text-fg-muted">
             Un bug a pu enlever des lettres à l&apos;adresse donnée à ton inscription : « {line} ». Corrige-la pour tes livraisons.
           </span>
-          <a href="/parametres?rubrique=adresse" className="mt-2 inline-block rounded-full bg-accent px-3.5 py-1.5 text-sm font-medium text-accent-fg hover:bg-accent-hover">
+          <a href="/parametres?rubrique=profil#adresses" className="mt-2 inline-block rounded-full bg-accent px-3.5 py-1.5 text-sm font-medium text-accent-fg hover:bg-accent-hover">
             Vérifier mon adresse
           </a>
         </span>
