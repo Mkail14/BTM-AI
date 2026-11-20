@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `45ea9c5` (2026-11-20, feat/bienvenue-story, develop et main)**
+**Dernier commit noté : `f777a83` (2026-11-20, feat/bienvenue-story, develop et main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -127,6 +127,10 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Sécurité du backend : relais à usage unique, test des routes protégées** (`f777a83`, 2026-11-20, feat/bienvenue-story). Audit rapide des 57 routes : comptes, secrets, signatures et limites en place. Trois corrections : 1) une signature du relais (texte, voix, modèles) ne sert qu'une fois (compteur `relay-once`, 15 min) : une demande copiée ne peut plus être rejouée pendant ses 5 minutes de validité ; compteur en panne = refus ; 2) `/api/cron/eau` ne renvoie plus le message d'erreur technique (il reste dans les journaux Vercel) ; 3) `tests/routes-protegees.test.ts` échoue si une route ne vérifie pas qui l'appelle, sauf les 6 routes publiques inscrites exprès avec leur raison. Orchestr laissé sans plafond, volontairement (seul le patron s'en sert). Relais pas encore essayé en ligne.
+
+- **Barre latérale : « Se connecter » seul en bas, séparé par un filet** (`eb356e4`, 2026-11-20, feat/bienvenue-story, develop `445deb0` et main `de01909`). Trouvé moche : le bouton était coincé entre « Paramètres » et les liens Conditions / Confidentialité. Il passe tout en bas, sous un trait fin, toujours rose plein. Vérifié : types ; rendu pas encore vu en capture.
 
 - **Sécurité : bouclier CSP contre les scripts piégés** (`45ea9c5`, 2026-11-20, feat/bienvenue-story). Demandé : « protéger contre l'injection SQL et autres attaques ». Audit : injection SQL impossible (Supabase, aucune requête écrite à la main, recherches `ilike` échappées, aucun `EXECUTE` dynamique, `search_path` fixé sur les fonctions `security definer`), RLS sur toutes les tables, routes protégées (session, anti-CSRF, limites, secrets comparés en temps constant, webhook Stripe signé et daté), redirections limitées au site, Markdown sans HTML brut, `pnpm audit` sans faille. Seul manque : la CSP, ajoutée dans `next.config.ts` (scripts du site et de Google seulement, pas de plugin, pas de `<base>`, formulaires vers le site, aucun cadre étranger ; `/apercu` reste affichable par le site). Connexions, images et cadres laissés ouverts pour ne casser ni la voix ni les cartes. Vérifié dans Chrome : accueil, conditions, Mayotte, carte des cyclones, aucun blocage. Reste à essayer en ligne la connexion Google et l'appel vocal.
 
