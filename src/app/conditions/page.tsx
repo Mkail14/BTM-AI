@@ -485,7 +485,7 @@ export default function TermsPage() {
             demande : un paiement effectué avec votre autorisation et votre code juste est{" "}
             <span className={strong}>sous votre responsabilité</span>, même s&apos;il résultait d&apos;une erreur de
             compréhension. BTM ne le rembourse pas et ne garantit pas le résultat obtenu. Vous pouvez retirer cette
-            autorisation à tout moment dans les Paramètres, rubrique Tamilya ; supprimer votre code la retire aussi.
+            autorisation à tout moment dans les Paramètres, rubrique Sécurité ; supprimer votre code la retire aussi.
           </p>
           <Sub>Empreinte de voix</Sub>
           <p>

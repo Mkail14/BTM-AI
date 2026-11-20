@@ -41,26 +41,22 @@ export type SettingsData = {
 export function SettingsContent({ data }: { data: SettingsData }) {
   const panels: Record<SettingsTab, ReactNode> = {
     profil: (
-      <>
-        <SettingsGroup>
-          <NameRow displayName={data.displayName} />
-          <PhoneRow maskedPhone={data.maskedPhone} />
-          <SettingsRow label="Adresse e-mail" value={<MaskedEmail email={data.email} />} />
-        </SettingsGroup>
-        <section id="adresses" className="scroll-mt-24 space-y-2.5">
-          <div>
-            <h3 className="text-sm font-semibold">Adresses</h3>
-            <p className="mt-0.5 text-sm text-fg-muted">Tu choisis l&apos;une d&apos;elles à chaque commande. Tamilya sait aussi ce qui est près de chez toi.</p>
-          </div>
+      <SettingsGroup>
+        <NameRow displayName={data.displayName} />
+        <PhoneRow maskedPhone={data.maskedPhone} />
+        <SettingsRow label="Adresse e-mail" value={<MaskedEmail email={data.email} />} />
+        <div id="adresses" className="scroll-mt-24 divide-y divide-border">
           <AddressBook home={data.home} saved={data.saved} />
-        </section>
-      </>
+        </div>
+      </SettingsGroup>
     ),
     securite: (
       <SettingsGroup>
         <div id="sos" className="scroll-mt-24">
           <SosContacts contacts={data.sosContacts} />
         </div>
+        {/* Code de paiement : réservé aux administrateurs pour l'instant, comme le portefeuille. */}
+        {data.isAdmin ? <PaymentPin /> : null}
         <SettingsRow label="Mot de passe">
           <Link href="/auth/nouveau-mot-de-passe" className={SECONDARY}>
             Changer
@@ -76,7 +72,6 @@ export function SettingsContent({ data }: { data: SettingsData }) {
       <>
         {/* Le vocal n'est ouvert qu'aux administrateurs pour l'instant. */}
         {data.isAdmin ? <VoiceTalkMode /> : null}
-        {data.isAdmin ? <PaymentPin /> : null}
         {data.isAdmin ? <VoicePrint /> : null}
         <TamilyaMemory facts={data.memories} on={data.memoryOn} />
       </>

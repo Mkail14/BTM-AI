@@ -259,7 +259,7 @@ export default function PrivacyPage() {
             Tamilya peut mal comprendre ce que vous dites. Un paiement fait avec votre autorisation et votre code juste est
             sous votre responsabilité, même s&apos;il était une erreur : vérifiez toujours le montant avant de donner votre
             code. BTM ne garantit pas le résultat d&apos;un tel paiement et ne le rembourse pas. Vous pouvez retirer
-            l&apos;autorisation à tout moment dans les paramètres, rubrique Tamilya ; supprimer votre code la retire aussi.
+            l&apos;autorisation à tout moment dans les paramètres, rubrique Sécurité ; supprimer votre code la retire aussi.
           </p>
           <p>
             <span className={strong}>Empreinte de voix (facultative).</span> Si vous l&apos;activez, Tamilya vérifie aussi

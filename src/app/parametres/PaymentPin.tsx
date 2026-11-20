@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DANGER, PRIMARY, RowEditor, SECONDARY, SettingsGroup, SettingsRow } from "./ui";
+import { DANGER, PRIMARY, RowEditor, SECONDARY, SettingsRow } from "./ui";
 
 const digitsOnly = (value: string) => value.replace(/\D/g, "").slice(0, 4);
 
@@ -25,7 +25,7 @@ export function PinField({ label, value, onChange, autoFocus = false }: { label:
 
 /**
  * Code de paiement à 4 chiffres : obligatoire pour que Tamilya paie à la voix.
- * Changer ou supprimer le code demande l'actuel.
+ * Changer ou supprimer le code demande l'actuel. Lignes du cadre Sécurité.
  */
 export function PaymentPin() {
   const [hasPin, setHasPin] = useState<boolean | null>(null);
@@ -95,17 +95,7 @@ export function PaymentPin() {
   };
 
   return (
-    <SettingsGroup
-      title="Payer à la voix"
-      description="Ton code à 4 chiffres, obligatoire pour que Tamilya paie à ta place."
-      footer={
-        message ? (
-          <p role={message.ok ? "status" : "alert"} className={`text-sm ${message.ok ? "text-success" : "text-danger"}`}>
-            {message.text}
-          </p>
-        ) : null
-      }
-    >
+    <>
       {hasPin === null ? (
         <div className="m-4 h-8 animate-pulse rounded-lg bg-bg-muted" />
       ) : loadError ? (
@@ -171,6 +161,11 @@ export function PaymentPin() {
           </form>
         </RowEditor>
       )}
-    </SettingsGroup>
+      {message ? (
+        <p role={message.ok ? "status" : "alert"} className={`px-4 py-3 text-sm sm:px-5 ${message.ok ? "text-success" : "text-danger"}`}>
+          {message.text}
+        </p>
+      ) : null}
+    </>
   );
 }

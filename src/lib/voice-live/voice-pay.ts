@@ -74,7 +74,7 @@ export async function requestPayment(label: string, run: () => Promise<string>):
   }
   if (!known.hasPin) {
     update({ step: "nopin" });
-    return "Pas de code de paiement sur ce compte : sans code, tu ne peux pas payer à sa place. Dis-lui de le créer dans les paramètres (rubrique Tamilya), ou de toucher elle-même le bouton.";
+    return "Pas de code de paiement sur ce compte : sans code, tu ne peux pas payer à sa place. Dis-lui de le créer dans les paramètres (rubrique Sécurité), ou de toucher elle-même le bouton.";
   }
   // L'autorisation se donne une seule fois : déjà donnée, on passe au code.
   if (known.consented) {

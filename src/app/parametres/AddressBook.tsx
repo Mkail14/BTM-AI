@@ -6,7 +6,7 @@ import { AddressFields, EMPTY_ADDRESS, type AddressDraft } from "@/components/ui
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { addressFieldErrors, kindOf, MAX_SAVED_ADDRESSES, SAVED_ADDRESS_KINDS, type SavedAddress, type SavedAddressKind } from "@/lib/address";
 import { deleteSavedAddressAction, saveAddressAction, saveSavedAddressAction } from "./actions";
-import { Feedback, INPUT_CLASS, PRIMARY, RowEditor, SECONDARY, SettingsGroup, useSave } from "./ui";
+import { Feedback, INPUT_CLASS, PRIMARY, RowEditor, SECONDARY, useSave } from "./ui";
 
 /** Ce qui est en cours de modification : la maison, une adresse du carnet, ou une nouvelle. */
 type Editing = { what: "home" } | { what: "saved"; id: string } | { what: "new" } | null;
@@ -23,7 +23,7 @@ export function AddressBook({ home, saved }: { home: AddressDraft | null; saved:
   const close = () => setEditing(null);
 
   return (
-    <SettingsGroup footer={editing === null ? <Feedback state={state} /> : null}>
+    <>
       {/* Maison */}
       {editing?.what === "home" ? (
         <AddressForm
@@ -100,7 +100,12 @@ export function AddressBook({ home, saved }: { home: AddressDraft | null; saved:
         </button>
       ) : null}
 
-    </SettingsGroup>
+      {editing === null && state?.message ? (
+        <div className="px-4 py-3 sm:px-5">
+          <Feedback state={state} />
+        </div>
+      ) : null}
+    </>
   );
 }
 
