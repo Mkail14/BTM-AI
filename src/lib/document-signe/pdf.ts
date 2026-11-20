@@ -92,9 +92,10 @@ function xAt(line: PdfLine, index: number, measure: Measure) {
 /** Lit le PDF : cases à remplir, place de la signature, taille des pages. */
 export async function readPdf(bytes: Uint8Array): Promise<PdfReading> {
   const pdfjs = await loadPdfjs();
+  const task = pdfjs.getDocument({ data: bytes.slice() });
   let doc;
   try {
-    doc = await pdfjs.getDocument({ data: bytes.slice() }).promise;
+    doc = await task.promise;
   } catch (error) {
     if (error instanceof Error && error.name === "PasswordException") throw new PdfLocked();
     throw error;
@@ -108,7 +109,7 @@ export async function readPdf(bytes: Uint8Array): Promise<PdfReading> {
     const content = await page.getTextContent();
     lines.push(...toLines(content.items.filter((i) => "str" in i) as TextItem[], n - 1));
   }
-  await doc.destroy();
+  await task.destroy();
 
   const texts = lines.map((l) => l.text);
   const title = texts.find((t) => t.trim().length > 3)?.trim().slice(0, 120) ?? "";
@@ -193,7 +194,8 @@ async function readFormFields(bytes: Uint8Array, lines: PdfLine[]): Promise<PdfF
 /** Dessine la page n° `page` dans le canevas, à la largeur donnée. */
 export async function renderPdfPage(bytes: Uint8Array, page: number, canvas: HTMLCanvasElement, width: number) {
   const pdfjs = await loadPdfjs();
-  const doc = await pdfjs.getDocument({ data: bytes.slice() }).promise;
+  const task = pdfjs.getDocument({ data: bytes.slice() });
+  const doc = await task.promise;
   try {
     const p = await doc.getPage(page + 1);
     const base = p.getViewport({ scale: 1 });
@@ -205,7 +207,7 @@ export async function renderPdfPage(bytes: Uint8Array, page: number, canvas: HTM
     canvas.style.height = `${(width * base.height) / base.width}px`;
     await p.render({ canvas, viewport }).promise;
   } finally {
-    await doc.destroy();
+    await task.destroy();
   }
 }
 
