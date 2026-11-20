@@ -1856,7 +1856,11 @@ final class HomeScreen extends FrameLayout {
     /** Le doigt monte : les messages suivent, le rond se remplit au-dessus de la barre. */
     void setPull(float progress) {
         pull = progress;
-        body.setTranslationY(-dp(112) * progress);
+        int shift = Math.round(dp(112) * progress);
+        body.setTranslationY(-shift);
+        // Les messages montent sous la barre du haut, jamais par-dessus : on ne montre que
+        // la place d'origine de la conversation.
+        body.setClipBounds(shift > 0 ? new android.graphics.Rect(0, shift, body.getWidth(), body.getHeight() + shift) : null);
         invalidate();
     }
 
