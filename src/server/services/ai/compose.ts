@@ -3,6 +3,7 @@ import {
   buildComposeContent,
   COMPOSE_PROMPT,
   findValidated,
+  nearestExamples,
   parseComposition,
   unsureWords,
   type Composition,
@@ -22,6 +23,8 @@ export async function composeShimaore(provider: AIProvider, brain: TamilyaBrain,
   const phrases = lexiconFor(brain, french) ?? [];
   const words = wordsFor(brain, french);
   const known = words.slice(0, 40);
+  // Modèles de construction : les phrases validées (expressions et phrases du dictionnaire) les plus proches.
+  const nearest = nearestExamples([...brain.words, ...brain.lexicon], french, 20);
   const validated = findValidated([...brain.words, ...brain.lexicon], french);
   if (validated) return { french, shimaore: validated.shimaore, validated: true, unsure: [], known };
 
@@ -32,7 +35,7 @@ export async function composeShimaore(provider: AIProvider, brain: TamilyaBrain,
     // Sans réflexion approfondie : elle dépassait 30 s à chaque fois. La sûreté vient de la vérification du code.
     const output = await completeText(provider, {
       system: COMPOSE_PROMPT,
-      content: buildComposeContent({ french, phrases: phrases.slice(0, 60), words: words.slice(0, 120), grammar: brain.grammar }),
+      content: buildComposeContent({ french, nearest, phrases: phrases.slice(0, 60), words: words.slice(0, 120), grammar: brain.grammar }),
       maxOutputTokens: 1500,
       timeoutMs: 20_000,
       model: process.env.AI_SHIMAORE_MODEL?.trim() || undefined,
@@ -42,7 +45,7 @@ export async function composeShimaore(provider: AIProvider, brain: TamilyaBrain,
       console.error("[tamilya] Composition du shimaoré illisible", output.slice(0, 200));
       return unknown;
     }
-    return { french, shimaore, validated: false, unsure: unsureWords(shimaore, [...phrases, ...words], french), known };
+    return { french, shimaore, validated: false, unsure: unsureWords(shimaore, [...nearest, ...phrases, ...words], french), known };
   } catch (error) {
     console.error("[tamilya] Composition du shimaoré impossible", error);
     return unknown;

@@ -68,6 +68,54 @@ export function findValidated(entries: readonly Entry[], french: string): Entry 
 
 const wordsOf = (shimaore: string) => shimaore.match(/[\p{L}\p{N}'’-]+/gu) ?? [];
 
+// Petits mots du français : ils comptent un peu (« je », « ai » disent la personne et le temps), moins qu'un mot de sens.
+const LIGHT_FRENCH = /^(?:le|la|les|l|un|une|des|de|du|d|a|au|aux|en|y|ce|c|est|que|qui)$/;
+const frenchTokens = (text: string) => frenchKey(text).split(" ").filter(Boolean).map((t) => t.replace(/[sx]$/, ""));
+
+/**
+ * Phrases validées les plus proches de la phrase à dire, à donner au moteur comme modèles de
+ * construction. Mesure du 2026-11-20 (scripts/shimaore-bench.ts) : pour « j'ai faim », le moteur
+ * ne recevait pas « j'ai soif = nisi kiya gnora », faute de mot commun exact ; il abandonnait
+ * 67 fois sur 122. Une langue rare s'apprend surtout par des phrases d'exemple (Aycock et al., 2025) :
+ * on lui donne celles qui partagent le plus de mots français, les petits mots comptant moins.
+ * Seules les entrées de deux mots shimaoré ou plus (des phrases, pas des mots isolés).
+ */
+export function nearestExamples<T extends Entry>(entries: readonly T[], french: string, max = 20): T[] {
+  const wanted = frenchTokens(french);
+  if (wanted.length === 0) return [];
+  const weight = (t: string) => (LIGHT_FRENCH.test(t) ? 0.3 : 1);
+  const scored: { entry: T; score: number; at: number }[] = [];
+  entries.forEach((entry, at) => {
+    if (wordsOf(entry.shimaore).length < 2) return;
+    const tokens = frenchTokens(entry.french);
+    if (tokens.length === 0) return;
+    const pool = [...tokens];
+    let shared = 0;
+    for (const t of wanted) {
+      const i = pool.indexOf(t);
+      if (i >= 0) {
+        shared += weight(t);
+        pool.splice(i, 1);
+      }
+    }
+    // Un seul petit mot en commun (« la », « de ») ne fait pas un modèle.
+    if (shared < 1) return;
+    // Les phrases courtes et proches d'abord ; à égalité, la plus récente (leçon du référent).
+    scored.push({ entry, score: shared / Math.sqrt(tokens.length * wanted.length), at });
+  });
+  scored.sort((a, b) => b.score - a.score || b.at - a.at);
+  const seen = new Set<string>();
+  const kept: T[] = [];
+  for (const { entry } of scored) {
+    const key = `${frenchKey(entry.french)}\u0000${entry.shimaore.toLowerCase().trim()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    kept.push(entry);
+    if (kept.length >= max) break;
+  }
+  return kept;
+}
+
 /**
  * Mots de la phrase qui ne viennent d'aucune entrée donnée au moteur. Le code
  * décide, pas le modèle : un mot qu'il dit « connu » sans qu'il soit dans le
@@ -88,7 +136,8 @@ export function unsureWords(shimaore: string, given: readonly Entry[], french = 
 
 export const COMPOSE_PROMPT = `Tu composes une phrase en shimaoré (langue bantoue de Mayotte, à ne pas confondre avec le kibushi ni le comorien des autres îles).
 Tu ne connais du shimaoré QUE ce qui est donné plus bas : phrases validées, règles, vocabulaire. Le dictionnaire donne surtout des verbes à l'infinitif (préfixe u-, ex. uvendza = aimer) : pour les conjuguer, appuie-toi sur les phrases validées et les règles, jamais sur ce que tu crois savoir.
-Méthode : découpe la phrase française en morceaux de sens, retrouve chaque morceau dans ce qui est donné, puis assemble. N'emploie jamais un mot d'un autre sens pour combler un trou (« je te déteste » pour « je n'aime pas »).
+Méthode : regarde d'abord les « phrases proches » : prends celle dont la construction ressemble le plus (même personne, même temps, même forme) et garde sa construction telle quelle, en ne remplaçant que le morceau qui change, par un mot du vocabulaire. Sinon, découpe la phrase française en morceaux de sens, retrouve chaque morceau dans ce qui est donné, puis assemble. N'emploie jamais un mot d'un autre sens pour combler un trou (« je te déteste » pour « je n'aime pas »).
+Un même petit mot shimaoré peut avoir plusieurs sens (« tsi » = je, ou ne…pas, ou le passé ; « nisi » = je, ou je te) : fie-toi aux phrases proches, pas à une traduction mot à mot. Écris les mots comme dans les phrases validées.
 Si un morceau n'est nulle part, ne l'invente pas : mets-le dans "manque".
 Réponds UNIQUEMENT par un objet JSON, sans texte autour : {"shimaore":"…","manque":["…"]}.
 - shimaore : la phrase complète, ou "" si plus de la moitié du sens manque.
@@ -97,6 +146,8 @@ Réponds UNIQUEMENT par un objet JSON, sans texte autour : {"shimaore":"…","ma
 /** Ce que le moteur reçoit : la phrase, puis tout ce qu'on a retrouvé pour elle. */
 export function buildComposeContent(input: {
   french: string;
+  /** Phrases validées les plus proches (nearestExamples), les plus proches d'abord. */
+  nearest?: readonly Entry[];
   phrases: readonly Entry[];
   words: readonly Entry[];
   grammar: readonly GrammarRule[];
@@ -104,6 +155,7 @@ export function buildComposeContent(input: {
   const list = (entries: readonly Entry[]) => entries.map((e) => `- ${e.french} → ${e.shimaore}`).join("\n");
   const rules = input.grammar.map((g) => `- ${g.title} : ${g.rule}${g.examples ? ` (${g.examples})` : ""}`).join("\n");
   return [
+    ...(input.nearest?.length ? [`Phrases proches (validées, les plus proches d'abord) :\n${list(input.nearest)}`] : []),
     `Phrases validées :\n${list(input.phrases) || "(aucune)"}`,
     `Règles :\n${rules || "(aucune)"}`,
     `Vocabulaire :\n${list(input.words) || "(aucun)"}`,
