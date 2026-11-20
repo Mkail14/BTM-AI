@@ -75,7 +75,8 @@ async function outlineParts(pdf: import("pdfjs-dist").PDFDocumentProxy): Promise
 /** Lit le PDF entier et le range en parties et morceaux. Lève une erreur lisible si le PDF n'a pas de texte. */
 export async function readPdfBook(file: File, onProgress?: Progress): Promise<StoredBook> {
   const pdfjs = await loadPdfjs();
-  const pdf = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+  const task = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
+  const pdf = await task.promise;
   try {
     const pages: PdfLine[][] = [];
     for (let n = 1; n <= pdf.numPages; n++) {
@@ -106,6 +107,6 @@ export async function readPdfBook(file: File, onProgress?: Progress): Promise<St
     const title = cleanText(info?.Title ?? "").slice(0, 120) || titleFromFileName(file.name);
     return { id: crypto.randomUUID(), title, addedAt: Date.now(), pages: pdf.numPages, chapters };
   } finally {
-    void pdf.destroy();
+    void task.destroy();
   }
 }
