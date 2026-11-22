@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `5fcb7b7` (2026-11-22, main ; develop : `3b7306e`)**
+**Dernier commit noté : `d60058b` (2026-11-22, main ; develop : `3b7306e`)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -127,6 +127,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Circuit : changer le modèle d’une API sans la supprimer** (`d60058b` sur main, `c125132` sur feat/bienvenue-story, 2026-11-22). Avant, pour changer de modèle il fallait supprimer l’API puis tout recoller. Maintenant, dans la fiche d’une API ajoutée depuis l’admin : « Changer le modèle », la liste des modèles de la clé s’affiche, on choisit, c’est enregistré ; la clé et le nom restent. Un modèle absent de la liste de la clé est refusé, comme à l’ajout. Les API déclarées sur le serveur gardent leur modèle des variables. Vérifié : 927 tests, types, lint.
 
 - **Circuit : AnyRouter reconnu à sa clé** (`5fcb7b7` sur main, `6364ec3` sur feat/bienvenue-story, 2026-11-22). Une clé AnyRouter (`sk-ar-…`) était refusée, « pas reconnue », dans « Ajouter une API » : AnyRouter n’était pas dans la liste. Ajouté avec l’adresse `https://anyrouter.dev/api/v1`, sans modèle conseillé. Service non officiel (revendeur) : à surveiller. Vérifié : types.
 
