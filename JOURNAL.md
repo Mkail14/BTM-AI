@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `40dc260` (2026-11-22, main ; develop : `3b7306e`)**
+**Dernier commit noté : `f2cc937` (2026-11-22, main ; develop : `3b7306e`)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -57,6 +57,7 @@ Comment le tenir :
 | Sons réglables des histoires | Fichier catalogue.json + sons ajoutés dans le stockage Supabase (dossier public « lecture-sons », créé tout seul au premier ajout) ; le navigateur envoie le fichier directement au stockage | Marche tout de suite, sans migration à appliquer ; pas de limite de taille de Vercel (4,5 Mo) | Table Postgres (migration à appliquer à la main) ; envoi par le serveur du site |
 | 3D du devis BTM | CSS 3D fait main (boîtes à six faces : parpaings, béton, treillis, tranchées, carreaux), tourne seule et au doigt | Rien à télécharger (débit de Mayotte), suit chaque chiffre tapé ; vu dans Chrome, clair et sombre | three.js (déjà sur btm.yt, mais ~600 Ko de plus pour Tamilya) |
 | Carte de l'eau (tours d'eau) | Images du planning SMAE lues par Gemini, mises en service sans validation ; vérification toutes les heures par GitHub ; planning et coupures en JSON dans le stockage Supabase | La SMAE ne publie qu'en images ; l'utilisateur ne veut pas valider à la main ; pas de migration à appliquer | Page texte du Journal de Mayotte (pas la source officielle, refusée par l'utilisateur) ; table Postgres |
+| État des API du tableau de bord | Résultat des vrais messages de Tamilya (la chaîne d’API), gardé dans le stockage Supabase, un fichier par API | Aucune demande en plus, ne touche pas les limites gratuites ; pas de migration à appliquer | Test d’un mot à chaque API toutes les 10 min (refusé par l’utilisateur : coût et limite gratuite) ; solde en euros (Google ne le donne pas) ; table Postgres |
 | Affichage du chat pendant l'écriture | Début terminé relu une fois, seule la fin relue à chaque lettre | Avant, toute la réponse était relue 60 fois par seconde : de plus en plus lent avec la longueur | Paquet externe de découpe du Markdown (marked) : une dépendance de plus |
 | Emploi à Mayotte | Offres : flux RSS public d'Emploi Territorial (`rss?search-dept=976`, sans clé) ; API France Travail (francetravail.io, application « tamilya ») : « Mes évènements emploi v1 » en service, « Offres d'emploi v2 » codée mais éteinte | Officiel et gratuit ; l'utilisateur a choisi France Travail plutôt que Gemini + recherche Google (liste incomplète). Offres d'emploi v2 retirée de l'accès libre (data.gouv.fr, nov. 2026 : accès sur demande) ; en attendant, Emploi Territorial proposé par l'utilisateur : flux officiel autorisé (robots.txt ne bloque que /exportoffres/), mais seulement la fonction publique territoriale | Gemini + recherche Google pour les offres ; La Bonne Boîte, Marché du travail (ne donnent pas les offres en cours) |
 
@@ -127,6 +128,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Tableau de bord : carte « Mes API » au lieu de « Crédit Google »** (`f2cc937` sur main, `5316b6c` sur feat/bienvenue-story, 2026-11-22). Demande de l’utilisateur : la jauge mentait (25 € affichés, crédit vide depuis longtemps) ; il veut un vrai chiffre, recalculé tout seul quand il ajoute ou retire une API. Constat : la jauge ne demandait rien à Google, elle retirait une estimation des coûts d’un budget fixe (GEMINI_BUDGET_EUR) ; et Google ne donne pas le solde d’une clé. Maintenant : la carte dit combien d’API répondent (« 2 / 3 répondent ») et pourquoi les autres non (crédit épuisé, limite atteinte, clé refusée, modèle refusé, ne répond pas, débranchée), d’après ce que les vrais messages ont obtenu, avec depuis quand. Rouge si plus aucune ne répond. Aucune demande en plus (choix de l’utilisateur, voir Choix techniques). Une API de secours jamais essayée ne compte pas. Enregistré dans le stockage Supabase (dossier `circuit`, un fichier par API), sans migration. Vérifié : 927 tests, types, lint, écriture et lecture réelles d’un état. Pas vu à l’écran.
 
 - **Circuit : fil de la voix coupé, micro caché partout** (`40dc260` sur main, `00cbcdf` sur feat/bienvenue-story, 2026-11-22). Demandé : couper le fil de « Voix en direct » dans /admin/circuit doit faire disparaître le bouton pour parler à Tamilya sur toutes les plateformes, et le rebrancher le faire revenir. Le fil se coupe maintenant comme ceux des API (id `voice-live` dans flow_cuts). Coupé : « vocal » est retiré des fonctionnalités de tout le monde, administrateurs compris, donc plus de micro sur le site et la PWA, et les routes du vocal refusent. L’app Android copie déjà le micro du site : rien à réinstaller. Délai : au plus environ 30 s. L’interrupteur « Vocal en direct » de /admin/fonctionnalites reste, pour les non-administrateurs. Même session : le vocal remarche (relais sans recherche, appel complet vu dans wrangler tail). Vérifié : 927 tests, types, lint.
 
