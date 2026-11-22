@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `0177145` (2026-11-23, develop)**
+**Dernier commit noté : `955893e` (2026-11-23, develop ; `24893ac` sur feat/bienvenue-story)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -127,6 +127,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Admin : Fonctionnalités rangées par thème, l'eau dedans, le bandeau dans l'État de la plateforme** (`955893e`, 2026-11-23, develop ; `24893ac` sur feat/bienvenue-story). Demandé : une page Fonctionnalités propre et bien organisée, pas une longue liste. Elle range maintenant les 17 fonctionnalités en 6 thèmes avec icône (Vie pratique, Emploi et formation, Documents, Achats et paiements, Loisirs, Voix), avec un compteur « pour tous / admins seulement », une phrase courte par fonctionnalité, les détails techniques repliés, un badge « Coûte des appels » (livres, vocal) et 2 colonnes sur ordinateur. Les tours d'eau n'ont plus d'onglet dans Plateforme : on y va par le bouton Réglages de la Carte de l'eau. Le bandeau d'accueil passe dans Profil > État de la plateforme : choix de l'utilisateur, il est donc réservé à l'administrateur principal (mot de passe redemandé, comme le reste du profil).
 
 - **Cartes de Tamilya : pleine largeur sur téléphone** (`0177145`, 2026-11-23, develop). L’utilisateur a vu que les cartes proposées par Tamilya (repas…) n’étaient pas adaptées au téléphone. Vérifié sur écran de 390 px (site local, compte « Claude Admin », Chrome sans fenêtre) : les cartes étaient décalées par le rond de Tamilya, le style du texte (puces, liens roses soulignés) débordait dans les cartes (événements emploi, panier), des titres étaient coupés (« L’eau à Mayotte en ce m… ») et le sous-titre du repas aussi. Maintenant : chaque carte est dans `.chat-card`, qui part du bord gauche sur téléphone ; les styles du texte ne touchent plus les cartes (`:not(.chat-card *)`) ; titres sur deux lignes. Revus bons : repas, panier, barge, code de la route, eau, trajet, événements, offres d’emploi, cyclones, signer un document. Pas revus : devis BTM, attestation, chanson, lecture 3D, tableau combiné.
 
