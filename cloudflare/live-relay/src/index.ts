@@ -156,13 +156,6 @@ export class LiveRelay {
     console.log(`clé : ${setup.apiKey ? "circuit" : "relais"}`);
     // Seules les consignes (setup.setup) partent vers Gemini : la clé ne va pas plus loin.
     delete setup.apiKey;
-    // Connexion à Gemini (Live API) depuis Cloudflare.
-    const upstreamResponse = await fetch(`${GEMINI_LIVE_URL}?key=${encodeURIComponent(apiKey)}`, {
-      headers: { Upgrade: "websocket" },
-    });
-    const gemini = upstreamResponse.webSocket;
-    if (!gemini) return new Response(`Gemini injoignable (${upstreamResponse.status})`, { status: 502 });
-    gemini.accept();
     // Réflexion du modèle coupée : avec les longues consignes de Tamilya, il « pensait » 5 s ou
     // plus avant de parler (parfois jamais) ; coupée, il répond en 2 à 2,5 s (mesuré). Essai : think=N.
     const think = (isTest ? url.searchParams.get("think") : null) ?? "0";
@@ -195,13 +188,53 @@ export class LiveRelay {
       const instruction = (base.systemInstruction ??= { parts: [] }) as { parts: { text: string }[] };
       instruction.parts.push({ text: "Recherche Google : tu as la recherche Google. Ceci remplace la règle « pas d'accès à internet ». Pour un événement passé, une date, une personne, un chiffre ou une actualité que tu ne connais pas, cherche avant de répondre, puis réponds simplement à l'oral." });
     }
-    const setupText = JSON.stringify({ setup: setup.setup });
-    console.log(`consignes : ${setupText.length} caractères`);
-    gemini.send(setupText);
+    // Connexion à Gemini (Live API) depuis Cloudflare : consignes envoyées, puis première réponse
+    // attendue (ou la fermeture, avec sa raison).
+    type Opened = { ws: WebSocket; first: unknown } | { code: number; reason: string };
+    const connect = async (): Promise<Opened | null> => {
+      const upstream = await fetch(`${GEMINI_LIVE_URL}?key=${encodeURIComponent(apiKey)}`, { headers: { Upgrade: "websocket" } });
+      const ws = upstream.webSocket;
+      if (!ws) return null;
+      ws.accept();
+      const setupText = JSON.stringify({ setup: setup.setup });
+      console.log(`consignes : ${setupText.length} caractères`);
+      ws.send(setupText);
+      return new Promise<Opened>((resolve) => {
+        const done = (value: Opened) => {
+          clearTimeout(wait);
+          ws.removeEventListener("message", onMessage);
+          ws.removeEventListener("close", onClose);
+          resolve(value);
+        };
+        const onMessage = (event: MessageEvent) => done({ ws, first: event.data });
+        const onClose = (event: CloseEvent) => done({ code: event.code, reason: event.reason });
+        // Pas de réponse : on continue quand même, comme avant.
+        const wait = setTimeout(() => done({ ws, first: null }), 10_000);
+        ws.addEventListener("message", onMessage);
+        ws.addEventListener("close", onClose);
+      });
+    };
+    let opened = await connect();
+    // Recherche Google refusée (compte Google sans facturation : « exceeded your current quota ») :
+    // même appel sans la recherche, plutôt qu'un vocal coupé.
+    const tools = base.tools as Record<string, unknown>[] | undefined;
+    if (opened && "code" in opened && /quota/i.test(opened.reason) && tools?.some((tool) => "googleSearch" in tool)) {
+      console.log("recherche Google refusée : nouvel appel sans recherche");
+      base.tools = tools.filter((tool) => !("googleSearch" in tool));
+      opened = await connect();
+    }
+    if (!opened) return new Response("Gemini injoignable", { status: 502 });
 
     const pair = new WebSocketPair();
     const [client, phone] = [pair[0], pair[1]];
     phone.accept();
+    if ("code" in opened) {
+      console.log(`gemini fermé : ${opened.code} ${opened.reason} (reçus 0, envoyés 0)`);
+      phone.close(opened.code === 1000 ? 1000 : 1011, (opened.reason || "Gemini a fermé").slice(0, 120));
+      return new Response(null, { status: 101, webSocket: client });
+    }
+    const gemini = opened.ws;
+    const firstFromGemini = opened.first;
 
     let closed = false;
     const closeBoth = (code = 1000, reason = "fin") => {
@@ -276,9 +309,9 @@ export class LiveRelay {
       return String(data);
     };
     let queue: Promise<void> = Promise.resolve();
-    gemini.addEventListener("message", (event) => {
+    const forward = (data: unknown) => {
       queue = queue.then(async () => {
-      const text = await toText(event.data);
+      const text = await toText(data);
       // Journal : les premiers messages de Gemini (sans le son), pour comprendre un blocage.
       if (fromGemini++ < 5) console.log(`gemini → ${text.replace(/"data":"[^"]{40,}"/g, "\"data\":\"…\"").slice(0, 300)}`);
       // Le compte de Google arrive avec la fin d'un tour ; les morceaux de son ne sont pas relus.
@@ -293,7 +326,10 @@ export class LiveRelay {
         phone.send(text);
       } catch {}
       }).catch((error) => console.log(`relais : message illisible (${error})`));
-    });
+    };
+    // La première réponse (setupComplete), lue pendant l'ouverture, part d'abord.
+    if (firstFromGemini !== null) forward(firstFromGemini);
+    gemini.addEventListener("message", (event) => forward(event.data));
     phone.addEventListener("close", () => {
       clearTimeout(timer);
       closeBoth();
