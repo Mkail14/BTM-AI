@@ -12,6 +12,9 @@ export const BRAIN_BLOCKS = ["personality", "settings", "knowledge", "lexicon", 
 export const STOP_BLOCKS = ["input", ...BRAIN_BLOCKS] as const;
 export type StopBlock = (typeof STOP_BLOCKS)[number];
 
+/** Fil de la voix en direct : coupé, le micro disparaît pour tout le monde (administrateurs compris). */
+export const VOICE_CUT = "voice-live";
+
 /** Raison renvoyée par getAIProvider quand toutes les API sont coupées. */
 export const ALL_APIS_CUT = "Toutes les API sont débranchées.";
 
@@ -19,7 +22,7 @@ export const ALL_APIS_CUT = "Toutes les API sont débranchées.";
 export function isCuttableBlock(id: unknown): id is string {
   return (
     typeof id === "string" &&
-    ((STOP_BLOCKS as readonly string[]).includes(id) || /^env-\d+$/.test(id) || /^db-[0-9a-f-]{36}$/i.test(id))
+    (id === VOICE_CUT || (STOP_BLOCKS as readonly string[]).includes(id) || /^env-\d+$/.test(id) || /^db-[0-9a-f-]{36}$/i.test(id))
   );
 }
 

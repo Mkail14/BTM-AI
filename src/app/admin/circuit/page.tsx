@@ -247,8 +247,8 @@ export default async function AdminCircuitPage() {
       icon: "chip",
       title: "Voix en direct",
       subtitle: process.env.AI_LIVE_MODEL?.trim() || "Gemini Live",
-      status: voiceReady ? "ok" : "off",
-      statusLabel: voiceReady ? "Prête" : "Non configurée",
+      status: voiceReady && !cuts.has(VOICE_NODE) ? "ok" : "off",
+      statusLabel: !voiceReady ? "Non configurée" : cuts.has(VOICE_NODE) ? "Débranchée : micro caché partout" : "Prête",
       href: "/admin/voix",
     },
     {
@@ -288,8 +288,9 @@ export default async function AdminCircuitPage() {
         { from: `model-${m.slot.id}`, to: "output", ...link },
       ];
     }),
-    { from: "prompt", to: VOICE_NODE, muted: !voiceReady },
-    { from: VOICE_NODE, to: "output", muted: !voiceReady },
+    // Fil de la voix coupé : le micro disparaît partout (site, PWA, app Android).
+    { from: "prompt", to: VOICE_NODE, muted: !voiceReady || cuts.has(VOICE_NODE), cutId: VOICE_NODE, cut: cuts.has(VOICE_NODE) },
+    { from: VOICE_NODE, to: "output", muted: !voiceReady || cuts.has(VOICE_NODE), cutId: VOICE_NODE, cut: cuts.has(VOICE_NODE) },
   ];
 
   return (

@@ -1,5 +1,6 @@
 import "server-only";
 import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
+import { loadFlowCutsForMessage, VOICE_CUT } from "@/server/services/ai/flow-cuts";
 import { FEATURES, featuresFor, readSwitches, type FeatureId, type FeatureSwitches } from "@/lib/site/features-rules";
 
 /**
@@ -27,9 +28,14 @@ export async function getFeatureSwitches({ fresh = false }: { fresh?: boolean } 
   return value;
 }
 
-/** Les fonctionnalités de cette personne (toutes pour un administrateur). */
+/**
+ * Les fonctionnalités de cette personne (toutes pour un administrateur). Fil de la voix coupé
+ * dans /admin/circuit : pas de vocal, pour personne.
+ */
 export async function userFeatures(user: { isAdmin?: boolean } | null): Promise<FeatureId[]> {
-  return featuresFor(user, (await getFeatureSwitches()) ?? DEFAULTS);
+  const [switches, cuts] = await Promise.all([getFeatureSwitches(), loadFlowCutsForMessage().catch(() => new Set<string>())]);
+  const features = featuresFor(user, switches ?? DEFAULTS);
+  return cuts.has(VOICE_CUT) ? features.filter((id) => id !== "vocal") : features;
 }
 
 /** Vérification côté serveur, à chaque demande. */
