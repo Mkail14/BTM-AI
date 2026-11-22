@@ -172,7 +172,13 @@ const components: Components = {
   // Le code d'une carte se télécharge la première fois qu'elle s'affiche. Sans ce Suspense, l'attente
   // remontait jusqu'au chargement de la page : toute la conversation disparaissait le temps du
   // téléchargement, puis revenait. Seule la place de la carte attend maintenant.
-  pre: ({ children }) => <Suspense fallback={<Skeleton className="h-24 w-full rounded-2xl" />}>{renderPre(children)}</Suspense>,
+  // Une carte (repas, barge, eau…) prend toute la largeur sur téléphone : voir .chat-card dans globals.css.
+  pre: ({ children }) => {
+    const code = isValidElement<{ className?: string }>(children) ? children.props.className : undefined;
+    const card = CARD_BLOCKS.some((block) => code === `language-${block}`);
+    const body = <Suspense fallback={<Skeleton className="h-24 w-full rounded-2xl" />}>{renderPre(children)}</Suspense>;
+    return card ? <div className="chat-card">{body}</div> : body;
+  },
   // Paragraphe fait seulement de vidéos YouTube : rangée qui défile vers la droite.
   p: ({ children }) => {
     const items = Children.toArray(children).filter((c) => !(typeof c === "string" && !c.trim()));

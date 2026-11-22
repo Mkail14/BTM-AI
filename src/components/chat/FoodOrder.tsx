@@ -383,7 +383,7 @@ export function FoodOrder({ query = "", group = false }: { query?: string; group
     .sort((a, b) => nearness(a) - nearness(b));
 
   const header = (title: string, subtitle: string, back?: () => void) => (
-    <div className="flex items-center gap-2 px-4 pt-4 pb-2">
+    <div className="flex items-start gap-2 px-4 pt-4 pb-2">
       {back ? (
         <button
           type="button"
@@ -396,7 +396,8 @@ export function FoodOrder({ query = "", group = false }: { query?: string; group
       ) : null}
       <div className="min-w-0 flex-1">
         <p className="text-base font-semibold">{title}</p>
-        <p className="truncate text-xs text-fg-muted">{subtitle}</p>
+        {/* Sur téléphone, la phrase passe à la ligne au lieu d'être coupée (« portefeuille (sol… »). */}
+        <p className="text-xs text-fg-muted">{subtitle}</p>
       </div>
       {data.demo ? (
         <span className="shrink-0 rounded-full bg-warning-soft px-2 py-0.5 text-[10px] font-semibold text-warning">Démo</span>

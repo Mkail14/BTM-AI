@@ -91,7 +91,7 @@ export function JobsCard({ spec }: { spec: JobsSpec }) {
           <Briefcase aria-hidden="true" className="size-6" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold">{spec.metier ? `Offres : ${spec.metier}` : "Offres d'emploi à Mayotte"}</span>
+          <span className="line-clamp-2 block leading-snug font-semibold">{spec.metier ? `Offres : ${spec.metier}` : "Offres d'emploi à Mayotte"}</span>
           <span className="block text-xs text-fg-muted">{line}</span>
         </span>
         {data?.offers.length ? (

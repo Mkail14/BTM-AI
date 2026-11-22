@@ -673,61 +673,62 @@ dialog::backdrop {
 .markdown > * + * {
   margin-top: 0.85em;
 }
-.markdown h1,
-.markdown h2,
-.markdown h3,
-.markdown h4 {
+/* Les cartes de Tamilya (.chat-card) gardent leur propre style : ni puces, ni liens soulignés, ni cadre de code. */
+.markdown h1:not(.chat-card *),
+.markdown h2:not(.chat-card *),
+.markdown h3:not(.chat-card *),
+.markdown h4:not(.chat-card *) {
   font-weight: 600;
   line-height: 1.3;
   margin-top: 1.3em;
 }
-.markdown h1 { font-size: 1.35em; }
-.markdown h2 { font-size: 1.2em; }
-.markdown h3 { font-size: 1.05em; }
-.markdown ul,
-.markdown ol {
+.markdown h1:not(.chat-card *) { font-size: 1.35em; }
+.markdown h2:not(.chat-card *) { font-size: 1.2em; }
+.markdown h3:not(.chat-card *) { font-size: 1.05em; }
+.markdown ul:not(.chat-card *),
+.markdown ol:not(.chat-card *) {
   padding-left: 1.4em;
 }
-.markdown ul { list-style: disc; }
-.markdown ol { list-style: decimal; }
-.markdown li + li { margin-top: 0.3em; }
-.markdown a {
+.markdown ul:not(.chat-card *) { list-style: disc; }
+.markdown ol:not(.chat-card *) { list-style: decimal; }
+.markdown li + li:not(.chat-card *) { margin-top: 0.3em; }
+.markdown a:not(.chat-card *) {
   color: var(--accent);
   text-decoration: underline;
   text-underline-offset: 2px;
 }
-.markdown blockquote {
+.markdown blockquote:not(.chat-card *) {
   border-left: 3px solid var(--border);
   padding-left: 1em;
   color: var(--fg-muted);
 }
-.markdown code {
+.markdown code:not(.chat-card *) {
   font-family: var(--font-mono), ui-monospace, monospace;
   font-size: 0.88em;
   background: var(--bg-muted);
   padding: 0.15em 0.35em;
   border-radius: 4px;
 }
-.markdown pre {
+.markdown pre:not(.chat-card *) {
   background: var(--bg-muted);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 0.9em 1em;
   overflow-x: auto;
 }
-.markdown pre code {
+.markdown pre code:not(.chat-card *) {
   background: none;
   padding: 0;
   font-size: 0.85em;
 }
-.markdown table {
+.markdown table:not(.chat-card *) {
   border-collapse: collapse;
   display: block;
   overflow-x: auto;
   font-size: 0.92em;
 }
-.markdown th,
-.markdown td {
+.markdown th:not(.chat-card *),
+.markdown td:not(.chat-card *) {
   border: 1px solid var(--border);
   padding: 0.4em 0.7em;
   text-align: left;
@@ -735,11 +736,11 @@ dialog::backdrop {
   overflow-wrap: break-word;
   min-width: 5.5em;
 }
-.markdown th {
+.markdown th:not(.chat-card *) {
   background: var(--bg-subtle);
   font-weight: 600;
 }
-.markdown hr {
+.markdown hr:not(.chat-card *) {
   border: 0;
   border-top: 1px solid var(--border);
 }
@@ -1844,6 +1845,16 @@ html.chargement body {
  */
 .booking-step {
   animation: booking-step-in 320ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+/*
+ * Téléphone : une carte de Tamilya (repas, barge, eau…) part du bord gauche de la conversation,
+ * sous son rond, au lieu d'être décalée par lui (rond 2rem + écart 0.625rem, MessageItem).
+ */
+@media (max-width: 639px) {
+  .chat-card {
+    margin-left: -2.625rem;
+    min-width: 0;
+  }
 }
 /* Cadre des cartes de la conversation (eau, emploi, cyclones…) : de l'icône au bouton « Voir », on voit que c'est un tableau. */
 .carte-cadre {
