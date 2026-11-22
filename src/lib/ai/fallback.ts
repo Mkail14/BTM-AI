@@ -1,5 +1,6 @@
 import { getHealth, isCoolingDown, recordFailure, recordSuccess } from "./health";
 import { recordAiUsage } from "@/server/services/ai/usage";
+import { recordApiResult } from "@/server/services/ai/api-status";
 import { AIProviderError, type AIProvider, type AIStreamChunk, type AIStreamInput } from "./types";
 
 export type ChainEntry = { healthId: string; provider: AIProvider; slotId?: string };
@@ -47,11 +48,14 @@ export function createFallbackProvider(entries: readonly ChainEntry[]): AIProvid
           }
           answer();
           recordSuccess(healthId, Date.now() - startedAt);
+          // Tableau de bord : ce que ce vrai message a obtenu de cette API (aucune demande en plus).
+          if (slotId) recordApiResult(slotId, null);
           return;
         } catch (error) {
           const normalized = normalize(error);
           if (normalized.code === "aborted" || input.signal.aborted) throw normalized;
           recordFailure(healthId, normalized.code, normalized.message);
+          if (slotId) recordApiResult(slotId, normalized);
           if (!answered && slotId) input.onAttempt?.(slotId, normalized.code);
           if (produced) throw normalized;
           lastError = normalized;
