@@ -183,8 +183,16 @@ describe("message système", () => {
     const guidance = buildLanguageGuidance([
       { french: "Bonjour", shimaore: "[exemple]", validatedBy: "test", validatedAt: "2026-01-01" },
     ]);
-    assert.match(guidance, /FR : Bonjour → SHI : \[exemple\]/);
-    assert.doesNotMatch(guidance, /dans ce contexte-là/);
+    assert.match(guidance, /« Bonjour » se dit « \[exemple\] »/);
+    assert.doesNotMatch(guidance, /situation-là/);
+  });
+
+  it("ne montre pas une situation vide de sens", () => {
+    const guidance = buildLanguageGuidance([
+      { french: "Bois de l'eau propre", shimaore: "[exemple]", context: ".", validatedBy: "test", validatedAt: "2026-01-01" },
+    ]);
+    assert.doesNotMatch(guidance, /situation/);
+    assert.doesNotMatch(guidance, /contexte :/);
   });
 
   it("fait passer une correction en contexte avant la traduction générale", () => {
@@ -192,7 +200,7 @@ describe("message système", () => {
       { french: "Bonjour", shimaore: "kwezi", validatedBy: "test", validatedAt: "2026-01-01" },
       { french: "Bonjour", shimaore: "[forme respectueuse]", context: "à un aîné", validatedBy: "test", validatedAt: "2026-01-01" },
     ]);
-    assert.match(guidance, /SHI : \[forme respectueuse\] \(contexte : à un aîné\)/);
-    assert.match(guidance, /dans ce contexte-là/);
+    assert.match(guidance, /« \[forme respectueuse\] », dans la situation « à un aîné »/);
+    assert.match(guidance, /situation-là/);
   });
 });

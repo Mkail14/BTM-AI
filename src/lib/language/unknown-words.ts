@@ -32,7 +32,9 @@ const TRANSLATION = /^[\s>*_(\-[]*(?:traduction|translation|en\s+fran[çc]ais|fr
  * Les petits modèles ajoutent une traduction sous leur réponse malgré la
  * consigne : tout ce qui suit la première ligne de traduction est retiré.
  */
-export function stripTranslation(text: string): string {
+export function stripTranslation(raw: string): string {
+  // Étiquette recopiée des consignes (« … (contexte : .) », 2026-11-22) : jamais pour la personne.
+  const text = raw.replace(/[ \t]*\((?:contexte|context|situation)\s*[:：][^)]*\)/gi, "");
   const match = TRANSLATION.exec(text);
   if (!match || match.index === 0) return text;
   return text.slice(0, match.index).trimEnd();

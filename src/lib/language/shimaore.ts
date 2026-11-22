@@ -30,18 +30,28 @@ export function buildLanguageGuidance(
       ];
 
   if (examples.length > 0) {
-    lines.push("Exemples validés par des locuteurs (à privilégier) :");
+    // Le modèle recopiait une ligne entière, étiquette comprise (« … (contexte : .) », 2026-11-22) :
+    // c'est un dictionnaire, pas des réponses ; un contexte vide de sens (« . », « - ») n'est pas montré.
+    lines.push(
+      "Phrases validées par des locuteurs (à privilégier quand elles servent ta réponse ; c'est un dictionnaire, pas des réponses toutes faites : ne récite jamais une phrase qui ne répond pas à ce qu'on te dit) :",
+    );
     for (const example of examples) {
-      const context = example.context ? ` (contexte : ${example.context})` : "";
-      lines.push(`- FR : ${example.french} → SHI : ${example.shimaore}${context}`);
+      const context = usefulContext(example.context);
+      lines.push(`- « ${example.french} » se dit « ${example.shimaore} »${context ? `, dans la situation « ${context} »` : ""}`);
     }
     // Corrections du maître dans le chat : un même mot peut se dire autrement selon la situation.
-    if (examples.some((example) => example.context)) {
+    if (examples.some((example) => usefulContext(example.context))) {
       lines.push(
-        "Quand un exemple précise un contexte, utilise cette façon de dire dans ce contexte-là, de préférence à la traduction générale du même mot ou du vocabulaire.",
+        "Quand une phrase précise une situation, utilise cette façon de dire dans cette situation-là, de préférence à la traduction générale du même mot ou du vocabulaire.",
       );
     }
   }
 
   return lines.join("\n");
+}
+
+/** Situation d'une correction, seulement si elle veut dire quelque chose (au moins deux lettres). */
+function usefulContext(context?: string | null): string | null {
+  const text = context?.trim();
+  return text && (text.match(/\p{L}/gu)?.length ?? 0) >= 2 ? text : null;
 }
