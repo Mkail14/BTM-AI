@@ -31,9 +31,21 @@ export type ApiStatus = { id: string; name: string; state: ApiState; seenAt?: nu
 
 const BUCKET = "circuit";
 const fileOf = (slotId: string) => `api/${slotId.replace(/[^\w-]/g, "_")}.json`;
-/** Même état : réécrit au plus toutes les 5 minutes (pour « vu il y a… »), sinon tout de suite. */
+/**
+ * Même état : réécrit au plus toutes les 5 minutes (pour « vu il y a… »), sinon tout de suite.
+ * Un échec est réécrit plus souvent : sa date fixe la pause que voient les autres serveurs.
+ */
 const REWRITE_MS = 5 * 60_000;
+const FAILURE_REWRITE_MS = 20_000;
 const written = new Map<string, { state: ApiState; at: number }>();
+
+/** Dernier résultat connu de chaque API, tous serveurs confondus (lu par l'aiguillage, switch.ts). */
+const shared = new Map<string, { state: ApiState; at: number }>();
+/** Relecture du stockage au plus toutes les 15 s ; le premier message d'un serveur attend au plus 300 ms. */
+const SHARED_TTL_MS = 15_000;
+const FIRST_READ_WAIT_MS = 300;
+let sharedReadAt = 0;
+let sharedReading: Promise<void> | null = null;
 
 function stateOf(error: AIProviderError | null): ApiState {
   if (!error) return "ok";
@@ -73,7 +85,11 @@ export function recordApiResult(slotId: string, error: AIProviderError | null): 
   const state = stateOf(error);
   const now = Date.now();
   const last = written.get(slotId);
-  if (last && last.state === state && now - last.at < REWRITE_MS) return;
+  const known = shared.get(slotId);
+  shared.set(slotId, { state, at: now });
+  const gap = state === "ok" ? REWRITE_MS : FAILURE_REWRITE_MS;
+  // Un autre serveur a vu autre chose depuis : on réécrit tout de suite.
+  if (last && last.state === state && known?.state === state && now - last.at < gap) return;
   written.set(slotId, { state, at: now });
   const task = async () => {
     try {
@@ -107,6 +123,33 @@ async function readSeen(slotId: string): Promise<{ state: ApiState; at: number }
   } catch {
     return null;
   }
+}
+
+/** Dernier résultat partagé d'une API (sans attente : lu depuis la mémoire du serveur). */
+export function getSharedState(slotId: string): { state: ApiState; at: number } | undefined {
+  return shared.get(slotId);
+}
+
+/**
+ * Relit l'état partagé des API. Déjà frais : rien. Sinon relecture en fond ;
+ * seul le tout premier appel d'un serveur attend, et au plus 300 ms.
+ */
+export async function refreshSharedStates(slotIds: readonly string[]): Promise<void> {
+  if (!getSupabaseAdminClient() || slotIds.length === 0) return;
+  const first = sharedReadAt === 0;
+  if (!first && Date.now() - sharedReadAt < SHARED_TTL_MS) return;
+  sharedReading ??= (async () => {
+    const seen = await Promise.all(slotIds.map((id) => readSeen(id).catch(() => null)));
+    seen.forEach((value, index) => {
+      const id = slotIds[index];
+      // Ce que ce serveur a vu après la dernière écriture garde la main.
+      if (value && (shared.get(id)?.at ?? 0) < value.at) shared.set(id, value);
+    });
+    sharedReadAt = Date.now();
+  })().finally(() => {
+    sharedReading = null;
+  });
+  if (first) await Promise.race([sharedReading, new Promise((resolve) => setTimeout(resolve, FIRST_READ_WAIT_MS))]);
 }
 
 /** Toutes les API du circuit, dans l'ordre, avec ce que les derniers messages en ont vu. */

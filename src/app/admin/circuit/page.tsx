@@ -9,6 +9,8 @@ import { flowCutStop, loadFlowCuts } from "@/server/services/ai/flow-cuts";
 import { canEncrypt } from "@/lib/ai/secret-box";
 import { averageLatency, deriveModelStatus, freeDailyQuota, getHealth, requestsToday, type NodeStatus } from "@/lib/ai/health";
 import { checkKey } from "@/server/services/ai/key-check";
+import { getSharedState, refreshSharedStates } from "@/server/services/ai/api-status";
+import { LANE_LABELS, planRoute } from "@/lib/ai/switch";
 import { DEFAULT_IDENTITY, DEFAULT_RULES } from "@/lib/ai/system-prompt";
 import { requireAdmin } from "@/server/middlewares/session";
 import { loadRateLimitSettings } from "@/server/middlewares/rate-limit/settings";
@@ -128,7 +130,10 @@ export default async function AdminCircuitPage() {
   const hasSalt = Boolean(process.env.RATE_LIMIT_SALT?.trim());
 
   const [models, limits, brain, cuts, removed] = await Promise.all([
-    readModels(),
+    loadAIChain()
+      .then((chain) => refreshSharedStates(chain.map((s) => s.id)))
+      .catch(() => undefined)
+      .then(readModels),
     loadRateLimitSettings(),
     admin ? readBrainCounts(admin).catch((error: unknown) => (console.error("[admin] Cerveau illisible", error), null)) : null,
     loadFlowCuts(),
@@ -141,10 +146,36 @@ export default async function AdminCircuitPage() {
 
   // Un fil coupé avant les API arrête tous les messages : aucune API ne répond.
   const stoppedAt = flowCutStop(cuts);
-  // Même ordre que le secours automatique : la première API branchée, ni épuisée ni en panne, répond.
-  const servingIndex = stoppedAt
-    ? -1
-    : models.findIndex((m) => !cuts.has(m.slot.id) && (m.status.status === "ok" || m.status.status === "unknown"));
+  // Même choix que l'aiguillage des vrais messages (switch.ts) : la première API de son ordre
+  // qui n'est ni épuisée ni en panne répond.
+  const routable = models.flatMap((m) =>
+    m.config && !cuts.has(m.slot.id) ? [{ healthId: slotHealthId(m.slot.id, m.config), slotId: m.slot.id, model: m }] : [],
+  );
+  const healthById = new Map(routable.map((r) => [r.healthId, r.model.health]));
+  const route = planRoute(routable, { shared: getSharedState, health: (id) => healthById.get(id)! });
+  const laneOfSlot = new Map(routable.map((r) => [r.slotId, route.lanes.get(r)!]));
+  const serving = stoppedAt
+    ? undefined
+    : route.order.find((r) => r.model.status.status === "ok" || r.model.status.status === "unknown");
+  const servingIndex = serving ? models.indexOf(serving.model) : -1;
+  const laneCount = (lane: "ready" | "retest" | "paused") => [...laneOfSlot.values()].filter((l) => l === lane).length;
+  const switchNode: FlowNode = {
+    id: "switch",
+    column: 4,
+    icon: "switch",
+    title: "Aiguillage",
+    subtitle: `${laneCount("ready")} prête(s) · ${laneCount("retest") + laneCount("paused")} en attente`,
+    status: stoppedAt ? "off" : serving ? "ok" : "error",
+    statusLabel: stoppedAt
+      ? "À l'arrêt"
+      : serving
+        ? `Vers ${serving.model.slot.label}${serving.model.slot.slot > 1 ? ` (secours ${serving.model.slot.slot - 1})` : ""}`
+        : "Aucune API prête",
+    reason:
+      `Prêtes : ${laneCount("ready")} · À retester : ${laneCount("retest")} · En pause : ${laneCount("paused")}. ` +
+      "Chaque message va direct à une API qui marche, la plus rapide d'abord. Les API épuisées ou en panne passent en dernier " +
+      "et sont retestées seules en arrière-plan, puis reproposées dès qu'elles remarchent.",
+  };
   const unplugged: Pick<FlowNode, "status" | "statusLabel" | "reason"> = {
     status: "error",
     statusLabel: "Débranché",
@@ -222,11 +253,14 @@ export default async function AdminCircuitPage() {
     { id: "guard", column: 1, icon: "shield", title: "Quotas et sécurité", limits, ...guard },
     ...brainNodes.map((n) => (cuts.has(n.id) ? { ...n, ...unplugged } : n)),
     { id: "prompt", column: 3, icon: "prompt", title: "Message système", status: "ok", statusLabel: "Assemblé" },
+    switchNode,
     ...models.map(
       ({ slot, config, status, api, health }, index): FlowNode => ({
-        api,
+        api: laneOfSlot.has(slot.id)
+          ? { ...api, activity: [...api.activity, { label: "Aiguillage", value: LANE_LABELS[laneOfSlot.get(slot.id)!] }] }
+          : api,
         id: `model-${slot.id}`,
-        column: 4,
+        column: 5,
         icon: "chip",
         title: slot.label,
         subtitle: config?.model ?? "Non configurée",
@@ -243,7 +277,7 @@ export default async function AdminCircuitPage() {
     ),
     {
       id: VOICE_NODE,
-      column: 4,
+      column: 5,
       icon: "chip",
       title: "Voix en direct",
       subtitle: process.env.AI_LIVE_MODEL?.trim() || "Gemini Live",
@@ -253,7 +287,7 @@ export default async function AdminCircuitPage() {
     },
     {
       id: "output",
-      column: 5,
+      column: 6,
       icon: "reply",
       title: "Réponse de Tamilya",
       status: servingIndex >= 0 ? "ok" : "error",
@@ -275,6 +309,8 @@ export default async function AdminCircuitPage() {
         { from: n.id, to: "prompt", ...link },
       ];
     }),
+    // L'aiguillage reçoit tous les messages écrits et les envoie à l'API choisie.
+    { from: "prompt", to: "switch", live: flowing && servingIndex >= 0, muted: !flowing },
     ...models.flatMap((m, index) => {
       const cut = cuts.has(m.slot.id);
       const link = {
@@ -284,7 +320,7 @@ export default async function AdminCircuitPage() {
         cut,
       };
       return [
-        { from: "prompt", to: `model-${m.slot.id}`, ...link },
+        { from: "switch", to: `model-${m.slot.id}`, ...link },
         { from: `model-${m.slot.id}`, to: "output", ...link },
       ];
     }),

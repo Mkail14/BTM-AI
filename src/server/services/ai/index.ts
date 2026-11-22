@@ -7,6 +7,8 @@ import { createOpenAICompatibleProvider } from "@/server/services/ai/providers/o
 import { ALL_APIS_CUT, loadFlowCuts } from "@/server/services/ai/flow-cuts";
 import { loadAIChain } from "@/server/services/ai/registry";
 import { createRelayProvider, relayConfig, relayUrl } from "@/server/services/ai/relay";
+import { getSharedState, refreshSharedStates } from "@/server/services/ai/api-status";
+import { retestApis } from "@/server/services/ai/switch";
 import { keysSecret } from "@/lib/ai/secret-box";
 import type { AIProvider } from "@/lib/ai/types";
 
@@ -52,6 +54,8 @@ export async function getAIProvider(
     return first && !first.ok ? first : { ok: false, reason: "Aucune API utilisable." };
   }
 
+  // Aiguillage : état des API vu par tous les serveurs (relu en fond, sauf au tout premier message).
+  await refreshSharedStates(usable.map((s) => s.id));
   const key = JSON.stringify(usable.map((s) => [s.id, s.result.config]));
   if (cached?.key !== key) {
     const provider = createFallbackProvider(
@@ -60,6 +64,7 @@ export async function getAIProvider(
         healthId: slotHealthId(s.id, s.result.config),
         provider: createProvider(s.result.config),
       })),
+      { shared: getSharedState, retest: retestApis },
     );
     // Délai et plafond de la première API utilisable : ils bornent toute la chaîne.
     cached = { key, provider, config: usable[0].result.config };

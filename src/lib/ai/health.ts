@@ -12,6 +12,8 @@ export type AIHealth = {
   lastLatencyMs: number | null;
   /** Durées des dernières réponses réussies (la plus récente à la fin). */
   latencies: number[];
+  /** Temps avant le premier mot des dernières réponses (le plus récent à la fin) : sert à l'aiguillage. */
+  firstWords?: number[];
   lastFailure: { code: AIErrorCode; message: string; at: number } | null;
   /** Requêtes envoyées depuis minuit UTC (heure de remise à zéro des quotas OpenRouter). */
   today: { day: string; requests: number };
@@ -45,6 +47,9 @@ export const COOLDOWN_MS: Partial<Record<AIErrorCode, number>> = {
   overloaded: 30_000,
   quota: 15 * 60_000,
   auth: 15 * 60_000,
+  // Une API qui ne répond pas ferait attendre le message suivant jusqu'au délai maximum.
+  timeout: 30_000,
+  unavailable: 30_000,
 };
 
 /** Nombre de réponses retenues pour la vitesse moyenne. */
@@ -76,6 +81,18 @@ export function averageLatency(health: AIHealth): number | null {
   return latencies.length ? Math.round(latencies.reduce((sum, ms) => sum + ms, 0) / latencies.length) : null;
 }
 
+/** Temps avant le premier mot d'une réponse réussie. */
+export function recordFirstWord(id: string, ms: number) {
+  const health = entry(id);
+  health.firstWords = [...(health.firstWords ?? []), ms].slice(-LATENCY_SAMPLES);
+}
+
+/** Temps moyen avant le premier mot, ou null s'il n'y en a pas encore. */
+export function averageFirstWord(health: AIHealth): number | null {
+  const samples = health.firstWords ?? [];
+  return samples.length ? Math.round(samples.reduce((sum, ms) => sum + ms, 0) / samples.length) : null;
+}
+
 export function recordFailure(id: string, code: AIErrorCode, message: string, now = Date.now()) {
   if (code === "aborted") return;
   const health = entry(id);
@@ -86,7 +103,7 @@ export function recordFailure(id: string, code: AIErrorCode, message: string, no
 
 export function getHealth(id: string): AIHealth {
   const health = registry.get(id) ?? EMPTY_HEALTH;
-  return { ...health, today: { ...health.today } };
+  return { ...health, today: { ...health.today }, firstWords: [...(health.firstWords ?? [])] };
 }
 
 /** Vrai si la dernière réponse de l'API est un échec encore « frais ». */
