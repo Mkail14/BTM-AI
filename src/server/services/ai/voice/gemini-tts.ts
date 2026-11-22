@@ -23,12 +23,48 @@ export { RESTING_MS };
 
 export async function geminiKey(): Promise<{ apiKey: string; baseUrl: string | undefined }> {
   const chain = await loadAIChain();
+  // Une clé par compte, dans l'ordre du circuit (la même clé peut y être avec plusieurs modèles).
+  const keys = new Map<string, { apiKey: string; baseUrl: string | undefined }>();
   for (const slot of chain) {
-    if (slot.result.ok && isGeminiUrl(slot.result.config.baseUrl)) {
-      return { apiKey: slot.result.config.apiKey, baseUrl: slot.result.config.baseUrl };
+    if (slot.result.ok && isGeminiUrl(slot.result.config.baseUrl) && !keys.has(slot.result.config.apiKey)) {
+      keys.set(slot.result.config.apiKey, { apiKey: slot.result.config.apiKey, baseUrl: slot.result.config.baseUrl });
     }
   }
-  throw new AIProviderError("unavailable", "Aucune clé Gemini dans la chaîne d'API (/admin/circuit).");
+  if (keys.size === 0) throw new AIProviderError("unavailable", "Aucune clé Gemini dans la chaîne d'API (/admin/circuit).");
+  const list = [...keys.values()];
+  if (list.length === 1) return list[0];
+  // Comme l'écrit : une clé sans crédit ou refusée laisse la place à la suivante.
+  const usable = await Promise.all(list.map(keyHasCredit));
+  return list[usable.indexOf(true)] ?? list[0];
+}
+
+/** Clé refusée ou sans crédit : mise de côté ce temps-là (le vocal ne la réessaie pas à chaque appel). */
+const KEY_CHECK_MS = 10 * 60_000;
+const keyChecks = new Map<string, { ok: boolean; until: number }>();
+
+/**
+ * Une toute petite génération (1 mot, modèle le moins cher) : seule une vraie
+ * demande dit si le crédit est épuisé, la liste des modèles répond même sans crédit.
+ * En cas de doute (panne, lenteur), la clé est gardée.
+ */
+async function keyHasCredit(key: { apiKey: string; baseUrl: string | undefined }): Promise<boolean> {
+  const cached = keyChecks.get(key.apiKey);
+  if (cached && cached.until > Date.now()) return cached.ok;
+  let ok = true;
+  try {
+    const response = await fetch(`${geminiRoot(key.baseUrl)}/models/gemini-flash-lite-latest:generateContent`, {
+      method: "POST",
+      headers: { ...geminiHeaders(key.apiKey), "Content-Type": "application/json" },
+      body: JSON.stringify({ contents: [{ parts: [{ text: "ok" }] }], generationConfig: { maxOutputTokens: 1 } }),
+      signal: AbortSignal.timeout(4_000),
+    });
+    await response.body?.cancel();
+    ok = ![401, 402, 403, 429].includes(response.status);
+  } catch {
+    ok = true;
+  }
+  keyChecks.set(key.apiKey, { ok, until: Date.now() + KEY_CHECK_MS });
+  return ok;
 }
 
 /** Modèles de voix de la clé : « flash » avant « pro », les plus récents d'abord. */
