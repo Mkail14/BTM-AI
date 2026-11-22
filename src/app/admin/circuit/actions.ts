@@ -8,7 +8,7 @@ import { AI_PROVIDERS } from "@/lib/ai/config";
 import { isCuttableBlock } from "@/server/services/ai/flow-cuts";
 import { recordFailure, recordSuccess } from "@/lib/ai/health";
 import { checkKey, listModels } from "@/server/services/ai/key-check";
-import { invalidateAIChain, loadAIChain, loadRemovedApis, storedSlot } from "@/server/services/ai/registry";
+import { invalidateAIChain, loadAIChain, loadRemovedApis, storedSlot, type StoredProvider } from "@/server/services/ai/registry";
 import { canEncrypt, encryptSecret } from "@/lib/ai/secret-box";
 import { AIProviderError } from "@/lib/ai/types";
 import { invalidateRateLimits, rateLimitSettingsSchema } from "@/server/middlewares/rate-limit/settings";
@@ -157,6 +157,64 @@ export async function listModelsAction(
   if (check && !check.ok) return { ok: false, message: check.code === "auth" ? "Clé refusée par OpenRouter." : check.message };
   if (!list.ok) return list;
   return { ...list, freeOnly: Boolean(check?.ok && check.credit?.freeTier) };
+}
+
+/** API ajoutée depuis l'admin, relue en base avec sa clé déchiffrée (null si introuvable). */
+async function loadStoredApi(slotId: unknown) {
+  const id = typeof slotId === "string" && slotId.startsWith("db-") ? slotId.slice(3) : null;
+  const parsed = z.uuid().safeParse(id);
+  const admin = getSupabaseAdminClient();
+  if (!parsed.success || !admin) return null;
+  const { data } = await admin
+    .from("ai_providers")
+    .select("id, label, provider, base_url, model, api_key_encrypted")
+    .eq("id", parsed.data)
+    .maybeSingle();
+  if (!data) return null;
+  const slot = storedSlot(data as StoredProvider, 0);
+  return { row: data as StoredProvider, slot };
+}
+
+/** Modèles auxquels donne accès la clé d'une API déjà enregistrée (pour en changer sans la recoller). */
+export async function listSlotModelsAction(
+  slotId: unknown,
+): Promise<{ ok: true; models: string[]; current: string } | { ok: false; message: string }> {
+  if (!(await requirePrincipalAdminAction())) return { ok: false, message: NOT_PRINCIPAL.message };
+  const stored = await loadStoredApi(slotId);
+  if (!stored) return { ok: false, message: "API inconnue." };
+  if (!stored.slot.result.ok) return { ok: false, message: stored.slot.result.reason };
+  const list = await listModels(stored.slot.result.config);
+  return list.ok ? { ...list, current: stored.row.model } : list;
+}
+
+const modelSchema = z.string().trim().min(1, "Choisissez un modèle.").max(API_LIMITS.model);
+
+/** Change le modèle d'une API enregistrée ; la clé et le nom restent. */
+export async function changeModelAction(slotId: unknown, model: unknown): Promise<ActionResult> {
+  if (!(await requirePrincipalAdminAction())) return NOT_PRINCIPAL;
+  const parsedModel = modelSchema.safeParse(model);
+  if (!parsedModel.success) return { ok: false, message: parsedModel.error.issues[0]?.message ?? "Modèle invalide." };
+  const stored = await loadStoredApi(slotId);
+  if (!stored) return { ok: false, message: "API inconnue." };
+  if (!stored.slot.result.ok) return { ok: false, message: stored.slot.result.reason };
+
+  // Même règle qu'à l'ajout : un modèle absent de la liste de la clé est refusé.
+  const available = await listModels(stored.slot.result.config);
+  if (available.ok && !available.models.includes(parsedModel.data)) {
+    return { ok: false, message: `Le modèle « ${parsedModel.data} » n'existe pas pour cette clé.` };
+  }
+
+  const { error } = await getSupabaseAdminClient()!
+    .from("ai_providers")
+    .update({ model: parsedModel.data })
+    .eq("id", stored.row.id);
+  if (error) {
+    console.error("[admin] Changement de modèle impossible", error);
+    return { ok: false, message: "L'enregistrement a échoué." };
+  }
+  invalidateAIChain();
+  revalidatePath("/admin/circuit");
+  return { ok: true, message: `Modèle changé : ${parsedModel.data}.` };
 }
 
 /** Écrit la liste des API du serveur retirées de la chaîne. */

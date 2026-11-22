@@ -5,7 +5,7 @@ import { useEffect, useRef, useState, useTransition, type ReactNode } from "reac
 import { IconChip, IconClose, IconRetry, IconTrash } from "@/components/ui/icons";
 import { Check, X } from "lucide-react";
 import { CONNECTION_LOST, orFallback } from "@/lib/safe-action";
-import { testSlotAction, type SlotTestResult } from "./actions";
+import { changeModelAction, listSlotModelsAction, testSlotAction, type SlotTestResult } from "./actions";
 import { STATUS_STYLES, formatSeconds, speedColor, type FlowNode } from "./flow";
 
 /** Une durée en secondes, colorée selon la vitesse, ou un tiret. */
@@ -69,6 +69,93 @@ function Rows({ rows }: { rows: { label: string; value: string; masked?: boolean
         </div>
       ))}
     </dl>
+  );
+}
+
+/** Changer le modèle d'une API ajoutée depuis l'admin, sans recoller la clé. */
+function ModelChanger({ apiId }: { apiId: string }) {
+  const router = useRouter();
+  const [list, setList] = useState<{ models: string[]; current: string } | null>(null);
+  const [model, setModel] = useState("");
+  const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function open() {
+    setStatus(null);
+    startTransition(async () => {
+      const result = await listSlotModelsAction(apiId).catch(orFallback({ ok: false as const, message: CONNECTION_LOST }));
+      if (!result.ok) {
+        setStatus(result);
+        return;
+      }
+      setList(result);
+      setModel(result.current);
+    });
+  }
+
+  function save() {
+    startTransition(async () => {
+      const result = await changeModelAction(apiId, model).catch(orFallback({ ok: false, message: CONNECTION_LOST }));
+      setStatus(result);
+      if (result.ok) {
+        setList(null);
+        router.refresh();
+      }
+    });
+  }
+
+  return (
+    <Section title="Modèle">
+      {list ? (
+        <div className="space-y-2">
+          <select
+            aria-label="Modèle"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
+            className="w-full rounded-lg border border-border bg-bg px-3 py-2 font-mono text-xs"
+          >
+            {list.models.includes(list.current) ? null : <option value={list.current}>{list.current}</option>}
+            {list.models.map((id) => (
+              <option key={id} value={id}>
+                {id}
+              </option>
+            ))}
+          </select>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={save}
+              disabled={pending || model === list.current}
+              className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-accent-fg hover:bg-accent-hover disabled:opacity-60"
+            >
+              {pending ? "Enregistrement…" : "Enregistrer"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setList(null)}
+              disabled={pending}
+              className="rounded-lg px-3 py-2 text-sm font-medium text-fg-muted hover:bg-bg-muted"
+            >
+              Annuler
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={open}
+          disabled={pending}
+          className="inline-flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-medium hover:bg-bg-muted disabled:opacity-60"
+        >
+          {pending ? "Recherche des modèles…" : "Changer le modèle"}
+        </button>
+      )}
+      {status ? (
+        <p role="status" className={`mt-2 rounded-lg px-3 py-2 text-sm break-words ${status.ok ? "bg-success-soft" : "bg-danger-soft"}`}>
+          {status.message}
+        </p>
+      ) : null}
+    </Section>
   );
 }
 
@@ -218,6 +305,8 @@ export function ApiPanel({
             <p className="text-sm text-fg-muted">Quota non communiqué par ce fournisseur.</p>
           )}
         </Section>
+
+        {!node.fromServer && node.apiId ? <ModelChanger apiId={node.apiId} /> : null}
 
         <Section title="Connexion">
           <Rows rows={api.connection} />
