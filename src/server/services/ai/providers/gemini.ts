@@ -84,6 +84,9 @@ const FIRST_CHUNK_MS = 8_000;
 const keyId = (apiKey: string) => apiKey.slice(-8);
 const modelsCache = new Map<string, { models: string[]; expiresAt: number }>();
 const exhausted = new Map<string, number>();
+/** Clés qui refusent la recherche Google (429 : compte sans facturation) : réponse sans recherche ce temps-là. */
+const NO_SEARCH_MS = 10 * 60_000;
+const noSearch = new Map<string, number>();
 
 /**
  * Autres modèles de la clé à essayer quand le modèle choisi est sans quota :
@@ -131,8 +134,9 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
       const preferred = tryModel || (fast && process.env.AI_VOICE_MODEL?.trim().replace(/^models\//, "")) || chosen;
       const timeoutSignal = AbortSignal.timeout(config.timeoutMs);
       const combined = AbortSignal.any([signal, timeoutSignal]);
+      let withSearch = Boolean(search) && (noSearch.get(keyId(config.apiKey)) ?? 0) <= Date.now();
 
-      const request = (model: string, thinkingConfig: ThinkingConfig | null, attemptSignal: AbortSignal) =>
+      const request =(model: string, thinkingConfig: ThinkingConfig | null, attemptSignal: AbortSignal) =>
         fetch(`${geminiRoot(config.baseUrl)}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
           method: "POST",
           headers: geminiHeaders(config.apiKey),
@@ -144,7 +148,7 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
               parts: [...(m.attachment ? [{ inlineData: { mimeType: m.attachment.mimeType, data: m.attachment.data } }] : []), { text: m.content }],
             })),
             generationConfig: { maxOutputTokens, ...(thinkingConfig && { thinkingConfig }) },
-            ...(search ? { tools: [{ googleSearch: {} }] } : {}),
+            ...(withSearch ? { tools: [{ googleSearch: {} }] } : {}),
           }),
           signal: AbortSignal.any([combined, attemptSignal]),
         });
@@ -204,7 +208,15 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
               }
             }
             const body = await response.text().catch(() => "");
-            if (response.status === 429 || response.status === 404 || response.status >= 500) {
+            // Recherche Google refusée (compte gratuit) : même modèle, sans la recherche, plutôt qu'aucune réponse.
+            if (response.status === 429 && withSearch) {
+              withSearch = false;
+              noSearch.set(keyId(config.apiKey), Date.now() + NO_SEARCH_MS);
+              console.warn(`[ai] Gemini « ${model} » : recherche Google refusée (429), réponse sans recherche`);
+              clearTimeout(timer);
+              return open(model);
+            }
+            if (response.status === 429 ||response.status === 404 || response.status >= 500) {
               rest(model, response.status >= 500 ? OVERLOADED_MS : EXHAUSTED_MS);
               lastError = errorFromStatus(response.status, body);
               return null;
@@ -292,7 +304,7 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
         };
       }
       // Journal : la recherche a-t-elle vraiment servi ? (sans métadonnée : réponse de mémoire)
-      if (search) console.info(`[ai] recherche Google (${usedModel}) : ${grounded ? `${sources.size} source(s)` : "pas utilisée"}`);
+      if (withSearch) console.info(`[ai] recherche Google (${usedModel}) : ${grounded ? `${sources.size} source(s)` : "pas utilisée"}`);
       if (sources.size) yield { type: "sources", sources: [...sources].slice(0, 6).map(([url, title]) => ({ url, title })) };
       yield { type: "finish", reason: finish };
     },
