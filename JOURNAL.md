@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `955893e` (2026-11-23, develop ; `24893ac` sur feat/bienvenue-story)**
+**Dernier commit noté : `fefdece` (2026-11-23, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -127,6 +127,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Aiguillage des API, avec course entre deux API** (`fefdece`, 2026-11-23, develop). Demandé : un bloc entre « Message système » et les API qui envoie chaque message direct à une API qui marche, pour que personne n'attende qu'on teste les API une à une. Avant : les API en panne passaient en dernier, mais chaque serveur Vercel l'oubliait à son redémarrage, et une API qui ne répondait pas faisait attendre jusqu'au délai maximum. Maintenant (`src/lib/ai/switch.ts`) : les API sont rangées en prêtes, à retester ou en pause, d'après ce que tous les serveurs ont vu (stockage « circuit » de Supabase, relu toutes les 15 s ; le premier message d'un serveur attend au plus 300 ms). La plus rapide au premier mot passe devant, si elle gagne au moins 1 s. Quand une pause est finie, un petit essai de fond (quelques jetons, au plus toutes les 20 s par serveur) reteste l'API une fois la réponse partie. Course : si l'API choisie n'a pas écrit son premier mot après 2 s (1,2 s à l'oral, 4 s avec recherche ou lecture attentive), une seconde API prête est lancée et la première qui écrit gagne ; l'autre est coupée. Jamais en réflexion approfondie. Coût : la question est payée deux fois seulement pour les messages lents. Une API qui ne répond pas est aussi mise en pause 30 s. Bloc « Aiguillage » ajouté au circuit admin. Envoyés en même temps, 8 commits restés sur l'ordinateur (branche feat/bienvenue-story) : AnyRouter reconnu à sa clé, changer le modèle d'une API, clé Gemini sans crédit pour la voix, relais vocal sur la clé du circuit, recherche Google refusée (chat et relais), fil de la voix coupé, tableau de bord de l'état réel des API. Vérifié : 947 tests, types. Pas encore vu en ligne.
 
 - **Admin : Fonctionnalités rangées par thème, l'eau dedans, le bandeau dans l'État de la plateforme** (`955893e`, 2026-11-23, develop ; `24893ac` sur feat/bienvenue-story). Demandé : une page Fonctionnalités propre et bien organisée, pas une longue liste. Elle range maintenant les 17 fonctionnalités en 6 thèmes avec icône (Vie pratique, Emploi et formation, Documents, Achats et paiements, Loisirs, Voix), avec un compteur « pour tous / admins seulement », une phrase courte par fonctionnalité, les détails techniques repliés, un badge « Coûte des appels » (livres, vocal) et 2 colonnes sur ordinateur. Les tours d'eau n'ont plus d'onglet dans Plateforme : on y va par le bouton Réglages de la Carte de l'eau. Le bandeau d'accueil passe dans Profil > État de la plateforme : choix de l'utilisateur, il est donc réservé à l'administrateur principal (mot de passe redemandé, comme le reste du profil).
 
