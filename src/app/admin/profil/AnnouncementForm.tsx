@@ -14,7 +14,7 @@ const same = (a: Announcement, b: Announcement) =>
 
 const LABEL = "block text-xs font-medium text-fg-muted";
 
-/** Tout sur une seule carte : interrupteur, aperçu, texte, lien, enregistrer. */
+/** Bandeau d'accueil, dans l'État de la plateforme : interrupteur, aperçu, texte, lien, enregistrer. */
 export function AnnouncementForm({ saved }: { saved: Announcement }) {
   const router = useRouter();
   const [draft, setDraft] = useState(saved);
@@ -45,13 +45,13 @@ export function AnnouncementForm({ saved }: { saved: Announcement }) {
         e.preventDefault();
         save();
       }}
-      className="overflow-hidden rounded-2xl border border-border bg-bg shadow-sm"
+      className="overflow-hidden rounded-xl border border-border"
     >
       {/* En-tête : titre et interrupteur */}
-      <div className="flex items-center gap-4 px-5 pt-5 pb-4">
+      <div className="flex items-center gap-4 px-4 pt-4 pb-3">
         <div className="min-w-0 flex-1">
-          <h1 className="text-lg font-semibold tracking-tight">Bandeau d&apos;accueil</h1>
-          <p className="text-sm text-fg-muted">Une phrase sous la barre du haut de l&apos;accueil.</p>
+          <h3 className="text-sm font-medium">Bandeau d&apos;accueil</h3>
+          <p className="text-xs text-fg-muted">Une phrase sous la barre du haut de l&apos;accueil.</p>
         </div>
         <label className="flex shrink-0 cursor-pointer items-center gap-2.5">
           <span className={`text-sm font-medium ${draft.enabled ? "text-success" : "text-fg-muted"}`}>
@@ -73,7 +73,7 @@ export function AnnouncementForm({ saved }: { saved: Announcement }) {
       </div>
 
       {/* Aperçu en direct */}
-      <div className="border-y border-border bg-bg-subtle px-5 py-4">
+      <div className="border-y border-border bg-bg-subtle px-4 py-3">
         <div className="overflow-hidden rounded-xl border border-border bg-bg">
           {draft.text.trim() ? (
             <div className={`transition-opacity ${draft.enabled ? "" : "opacity-40"}`}>
@@ -90,7 +90,7 @@ export function AnnouncementForm({ saved }: { saved: Announcement }) {
       </div>
 
       {/* Champs */}
-      <div className="flex flex-col gap-4 px-5 py-4">
+      <div className="flex flex-col gap-4 px-4 py-3">
         <div>
           <div className="flex items-baseline justify-between gap-3">
             <label htmlFor="announcement-text" className={LABEL}>
@@ -109,7 +109,7 @@ export function AnnouncementForm({ saved }: { saved: Announcement }) {
           />
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-[1fr_1.4fr]">
+        <div className="grid gap-4">
           <div>
             <label htmlFor="announcement-label" className={LABEL}>
               Texte du lien <span className="font-normal">(facultatif)</span>
@@ -144,7 +144,7 @@ export function AnnouncementForm({ saved }: { saved: Announcement }) {
       </div>
 
       {/* Actions */}
-      <div className="flex flex-wrap items-center gap-3 border-t border-border px-5 py-3">
+      <div className="flex flex-wrap items-center gap-3 border-t border-border px-4 py-3">
         <div className="min-w-0 flex-1">
           <ActionStatus result={status} />
         </div>

@@ -13,6 +13,8 @@ import { addPartner, removePartner, validatePartner } from "@/server/services/si
 import { saveBankDetails, saveSiteFlags, saveSiteStatus } from "@/server/services/site/settings";
 import { SITE_STATUSES, type SiteStatus } from "@/lib/site/status";
 import { forgetDemoWallet } from "@/server/services/wallet/demo";
+import { saveAnnouncement } from "@/server/services/site/announcement";
+import { ANNOUNCEMENT_LIMITS, isSafeAnnouncementLink } from "@/lib/site/announcement-rules";
 
 const FAILED: ActionResult = { ok: false, message: "L'enregistrement a échoué (migration site_settings appliquée ?)." };
 
@@ -97,6 +99,39 @@ export async function setPlatformStatusAction(input: unknown): Promise<ActionRes
   if (saved === "failed") return { ok: false, message: "Changement non enregistré (migration 20261202000000_etats_du_site.sql appliquée ?)." };
   revalidatePath("/", "layout");
   return { ok: true, message: STATUS_SAVED[status] };
+}
+
+const announcementSchema = z
+  .strictObject({
+    enabled: z.boolean(),
+    text: z.string().trim().max(ANNOUNCEMENT_LIMITS.text, `Texte : ${ANNOUNCEMENT_LIMITS.text} caractères au plus.`),
+    linkLabel: z.string().trim().max(ANNOUNCEMENT_LIMITS.linkLabel, `Texte du lien : ${ANNOUNCEMENT_LIMITS.linkLabel} caractères au plus.`),
+    linkUrl: z
+      .string()
+      .trim()
+      .max(ANNOUNCEMENT_LIMITS.linkUrl, `Adresse : ${ANNOUNCEMENT_LIMITS.linkUrl} caractères au plus.`)
+      .refine(isSafeAnnouncementLink, "Adresse : une page du site (/partenaires) ou une adresse qui commence par https://."),
+  })
+  .refine((a) => !a.enabled || a.text !== "", "Écris le texte du bandeau avant de l'allumer.");
+
+/** Bandeau d'accueil : rangé dans l'État de la plateforme, donc réservé à l'administrateur principal. */
+export async function saveAnnouncementAction(input: unknown): Promise<ActionResult> {
+  const auth = await requirePrincipalAdminAction();
+  if (!auth) return NOT_PRINCIPAL;
+  if (!(await unlockedUntil(auth.user.id))) return LOCKED;
+  const parsed = announcementSchema.safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Données invalides." };
+  if (!(await saveAnnouncement(parsed.data, auth.user.id))) {
+    return { ok: false, message: "L'enregistrement a échoué (migration 20261121000000_bandeau_accueil.sql appliquée ?)." };
+  }
+  revalidatePath("/");
+  revalidatePath("/admin/profil");
+  return {
+    ok: true,
+    message: parsed.data.enabled
+      ? "Bandeau en ligne : les visiteurs le voient sur l'accueil, partout en moins de 30 secondes."
+      : "Bandeau éteint : il n'apparaît plus sur l'accueil.",
+  };
 }
 
 const partnerSchema = z.strictObject({

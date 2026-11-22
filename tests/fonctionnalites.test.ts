@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { FEATURE_IDS, featuresFor, readSwitches } from "../src/lib/site/features-rules";
+import { FEATURE_GROUPS, FEATURE_IDS, featuresFor, readSwitches } from "../src/lib/site/features-rules";
+
+describe("Thèmes de la page Fonctionnalités", () => {
+  it("range chaque fonctionnalité dans un seul thème", () => {
+    const placed = FEATURE_GROUPS.flatMap((g) => g.features);
+    assert.deepEqual([...placed].sort(), [...FEATURE_IDS].sort());
+  });
+});
 
 describe("Fonctionnalités allumées pour tous", () => {
   // Par défaut, ce qui existait avant les interrupteurs reste comme avant : ouvert à tous ou réservé aux administrateurs.
