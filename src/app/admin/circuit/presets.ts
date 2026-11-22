@@ -28,6 +28,14 @@ export const API_PRESETS: ApiPreset[] = [
     suggested: ["anthropic/claude-haiku-5.5", "openai/gpt-5.6-luna", "google/gemini-3.5-flash-lite", "google/gemma-4-31b-it:free"],
   },
   {
+    id: "anyrouter",
+    label: "AnyRouter",
+    provider: "openai-compatible",
+    baseUrl: "https://anyrouter.dev/api/v1",
+    modelPlaceholder: "nom-du-modele",
+    keyPrefixes: ["sk-ar-"],
+  },
+  {
     id: "groq",
     label: "Groq",
     provider: "openai-compatible",
