@@ -13,7 +13,7 @@ import { supabaseDashboardLink } from "@/lib/admin/supabase-links";
 import { getAIProvider } from "@/server/services/ai";
 import { getCodeExamHealth } from "@/server/services/code-exam/laposte";
 import { requireAdmin } from "@/server/middlewares/session";
-import { getGeminiSpend, type GeminiSpend } from "@/server/services/ai/usage";
+import { API_STATE_LABELS, getApiStatuses, type ApiStatus } from "@/server/services/ai/api-status";
 import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
 import { supabaseUrl } from "@/lib/supabase/config";
 
@@ -320,7 +320,6 @@ function ProgressCard({
   );
 }
 
-const euros = new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" });
 
 function TamilyaProgressCard({ progress }: { progress: TamilyaProgress | null }) {
   if (!progress) {
@@ -349,28 +348,54 @@ function TamilyaProgressCard({ progress }: { progress: TamilyaProgress | null })
   );
 }
 
-function GoogleCreditCard({ spend }: { spend: GeminiSpend | null }) {
-  if (!spend) {
+/** « il y a 5 min », « il y a 2 h », « il y a 3 j ». */
+function sinceLabel(at: number): string {
+  const minutes = Math.max(0, Math.round((Date.now() - at) / 60_000));
+  if (minutes < 1) return "à l'instant";
+  if (minutes < 60) return `il y a ${minutes} min`;
+  const hours = Math.round(minutes / 60);
+  return hours < 48 ? `il y a ${hours} h` : `il y a ${Math.round(hours / 24)} j`;
+}
+
+/** Ce que les vrais messages ont obtenu de chaque API du circuit (pas d'estimation, aucun test) : combien répondent, et pourquoi les autres non. */
+function ApiStatusCard({ statuses }: { statuses: ApiStatus[] | null }) {
+  if (!statuses) {
     return (
-      <ProgressCard title="Crédit Google (Gemini)" value="—" ratio={0}>
-        Suivi à activer : migration 20261107000000_ai_usage.sql dans Supabase.
+      <ProgressCard title="Mes API" value="—" ratio={0}>
+        État des API illisible pour le moment.
       </ProgressCard>
     );
   }
-  const ratio = spend.spentEur / spend.budgetEur;
+  // Une API de secours jamais essayée (les premières répondent) ne compte pas comme en panne.
+  const plugged = statuses.filter((s) => s.state !== "cut" && s.state !== "unseen");
+  const working = plugged.filter((s) => s.state === "ok");
+  const ratio = plugged.length ? working.length / plugged.length : 0;
+  const others = plugged.filter((s) => s.state !== "ok");
+  const seen = statuses.map((s) => s.seenAt ?? 0).reduce((a, b) => Math.max(a, b), 0);
   return (
-    <ProgressCard
-      title="Crédit Google (Gemini)"
-      value={
-        <>
-          {euros.format(spend.spentEur)} <span className="text-base font-normal text-fg-muted">/ {euros.format(spend.budgetEur)}</span>
-        </>
-      }
-      ratio={ratio}
-      tone={ratio >= 0.9 ? "danger" : ratio >= 0.75 ? "warning" : "accent"}
-    >
-      {euros.format(spend.today)} aujourd&apos;hui · {fmt(spend.requests)} réponses · estimation
-    </ProgressCard>
+    <Link href="/admin/circuit" className="min-w-0 rounded-2xl hover:opacity-90" aria-label="Mes API : voir le circuit">
+      <ProgressCard
+        title="Mes API"
+        value={
+          plugged.length === 0 ? (
+            statuses.length ? "Pas encore vu" : "Aucune API"
+          ) : (
+            <>
+              {working.length} / {plugged.length} <span className="text-base font-normal text-fg-muted">répondent</span>
+            </>
+          )
+        }
+        ratio={ratio}
+        tone={working.length === 0 ? "danger" : ratio < 0.5 ? "warning" : "accent"}
+      >
+        {working.length === 0 && plugged.length > 0
+          ? "Toutes tes API sont épuisées ou en panne : Tamilya ne peut plus répondre."
+          : others.length
+            ? others.map((s) => `${s.name} : ${API_STATE_LABELS[s.state].toLowerCase()}`).join(" · ")
+            : "Toutes répondent."}
+        {seen ? ` · d'après le dernier message, ${sinceLabel(seen)}` : " · d'après les vrais messages de Tamilya"}
+      </ProgressCard>
+    </Link>
   );
 }
 
@@ -457,15 +482,16 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
     admin ? settle(getAdminOverview(admin)) : null,
     admin ? settle(listAdminUsers(admin, page)) : null,
     admin ? settle(getTamilyaProgress(admin)) : null,
-    admin ? settle(getGeminiSpend(admin)) : null,
+    settle(getApiStatuses()),
   ]);
 
   let overview: AdminOverview | null = null;
   let usersPage: Awaited<ReturnType<typeof listAdminUsers>> | null = null;
   let progress: TamilyaProgress | null = null;
-  let spend: GeminiSpend | null = null;
+  let apiStatuses: ApiStatus[] | null = null;
   if (progressResult?.status === "fulfilled") progress = progressResult.value;
-  if (spendResult?.status === "fulfilled") spend = spendResult.value;
+  if (spendResult.status === "fulfilled") apiStatuses = spendResult.value;
+  else console.error("[admin] État des API illisible", spendResult.reason);
   if (overviewResult?.status === "fulfilled") overview = overviewResult.value;
   else if (overviewResult) console.error("[admin] Statistiques indisponibles", overviewResult.reason);
   if (usersResult?.status === "fulfilled") usersPage = usersResult.value;
@@ -514,10 +540,10 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
         <div
           className={`flex min-h-0 flex-1 flex-col gap-3 md:col-start-1 md:row-start-1 md:gap-4 ${alerts.length > 0 ? "md:row-span-2" : ""}`}
         >
-          {/* Les deux progressions à suivre : le vocabulaire de Tamilya et le crédit payé. */}
+          {/* Les deux progressions à suivre : le vocabulaire de Tamilya et l'état réel des API. */}
           <div className="grid shrink-0 grid-cols-2 gap-3 md:gap-4">
             <TamilyaProgressCard progress={progress} />
-            <GoogleCreditCard spend={spend} />
+            <ApiStatusCard statuses={apiStatuses} />
           </div>
 
           {overview ? (
