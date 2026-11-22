@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `08ff74a` (2026-11-22, develop)**
+**Dernier commit noté : `0177145` (2026-11-23, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -127,6 +127,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Cartes de Tamilya : pleine largeur sur téléphone** (`0177145`, 2026-11-23, develop). L’utilisateur a vu que les cartes proposées par Tamilya (repas…) n’étaient pas adaptées au téléphone. Vérifié sur écran de 390 px (site local, compte « Claude Admin », Chrome sans fenêtre) : les cartes étaient décalées par le rond de Tamilya, le style du texte (puces, liens roses soulignés) débordait dans les cartes (événements emploi, panier), des titres étaient coupés (« L’eau à Mayotte en ce m… ») et le sous-titre du repas aussi. Maintenant : chaque carte est dans `.chat-card`, qui part du bord gauche sur téléphone ; les styles du texte ne touchent plus les cartes (`:not(.chat-card *)`) ; titres sur deux lignes. Revus bons : repas, panier, barge, code de la route, eau, trajet, événements, offres d’emploi, cyclones, signer un document. Pas revus : devis BTM, attestation, chanson, lecture 3D, tableau combiné.
 
 - **Tamilya : elle comprend avant de répondre, même en mode maître** (`08ff74a`, 2026-11-22, develop). À « je veux que tu me parles que shimaoré, t’es prête ? », elle a répondu « bois de l’eau propre (contexte : .) » : une phrase prise au hasard dans ses phrases validées, avec son étiquette recopiée. Cause : en mode maître, ses règles « comprendre » et « écouter » ne sont pas envoyées. Maintenant : le mode maître lui dit de comprendre la demande et d’y répondre en shimaoré, ses phrases validées sont présentées comme un dictionnaire et plus comme des réponses, un contexte vide (« . ») n’est plus montré, et toute étiquette « (contexte : …) » est retirée de sa réponse. Son caractère est écrit une seule fois, tout en haut des consignes, le même pour tous les modèles ; un rappel en fin lui fait relire le message avant d’écrire (les petits modèles retiennent surtout la fin). Aucune règle supprimée pour l’instant. Vérifié : tests, types.
 
