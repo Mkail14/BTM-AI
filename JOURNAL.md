@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `33a1f5d` (2026-11-22, main ; develop : `3b7306e`)**
+**Dernier commit noté : `40dc260` (2026-11-22, main ; develop : `3b7306e`)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -127,6 +127,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Circuit : fil de la voix coupé, micro caché partout** (`40dc260` sur main, `00cbcdf` sur feat/bienvenue-story, 2026-11-22). Demandé : couper le fil de « Voix en direct » dans /admin/circuit doit faire disparaître le bouton pour parler à Tamilya sur toutes les plateformes, et le rebrancher le faire revenir. Le fil se coupe maintenant comme ceux des API (id `voice-live` dans flow_cuts). Coupé : « vocal » est retiré des fonctionnalités de tout le monde, administrateurs compris, donc plus de micro sur le site et la PWA, et les routes du vocal refusent. L’app Android copie déjà le micro du site : rien à réinstaller. Délai : au plus environ 30 s. L’interrupteur « Vocal en direct » de /admin/fonctionnalites reste, pour les non-administrateurs. Même session : le vocal remarche (relais sans recherche, appel complet vu dans wrangler tail). Vérifié : 927 tests, types, lint.
 
 - **Relais vocal : recherche Google refusée, nouvel appel sans recherche** (`33a1f5d` sur main, `5a5078f` sur feat/bienvenue-story, 2026-11-22). Le vocal affichait « connexion trop faible » : Gemini coupait l’appel dès les consignes (1011 « exceeded your current quota ») parce que la clé, d’un compte sans facturation, n’a pas droit à la recherche Google (vu dans wrangler tail : modèle gemini-3.1-flash-live-preview, clé : circuit). Le même modèle sans recherche parle (essai direct). Maintenant le relais attend la première réponse de Gemini ; si l’appel est coupé pour quota et que la recherche était demandée, il rappelle aussitôt sans elle. Journal du relais : « recherche Google refusée : nouvel appel sans recherche ». Vérifié : construction du relais (wrangler --dry-run).
 
