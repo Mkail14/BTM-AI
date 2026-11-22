@@ -3,7 +3,7 @@ import type { RateLimitSettings } from "@/server/middlewares/rate-limit/settings
 import type { CharacterDraft } from "../caractere/limits";
 
 /** Données du schéma, construites côté serveur et transmises telles quelles au canevas. */
-export type FlowIcon = "message" | "shield" | "sparkle" | "settings" | "book" | "language" | "memory" | "prompt" | "chip" | "reply";
+export type FlowIcon = "message" | "shield" | "sparkle" | "settings" | "book" | "language" | "memory" | "prompt" | "chip" | "switch" | "reply";
 
 export type FlowNode = {
   id: string;

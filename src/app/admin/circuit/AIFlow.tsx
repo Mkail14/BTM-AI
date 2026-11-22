@@ -17,6 +17,7 @@ import {
   IconDatabase,
   IconDocument,
   IconLanguage,
+  IconGauge,
   IconMessage,
   IconPlus,
   IconRetry,
@@ -48,10 +49,11 @@ const ICONS: Record<FlowIcon, ComponentType<SVGProps<SVGSVGElement>>> = {
   memory: IconDatabase,
   prompt: IconDocument,
   chip: IconChip,
+  switch: IconGauge,
   reply: IconSend,
 };
 
-const COLUMNS = 6;
+const COLUMNS = 7;
 const CLICK_TOLERANCE_PX = 4;
 
 /** Distance autour d'un bloc où lâcher un fil le branche quand même. */
@@ -547,7 +549,7 @@ export function AIFlow({
 
       <div className="flow-canvas size-full overflow-auto">
         {/* Largeur mini : 6 colonnes d’environ 170 px, titres lisibles ; plus étroit (téléphone, tablette), le canevas défile au doigt. */}
-        <div ref={containerRef} className="relative flex min-h-full min-w-[1300px] items-center p-10">
+        <div ref={containerRef} className="relative flex min-h-full min-w-[1500px] items-center p-10">
           <svg className="pointer-events-none absolute inset-0 size-full overflow-visible" aria-hidden="true">
             {paths.map((path) => {
               const { key, d, edge } = path;
@@ -626,7 +628,7 @@ export function AIFlow({
           )}
 
           {/* Grille transparente aux pointeurs : seuls les blocs l'interceptent, les liens restent survolables. */}
-          <div className="pointer-events-none relative grid w-full grid-cols-6 gap-10 2xl:gap-14">
+          <div className="pointer-events-none relative grid w-full grid-cols-7 gap-10 2xl:gap-14">
             {Array.from({ length: COLUMNS }, (_, column) => (
               <div key={column} className="flex flex-col justify-center gap-4 [&>*]:pointer-events-auto">
                 {nodes
