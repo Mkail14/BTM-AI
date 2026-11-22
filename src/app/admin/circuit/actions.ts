@@ -5,7 +5,7 @@ import { z } from "zod";
 import { NOT_ADMIN, NOT_PRINCIPAL, requireAdminAction, requirePrincipalAdminAction, type ActionResult } from "@/server/middlewares/admin-auth";
 import { createProvider, slotHealthId } from "@/server/services/ai";
 import { AI_PROVIDERS } from "@/lib/ai/config";
-import { isCuttableBlock } from "@/server/services/ai/flow-cuts";
+import { isCuttableBlock, VOICE_CUT } from "@/server/services/ai/flow-cuts";
 import { recordFailure, recordSuccess } from "@/lib/ai/health";
 import { checkKey, listModels } from "@/server/services/ai/key-check";
 import { invalidateAIChain, loadAIChain, loadRemovedApis, storedSlot, type StoredProvider } from "@/server/services/ai/registry";
@@ -308,6 +308,9 @@ export async function setFlowCutAction(blockId: unknown, cut: unknown): Promise<
   }
 
   revalidatePath("/admin/circuit");
+  if (blockId === VOICE_CUT) {
+    return { ok: true, message: cut ? "Voix débranchée : le micro disparaît partout (au plus 30 s)." : "Voix rebranchée : le micro revient." };
+  }
   return { ok: true, message: cut ? "Lien coupé : Tamilya ne répond plus par ce chemin." : "Lien rebranché." };
 }
 
