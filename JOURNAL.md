@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `b85053f` (2026-11-22, main ; develop : `3b7306e`)**
+**Dernier commit noté : `420fe05` (2026-11-22, main ; develop : `3b7306e`)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -127,6 +127,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Gemini : recherche Google refusée, réponse sans recherche** (`420fe05` sur main, `a6b1898` sur feat/bienvenue-story, 2026-11-22). Tamilya ne répondait plus rien à l’écrit, même à « yo » : chaque message écrit demande la recherche Google, et une clé Gemini d’un compte sans facturation la refuse (429 « exceeded your current quota »), alors que la même clé répond sans recherche. Le modèle était en plus mis de côté 30 minutes. Maintenant, sur ce 429, le même modèle est redemandé sans recherche, et la clé ne la redemande pas pendant 10 minutes. Sans facturation : pas d’infos du jour à l’écrit. Vérifié : essai réel avec la clé (« Yo ! Comment ça va ? »), 927 tests, types, lint.
 
 - **Vocal : le relais prend la clé Gemini du circuit** (`b85053f` sur main, `d34abbb` sur feat/bienvenue-story, 2026-11-22). Le vocal du téléphone ne marchait pas : le relais Cloudflare utilisait sa propre clé (secret GEMINI_API_KEY), l’ancienne, sans crédit, et changer le circuit n’y faisait rien. Maintenant, à l’ouverture d’un appel, le site renvoie avec les consignes la clé Gemini du circuit (la première qui a du crédit), mais seulement si l’appel montre le secret partagé LIVE_TICKET_SECRET : le téléphone, qui n’a que son ticket, ne la reçoit jamais. Le relais garde sa clé en secours si le site ne la donne pas. Journal du relais : « clé : circuit » ou « clé : relais ». Mise en ligne : site, puis wrangler deploy. Vérifié : 927 tests, types, construction du relais.
 
