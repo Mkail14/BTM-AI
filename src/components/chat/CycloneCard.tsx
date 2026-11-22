@@ -130,7 +130,7 @@ export function CycloneCard({ zone = "ocean-indien" }: { zone?: CycloneZone }) {
           <CycloneIcon />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold">{zone === "monde" ? "Cyclones dans le monde" : "Cyclones autour de Mayotte"}</span>
+          <span className="line-clamp-2 block leading-snug font-semibold">{zone === "monde" ? "Cyclones dans le monde" : "Cyclones autour de Mayotte"}</span>
           <span className="block text-xs text-fg-muted">
             {state.status === "loading" ? (zone === "monde" ? "Je regarde le monde entier…" : "Je regarde l'océan Indien…") : state.status === "ok" ? summary(state.cyclones, zone) : state.message}
           </span>

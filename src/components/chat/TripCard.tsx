@@ -107,7 +107,7 @@ export function TripCard({ spec }: { spec: string }) {
           <CarFront size={24} strokeWidth={1.8} aria-hidden="true" />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold">{plan ? `Trajet vers ${plan.to.label}` : "Trajet"}</span>
+          <span className="line-clamp-2 block leading-snug font-semibold">{plan ? `Trajet vers ${plan.to.label}` : "Trajet"}</span>
           <span className="block text-xs text-fg-muted">
             {state.status === "loading"
               ? "Je calcule le trajet…"

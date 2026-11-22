@@ -170,7 +170,7 @@ export function WaterCard({ place }: { place: string }) {
           <IconDrop width={24} height={24} />
         </span>
         <span className="min-w-0 flex-1">
-          <span className="block truncate font-semibold">L&apos;eau à Mayotte en ce moment</span>
+          <span className="line-clamp-2 block leading-snug font-semibold">L&apos;eau à Mayotte en ce moment</span>
           <span className="block text-xs text-fg-muted">
             {state.status === "loading" ? "Je regarde le planning de la SMAE…" : state.status === "error" ? state.message : periodOf(state.data)}
           </span>
