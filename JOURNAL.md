@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `420fe05` (2026-11-22, main ; develop : `3b7306e`)**
+**Dernier commit noté : `33a1f5d` (2026-11-22, main ; develop : `3b7306e`)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -127,6 +127,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Relais vocal : recherche Google refusée, nouvel appel sans recherche** (`33a1f5d` sur main, `5a5078f` sur feat/bienvenue-story, 2026-11-22). Le vocal affichait « connexion trop faible » : Gemini coupait l’appel dès les consignes (1011 « exceeded your current quota ») parce que la clé, d’un compte sans facturation, n’a pas droit à la recherche Google (vu dans wrangler tail : modèle gemini-3.1-flash-live-preview, clé : circuit). Le même modèle sans recherche parle (essai direct). Maintenant le relais attend la première réponse de Gemini ; si l’appel est coupé pour quota et que la recherche était demandée, il rappelle aussitôt sans elle. Journal du relais : « recherche Google refusée : nouvel appel sans recherche ». Vérifié : construction du relais (wrangler --dry-run).
 
 - **Gemini : recherche Google refusée, réponse sans recherche** (`420fe05` sur main, `a6b1898` sur feat/bienvenue-story, 2026-11-22). Tamilya ne répondait plus rien à l’écrit, même à « yo » : chaque message écrit demande la recherche Google, et une clé Gemini d’un compte sans facturation la refuse (429 « exceeded your current quota »), alors que la même clé répond sans recherche. Le modèle était en plus mis de côté 30 minutes. Maintenant, sur ce 429, le même modèle est redemandé sans recherche, et la clé ne la redemande pas pendant 10 minutes. Sans facturation : pas d’infos du jour à l’écrit. Vérifié : essai réel avec la clé (« Yo ! Comment ça va ? »), 927 tests, types, lint.
 
