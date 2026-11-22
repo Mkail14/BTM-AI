@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `d60058b` (2026-11-22, main ; develop : `3b7306e`)**
+**Dernier commit noté : `4ccd6f8` (2026-11-22, main ; develop : `3b7306e`)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -127,6 +127,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Voix : une clé Gemini sans crédit laisse la place à la suivante** (`4ccd6f8` sur main, `33a36b1` sur feat/bienvenue-story, 2026-11-22). La voix lue, la musique, l’eau et la liste des modèles du vocal prenaient toujours la première clé Gemini du circuit, même vide (402 « prepayment credits depleted »). Maintenant, avec plusieurs clés, une toute petite demande (1 mot, gemini-flash-lite-latest) vérifie chacune ; une clé refusée ou sans crédit (401, 402, 403, 429) est mise de côté 10 minutes. En cas de doute, la clé est gardée. Le relais vocal Cloudflare n’est pas concerné : il a sa propre clé (secret GEMINI_API_KEY). Vérifié : 927 tests, types, lint.
 
 - **Circuit : changer le modèle d’une API sans la supprimer** (`d60058b` sur main, `c125132` sur feat/bienvenue-story, 2026-11-22). Avant, pour changer de modèle il fallait supprimer l’API puis tout recoller. Maintenant, dans la fiche d’une API ajoutée depuis l’admin : « Changer le modèle », la liste des modèles de la clé s’affiche, on choisit, c’est enregistré ; la clé et le nom restent. Un modèle absent de la liste de la clé est refusé, comme à l’ajout. Les API déclarées sur le serveur gardent leur modèle des variables. Vérifié : 927 tests, types, lint.
 
