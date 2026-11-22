@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { IconArrowLeft } from "@/components/ui/icons";
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { requireAdmin } from "@/server/middlewares/session";
 import { readStoredPlanning, readWaterAlerts } from "@/server/services/water/store";
@@ -28,6 +30,12 @@ export default async function AdminWaterPage() {
     <div className="flex min-h-dvh flex-col bg-bg-subtle">
       <AdminHeader section="Tours d'eau" email={user.email} />
       <main id="contenu" className="mx-auto flex w-full max-w-3xl flex-col gap-4 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:py-8">
+        <Link
+          href="/admin/fonctionnalites"
+          className="-mb-1 inline-flex items-center gap-1.5 self-start text-sm font-medium text-fg-muted hover:text-fg"
+        >
+          <IconArrowLeft width={15} height={15} /> Fonctionnalités
+        </Link>
         {error ? (
           <p role="alert" className="rounded-lg bg-warning-soft px-3 py-2 text-sm">
             {error}

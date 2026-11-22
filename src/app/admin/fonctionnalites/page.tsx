@@ -16,7 +16,7 @@ export default async function AdminFeaturesPage() {
   return (
     <div className="flex min-h-dvh flex-col bg-bg-subtle">
       <AdminHeader section="Fonctionnalités" email={user.email} />
-      <main id="contenu" className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:py-8">
+      <main id="contenu" className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-4 pb-[max(1rem,env(safe-area-inset-bottom))] sm:py-8">
         {switches ? null : <MigrationWarning file="20261210000000_fonctionnalites.sql" />}
         <FeatureSwitches saved={switches ?? readSwitches({})} />
       </main>

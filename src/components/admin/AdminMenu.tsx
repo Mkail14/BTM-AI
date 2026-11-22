@@ -12,10 +12,8 @@ import {
   IconClose,
   IconDashboard,
   IconDatabase,
-  IconDrop,
   IconGauge,
   IconLanguage,
-  IconMegaphone,
   IconMenu,
   IconSettings,
   IconShield,
@@ -30,6 +28,8 @@ type MenuItem = {
   href: string;
   /** Libellé court de l'onglet, dans la barre du haut (sinon le libellé). */
   tab?: string;
+  /** Autres pages rangées sous cette rubrique (réglages d'une fonctionnalité). */
+  also?: string[];
 };
 
 /*
@@ -70,15 +70,14 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
     items: [
       { label: "Utilisateurs", icon: IconUsers, href: "/admin/utilisateurs" },
       { label: "Développeurs", tab: "Dév.", icon: IconShield, href: "/admin/developpeurs" },
-      { label: "Bandeau d'accueil", tab: "Bandeau", icon: IconMegaphone, href: "/admin/bandeau" },
-      { label: "Tours d'eau (SMAE)", tab: "Eau", icon: IconDrop, href: "/admin/eau" },
-      { label: "Fonctionnalités", icon: IconSparkle, href: "/admin/fonctionnalites" },
+      // Les réglages d'une fonctionnalité (Tours d'eau…) restent sous son onglet.
+      { label: "Fonctionnalités", icon: IconSparkle, href: "/admin/fonctionnalites", also: ["/admin/eau"] },
     ],
   },
 ];
 
 /** Réservé à l'administrateur principal. */
-const PRINCIPAL_SECTION = {
+const PRINCIPAL_SECTION: { title: string; items: MenuItem[] } = {
   title: "Entreprise",
   items: [
     {
@@ -90,7 +89,8 @@ const PRINCIPAL_SECTION = {
   ],
 };
 
-const isActive = (pathname: string, href: string) => (href === "/admin" ? pathname === href : pathname.startsWith(href));
+const isActive = (pathname: string, href: string, also: string[] = []) =>
+  href === "/admin" ? pathname === href : [href, ...also].some((h) => pathname.startsWith(h));
 
 const tabClass = (active: boolean) =>
   `relative px-2.5 text-sm whitespace-nowrap transition-colors ${
@@ -101,7 +101,7 @@ const tabClass = (active: boolean) =>
 
 /** Groupe de la page ouverte (aucun sur le tableau de bord ni sur le Profil). */
 function activeGroup(pathname: string) {
-  return SECTIONS.find((s) => s.title && s.items.some((item) => isActive(pathname, item.href))) ?? null;
+  return SECTIONS.find((s) => s.title && s.items.some((item) => isActive(pathname, item.href, item.also))) ?? null;
 }
 
 /**
@@ -137,8 +137,8 @@ export function AdminTabs() {
       aria-label={current.title ?? undefined}
       className="scrollbar-none -mb-px flex items-center gap-1 overflow-x-auto border-t border-border"
     >
-      {current.items.map(({ label, tab, href }) => {
-        const active = isActive(pathname, href);
+      {current.items.map(({ label, tab, href, also }) => {
+        const active = isActive(pathname, href, also);
         return (
           <Link key={href} href={href} aria-current={active ? "page" : undefined} className={`py-2.5 ${tabClass(active)}`}>
             {tab ?? label}
@@ -224,8 +224,8 @@ export function AdminMenu({ principal = false }: { principal?: boolean }) {
                         <h2 className="px-3 pb-1.5 text-xs font-medium tracking-wide text-fg-muted uppercase">{section.title}</h2>
                       ) : null}
                       <ul className="space-y-0.5">
-                        {section.items.map(({ label, icon: Icon, href }) => {
-                          const active = isActive(pathname, href);
+                        {section.items.map(({ label, icon: Icon, href, also }) => {
+                          const active = isActive(pathname, href, also);
                           return (
                             <li key={label}>
                               <Link

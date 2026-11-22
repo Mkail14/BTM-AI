@@ -14,6 +14,8 @@ import { bankFromBic, bankFromIban, formatIban, isValidBic, isValidIban, normali
 import type { Partner } from "@/server/services/site/partners";
 import type { BankDetails, SiteFlags, StatusChange } from "@/server/services/site/settings";
 import { SITE_STATUS_LABELS, type SiteStatus } from "@/lib/site/status";
+import type { Announcement } from "@/lib/site/announcement-rules";
+import { AnnouncementForm } from "./AnnouncementForm";
 import {
   addPartnerAction,
   grantAdminAction,
@@ -588,7 +590,18 @@ function PartnerList({
 }
 
 /** État de la plateforme : un seul état enregistré, choisi parmi trois. */
-export function SitePanel({ flags, log, partners }: { flags: SiteFlags; log: StatusChange[] | null; partners: Partner[] | null }) {
+export function SitePanel({
+  flags,
+  log,
+  partners,
+  announcement,
+}: {
+  flags: SiteFlags;
+  log: StatusChange[] | null;
+  partners: Partner[] | null;
+  /** null : migration du bandeau pas appliquée. */
+  announcement: Announcement | null;
+}) {
   const { pending, result, run } = useAction();
   const { editing } = useLock();
   const [message, setMessage] = useState(flags.maintenanceMessage);
@@ -613,7 +626,7 @@ export function SitePanel({ flags, log, partners }: { flags: SiteFlags; log: Sta
 
   if (editing !== "site") {
     return (
-      <Panel icon={IconSettings} title="État de la plateforme" subtitle="Accès du public et démonstration" aside={aside} status={result}>
+      <Panel icon={IconSettings} title="État de la plateforme" subtitle="Accès du public, bandeau et démonstration" aside={aside} status={result}>
         <div className="divide-y divide-border rounded-xl border border-border">
           <Row label="État du site">
             <span className={closed ? "text-warning" : "text-success"}>{SITE_STATUS_LABELS[flags.status]}</span>
@@ -621,6 +634,12 @@ export function SitePanel({ flags, log, partners }: { flags: SiteFlags; log: Sta
           <Row label="Message aux visiteurs">
             {flags.maintenanceMessage ? flags.maintenanceMessage : <span className="font-normal text-fg-muted">Aucun</span>}
           </Row>
+          <Row label="Bandeau d'accueil">
+            {announcement?.enabled ? <span className="text-success">Affiché</span> : <span className="font-normal text-fg-muted">Masqué</span>}
+          </Row>
+          {announcement?.enabled && announcement.text ? (
+            <p className="px-4 py-3 text-sm text-fg-muted">« {announcement.text} »</p>
+          ) : null}
           <Row label="Mode démo">{flags.demoMode ? <span className="text-accent">Allumé</span> : "Éteint"}</Row>
         </div>
         {flags.demoMode ? <p className="text-xs text-warning">Mode démo allumé : pense à l&apos;éteindre après la présentation.</p> : null}
@@ -634,7 +653,7 @@ export function SitePanel({ flags, log, partners }: { flags: SiteFlags; log: Sta
   }
 
   return (
-    <Panel icon={IconSettings} title="État de la plateforme" subtitle="Accès du public et démonstration" aside={aside} status={result} editing>
+    <Panel icon={IconSettings} title="État de la plateforme" subtitle="Accès du public, bandeau et démonstration" aside={aside} status={result} editing>
       <div className="space-y-4 rounded-xl border border-border p-4">
         <fieldset className="space-y-2">
           <legend className={`${labelClass} mb-2`}>État du site</legend>
@@ -697,6 +716,12 @@ export function SitePanel({ flags, log, partners }: { flags: SiteFlags; log: Sta
       </div>
 
       <PartnerList partners={partners} status={flags.status} canEdit pending={pending} run={run} />
+
+      {announcement ? (
+        <AnnouncementForm saved={announcement} />
+      ) : (
+        <p className="rounded-xl bg-warning-soft px-4 py-3 text-xs">Bandeau d&apos;accueil indisponible : migration 20261121000000_bandeau_accueil.sql à appliquer.</p>
+      )}
 
       <div className="space-y-3 rounded-xl border border-border p-4">
         <Switch
