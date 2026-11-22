@@ -116,14 +116,14 @@ export class LiveRelay {
     const url = new URL(request.url);
     const ticket = url.searchParams.get("ticket") ?? "";
     const testTicket = url.searchParams.get("test") ?? "";
-    let setup: { setup: { model?: string } };
+    let setup: { setup: { model?: string }; apiKey?: string };
     const isTest = Boolean(testTicket && env.LIVE_TEST_SECRET && (await readTicket(testTicket, env.LIVE_TEST_SECRET)));
     if (isTest && url.searchParams.get("real")) {
       // Essai avec les vraies consignes du site (compte fictif « essai », mode maître).
       const siteTicket = await signTicket({ sid: crypto.randomUUID(), uid: "essai", admin: true, exp: Date.now() + 60_000 }, env.LIVE_TICKET_SECRET);
-      const response = await fetch(`${env.SITE_URL}/api/voice/live/setup`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ticket: siteTicket }) });
+      const response = await fetch(`${env.SITE_URL}/api/voice/live/setup`, { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.LIVE_TICKET_SECRET}` }, body: JSON.stringify({ ticket: siteTicket }) });
       if (!response.ok) return new Response(`Consignes indisponibles (${response.status})`, { status: 502 });
-      setup = (await response.json()) as { setup: { model?: string } };
+      setup = (await response.json()) as { setup: { model?: string }; apiKey?: string };
     } else if (isTest) {
       // Essai de l'équipe : consignes courtes, modèle au choix.
       setup = {
@@ -143,16 +143,21 @@ export class LiveRelay {
       // Consignes de Tamilya pour cette conversation, préparées par le site (personnalité, shimaoré…).
       const setupResponse = await fetch(`${env.SITE_URL}/api/voice/live/setup`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${env.LIVE_TICKET_SECRET}` },
         body: JSON.stringify({ ticket }),
       });
       if (!setupResponse.ok) return new Response("Consignes indisponibles", { status: 502 });
-      setup = (await setupResponse.json()) as { setup: { model?: string } };
+      setup = (await setupResponse.json()) as { setup: { model?: string }; apiKey?: string };
     }
     console.log(`session : modèle ${setup.setup?.model}`);
 
+    // Clé du circuit du site (/admin/circuit) ; la sienne seulement si le site ne l'a pas donnée.
+    const apiKey = setup.apiKey || env.GEMINI_API_KEY;
+    console.log(`clé : ${setup.apiKey ? "circuit" : "relais"}`);
+    // Seules les consignes (setup.setup) partent vers Gemini : la clé ne va pas plus loin.
+    delete setup.apiKey;
     // Connexion à Gemini (Live API) depuis Cloudflare.
-    const upstreamResponse = await fetch(`${GEMINI_LIVE_URL}?key=${encodeURIComponent(env.GEMINI_API_KEY)}`, {
+    const upstreamResponse = await fetch(`${GEMINI_LIVE_URL}?key=${encodeURIComponent(apiKey)}`, {
       headers: { Upgrade: "websocket" },
     });
     const gemini = upstreamResponse.webSocket;
