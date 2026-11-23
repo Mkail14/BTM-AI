@@ -147,7 +147,7 @@ function fixedReply(conversationId: string, text: string) {
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return errorResponse(403, "invalid_request");
   // Trajet du message, affiché en direct sur /admin/circuit.
-  const flow = startFlowTrace();
+  const flow = startFlowTrace("platform");
   const startedAt = Date.now();
 
   // Liens coupés, session et chaîne d'API ne dépendent pas les uns des autres :

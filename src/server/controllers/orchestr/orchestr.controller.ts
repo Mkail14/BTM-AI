@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success) return fail(400, "invalid_request");
   const body = parsed.data;
 
-  const flow = startFlowTrace();
+  const flow = startFlowTrace("api", SITE);
   // Lien coupé sur le schéma de /admin/circuit : le message s'arrête là, ici aussi.
   const cuts = await loadFlowCuts();
   const cutAt = flowCutStop(cuts);

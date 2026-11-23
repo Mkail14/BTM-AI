@@ -66,7 +66,7 @@ export async function getDeveloperAccount(userId: string): Promise<DeveloperAcco
   if (!admin) return "error";
   const { data, error } = await admin.from("developer_accounts").select(COLUMNS).eq("user_id", userId).maybeSingle();
   if (error) {
-    console.error("[developpeurs] Engagements illisibles (migrations 20261216 et 20261217 appliquées ?)", error);
+    console.error("[developpeurs] Engagements illisibles (migration 20261224 appliquée ?)", error);
     return "error";
   }
   return data ? toAccount(data as Row) : null;

@@ -4,6 +4,8 @@ import { AIProviderError, buildSystemPrompt, createProvider } from "@/server/ser
 import { knowledgeFor, lexiconFor, loadTamilyaBrain, wordsFor } from "@/server/services/ai/brain";
 import type { AIConfig } from "@/lib/ai/config";
 import { flowCutStop, loadFlowCuts } from "@/server/services/ai/flow-cuts";
+import { AI_ERROR_LABELS, DEVELOPER_MODEL_NODE } from "@/lib/ai/flow-events";
+import { startFlowTrace } from "@/server/services/ai/flow-trace";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
 import { loadPersonalityInstructions } from "@/server/services/ai/personality-store";
 import { isGeminiUrl } from "@/server/services/ai/providers/gemini";
@@ -102,9 +104,18 @@ export async function POST(request: NextRequest) {
   // Date de dernière utilisation : enregistrée après la réponse, sans la retarder.
   after(() => touchDeveloperKey(developerKey.id));
 
+  // Suivi sur /admin/circuit, seulement une fois le code d'accès reconnu.
+  const flow = startFlowTrace("api", `API « ${developerKey.label} »`);
   const geminiKey = request.headers.get("x-gemini-key")?.trim() ?? "";
-  if (!geminiKey) return fail(400, "missing_gemini_key");
-  if (!GEMINI_KEY_PATTERN.test(geminiKey)) return fail(401, "invalid_gemini_key");
+  if (!geminiKey) {
+    flow.step("input", false, "clé Gemini manquante");
+    return fail(400, "missing_gemini_key");
+  }
+  if (!GEMINI_KEY_PATTERN.test(geminiKey)) {
+    flow.step("input", false, "clé Gemini invalide");
+    return fail(401, "invalid_gemini_key");
+  }
+  flow.step("input", true);
 
   try {
     const limit = await consumeRateLimits([
@@ -113,38 +124,58 @@ export async function POST(request: NextRequest) {
       { key: `dev-account:${developerKey.userId}`, rules: RATE_LIMIT_POLICIES.developerAccount },
       { key: hashIdentifier(`ip:${getClientIp(request.headers)}`), rules: RATE_LIMIT_POLICIES.developerIp },
     ]);
-    if (!limit.allowed) return fail(429, "rate_limited", { "Retry-After": String(limit.retryAfterSeconds) });
+    if (!limit.allowed) {
+      flow.step("guard", false, "quota du développeur atteint");
+      return fail(429, "rate_limited", { "Retry-After": String(limit.retryAfterSeconds) });
+    }
   } catch (error) {
     console.error("[api-dev] Compteurs indisponibles", error);
+    flow.step("guard", false, "limitation de débit indisponible");
     return fail(503, "unavailable");
   }
 
   const raw = await request.text();
-  if (raw.length > MAX_BODY_BYTES) return fail(413, "invalid_request");
+  if (raw.length > MAX_BODY_BYTES) {
+    flow.step("guard", false, "message trop lourd");
+    return fail(413, "invalid_request");
+  }
   let json: unknown;
   try {
     json = JSON.parse(raw);
   } catch {
+    flow.step("guard", false, "requête illisible");
     return fail(400, "invalid_request");
   }
   const parsed = requestSchema.safeParse(json);
-  if (!parsed.success) return fail(400, "invalid_request");
+  if (!parsed.success) {
+    flow.step("guard", false, "requête invalide");
+    return fail(400, "invalid_request");
+  }
 
   // Tamilya garde son nom, son shimaoré et sa personnalité : une tentative suspend l'accès.
   for (const [field, text] of [["mission", parsed.data.mission], ["context", parsed.data.context]] as const) {
     const violation = findIdentityViolation(text);
     if (violation) {
       suspendForIdentity(developerKey.userId, violation, `API, champ ${field}`);
+      flow.step("guard", false, "tentative de renommer Tamilya");
       return fail(403, "identity_violation");
     }
   }
 
   const messages = toModelTurns(parsed.data.messages);
   const question = messages.at(-1);
-  if (!question) return fail(400, "invalid_request");
+  if (!question) {
+    flow.step("guard", false, "aucun message");
+    return fail(400, "invalid_request");
+  }
+  flow.step("guard", true);
 
   // Tamilya arrêtée depuis /admin/circuit : l'API s'arrête aussi.
-  if (flowCutStop(await loadFlowCuts())) return fail(503, "unavailable");
+  const cutAt = flowCutStop(await loadFlowCuts());
+  if (cutAt) {
+    flow.step(cutAt, false, "lien coupé");
+    return fail(503, "unavailable");
+  }
 
   const [brain, personalityInstructions, model] = await Promise.all([
     loadTamilyaBrain(),
@@ -182,6 +213,7 @@ export async function POST(request: NextRequest) {
     effort: "low",
     disableReasoning: true,
   };
+  flow.step("prompt", true);
 
   let text = "";
   try {
@@ -198,15 +230,24 @@ export async function POST(request: NextRequest) {
     const code = error instanceof AIProviderError ? error.code : "unavailable";
     // Jamais l'erreur brute : elle pourrait contenir des morceaux de la requête.
     console.error(`[api-dev] Erreur Gemini (${code}) pour le code ${developerKey.id}`);
+    flow.step(DEVELOPER_MODEL_NODE, false, code === "auth" ? "clé Gemini refusée" : (AI_ERROR_LABELS[code] ?? code));
     if (code === "auth") return fail(401, "invalid_gemini_key");
     if (code === "quota" || code === "rate_limited") return fail(429, "gemini_quota");
     if (code === "aborted") return fail(499, "aborted");
     return fail(502, "provider_error");
   }
 
+  flow.step(DEVELOPER_MODEL_NODE, true);
   const reply = text.trim();
-  if (!reply) return fail(502, "provider_error");
+  if (!reply) {
+    flow.step("output", false, "réponse vide");
+    return fail(502, "provider_error");
+  }
   // Dernier filet : une réponse qui se présente sous un autre nom n'est jamais envoyée.
-  if (replyBreaksIdentity(reply)) return fail(502, "identity_protected");
+  if (replyBreaksIdentity(reply)) {
+    flow.step("output", false, "identité protégée");
+    return fail(502, "identity_protected");
+  }
+  flow.step("output", true);
   return NextResponse.json({ reply }, { headers: { "Cache-Control": "no-store" } });
 }

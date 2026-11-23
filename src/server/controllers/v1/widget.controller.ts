@@ -2,7 +2,9 @@ import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { AIProviderError, buildSystemPrompt, getAIProvider } from "@/server/services/ai";
 import { knowledgeFor, lexiconFor, loadTamilyaBrain, wordsFor } from "@/server/services/ai/brain";
-import { flowCutStop, loadFlowCuts } from "@/server/services/ai/flow-cuts";
+import { ALL_APIS_CUT, flowCutStop, loadFlowCuts } from "@/server/services/ai/flow-cuts";
+import { AI_ERROR_LABELS } from "@/lib/ai/flow-events";
+import { startFlowTrace } from "@/server/services/ai/flow-trace";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
 import { loadPersonalityInstructions } from "@/server/services/ai/personality-store";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
@@ -113,6 +115,10 @@ export async function POST(request: NextRequest) {
   const mission = findIdentityViolation(widget.mission) ? null : widget.mission;
   after(() => touchDeveloperWidget(widget.id));
 
+  // Suivi sur /admin/circuit, seulement une fois le widget reconnu (pas les requêtes au hasard).
+  const flow = startFlowTrace("api", `Widget « ${widget.label} » · ${new URL(origin).host}`);
+  flow.step("input", true);
+
   try {
     const limit = await consumeRateLimits([
       { key: hashIdentifier(`widget-ip:${getClientIp(request.headers)}`), rules: RATE_LIMIT_POLICIES.developerWidgetVisitor },
@@ -120,22 +126,35 @@ export async function POST(request: NextRequest) {
       { key: `widget-account:${widget.userId}`, rules: RATE_LIMIT_POLICIES.developerWidgetAccount },
       { key: "all", rules: RATE_LIMIT_POLICIES.developerWidgetAll },
     ]);
-    if (!limit.allowed) return fail(429, "rate_limited", origin, { "Retry-After": String(limit.retryAfterSeconds) });
+    if (!limit.allowed) {
+      flow.step("guard", false, "quota du widget atteint");
+      return fail(429, "rate_limited", origin, { "Retry-After": String(limit.retryAfterSeconds) });
+    }
   } catch (error) {
     console.error("[widget] Compteurs indisponibles", error);
+    flow.step("guard", false, "limitation de débit indisponible");
     return fail(503, "unavailable", origin);
   }
+  flow.step("guard", true);
 
   const messages = toModelTurns(parsed.data.messages);
   const question = messages.at(-1);
-  if (!question) return fail(400, "invalid_request", origin);
+  if (!question) {
+    flow.step("prompt", false, "aucun message du visiteur");
+    return fail(400, "invalid_request", origin);
+  }
 
   // Tamilya arrêtée depuis /admin/circuit : le widget s'arrête aussi.
   const cuts = await loadFlowCuts();
-  if (flowCutStop(cuts)) return fail(503, "unavailable", origin);
+  const cutAt = flowCutStop(cuts);
+  if (cutAt) {
+    flow.step(cutAt, false, "lien coupé");
+    return fail(503, "unavailable", origin);
+  }
   const ai = await getAIProvider(cuts);
   if (!ai.ok) {
     console.error(`[widget] Fournisseur d'IA non configuré : ${ai.reason}`);
+    flow.step("prompt", false, ai.reason === ALL_APIS_CUT ? "lien coupé" : "aucune API configurée");
     return fail(503, "unavailable", origin);
   }
 
@@ -154,8 +173,10 @@ export async function POST(request: NextRequest) {
       data: [`Adresse du site : ${origin}`, mission && `Mission confiée par le développeur :\n${mission}`].filter(Boolean).join("\n\n"),
     },
   });
+  flow.step("prompt", true);
 
   let text = "";
+  let answeredBy: string | null = null;
   try {
     for await (const chunk of ai.provider.stream({
       system,
@@ -163,19 +184,31 @@ export async function POST(request: NextRequest) {
       persona: true,
       maxOutputTokens: Math.min(ai.config.maxOutputTokens, 600),
       signal: AbortSignal.any([request.signal, AbortSignal.timeout(Math.min(ai.config.timeoutMs, 40_000))]),
+      onAttempt: (slotId, error) => {
+        if (!error) answeredBy = slotId;
+        flow.step(`model-${slotId}`, !error, error ? (AI_ERROR_LABELS[error] ?? error) : undefined);
+      },
     })) {
       if (chunk.type === "text") text += chunk.text;
     }
   } catch (error) {
     const code = error instanceof AIProviderError ? error.code : "unavailable";
     console.error(`[widget] Erreur du fournisseur (${code}) pour le widget ${widget.id}`);
+    if (answeredBy) flow.step("output", false, code === "aborted" ? "visiteur parti" : "réponse interrompue");
     if (code === "aborted") return fail(499, "aborted", origin);
     return fail(502, "provider_error", origin);
   }
 
   const reply = text.trim();
-  if (!reply) return fail(502, "provider_error", origin);
+  if (!reply) {
+    flow.step("output", false, "réponse vide");
+    return fail(502, "provider_error", origin);
+  }
   // Dernier filet : une réponse qui se présente sous un autre nom n'est jamais envoyée.
-  if (replyBreaksIdentity(reply)) return fail(502, "provider_error", origin);
+  if (replyBreaksIdentity(reply)) {
+    flow.step("output", false, "identité protégée");
+    return fail(502, "provider_error", origin);
+  }
+  flow.step("output", true);
   return NextResponse.json({ reply }, { headers: { "Cache-Control": "no-store", ...corsHeaders(origin) } });
 }

@@ -84,19 +84,19 @@ export async function revokeDeveloperKey(userId: string, id: string): Promise<bo
 }
 
 /** Code reçu par l'API : identifiant du code et compte qui l'a créé s'il est valide et actif, sinon null. */
-export async function findDeveloperKey(token: string): Promise<{ id: string; userId: string } | null> {
+export async function findDeveloperKey(token: string): Promise<{ id: string; userId: string; label: string } | null> {
   if (!KEY_PATTERN.test(token)) return null;
   const admin = getSupabaseAdminClient();
   if (!admin) return null;
   const { data, error } = await admin
     .from("developer_keys")
-    .select("id, user_id")
+    .select("id, user_id, label")
     .eq("key_hash", hashKey(token))
     .is("revoked_at", null)
     .maybeSingle();
   if (error) console.error("[developpeurs] Vérification du code impossible", error);
   if (!data) return null;
-  return { id: data.id, userId: data.user_id };
+  return { id: data.id, userId: data.user_id, label: data.label };
 }
 
 /** Date de dernière utilisation, affichée sur /developpeurs (appelée après la réponse, avec after()). */

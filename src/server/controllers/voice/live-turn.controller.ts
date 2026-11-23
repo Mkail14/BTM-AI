@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
   if (!parsed.success || (!parsed.data.user && !parsed.data.tamilya)) return NextResponse.json({ error: "Demande invalide." }, { status: 400 });
 
   // Circuit : un échange parlé suit le même trajet qu'un message écrit, sans aucun contenu.
-  const flow = startFlowTrace();
+  const flow = startFlowTrace("platform");
   for (const node of ["input", "guard", "prompt", VOICE_NODE]) flow.step(node, true);
 
   try {

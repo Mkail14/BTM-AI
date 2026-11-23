@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { FLOW_EVENT, FLOW_TOPIC, type FlowStep } from "@/lib/ai/flow-events";
+import { FLOW_EVENT, FLOW_TOPIC, ORIGIN_NODES, type FlowStep } from "@/lib/ai/flow-events";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { FlowEdge } from "./flow";
 
@@ -13,7 +13,7 @@ const BLOCKED_MS = 6_000;
 export type LivePath = { key: string; d: string; start: [number, number]; end: [number, number] };
 /** Point en mouvement sur une arête, ou arrêté sur le bloc qui a bloqué le message. */
 export type LiveDot = { id: string; node: string; d: string; at: [number, number]; blocked?: string };
-export type LiveOutcome = { ok: boolean; node: string; reason?: string };
+export type LiveOutcome = { ok: boolean; node: string; reason?: string; source?: string };
 export type LiveStatus = "connecting" | "live" | "unavailable";
 
 type Trace = { steps: FlowStep[]; cursor: string[]; running: boolean };
@@ -100,11 +100,11 @@ export function useLiveTrace(edges: FlowEdge[], paths: LivePath[]) {
         }
         if (step.ok) {
           trace.cursor = [step.node];
-          if (step.node === "output") setOutcome({ ok: true, node: step.node });
+          if (step.node === "output") setOutcome({ ok: true, node: step.node, source: step.source });
         } else {
           // Le curseur reste en place : une API de secours repart du même bloc.
           block(step, arrived);
-          setOutcome({ ok: false, node: step.node, reason: step.reason });
+          setOutcome({ ok: false, node: step.node, reason: step.reason, source: step.source });
         }
       }
       trace.running = false;
@@ -113,7 +113,8 @@ export function useLiveTrace(edges: FlowEdge[], paths: LivePath[]) {
     function receive(step: FlowStep) {
       let trace = traces.get(step.trace);
       if (!trace) {
-        trace = { steps: [], cursor: [], running: false };
+        // Le point part du bloc d'origine : plateforme de Tamilya ou API des entreprises.
+        trace = { steps: [], cursor: step.origin ? [ORIGIN_NODES[step.origin]] : [], running: false };
         traces.set(step.trace, trace);
         setTimeout(() => traces.delete(step.trace), 5 * 60_000);
       }

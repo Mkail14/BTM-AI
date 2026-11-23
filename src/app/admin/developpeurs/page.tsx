@@ -33,7 +33,7 @@ export default async function AdminDeveloppeursPage() {
             tentative de renommage le suspend automatiquement, avec un e-mail au développeur et à BTM.
           </p>
         </div>
-        {accounts === null ? <MigrationWarning file="20261217000000_engagement_developpeurs.sql" /> : null}
+        {accounts === null ? <MigrationWarning file="20261224000000_fiche_developpeurs.sql" /> : null}
         {accounts?.length === 0 ? <p className="text-sm text-fg-muted">Aucun développeur pour le moment.</p> : null}
         {details.map(({ account, email }) => (
           <section key={account.userId} className="rounded-xl border border-border bg-bg p-5">
