@@ -16,7 +16,6 @@ function examples(endpoint: string): Record<Tab, string> {
   return {
     curl: `curl ${endpoint} \\
   -H "Authorization: Bearer $TAMILYA_CODE" \\
-  -H "X-Gemini-Key: $GEMINI_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
     "messages": [
@@ -28,7 +27,6 @@ function examples(endpoint: string): Record<Tab, string> {
   method: "POST",
   headers: {
     Authorization: \`Bearer \${process.env.TAMILYA_CODE}\`,
-    "X-Gemini-Key": process.env.GEMINI_KEY,
     "Content-Type": "application/json",
   },
   body: JSON.stringify({
@@ -44,7 +42,6 @@ response = requests.post(
     "${endpoint}",
     headers={
         "Authorization": f"Bearer {os.environ['TAMILYA_CODE']}",
-        "X-Gemini-Key": os.environ["GEMINI_KEY"],
     },
     json={
         "messages": [{"role": "user", "content": "Comment on dit merci en shimaoré ?"}],

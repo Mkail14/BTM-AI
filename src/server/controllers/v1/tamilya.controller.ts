@@ -1,15 +1,12 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { AIProviderError, buildSystemPrompt, createProvider, getAIProvider } from "@/server/services/ai";
+import { AIProviderError, buildSystemPrompt, getAIProvider } from "@/server/services/ai";
 import { knowledgeFor, lexiconFor, loadTamilyaBrain, wordsFor } from "@/server/services/ai/brain";
-import type { AIConfig } from "@/lib/ai/config";
 import { ALL_APIS_CUT, flowCutStop, loadFlowCuts } from "@/server/services/ai/flow-cuts";
-import { AI_ERROR_LABELS, DEVELOPER_MODEL_NODE } from "@/lib/ai/flow-events";
+import { AI_ERROR_LABELS } from "@/lib/ai/flow-events";
 import { startFlowTrace } from "@/server/services/ai/flow-trace";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
 import { loadPersonalityInstructions } from "@/server/services/ai/personality-store";
-import { isGeminiUrl } from "@/server/services/ai/providers/gemini";
-import { loadAIChain } from "@/server/services/ai/registry";
 import { CHAT_LIMITS } from "@/lib/chat/limits";
 import type { ChatTurn } from "@/lib/chat/types";
 import { getDeveloperStatus, suspendForIdentity } from "@/server/services/developers/accounts";
@@ -20,20 +17,16 @@ import { getClientIp, hashIdentifier } from "@/server/middlewares/request";
 
 /**
  * API publique de Tamilya pour les développeurs (appel de serveur à serveur).
- * Le développeur envoie son code d'accès BTM, et s'il le veut SA clé Gemini :
- * - avec clé Gemini : Tamilya répond avec son cerveau (identité, shimaoré, connaissances), sa clé à lui paie.
- *   La clé sert à cette seule réponse : elle n'est ni enregistrée ni journalisée.
- * - sans clé : ce sont les API de BTM AI qui répondent (même aiguillage que le chat), BTM paie,
- *   avec des quotas plus bas (RATE_LIMIT_POLICIES.developerBtm*).
+ * Le développeur envoie son seul code d'accès BTM : Tamilya répond avec son cerveau (identité, shimaoré,
+ * connaissances) et les API de BTM AI (même aiguillage que le chat), BTM paie, avec des quotas
+ * (RATE_LIMIT_POLICIES.developer*). Une clé Gemini envoyée par d'anciennes intégrations (X-Gemini-Key)
+ * n'est jamais lue : leurs requêtes passent elles aussi par les API de BTM AI.
  * Les consignes et le vocabulaire ne sont jamais renvoyés, seulement la réponse.
  * Accès réservé aux développeurs engagés à garder l'identité de Tamilya. Une mission peut être confiée à
  * Tamilya ; la renommer (mission ou description) bloque la requête et suspend le compte.
  */
 
 const MAX_BODY_BYTES = 64 * 1024;
-const GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
-const DEFAULT_GEMINI_MODEL = "gemini-2.5-flash";
-const GEMINI_KEY_PATTERN = /^[A-Za-z0-9._-]{20,200}$/;
 
 const requestSchema = z.strictObject({
   messages: z
@@ -86,15 +79,6 @@ function toModelTurns(messages: readonly ChatTurn[]): ChatTurn[] {
   return turns.slice(start);
 }
 
-/** Même modèle Gemini que Tamilya sur BTM AI quand c'est possible. */
-async function geminiModel(): Promise<string> {
-  const chain = await loadAIChain().catch(() => []);
-  for (const slot of chain) {
-    if (slot.result.ok && isGeminiUrl(slot.result.config.baseUrl)) return slot.result.config.model;
-  }
-  return DEFAULT_GEMINI_MODEL;
-}
-
 export async function POST(request: NextRequest) {
   const token = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim() ?? "";
   const developerKey = token ? await findDeveloperKey(token) : null;
@@ -108,13 +92,7 @@ export async function POST(request: NextRequest) {
 
   // Suivi sur /admin/circuit, seulement une fois le code d'accès reconnu.
   const flow = startFlowTrace("api", `API « ${developerKey.label} »`);
-  // Clé Gemini facultative : sans elle, les API de BTM AI répondent (quotas plus bas).
-  const geminiKey = request.headers.get("x-gemini-key")?.trim() ?? "";
-  const paidByBtm = !geminiKey;
-  if (!paidByBtm && !GEMINI_KEY_PATTERN.test(geminiKey)) {
-    flow.step("input", false, "clé Gemini invalide");
-    return fail(401, "invalid_gemini_key");
-  }
+  // L'en-tête X-Gemini-Key des anciennes intégrations n'est pas lu : tout passe par les API de BTM AI.
   flow.step("input", true);
 
   try {
@@ -123,16 +101,11 @@ export async function POST(request: NextRequest) {
       // Quota du compte, tous ses codes confondus.
       { key: `dev-account:${developerKey.userId}`, rules: RATE_LIMIT_POLICIES.developerAccount },
       { key: hashIdentifier(`ip:${getClientIp(request.headers)}`), rules: RATE_LIMIT_POLICIES.developerIp },
-      ...(paidByBtm
-        ? [
-            { key: `btm-key:${developerKey.id}`, rules: RATE_LIMIT_POLICIES.developerBtmKey },
-            { key: `btm-account:${developerKey.userId}`, rules: RATE_LIMIT_POLICIES.developerBtmAccount },
-            { key: "btm-all", rules: RATE_LIMIT_POLICIES.developerBtmAll },
-          ]
-        : []),
+      // Tous les développeurs ensemble : plafond du crédit de BTM consacré à l'API.
+      { key: "dev-all", rules: RATE_LIMIT_POLICIES.developerAll },
     ]);
     if (!limit.allowed) {
-      flow.step("guard", false, paidByBtm ? "quota du développeur (API de BTM) atteint" : "quota du développeur atteint");
+      flow.step("guard", false, "quota du développeur atteint");
       return fail(429, "rate_limited", { "Retry-After": String(limit.retryAfterSeconds) });
     }
   } catch (error) {
@@ -184,19 +157,15 @@ export async function POST(request: NextRequest) {
     flow.step(cutAt, false, "lien coupé");
     return fail(503, "unavailable");
   }
-  // Sans clé Gemini : la chaîne d'API de BTM AI, avec ses secours et ses fils coupés.
-  const btm = paidByBtm ? await getAIProvider(cuts) : null;
-  if (btm && !btm.ok) {
-    console.error(`[api-dev] Fournisseur d'IA non configuré : ${btm.reason}`);
-    flow.step("prompt", false, btm.reason === ALL_APIS_CUT ? "lien coupé" : "aucune API configurée");
+  // La chaîne d'API de BTM AI, avec ses secours et ses fils coupés.
+  const ai = await getAIProvider(cuts);
+  if (!ai.ok) {
+    console.error(`[api-dev] Fournisseur d'IA non configuré : ${ai.reason}`);
+    flow.step("prompt", false, ai.reason === ALL_APIS_CUT ? "lien coupé" : "aucune API configurée");
     return fail(503, "unavailable");
   }
 
-  const [brain, personalityInstructions, model] = await Promise.all([
-    loadTamilyaBrain(),
-    loadPersonalityInstructions(DEFAULT_PERSONALITY),
-    paidByBtm ? DEFAULT_GEMINI_MODEL : geminiModel(),
-  ]);
+  const [brain, personalityInstructions] = await Promise.all([loadTamilyaBrain(), loadPersonalityInstructions(DEFAULT_PERSONALITY)]);
   const system = buildSystemPrompt(DEFAULT_PERSONALITY, {
     personalityInstructions,
     identity: brain.identity,
@@ -221,62 +190,29 @@ export async function POST(request: NextRequest) {
   flow.step("prompt", true);
 
   let text = "";
-  if (btm?.ok) {
-    // API de BTM AI : réponse plus courte, secours automatique d'une API à l'autre.
-    let answeredBy: string | null = null;
-    try {
-      for await (const chunk of btm.provider.stream({
-        system,
-        messages,
-        persona: true,
-        maxOutputTokens: Math.min(btm.config.maxOutputTokens, 1024),
-        signal: AbortSignal.any([request.signal, AbortSignal.timeout(Math.min(btm.config.timeoutMs, 40_000))]),
-        onAttempt: (slotId, error) => {
-          if (!error) answeredBy = slotId;
-          flow.step(`model-${slotId}`, !error, error ? (AI_ERROR_LABELS[error] ?? error) : undefined);
-        },
-      })) {
-        if (chunk.type === "text") text += chunk.text;
-      }
-    } catch (error) {
-      const code = error instanceof AIProviderError ? error.code : "unavailable";
-      console.error(`[api-dev] Erreur des API de BTM (${code}) pour le code ${developerKey.id}`);
-      if (answeredBy) flow.step("output", false, code === "aborted" ? "appel interrompu" : "réponse interrompue");
-      if (code === "aborted") return fail(499, "aborted");
-      return fail(502, "provider_error");
+  // Réponse plutôt courte, secours automatique d'une API à l'autre.
+  let answeredBy: string | null = null;
+  try {
+    for await (const chunk of ai.provider.stream({
+      system,
+      messages,
+      persona: true,
+      maxOutputTokens: Math.min(ai.config.maxOutputTokens, 1024),
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(Math.min(ai.config.timeoutMs, 40_000))]),
+      onAttempt: (slotId, error) => {
+        if (!error) answeredBy = slotId;
+        flow.step(`model-${slotId}`, !error, error ? (AI_ERROR_LABELS[error] ?? error) : undefined);
+      },
+    })) {
+      if (chunk.type === "text") text += chunk.text;
     }
-  } else {
-    const config: AIConfig = {
-      provider: "openai-compatible",
-      apiKey: geminiKey,
-      model,
-      baseUrl: GEMINI_BASE_URL,
-      maxOutputTokens: 1024,
-      timeoutMs: 40_000,
-      effort: "low",
-      disableReasoning: true,
-    };
-    try {
-      for await (const chunk of createProvider(config).stream({
-        system,
-        messages,
-        persona: true,
-        maxOutputTokens: config.maxOutputTokens,
-        signal: AbortSignal.any([request.signal, AbortSignal.timeout(config.timeoutMs)]),
-      })) {
-        if (chunk.type === "text") text += chunk.text;
-      }
-    } catch (error) {
-      const code = error instanceof AIProviderError ? error.code : "unavailable";
-      // Jamais l'erreur brute : elle pourrait contenir des morceaux de la requête.
-      console.error(`[api-dev] Erreur Gemini (${code}) pour le code ${developerKey.id}`);
-      flow.step(DEVELOPER_MODEL_NODE, false, code === "auth" ? "clé Gemini refusée" : (AI_ERROR_LABELS[code] ?? code));
-      if (code === "auth") return fail(401, "invalid_gemini_key");
-      if (code === "quota" || code === "rate_limited") return fail(429, "gemini_quota");
-      if (code === "aborted") return fail(499, "aborted");
-      return fail(502, "provider_error");
-    }
-    flow.step(DEVELOPER_MODEL_NODE, true);
+  } catch (error) {
+    const code = error instanceof AIProviderError ? error.code : "unavailable";
+    // Jamais l'erreur brute : elle pourrait contenir des morceaux de la requête.
+    console.error(`[api-dev] Erreur des API de BTM (${code}) pour le code ${developerKey.id}`);
+    if (answeredBy) flow.step("output", false, code === "aborted" ? "appel interrompu" : "réponse interrompue");
+    if (code === "aborted") return fail(499, "aborted");
+    return fail(502, "provider_error");
   }
 
   const reply = text.trim();

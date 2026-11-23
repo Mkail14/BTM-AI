@@ -66,22 +66,16 @@ export const RATE_LIMIT_POLICIES = {
   sosAlert: [{ name: "sos-hour", limit: 3, windowSeconds: 3_600 }],
   meshRelay: [{ name: "mesh-relay-min", limit: 120, windowSeconds: 60 }],
   meshRegister: [{ name: "mesh-register-hour", limit: 10, windowSeconds: 3_600 }],
-  // API des développeurs : leur clé Gemini paie, mais le serveur de BTM travaille quand même.
+  // API des développeurs : ce sont les API de BTM AI qui répondent, donc BTM paie. Limites basses :
+  // par code, par compte, par adresse IP, et tous les développeurs ensemble.
   developerKey: [
-    { name: "dev-key-min", limit: 20, windowSeconds: 60 },
-    { name: "dev-key-day", limit: 2_000, windowSeconds: 86_400 },
+    { name: "dev-key-min", limit: 10, windowSeconds: 60 },
+    { name: "dev-key-day", limit: 200, windowSeconds: 86_400 },
   ],
   developerIp: [{ name: "dev-ip-min", limit: 60, windowSeconds: 60 }],
   // Tous les codes d'un même compte additionnés : créer 5 codes ne donne pas 5 fois plus de messages.
-  developerAccount: [{ name: "dev-account-day", limit: 2_000, windowSeconds: 86_400 }],
-  // API des développeurs sans clé Gemini : ce sont les API de BTM AI qui répondent, donc BTM paie.
-  // Limites basses, en plus des précédentes : par code, par compte, et tous les développeurs ensemble.
-  developerBtmKey: [
-    { name: "dev-btm-key-min", limit: 10, windowSeconds: 60 },
-    { name: "dev-btm-key-day", limit: 200, windowSeconds: 86_400 },
-  ],
-  developerBtmAccount: [{ name: "dev-btm-account-day", limit: 300, windowSeconds: 86_400 }],
-  developerBtmAll: [{ name: "dev-btm-all-day", limit: 3_000, windowSeconds: 86_400 }],
+  developerAccount: [{ name: "dev-account-day", limit: 300, windowSeconds: 86_400 }],
+  developerAll: [{ name: "dev-all-day", limit: 3_000, windowSeconds: 86_400 }],
   // Création de codes d'accès : assez pour se tromper, pas pour en fabriquer à la chaîne.
   developerKeyCreate: [{ name: "dev-key-create-day", limit: 10, windowSeconds: 86_400 }],
   // Widget à coller sur un site : c'est BTM qui paie, donc limites basses. L'identifiant du widget
