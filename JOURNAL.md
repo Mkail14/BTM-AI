@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `61ad8a9` (2026-11-23, develop)**
+**Dernier commit noté : `bd95848` (2026-11-23, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -129,7 +129,7 @@ Comment le tenir :
 
 ## Journal (le plus récent en haut)
 
-- **pnpm : esbuild et unrs-resolver autorisés à s'installer** (2026-11-23). `pnpm-workspace.yaml` contenait encore « set this to true or false » pour ces deux outils. pnpm s'arrêtait donc sur une erreur à chaque installation, et `pnpm exec` aussi. Les deux sont passés à `true` : ils servent à faire tourner les tests (tsx) et l'outil de vérification du code, et leur script d'installation vérifie seulement que le bon programme est là. protobufjs reste à `false`. Vérifié : `pnpm install` sans erreur, types bons avec `pnpm exec`, 953 tests réussis avec `pnpm test`.
+- **pnpm : esbuild et unrs-resolver autorisés à s'installer** (`bd95848`, 2026-11-23, develop). `pnpm-workspace.yaml` contenait encore « set this to true or false » pour ces deux outils. pnpm s'arrêtait donc sur une erreur à chaque installation, et `pnpm exec` aussi. Les deux sont passés à `true` : ils servent à faire tourner les tests (tsx) et l'outil de vérification du code, et leur script d'installation vérifie seulement que le bon programme est là. protobufjs reste à `false`. Vérifié : `pnpm install` sans erreur, types bons avec `pnpm exec`, 953 tests réussis avec `pnpm test`.
 
 - **Dépendances remises sur pnpm, package-lock.json supprimé** (`61ad8a9`, 2026-11-23, develop). La mise à jour du commit `2393102` avait été faite avec npm, donc seulement dans `package-lock.json`. Avec pnpm, `pnpm-lock.yaml` passe à typescript-eslint 8.73.0 (faille de minimatch) et @napi-rs/canvas 1.2.0 ; il avait déjà Next 16.4.5. `package-lock.json` est supprimé pour qu'il ne reste qu'un seul fichier de verrou. Vérifié : pnpm audit sans faille, types bons, 953 tests réussis. Reste à régler, sans lien avec ce changement : `pnpm-workspace.yaml` demande encore de choisir si esbuild et unrs-resolver peuvent lancer leurs scripts (« set this to true or false »), ce qui fait échouer `pnpm exec`.
 
