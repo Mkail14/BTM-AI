@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `a46c742` (2026-11-23, develop ; `1c2ba5d` sur main)**
+**Dernier commit noté : `61ad8a9` (2026-11-23, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -129,7 +129,7 @@ Comment le tenir :
 
 ## Journal (le plus récent en haut)
 
-- **Dépendances remises sur pnpm, package-lock.json supprimé** (2026-11-23). La mise à jour du commit `2393102` avait été faite avec npm, donc seulement dans `package-lock.json`. Avec pnpm, `pnpm-lock.yaml` passe à typescript-eslint 8.73.0 (faille de minimatch) et @napi-rs/canvas 1.2.0 ; il avait déjà Next 16.4.5. `package-lock.json` est supprimé pour qu'il ne reste qu'un seul fichier de verrou. Vérifié : pnpm audit sans faille, types bons, 953 tests réussis. Reste à régler, sans lien avec ce changement : `pnpm-workspace.yaml` demande encore de choisir si esbuild et unrs-resolver peuvent lancer leurs scripts (« set this to true or false »), ce qui fait échouer `pnpm exec`.
+- **Dépendances remises sur pnpm, package-lock.json supprimé** (`61ad8a9`, 2026-11-23, develop). La mise à jour du commit `2393102` avait été faite avec npm, donc seulement dans `package-lock.json`. Avec pnpm, `pnpm-lock.yaml` passe à typescript-eslint 8.73.0 (faille de minimatch) et @napi-rs/canvas 1.2.0 ; il avait déjà Next 16.4.5. `package-lock.json` est supprimé pour qu'il ne reste qu'un seul fichier de verrou. Vérifié : pnpm audit sans faille, types bons, 953 tests réussis. Reste à régler, sans lien avec ce changement : `pnpm-workspace.yaml` demande encore de choisir si esbuild et unrs-resolver peuvent lancer leurs scripts (« set this to true or false »), ce qui fait échouer `pnpm exec`.
 
 - **Copie de l'ordinateur remise à jour** (2026-11-23). Elle était restée sur la branche feat/bienvenue-story, qui avait les mêmes travaux que develop sous d'autres numéros de commit, avec 4 conflits si on les mélangeait. La copie suit maintenant develop. L'ancienne branche est gardée sous `sauvegarde-bienvenue-2026-11-23`, et les fichiers en cours (aiguillage des API, déjà sur develop) dans le stash « sauvegarde travail en cours 2026-11-23 ». Les essais `essai-cerveau-local.ts` et `essai-cerveau-gemma3-4b.json` sont gardés, non suivis. Rattrapé ci-dessous : 6 commits faits par une autre session.
 
