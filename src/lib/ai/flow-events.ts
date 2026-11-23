@@ -18,7 +18,22 @@ export type FlowStep = {
   /** Faux : le message s'arrête à ce bloc. */
   ok: boolean;
   reason?: string;
+  /** D'où vient le message quand ce n'est pas le chat de BTM AI (site BTM, widget ou API d'un développeur). */
+  source?: string;
+  /** Bloc de départ : la plateforme de Tamilya (BTM AI) ou l'API des entreprises. */
+  origin?: FlowOrigin;
 };
+
+/**
+ * Origine d'un message, premier bloc du schéma : la plateforme de Tamilya
+ * (chat et voix de BTM AI) ou l'API des entreprises (sites de GROUPE BTM,
+ * Orchestr AI, widgets, API publique des développeurs).
+ */
+export type FlowOrigin = "platform" | "api";
+export const ORIGIN_NODES: Record<FlowOrigin, string> = { platform: "origin-platform", api: "origin-api" };
+
+/** Bloc de la clé Gemini fournie par le développeur (API publique /v1/tamilya). */
+export const DEVELOPER_MODEL_NODE = "model-developer";
 
 export const AI_ERROR_LABELS: Record<string, string> = {
   quota: "crédit ou quota épuisé",

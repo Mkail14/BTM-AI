@@ -3,11 +3,11 @@ import type { RateLimitSettings } from "@/server/middlewares/rate-limit/settings
 import type { CharacterDraft } from "../caractere/limits";
 
 /** Données du schéma, construites côté serveur et transmises telles quelles au canevas. */
-export type FlowIcon = "message" | "shield" | "sparkle" | "settings" | "book" | "language" | "memory" | "prompt" | "chip" | "switch" | "reply";
+export type FlowIcon = "platform" | "company" | "message" | "shield" | "sparkle" | "settings" | "book" | "language" | "memory" | "prompt" | "chip" | "switch" | "reply";
 
 export type FlowNode = {
   id: string;
-  /** Colonne du schéma, de gauche (message reçu) à droite (réponse). */
+  /** Colonne du schéma, de gauche (origine du message) à droite (réponse). */
   column: number;
   icon: FlowIcon;
   title: string;

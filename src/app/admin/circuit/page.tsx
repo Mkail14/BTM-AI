@@ -4,7 +4,7 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { slotHealthId } from "@/server/services/ai";
 import { loadAIChain, loadRemovedApis } from "@/server/services/ai/registry";
 import { readAIChain } from "@/lib/ai/config";
-import { AI_ERROR_LABELS, VOICE_NODE } from "@/lib/ai/flow-events";
+import { AI_ERROR_LABELS, DEVELOPER_MODEL_NODE, ORIGIN_NODES, VOICE_NODE } from "@/lib/ai/flow-events";
 import { flowCutStop, loadFlowCuts } from "@/server/services/ai/flow-cuts";
 import { canEncrypt } from "@/lib/ai/secret-box";
 import { averageLatency, deriveModelStatus, freeDailyQuota, getHealth, requestsToday, type NodeStatus } from "@/lib/ai/health";
@@ -161,7 +161,7 @@ export default async function AdminCircuitPage() {
   const laneCount = (lane: "ready" | "retest" | "paused") => [...laneOfSlot.values()].filter((l) => l === lane).length;
   const switchNode: FlowNode = {
     id: "switch",
-    column: 4,
+    column: 5,
     icon: "switch",
     title: "Aiguillage",
     subtitle: `${laneCount("ready")} prête(s) · ${laneCount("retest") + laneCount("paused")} en attente`,
@@ -200,10 +200,10 @@ export default async function AdminCircuitPage() {
       : { status: admin ? "warning" : "error", statusLabel: admin ? "Partiel" : "En mémoire" };
 
   const brainNodes: FlowNode[] = [
-    { id: "personality", column: 2, icon: "sparkle", title: "Caractère", status: "ok", statusLabel: "Active", href: "/admin/caractere" },
+    { id: "personality", column: 3, icon: "sparkle", title: "Caractère", status: "ok", statusLabel: "Active", href: "/admin/caractere" },
     {
       id: "settings",
-      column: 2,
+      column: 3,
       icon: "settings",
       title: "Caractère et règles",
       character: {
@@ -217,7 +217,7 @@ export default async function AdminCircuitPage() {
     },
     {
       id: "knowledge",
-      column: 2,
+      column: 3,
       icon: "book",
       title: "Connaissances",
       href: "/admin/connaissances",
@@ -225,7 +225,7 @@ export default async function AdminCircuitPage() {
     },
     {
       id: "lexicon",
-      column: 2,
+      column: 3,
       icon: "language",
       title: "Lexique shimaoré",
       href: "/admin/lexique",
@@ -233,7 +233,7 @@ export default async function AdminCircuitPage() {
     },
     {
       id: "memory",
-      column: 2,
+      column: 3,
       icon: "memory",
       title: "Mémoire",
       href: "/admin/memoire",
@@ -243,16 +243,38 @@ export default async function AdminCircuitPage() {
 
   const voiceReady = Boolean(liveRelayUrl() && liveTicketSecret());
   const nodes: FlowNode[] = [
+    // D'où vient la requête : la plateforme de Tamilya elle-même, ou une entreprise par l'API.
+    {
+      id: ORIGIN_NODES.platform,
+      column: 0,
+      icon: "platform",
+      title: "Plateforme Tamilya",
+      subtitle: "Chat et voix de BTM AI",
+      status: "ok",
+      statusLabel: "Ouverte",
+      reason: "Messages écrits ou dits sur BTM AI, par ses utilisateurs.",
+    },
+    {
+      id: ORIGIN_NODES.api,
+      column: 0,
+      icon: "company",
+      title: "API des entreprises",
+      subtitle: "Sites BTM, Orchestr, widgets, API v1",
+      status: "ok",
+      statusLabel: "Ouverte",
+      reason: "Messages envoyés par un autre site ou une entreprise, de serveur à serveur.",
+      href: "/admin/developpeurs",
+    },
     {
       id: "input",
-      column: 0,
+      column: 1,
       icon: "message",
       title: "Message reçu",
       ...(cuts.has("input") ? unplugged : { status: "ok" as const, statusLabel: "Ouvert" }),
     },
-    { id: "guard", column: 1, icon: "shield", title: "Quotas et sécurité", limits, ...guard },
+    { id: "guard", column: 2, icon: "shield", title: "Quotas et sécurité", limits, ...guard },
     ...brainNodes.map((n) => (cuts.has(n.id) ? { ...n, ...unplugged } : n)),
-    { id: "prompt", column: 3, icon: "prompt", title: "Message système", status: "ok", statusLabel: "Assemblé" },
+    { id: "prompt", column: 4, icon: "prompt", title: "Message système", status: "ok", statusLabel: "Assemblé" },
     switchNode,
     ...models.map(
       ({ slot, config, status, api, health }, index): FlowNode => ({
@@ -260,7 +282,7 @@ export default async function AdminCircuitPage() {
           ? { ...api, activity: [...api.activity, { label: "Aiguillage", value: LANE_LABELS[laneOfSlot.get(slot.id)!] }] }
           : api,
         id: `model-${slot.id}`,
-        column: 5,
+        column: 6,
         icon: "chip",
         title: slot.label,
         subtitle: config?.model ?? "Non configurée",
@@ -277,7 +299,7 @@ export default async function AdminCircuitPage() {
     ),
     {
       id: VOICE_NODE,
-      column: 5,
+      column: 6,
       icon: "chip",
       title: "Voix en direct",
       subtitle: process.env.AI_LIVE_MODEL?.trim() || "Gemini Live",
@@ -286,8 +308,18 @@ export default async function AdminCircuitPage() {
       href: "/admin/voix",
     },
     {
-      id: "output",
+      // API publique /v1/tamilya : le développeur paie avec sa propre clé Gemini.
+      id: DEVELOPER_MODEL_NODE,
       column: 6,
+      icon: "chip",
+      title: "Clé du développeur",
+      subtitle: "API développeurs (Gemini)",
+      status: "ok",
+      statusLabel: "Fournie à chaque appel",
+    },
+    {
+      id: "output",
+      column: 7,
       icon: "reply",
       title: "Réponse de Tamilya",
       status: servingIndex >= 0 ? "ok" : "error",
@@ -300,6 +332,8 @@ export default async function AdminCircuitPage() {
   // fil d'API coupé laisse passer les messages par les autres API.
   const flowing = !stoppedAt;
   const edges: FlowEdge[] = [
+    { from: ORIGIN_NODES.platform, to: "input", live: flowing },
+    { from: ORIGIN_NODES.api, to: "input", live: flowing },
     { from: "input", to: "guard", live: flowing, cutId: "input", cut: cuts.has("input") },
     ...brainNodes.flatMap((n) => {
       const cut = cuts.has(n.id);
@@ -327,6 +361,9 @@ export default async function AdminCircuitPage() {
     // Fil de la voix coupé : le micro disparaît partout (site, PWA, app Android).
     { from: "prompt", to: VOICE_NODE, muted: !voiceReady || cuts.has(VOICE_NODE), cutId: VOICE_NODE, cut: cuts.has(VOICE_NODE) },
     { from: VOICE_NODE, to: "output", muted: !voiceReady || cuts.has(VOICE_NODE), cutId: VOICE_NODE, cut: cuts.has(VOICE_NODE) },
+    // Clé du développeur : pas d'aiguillage, l'API publique appelle directement Gemini avec sa clé.
+    { from: "prompt", to: DEVELOPER_MODEL_NODE, muted: true },
+    { from: DEVELOPER_MODEL_NODE, to: "output", muted: true },
   ];
 
   return (

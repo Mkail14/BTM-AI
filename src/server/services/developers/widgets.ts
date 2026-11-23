@@ -114,19 +114,19 @@ export async function revokeDeveloperWidget(userId: string, id: string): Promise
 }
 
 /** Widget reçu par l'API : identifiant, compte, domaines autorisés et mission s'il est actif, sinon null. */
-export async function findDeveloperWidget(publicId: string): Promise<{ id: string; userId: string; origins: string[]; mission: string | null } | null> {
+export async function findDeveloperWidget(publicId: string): Promise<{ id: string; userId: string; label: string; origins: string[]; mission: string | null } | null> {
   if (!PUBLIC_ID_PATTERN.test(publicId)) return null;
   const admin = getSupabaseAdminClient();
   if (!admin) return null;
   const { data, error } = await admin
     .from("developer_widgets")
-    .select("id, user_id, origins, mission")
+    .select("id, user_id, label, origins, mission")
     .eq("public_id", publicId)
     .is("revoked_at", null)
     .maybeSingle();
   if (error) console.error("[developpeurs] Vérification du widget impossible", error);
   if (!data) return null;
-  return { id: data.id, userId: data.user_id, origins: data.origins, mission: data.mission };
+  return { id: data.id, userId: data.user_id, label: data.label, origins: data.origins, mission: data.mission };
 }
 
 /** Date de dernière utilisation, affichée sur /developpeurs (appelée après la réponse, avec after()). */

@@ -26,6 +26,8 @@ import {
   IconShield,
   IconSparkle,
   IconTrash,
+  IconUsers,
+  IconExternal,
 } from "@/components/ui/icons";
 import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { lostOk } from "@/lib/safe-action";
@@ -40,6 +42,8 @@ import { HOP_MS, useLiveTrace, type LiveStatus } from "./useLiveTrace";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 
 const ICONS: Record<FlowIcon, ComponentType<SVGProps<SVGSVGElement>>> = {
+  platform: IconUsers,
+  company: IconExternal,
   message: IconMessage,
   shield: IconShield,
   sparkle: IconSparkle,
@@ -53,7 +57,7 @@ const ICONS: Record<FlowIcon, ComponentType<SVGProps<SVGSVGElement>>> = {
   reply: IconSend,
 };
 
-const COLUMNS = 7;
+const COLUMNS = 8;
 const CLICK_TOLERANCE_PX = 4;
 
 /** Distance autour d'un bloc où lâcher un fil le branche quand même. */
@@ -473,7 +477,7 @@ export function AIFlow({
         <span className="font-medium">{LIVE_STATUS[live.status].label}</span>
         {live.outcome ? (
           <span className={`truncate ${live.outcome.ok ? "text-success" : "text-danger"}`}>
-            · Dernier message :{" "}
+            · Dernier message{live.outcome.source ? ` (${live.outcome.source})` : ""} :{" "}
             {live.outcome.ok
               ? "réponse envoyée"
               : `bloqué à « ${titleOf(live.outcome.node)} »${live.outcome.reason ? ` (${live.outcome.reason})` : ""}`}
@@ -548,8 +552,8 @@ export function AIFlow({
       </div>
 
       <div className="flow-canvas size-full overflow-auto">
-        {/* Largeur mini : 6 colonnes d’environ 170 px, titres lisibles ; plus étroit (téléphone, tablette), le canevas défile au doigt. */}
-        <div ref={containerRef} className="relative flex min-h-full min-w-[1500px] items-center p-10">
+        {/* Largeur mini : 8 colonnes d’environ 170 px, titres lisibles ; plus étroit (téléphone, tablette), le canevas défile au doigt. */}
+        <div ref={containerRef} className="relative flex min-h-full min-w-[1700px] items-center p-10">
           <svg className="pointer-events-none absolute inset-0 size-full overflow-visible" aria-hidden="true">
             {paths.map((path) => {
               const { key, d, edge } = path;
@@ -628,7 +632,7 @@ export function AIFlow({
           )}
 
           {/* Grille transparente aux pointeurs : seuls les blocs l'interceptent, les liens restent survolables. */}
-          <div className="pointer-events-none relative grid w-full grid-cols-7 gap-10 2xl:gap-14">
+          <div className="pointer-events-none relative grid w-full grid-cols-8 gap-10 2xl:gap-14">
             {Array.from({ length: COLUMNS }, (_, column) => (
               <div key={column} className="flex flex-col justify-center gap-4 [&>*]:pointer-events-auto">
                 {nodes

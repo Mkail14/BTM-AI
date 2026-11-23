@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   const relay = liveRelayUrl();
   const secret = liveTicketSecret();
   // Circuit : un appel refusé s'arrête en rouge sur le bloc qui l'a bloqué.
-  const flow = startFlowTrace();
+  const flow = startFlowTrace("platform");
   flow.step("input", true);
   if (!relay || !secret) {
     // Sur l'ordinateur de développement, le secret du relais n'existe pas (il n'est lisible nulle

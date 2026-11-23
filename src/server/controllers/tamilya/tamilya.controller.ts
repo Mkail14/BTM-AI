@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
     return fail(503, "unavailable");
   }
 
-  const flow = startFlowTrace();
+  const flow = startFlowTrace("api", body.site);
   // Lien coupé sur le schéma de /admin/circuit : le message s'arrête là.
   const cuts = await loadFlowCuts();
   const cutAt = flowCutStop(cuts);
