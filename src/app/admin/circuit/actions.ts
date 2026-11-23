@@ -8,7 +8,7 @@ import { AI_PROVIDERS } from "@/lib/ai/config";
 import { isCuttableBlock, VOICE_CUT } from "@/server/services/ai/flow-cuts";
 import { recordFailure, recordSuccess } from "@/lib/ai/health";
 import { checkKey, listModels } from "@/server/services/ai/key-check";
-import { invalidateAIChain, loadAIChain, loadRemovedApis, storedSlot, type StoredProvider } from "@/server/services/ai/registry";
+import { invalidateAIChain, isSlotId, loadAIChain, loadRemovedApis, storedSlot, type StoredProvider } from "@/server/services/ai/registry";
 import { canEncrypt, encryptSecret } from "@/lib/ai/secret-box";
 import { AIProviderError } from "@/lib/ai/types";
 import { invalidateRateLimits, rateLimitSettingsSchema } from "@/server/middlewares/rate-limit/settings";
@@ -263,6 +263,31 @@ export async function deleteApiAction(slotId: unknown): Promise<ActionResult> {
   invalidateAIChain();
   revalidatePath("/admin/circuit");
   return { ok: true, message: "API supprimée." };
+}
+
+/**
+ * Ordre de passage des API, de la principale au dernier secours, choisi en
+ * glissant un bloc d'API plus haut ou plus bas sur le schéma.
+ */
+export async function reorderApisAction(slotIds: unknown): Promise<ActionResult> {
+  const auth = await requireAdminAction();
+  if (!auth) return NOT_ADMIN;
+  const admin = getSupabaseAdminClient();
+  if (!admin) return { ok: false, message: "SUPABASE_SECRET_KEY n'est pas définie sur le serveur." };
+  if (!Array.isArray(slotIds) || slotIds.length === 0 || slotIds.length > 50 || !slotIds.every(isSlotId)) {
+    return { ok: false, message: "Ordre des API illisible." };
+  }
+  const order = [...new Set(slotIds)];
+
+  const { error } = await admin.from("awa_settings").update({ api_order: order, updated_by: auth.user.id }).eq("id", 1);
+  if (error) {
+    console.error("[admin] Ordre des API non enregistré", error);
+    return { ok: false, message: "L'enregistrement a échoué (migration 20261225000000_api_order.sql appliquée ?)." };
+  }
+  invalidateAIChain();
+  revalidatePath("/admin/circuit");
+  const first = (await loadAIChain())[0];
+  return { ok: true, message: first ? `Ordre enregistré : « ${first.label} » passe en premier.` : "Ordre enregistré." };
 }
 
 /** Remet dans la chaîne toutes les API du serveur retirées. */

@@ -8,7 +8,7 @@
 -- Sur Supabase : à jouer sur un projet vide (Auth fournit le schéma auth).
 -- Sur un PostgreSQL local : jouer d'abord database/imitation-supabase.sql (voir database/README.md).
 --
--- 68 migrations · 41 tables dans le schéma public :
+-- 69 migrations · 41 tables dans le schéma public :
 --   ai_providers, ai_usage, app_reviews, awa_branches, awa_cleanup_ignored, awa_grammar,
 --   awa_knowledge, awa_lexicon, awa_library_chunks, awa_library_documents, awa_memories,
 --   awa_partner_keys, awa_personalities, awa_questions, awa_settings, awa_word_requests,
@@ -5076,3 +5076,17 @@ create index if not exists developer_accounts_status_idx on public.developer_acc
 -- 3. Seul le serveur (clé secrète) lit et écrit la table.
 alter table public.developer_accounts enable row level security;
 revoke all on public.developer_accounts from anon, authenticated;
+
+-- ============================================================================
+-- 20261225000000_api_order.sql
+-- ============================================================================
+
+-- BTM AI — Ordre des API choisi depuis /admin/circuit
+-- Liste des identifiants d'API (« env-1 », « db-<uuid> »…), de la principale
+-- au dernier secours : on la change en glissant un bloc d'API plus haut ou plus
+-- bas dans le schéma. Les API absentes de la liste (ajoutées depuis) passent
+-- après, dans leur ordre habituel. Vide : ordre habituel (serveur, puis admin).
+
+alter table public.awa_settings
+  add column if not exists api_order jsonb not null default '[]'::jsonb
+    check (jsonb_typeof(api_order) = 'array');
