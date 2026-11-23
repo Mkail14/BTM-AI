@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `7848417` (2026-11-23, develop)**
+**Dernier commit noté : `24e2cab` (2026-11-23, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -128,6 +128,7 @@ Comment le tenir :
 
 ## Journal (le plus récent en haut)
 
+- **Nemotron : consignes juste avant le dernier message, émojis retirés** (`24e2cab`, 2026-11-23, develop). Ajout en base de l'API NVIDIA directe `nvidia/nemotron-3.5-lightning-30b-a3b` (dernière de la chaîne ; elle réfléchit par défaut, mais `AI_DISABLE_REASONING=true` coupe la réflexion). Placées au bout du message système de 22 000 caractères, ses consignes étaient ignorées : « Salut ! », émojis, présentation avant la blague. Pour les modèles Nemotron, le rappel part maintenant en message système juste avant le dernier message de la personne, et les émojis sont retirés du flux. Résultat sur les deux Nemotron NVIDIA : plus d'émoji, réponse directe, il ne se présente plus. Reste un défaut : Lightning envoie toujours à La Poste pour la carte d'identité (il confond avec les bureaux de l'examen du code). C'est une erreur de connaissance, qu'une consigne de style ne corrige pas. Bolt, lui, renvoie vers les services officiels.
 - **Nemotron : consignes rien qu'à lui** (`7848417`, 2026-11-23, develop). Comparé à Gemini avec `scripts/compare-apis.ts`, Nemotron Lightning n'obtenait que 6,4/10 : il ouvrait par « Salut ! », mettait des émojis, se présentait sans qu'on le demande, faisait des listes, ajoutait « T'inquiète » et inventait des lieux (La Poste pour la carte d'identité). Dans `harmonize.ts`, tout modèle dont le nom contient « nemotron » reçoit maintenant, en plus du rappel général, ses propres réglages de style, et une température de 0,3. Sur Lightning, l'effet reste faible (quota gratuit d'OpenRouter épuisé en cours de mesure). Ajout en base, le même jour, de l'API NVIDIA directe `nvidia/nemotron-3.5-bolt-e4b`, en dernier secours de la chaîne : avec ces consignes, environ 1 à 2 s par réponse, sans émoji ni « Salut ! » forcé, et elle n'invente pas de démarche.
 - **pnpm : esbuild et unrs-resolver autorisés à s'installer** (`bd95848`, 2026-11-23, develop). `pnpm-workspace.yaml` contenait encore « set this to true or false » pour ces deux outils. pnpm s'arrêtait donc sur une erreur à chaque installation, et `pnpm exec` aussi. Les deux sont passés à `true` : ils servent à faire tourner les tests (tsx) et l'outil de vérification du code, et leur script d'installation vérifie seulement que le bon programme est là. protobufjs reste à `false`. Vérifié : `pnpm install` sans erreur, types bons avec `pnpm exec`, 953 tests réussis avec `pnpm test`.
 
