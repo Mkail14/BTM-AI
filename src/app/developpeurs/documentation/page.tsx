@@ -36,17 +36,16 @@ const rule = (policy: readonly { windowSeconds: number; limit: number }[], secon
 
 const ERRORS: [number, string, string, string][] = [
   [400, "invalid_request", "JSON illisible, champ inconnu, message vide ou trop long, plus de 40 messages, ou aucun message « user ».", "Corrigez la requête (voir « La requête »). Ne réessayez pas telle quelle."],
-  [400, "missing_gemini_key", "L'en-tête X-Gemini-Key est absent.", "Ajoutez votre clé Gemini."],
   [401, "invalid_access_code", "Code d'accès absent, mal formé, faux ou supprimé.", "Vérifiez l'en-tête Authorization ou créez un nouveau code."],
   [403, "terms_not_accepted", "Vous n'avez pas encore pris l'engagement sur l'espace développeurs.", "Cochez l'engagement : l'accès s'ouvre aussitôt."],
   [403, "identity_violation", "La mission ou le contexte tente de changer le nom, le shimaoré ou la personnalité de Tamilya.", "Requête bloquée et accès suspendu : contactez BTM."],
   [403, "account_suspended", "Votre accès est suspendu (par exemple après une tentative de renommer Tamilya).", "Contactez BTM (contact@btm.yt)."],
-  [401, "invalid_gemini_key", "Clé Gemini mal formée ou refusée par Google.", "Vérifiez la clé sur Google AI Studio."],
+  [401, "invalid_gemini_key", "Clé Gemini envoyée mais mal formée ou refusée par Google.", "Vérifiez la clé sur Google AI Studio."],
   [413, "invalid_request", "Corps de la requête au-delà de 64 Ko.", "Raccourcissez l'historique ou le contexte."],
-  [429, "rate_limited", "Trop de questions pour ce code, ce compte ou cette adresse IP.", "Attendez le nombre de secondes donné par l'en-tête Retry-After."],
+  [429, "rate_limited", "Trop de questions pour ce code, ce compte ou cette adresse IP (limites plus basses sans clé Gemini).", "Attendez le nombre de secondes donné par l'en-tête Retry-After."],
   [429, "gemini_quota", "Votre clé Gemini a épuisé son quota chez Google.", "Attendez, ou augmentez le quota de votre projet Google."],
   [499, "aborted", "Votre client a coupé la connexion avant la réponse.", "Laissez au moins 60 secondes à la requête."],
-  [502, "provider_error", "Gemini a renvoyé une erreur ou une réponse vide.", "Réessayez après quelques secondes."],
+  [502, "provider_error", "Le modèle a renvoyé une erreur ou une réponse vide.", "Réessayez après quelques secondes."],
   [502, "identity_protected", "La réponse se présentait sous un autre nom que Tamilya : elle n'est pas envoyée.", "Reformulez la question ; vérifiez votre mission."],
   [503, "unavailable", "Tamilya est momentanément arrêtée ou en maintenance.", "Réessayez plus tard."],
 ];
@@ -302,9 +301,9 @@ export default async function DocumentationPage() {
                 rows={[
                   ["Pour qui", "Tout site web : HTML, WordPress, Wix, Shopify…", "Applications avec un serveur, robots, applis mobiles"],
                   ["Ce qu'il faut faire", "Coller une ligne dans votre page", "Écrire l'appel dans votre code serveur"],
-                  ["Qui paie", "BTM (rien à fournir)", "Votre clé Gemini (quota gratuit chez Google)"],
+                  ["Qui paie", "BTM (rien à fournir)", "BTM sans clé, ou votre clé Gemini si vous en envoyez une"],
                   ["Apparence", "Bulle de discussion prête à l'emploi", "Vous faites votre propre affichage"],
-                  ["Limites", "Basses (voir « Limites »)", "Plus larges"],
+                  ["Limites", "Basses (voir « Limites »)", "Basses sans clé, plus larges avec votre clé Gemini"],
                 ]}
               />
               <p>
@@ -442,15 +441,16 @@ export default async function DocumentationPage() {
             <Section id="demarrage" title="API : démarrage rapide">
               <p>
                 L&apos;API s&apos;appelle <strong>depuis votre serveur</strong> : vous envoyez une conversation en JSON, Tamilya
-                renvoie sa réponse en texte. Les réponses sont produites avec <strong>votre propre clé Gemini</strong> (gratuite
-                chez Google, avec son propre quota).
+                renvoie sa réponse en texte. <strong>Aucune clé Gemini n&apos;est obligatoire</strong> : sans clé, Tamilya répond
+                avec les API de BTM AI (limites basses). Avec <strong>votre propre clé Gemini</strong> (gratuite chez Google), les
+                limites sont plus larges et c&apos;est votre quota Google qui est utilisé.
               </p>
               <Table
                 head={["", ""]}
                 rows={[
                   ["Adresse", <C key="e">POST {endpoint}</C>],
                   ["Format", "JSON en entrée et en sortie (UTF-8)"],
-                  ["Authentification", "Code d'accès Tamilya + clé Gemini, dans les en-têtes"],
+                  ["Authentification", "Code d'accès Tamilya (+ clé Gemini facultative), dans les en-têtes"],
                   ["Mémoire", "Aucune : vous renvoyez l'historique à chaque question"],
                 ]}
               />
@@ -464,7 +464,7 @@ export default async function DocumentationPage() {
                   . Copiez-le : il n&apos;est montré qu&apos;une fois.
                 </li>
                 <li>
-                  Créez une <strong>clé Gemini</strong> sur{" "}
+                  Facultatif, pour des limites plus larges : créez une <strong>clé Gemini</strong> sur{" "}
                   <a href="https://aistudio.google.com/apikey" target="_blank" rel="noreferrer" className="text-fg underline underline-offset-4">
                     Google AI Studio
                   </a>
@@ -480,7 +480,7 @@ export default async function DocumentationPage() {
             </Section>
 
             <Section id="authentification" title="Authentification">
-              <p>Chaque requête porte deux secrets, dans deux en-têtes différents.</p>
+              <p>Chaque requête porte votre code d&apos;accès ; la clé Gemini, dans un second en-tête, est facultative.</p>
               <H3>Le code d&apos;accès Tamilya</H3>
               <p>
                 Il dit à Tamilya que c&apos;est vous. Format : <C>tml_</C> suivi de 32 caractères. Envoyez-le dans l&apos;en-tête{" "}
@@ -492,9 +492,11 @@ export default async function DocumentationPage() {
                 <li>Perdu ou divulgué ? Supprimez-le sur l&apos;espace développeurs et créez-en un autre : l&apos;ancien cesse aussitôt de marcher.</li>
                 <li>L&apos;espace développeurs affiche la date de dernière utilisation de chaque code.</li>
               </ul>
-              <H3>La clé Gemini</H3>
+              <H3>La clé Gemini (facultative)</H3>
               <p>
-                Elle paie les réponses. Envoyez-la dans l&apos;en-tête <C>X-Gemini-Key</C>. Elle sert à la seule réponse en cours :
+                Sans elle, ce sont les API de BTM AI qui répondent, avec des limites plus basses (voir « Limites »). Avec elle,
+                elle paie les réponses et les limites sont plus larges. Envoyez-la dans l&apos;en-tête <C>X-Gemini-Key</C>. Elle
+                sert à la seule réponse en cours :
                 elle n&apos;est <strong>ni enregistrée ni journalisée</strong>. Tamilya utilise le même modèle Gemini que sur BTM AI
                 (par défaut <C>gemini-2.5-flash</C>) ; la consommation apparaît dans votre projet Google.
               </p>
@@ -507,7 +509,7 @@ export default async function DocumentationPage() {
                 head={["En-tête", "Obligatoire", "Valeur"]}
                 rows={[
                   [<C key="a">Authorization</C>, "Oui", <>Bearer suivi de votre code d&apos;accès</>],
-                  [<C key="g">X-Gemini-Key</C>, "Oui", "Votre clé Gemini"],
+                  [<C key="g">X-Gemini-Key</C>, "Non", "Votre clé Gemini (sans elle : API de BTM AI, limites basses)"],
                   [<C key="c">Content-Type</C>, "Conseillé", <C key="j">application/json</C>],
                 ]}
               />
@@ -624,7 +626,16 @@ export default async function DocumentationPage() {
                   ["Message du visiteur", "1 000 caractères ; les 20 derniers messages sont envoyés"],
                 ]}
               />
-              <H3>API (avec votre clé Gemini)</H3>
+              <H3>API sans clé Gemini (API de BTM AI)</H3>
+              <p>Ces limites s&apos;ajoutent à celles du tableau suivant.</p>
+              <Table
+                head={["Limite", "Valeur"]}
+                rows={[
+                  ["Questions par code", `${rule(RATE_LIMIT_POLICIES.developerBtmKey, 60)} par minute, ${rule(RATE_LIMIT_POLICIES.developerBtmKey, 86_400)} par jour`],
+                  ["Questions par compte (tous codes confondus)", `${rule(RATE_LIMIT_POLICIES.developerBtmAccount, 86_400)} par jour`],
+                ]}
+              />
+              <H3>API (toutes les requêtes)</H3>
               <Table
                 head={["Limite", "Valeur"]}
                 rows={[
@@ -641,8 +652,8 @@ export default async function DocumentationPage() {
                 ]}
               />
               <p>
-                Une limite atteinte renvoie <C>429 rate_limited</C> avec l&apos;en-tête <C>Retry-After</C> (en secondes). Votre clé
-                Gemini a aussi ses propres limites chez Google (<C>429 gemini_quota</C>). Besoin de plus ?{" "}
+                Une limite atteinte renvoie <C>429 rate_limited</C> avec l&apos;en-tête <C>Retry-After</C> (en secondes). Avec votre clé
+                Gemini, celle-ci a aussi ses propres limites chez Google (<C>429 gemini_quota</C>). Besoin de plus ?{" "}
                 <a href="mailto:contact@btm.yt?subject=API%20de%20Tamilya" className="text-fg underline underline-offset-4">
                   Écrivez-nous
                 </a>
