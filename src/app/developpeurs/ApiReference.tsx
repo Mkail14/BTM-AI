@@ -8,7 +8,6 @@ type Tab = (typeof TABS)[number];
 
 const FIELDS: [string, string][] = [
   ["Authorization", "Bearer suivi de votre code d'accès (tml_…)."],
-  ["X-Gemini-Key", "Facultatif : votre clé Gemini. Sans elle, les API de BTM AI répondent (limites plus basses)."],
   ["messages", "La conversation : jusqu'à 40 messages, rôle « user » ou « assistant »."],
   ["mission", "Facultatif. Le rôle confié à Tamilya. Jamais un autre nom : la requête serait bloquée et l'accès suspendu."],
   ["context", "Facultatif. Ce que fait votre application, pour situer Tamilya."],
@@ -19,8 +18,6 @@ const ERRORS: [string, string][] = [
   ["403 terms_not_accepted", "Engagement pas encore pris sur l'espace développeurs."],
   ["403 identity_violation", "Tentative de renommer Tamilya : bloqué, accès suspendu."],
   ["403 account_suspended", "Accès suspendu : contactez BTM."],
-  ["401 invalid_gemini_key", "Google refuse votre clé."],
-  ["429 gemini_quota", "Votre clé Gemini n'a plus de quota."],
   ["429 rate_limited", "Trop de questions : attendez (Retry-After)."],
   ["400 invalid_request", "La requête n'a pas le bon format."],
   ["413 invalid_request", "Requête trop lourde : 64 Ko au maximum."],

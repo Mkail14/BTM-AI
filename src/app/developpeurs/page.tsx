@@ -81,7 +81,7 @@ const WIDGET_STEPS = [
 
 const STEPS = [
   { title: "Créez votre code", text: "Une fois votre fiche remplie. Le code dit à Tamilya que c'est vous." },
-  { title: "Clé Gemini : facultative", text: "Sans clé, les API de BTM AI répondent (limites basses). Avec la vôtre, gratuite sur Google AI Studio, les limites sont plus larges ; nous ne la gardons jamais." },
+  { title: "Aucune clé à fournir", text: "Pas de clé Gemini : ce sont les API de BTM AI qui répondent, dans la limite des quotas." },
   { title: "Posez vos questions", text: "Depuis votre serveur. Tamilya répond avec tout ce qu'elle sait." },
 ] as const;
 
@@ -237,8 +237,8 @@ export default async function DeveloppeursPage() {
         <div className="grid gap-12 md:grid-cols-2 md:items-start">
           <div>
             <SectionTitle index="05" title="Pour vos applications : l'API">
-              Vous avez un serveur (application, robot, appli mobile) ? Appelez Tamilya avec votre seul code d&apos;accès, ou
-              ajoutez votre propre clé Gemini pour des limites plus larges.
+              Vous avez un serveur (application, robot, appli mobile) ? Appelez Tamilya avec votre seul code d&apos;accès,
+              sans clé Gemini.
             </SectionTitle>
             <ol className="mt-8 flex flex-col gap-5">
               {STEPS.map((step, i) => (

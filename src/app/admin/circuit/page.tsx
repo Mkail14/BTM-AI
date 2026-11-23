@@ -4,7 +4,7 @@ import { AdminHeader } from "@/components/admin/AdminHeader";
 import { slotHealthId } from "@/server/services/ai";
 import { loadAIChain, loadRemovedApis } from "@/server/services/ai/registry";
 import { readAIChain } from "@/lib/ai/config";
-import { AI_ERROR_LABELS, DEVELOPER_MODEL_NODE, ORIGIN_NODES, VOICE_NODE } from "@/lib/ai/flow-events";
+import { AI_ERROR_LABELS, ORIGIN_NODES, VOICE_NODE } from "@/lib/ai/flow-events";
 import { flowCutStop, loadFlowCuts } from "@/server/services/ai/flow-cuts";
 import { canEncrypt } from "@/lib/ai/secret-box";
 import { averageLatency, deriveModelStatus, freeDailyQuota, getHealth, requestsToday, type NodeStatus } from "@/lib/ai/health";
@@ -308,16 +308,6 @@ export default async function AdminCircuitPage() {
       href: "/admin/voix",
     },
     {
-      // API publique /v1/tamilya avec la clé Gemini du développeur (sans clé, elle passe par l'aiguillage).
-      id: DEVELOPER_MODEL_NODE,
-      column: 6,
-      icon: "chip",
-      title: "Clé du développeur",
-      subtitle: "API développeurs (Gemini)",
-      status: "ok",
-      statusLabel: "Fournie à chaque appel",
-    },
-    {
       id: "output",
       column: 7,
       icon: "reply",
@@ -361,9 +351,6 @@ export default async function AdminCircuitPage() {
     // Fil de la voix coupé : le micro disparaît partout (site, PWA, app Android).
     { from: "prompt", to: VOICE_NODE, muted: !voiceReady || cuts.has(VOICE_NODE), cutId: VOICE_NODE, cut: cuts.has(VOICE_NODE) },
     { from: VOICE_NODE, to: "output", muted: !voiceReady || cuts.has(VOICE_NODE), cutId: VOICE_NODE, cut: cuts.has(VOICE_NODE) },
-    // Clé du développeur : pas d'aiguillage, l'API publique appelle directement Gemini avec sa clé.
-    { from: "prompt", to: DEVELOPER_MODEL_NODE, muted: true },
-    { from: DEVELOPER_MODEL_NODE, to: "output", muted: true },
   ];
 
   return (

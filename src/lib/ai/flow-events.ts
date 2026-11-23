@@ -32,9 +32,6 @@ export type FlowStep = {
 export type FlowOrigin = "platform" | "api";
 export const ORIGIN_NODES: Record<FlowOrigin, string> = { platform: "origin-platform", api: "origin-api" };
 
-/** Bloc de la clé Gemini fournie par le développeur (API publique /v1/tamilya). */
-export const DEVELOPER_MODEL_NODE = "model-developer";
-
 export const AI_ERROR_LABELS: Record<string, string> = {
   quota: "crédit ou quota épuisé",
   rate_limited: "trop de requêtes",
