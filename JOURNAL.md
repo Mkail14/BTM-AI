@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `fefdece` (2026-11-23, develop)**
+**Dernier commit noté : `a46c742` (2026-11-23, develop ; `1c2ba5d` sur main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -127,6 +127,20 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Copie de l'ordinateur remise à jour** (2026-11-23). Elle était restée sur la branche feat/bienvenue-story, qui avait les mêmes travaux que develop sous d'autres numéros de commit, avec 4 conflits si on les mélangeait. La copie suit maintenant develop. L'ancienne branche est gardée sous `sauvegarde-bienvenue-2026-11-23`, et les fichiers en cours (aiguillage des API, déjà sur develop) dans le stash « sauvegarde travail en cours 2026-11-23 ». Les essais `essai-cerveau-local.ts` et `essai-cerveau-gemma3-4b.json` sont gardés, non suivis. Rattrapé ci-dessous : 6 commits faits par une autre session.
+
+- **Développeurs : ApiReference.tsx et CodeExamples.tsx remis en place** (`a46c742`, 2026-11-23, develop ; `1c2ba5d` sur main). Ils avaient été supprimés par erreur dans le commit des dépendances, alors que la page Développeurs les importe encore.
+
+- **Dépendances : Next 16.4.5, typescript-eslint 8.73.0, @napi-rs/canvas 1.2.0** (`2393102`, 2026-11-23, develop ; `0dc3d1c` sur main). Le verrou était resté à Next 16.4.3, une version touchée par une faille connue. typescript-eslint corrige la faille de minimatch (GHSA-g3hv-75wg-m249, qui ne touche que l'outil de vérification). @napi-rs/canvas est demandé par pdfjs-dist. Attention : c'est `package-lock.json` qui a été mis à jour, pas `pnpm-lock.yaml`.
+
+- **Circuit : plein écran et ordre des API au glisser** (`15b35e0`, 2026-11-23, develop ; `43846aa` sur main). Le circuit s'affiche sans la barre de l'admin. On déplace le schéma à la souris, au doigt ou à la molette, avec les boutons « ← Admin » et « Recentrer ». On choisit l'ordre de passage des API en glissant un bloc vers le haut ou vers le bas : celle du haut est la principale. L'ordre est enregistré dans `awa_settings.api_order` (migration 20261225).
+
+- **API des développeurs : toujours les API de BTM AI** (`1e9604b`, 2026-11-23, develop ; `f7521f3` sur main). La clé Gemini envoyée par les anciennes intégrations (X-Gemini-Key) est ignorée et n'est jamais lue. Il reste un seul jeu de quotas : 10 par minute et 200 par jour par code, 300 par jour par compte, 3 000 par jour pour tous. Le bloc « Clé du développeur » est retiré du circuit. La documentation, la référence, les exemples, l'accueil et la charte ne parlent plus de clé Gemini.
+
+- **API des développeurs : clé Gemini facultative** (`f39927d`, 2026-11-23, develop ; `024c411` sur main). Sans clé, Tamilya répond avec les API de BTM AI (même aiguillage que le chat) et des quotas plus bas. C'était une étape vers le commit suivant, qui retire complètement la clé.
+
+- **Circuit : deux blocs de départ** (`9d6a3d8`, 2026-11-23, develop ; `ec2f6cd` sur main). Le schéma part de deux blocs, « Plateforme Tamilya » et « API des entreprises », et le point en direct part du bon bloc. La fiche des développeurs a été rattrapée (migration 20261224), et le suivi affiche le nom du code ou du widget.
 
 - **Aiguillage des API, avec course entre deux API** (`fefdece`, 2026-11-23, develop). Demandé : un bloc entre « Message système » et les API qui envoie chaque message direct à une API qui marche, pour que personne n'attende qu'on teste les API une à une. Avant : les API en panne passaient en dernier, mais chaque serveur Vercel l'oubliait à son redémarrage, et une API qui ne répondait pas faisait attendre jusqu'au délai maximum. Maintenant (`src/lib/ai/switch.ts`) : les API sont rangées en prêtes, à retester ou en pause, d'après ce que tous les serveurs ont vu (stockage « circuit » de Supabase, relu toutes les 15 s ; le premier message d'un serveur attend au plus 300 ms). La plus rapide au premier mot passe devant, si elle gagne au moins 1 s. Quand une pause est finie, un petit essai de fond (quelques jetons, au plus toutes les 20 s par serveur) reteste l'API une fois la réponse partie. Course : si l'API choisie n'a pas écrit son premier mot après 2 s (1,2 s à l'oral, 4 s avec recherche ou lecture attentive), une seconde API prête est lancée et la première qui écrit gagne ; l'autre est coupée. Jamais en réflexion approfondie. Coût : la question est payée deux fois seulement pour les messages lents. Une API qui ne répond pas est aussi mise en pause 30 s. Bloc « Aiguillage » ajouté au circuit admin. Envoyés en même temps, 8 commits restés sur l'ordinateur (branche feat/bienvenue-story) : AnyRouter reconnu à sa clé, changer le modèle d'une API, clé Gemini sans crédit pour la voix, relais vocal sur la clé du circuit, recherche Google refusée (chat et relais), fil de la voix coupé, tableau de bord de l'état réel des API. Vérifié : 947 tests, types. Pas encore vu en ligne.
 
