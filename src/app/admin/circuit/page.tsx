@@ -308,7 +308,7 @@ export default async function AdminCircuitPage() {
       href: "/admin/voix",
     },
     {
-      // API publique /v1/tamilya : le développeur paie avec sa propre clé Gemini.
+      // API publique /v1/tamilya avec la clé Gemini du développeur (sans clé, elle passe par l'aiguillage).
       id: DEVELOPER_MODEL_NODE,
       column: 6,
       icon: "chip",

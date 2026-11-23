@@ -99,7 +99,7 @@ export default function ChartePage() {
               <Link href="/developpeurs/documentation#limites" className="text-fg underline underline-offset-4">
                 documentation
               </Link>
-              . L&apos;API fonctionne avec votre propre clé Gemini. BTM peut faire évoluer ces limites, ou interrompre le
+              . L&apos;API fonctionne sans clé, avec les API de BTM AI et des limites basses, ou avec votre propre clé Gemini. BTM peut faire évoluer ces limites, ou interrompre le
               service, à tout moment.
             </p>
           </Article>
