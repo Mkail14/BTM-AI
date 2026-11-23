@@ -17,4 +17,14 @@ describe("harmonisation des modèles", () => {
     assert.match(harmony.reminder, /PERSONNALITÉ/);
     assert.ok(harmony.temperature < 1);
   });
+
+  it("donne à Nemotron, et à lui seul, ses réglages de style en plus", () => {
+    const nemotron = harmonyFor("nvidia/nemotron-3.5-lightning:free");
+    const llama = harmonyFor("meta-llama/llama-4-scout");
+    assert.ok(nemotron && llama);
+    assert.match(nemotron.reminder, /RÉGLAGES DE STYLE/);
+    assert.doesNotMatch(llama.reminder, /RÉGLAGES DE STYLE/);
+    assert.ok(nemotron.reminder.endsWith(nemotron.reminder.split("\n\n").at(-1)!));
+    assert.ok(nemotron.temperature < llama.temperature);
+  });
 });
