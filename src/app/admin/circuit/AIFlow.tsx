@@ -28,10 +28,12 @@ import {
   IconTrash,
   IconUsers,
   IconExternal,
+  IconArrowLeft,
 } from "@/components/ui/icons";
+import Link from "next/link";
 import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { lostOk } from "@/lib/safe-action";
-import { deleteApiAction, restoreApisAction, setFlowCutAction, testSlotAction } from "./actions";
+import { deleteApiAction, reorderApisAction, restoreApisAction, setFlowCutAction, testSlotAction } from "./actions";
 import type { RateLimitSettings } from "@/server/middlewares/rate-limit/settings";
 import { AddApiDialog } from "./AddApiDialog";
 import { CharacterDialog } from "./CharacterDialog";
@@ -59,6 +61,9 @@ const ICONS: Record<FlowIcon, ComponentType<SVGProps<SVGSVGElement>>> = {
 
 const COLUMNS = 8;
 const CLICK_TOLERANCE_PX = 4;
+
+/** Marge de déplacement du schéma au-delà de ses bords. */
+const PAN_MARGIN_PX = 160;
 
 /** Distance autour d'un bloc où lâcher un fil le branche quand même. */
 const DROP_MARGIN_PX = 24;
@@ -141,6 +146,7 @@ function NodeCard({
   return (
     <div
       ref={register}
+      data-flow-node=""
       title={node.reason ?? (node.href || node.limits || node.character ? "Cliquer pour régler" : undefined)}
       onPointerDown={(event) => {
         touched.current = event.pointerType === "touch";
@@ -220,6 +226,12 @@ export function AIFlow({
 }) {
   const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  // Déplacement du schéma entier (oublié au rechargement, comme celui des blocs).
+  const [pan, setPan] = useState<Offset>({ x: 0, y: 0 });
+  const [panning, setPanning] = useState(false);
+  // Vrai si le dernier appui a déplacé le schéma : le bloc touché ne s'ouvre alors pas.
+  const pannedRef = useRef(false);
   const nodeRefs = useRef(new Map<string, HTMLElement>());
   const [{ paths, ports }, setLayout] = useState<Layout>({ paths: [], ports: [] });
   // Déplacements des blocs : gardés en mémoire seulement, la page rechargée
@@ -250,6 +262,7 @@ export function AIFlow({
   const pendingCuts = pending.edges === edges ? pending.cuts : {};
   const isCut = (edge: FlowEdge) => (edge.cutId && edge.cutId in pendingCuts ? pendingCuts[edge.cutId] : Boolean(edge.cut));
   const [, startCut] = useTransition();
+  const [, startReorder] = useTransition();
   const live = useLiveTrace(edges, paths);
   const blockedNodes = new Set(live.dots.filter((d) => d.blocked !== undefined).map((d) => d.node));
   const titleOf = (id: string) => nodes.find((n) => n.id === id)?.title ?? id;
@@ -266,6 +279,7 @@ export function AIFlow({
 
   /** Clic sur un bloc : page de réglage, ou sélection et fiche de l'API. */
   function open(node: FlowNode) {
+    if (pannedRef.current) return;
     if (node.href) {
       router.push(node.href);
     } else if (node.api) {
@@ -438,6 +452,29 @@ export function AIFlow({
     );
   }
 
+  /**
+   * Ordre de passage des API d'après la hauteur de leurs blocs : celle du haut
+   * est la principale, les suivantes ses secours. Un bloc d'API lâché plus haut
+   * ou plus bas prend donc sa nouvelle place, enregistrée aussitôt.
+   */
+  function reorderFromPositions() {
+    const apis = nodes.filter((n) => n.apiId);
+    const current = apis.map((n) => n.apiId!);
+    const centerY = (n: FlowNode) => {
+      const r = nodeRefs.current.get(n.id)?.getBoundingClientRect();
+      return r ? r.top + r.height / 2 : 0;
+    };
+    const next = [...apis].sort((a, b) => centerY(a) - centerY(b)).map((n) => n.apiId!);
+    // Les blocs d'API reprennent leur place dans la colonne, rangés dans le nouvel ordre.
+    setOffsets((o) => Object.fromEntries(Object.entries(o).filter(([id]) => !apis.some((n) => n.id === id))));
+    if (next.every((id, i) => id === current[i])) return;
+    startReorder(async () => {
+      const result = await reorderApisAction(next).catch(lostOk);
+      setToolbarStatus(result);
+      router.refresh();
+    });
+  }
+
   function startDrag(node: FlowNode, event: ReactPointerEvent<HTMLDivElement>) {
     const id = node.id;
     if (event.button !== 0) return;
@@ -457,6 +494,7 @@ export function AIFlow({
     const end = (e: PointerEvent) => {
       setDraggingId(null);
       if (!moved && e.type === "pointerup") open(node);
+      if (moved && e.type === "pointerup" && node.apiId) reorderFromPositions();
       target.removeEventListener("pointermove", move);
       target.removeEventListener("pointerup", end);
       target.removeEventListener("pointercancel", end);
@@ -466,12 +504,60 @@ export function AIFlow({
     target.addEventListener("pointercancel", end);
   }
 
+  /** Limite le déplacement : le schéma ne peut pas sortir entièrement de l'écran. */
+  function clampPan(x: number, y: number): Offset {
+    const view = viewportRef.current?.getBoundingClientRect();
+    const content = containerRef.current;
+    if (!view || !content) return { x, y };
+    const minX = Math.min(0, view.width - content.offsetWidth) - PAN_MARGIN_PX;
+    const minY = Math.min(0, view.height - content.offsetHeight) - PAN_MARGIN_PX;
+    return { x: Math.min(PAN_MARGIN_PX, Math.max(minX, x)), y: Math.min(PAN_MARGIN_PX, Math.max(minY, y)) };
+  }
+
+  /**
+   * Déplacement du schéma entier, sans barres de défilement : on tire le fond (souris ou doigt).
+   * Au doigt, on peut aussi le tirer par un bloc ; à la souris, tirer un bloc le déplace lui seul.
+   */
+  function startPan(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.button !== 0) return;
+    const target = event.target as Element;
+    if (event.pointerType !== "touch" && target.closest("[data-flow-node]")) return;
+    if (target.closest("button, a, input, textarea, select, [role=dialog]")) return;
+    const origin = { x: event.clientX, y: event.clientY };
+    const base = pan;
+    pannedRef.current = false;
+
+    const move = (e: PointerEvent) => {
+      if (!pannedRef.current && Math.hypot(e.clientX - origin.x, e.clientY - origin.y) < CLICK_TOLERANCE_PX) return;
+      if (!pannedRef.current) setPanning(true);
+      pannedRef.current = true;
+      setPan(clampPan(base.x + e.clientX - origin.x, base.y + e.clientY - origin.y));
+    };
+    const end = () => {
+      setPanning(false);
+      window.removeEventListener("pointermove", move);
+      window.removeEventListener("pointerup", end);
+      window.removeEventListener("pointercancel", end);
+    };
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end);
+    window.addEventListener("pointercancel", end);
+  }
+
   return (
-    <section aria-label="Circuit de Tamilya" className="relative min-h-0 flex-1 overflow-hidden rounded-2xl border border-border">
-      {/* Suivi en direct, en haut à gauche du canevas */}
+    <section aria-label="Circuit de Tamilya" className="relative min-h-0 flex-1 overflow-hidden">
+      {/* Retour à l'admin et suivi en direct, en haut à gauche */}
+      <div className="absolute top-[max(0.75rem,env(safe-area-inset-top))] left-3 z-10 flex max-w-[calc(100%-1.5rem)] items-center gap-2">
+        <Link
+          href="/admin"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-border bg-bg/95 px-3 py-1.5 text-xs font-medium shadow-lg backdrop-blur pointer-coarse:py-2.5 hover:bg-bg-muted"
+        >
+          <IconArrowLeft width={14} height={14} />
+          Admin
+        </Link>
       <div
         role="status"
-        className="absolute top-3 left-3 z-10 flex max-w-[calc(100%-1.5rem)] items-center gap-2 rounded-xl border border-border bg-bg/95 px-3 py-1.5 text-xs shadow-lg backdrop-blur"
+        className="flex min-w-0 items-center gap-2 rounded-xl border border-border bg-bg/95 px-3 py-1.5 text-xs shadow-lg backdrop-blur"
       >
         <span aria-hidden="true" className={`size-2 shrink-0 rounded-full ${LIVE_STATUS[live.status].dot}`} />
         <span className="font-medium">{LIVE_STATUS[live.status].label}</span>
@@ -484,11 +570,12 @@ export function AIFlow({
           </span>
         ) : null}
       </div>
+      </div>
       {/* Barre d'outils, en bas à droite du canevas */}
       <div
         role="toolbar"
         aria-label="Outils du schéma"
-        className="absolute right-3 bottom-3 z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-1 rounded-xl border border-border bg-bg/95 p-1 shadow-lg backdrop-blur"
+        className="absolute right-3 bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-10 flex max-w-[calc(100%-1.5rem)] flex-wrap items-center gap-1 rounded-xl border border-border bg-bg/95 p-1 shadow-lg backdrop-blur"
       >
         {toolbarStatus ? (
           <span
@@ -527,6 +614,15 @@ export function AIFlow({
             Remettre les API du serveur ({removedApis.length})
           </button>
         ) : null}
+        {pan.x !== 0 || pan.y !== 0 ? (
+          <button
+            type="button"
+            onClick={() => setPan({ x: 0, y: 0 })}
+            className="rounded-lg px-2.5 py-1.5 text-xs font-medium pointer-coarse:py-2.5 hover:bg-bg-muted"
+          >
+            Recentrer
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={testAll}
@@ -551,9 +647,19 @@ export function AIFlow({
         </button>
       </div>
 
-      <div className="flow-canvas size-full overflow-auto">
-        {/* Largeur mini : 8 colonnes d’environ 170 px, titres lisibles ; plus étroit (téléphone, tablette), le canevas défile au doigt. */}
-        <div ref={containerRef} className="relative flex min-h-full min-w-[1700px] items-center p-10">
+      {/* Pas de barres de défilement : le schéma se tire à la main (souris, doigt) ou à la molette. */}
+      <div
+        ref={viewportRef}
+        onPointerDown={startPan}
+        onWheel={(e) => setPan((p) => clampPan(p.x - (e.shiftKey ? e.deltaY : e.deltaX), p.y - (e.shiftKey ? 0 : e.deltaY)))}
+        className={`flow-canvas size-full touch-none overflow-hidden ${panning ? "cursor-grabbing" : "cursor-grab"}`}
+      >
+        {/* Largeur mini : 8 colonnes d’environ 170 px, titres lisibles. */}
+        <div
+          ref={containerRef}
+          style={{ transform: `translate(${pan.x}px, ${pan.y}px)` }}
+          className="relative flex min-h-full min-w-[1700px] items-center p-10 pt-20 pb-24"
+        >
           <svg className="pointer-events-none absolute inset-0 size-full overflow-visible" aria-hidden="true">
             {paths.map((path) => {
               const { key, d, edge } = path;
