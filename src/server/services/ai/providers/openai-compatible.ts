@@ -1,7 +1,7 @@
 import "server-only";
 import type { ChatTurn, FinishReason } from "@/lib/chat/types";
 import type { AIConfig } from "@/lib/ai/config";
-import { harmonyFor } from "@/lib/ai/harmonize";
+import { harmonyFor, withoutEmoji } from "@/lib/ai/harmonize";
 import { createSseDataParser } from "@/lib/ai/sse";
 import { AIProviderError, type AIProvider, type AIStreamChunk, type AIStreamInput } from "@/lib/ai/types";
 
@@ -93,7 +93,16 @@ export function createOpenAICompatibleProvider(config: AIConfig): AIProvider {
             [maxTokensField]: maxOutputTokens,
             ...(reasoning && { reasoning }),
             ...(tuned && { temperature: tuned.temperature }),
-            messages: [{ role: "system", content: tuned ? `${system}\n\n${tuned.reminder}` : system }, ...messages.map(toOpenAIMessage)],
+            messages: !tuned
+              ? [{ role: "system", content: system }, ...messages.map(toOpenAIMessage)]
+              : tuned.nearLastMessage
+                ? [
+                    { role: "system", content: system },
+                    ...messages.slice(0, -1).map(toOpenAIMessage),
+                    { role: "system", content: tuned.reminder },
+                    ...messages.slice(-1).map(toOpenAIMessage),
+                  ]
+                : [{ role: "system", content: `${system}\n\n${tuned.reminder}` }, ...messages.map(toOpenAIMessage)],
           }),
           signal: combined,
         });
@@ -135,7 +144,8 @@ export function createOpenAICompatibleProvider(config: AIConfig): AIProvider {
               continue;
             }
             const choice = chunk.choices?.[0];
-            const text = choice?.delta?.content;
+            const raw = choice?.delta?.content;
+            const text = raw && tuned?.stripEmoji ? withoutEmoji(raw) : raw;
             if (text) yield { type: "text", text };
             if (choice?.finish_reason) finish = mapFinishReason(choice.finish_reason);
           }

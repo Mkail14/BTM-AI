@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { harmonyFor } from "../src/lib/ai/harmonize";
+import { harmonyFor, withoutEmoji } from "../src/lib/ai/harmonize";
 
 describe("harmonisation des modèles", () => {
   it("laisse la référence (Gemini) et les grands modèles tels quels", () => {
@@ -26,5 +26,13 @@ describe("harmonisation des modèles", () => {
     assert.doesNotMatch(llama.reminder, /RÉGLAGES DE STYLE/);
     assert.ok(nemotron.reminder.endsWith(nemotron.reminder.split("\n\n").at(-1)!));
     assert.ok(nemotron.temperature < llama.temperature);
+    assert.ok(nemotron.nearLastMessage && nemotron.stripEmoji);
+    assert.ok(!llama.nearLastMessage && !llama.stripEmoji);
+  });
+
+  it("retire les émojis sans toucher au texte", () => {
+    assert.equal(withoutEmoji("Promis ! 😄"), "Promis !");
+    assert.equal(withoutEmoji("Bravo 👍🏽 à toi ❤️"), "Bravo à toi");
+    assert.equal(withoutEmoji("Rendez-vous à 9 h, 30 € : c'est noté."), "Rendez-vous à 9 h, 30 € : c'est noté.");
   });
 });
