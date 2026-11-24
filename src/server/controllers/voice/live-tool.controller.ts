@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { mayotteClock } from "@/lib/ai/clock";
 import { getAuthContext } from "@/server/middlewares/session";
@@ -12,6 +12,7 @@ import { readingSpec, readingText, READING_BLOCK, type ReadingMode } from "@/lib
 import { liveContextFor } from "@/server/services/live";
 import { communePopulation } from "@/server/services/live/communes";
 import { companiesBlockFor, companyAskFromVoice } from "@/server/services/live/companies";
+import { directoryFor } from "@/server/services/entreprises/listings";
 import { getProfileContact } from "@/server/services/profile-contact";
 import { tripBlock } from "@/lib/trip/intent";
 import { findTown } from "@/lib/mayotte/towns";
@@ -92,10 +93,17 @@ export async function POST(request: NextRequest) {
     const said = (key: string) => String(parsed.data.args[key] ?? "").trim().slice(0, 120);
     const ask = companyAskFromVoice({ name: said("nom"), trade: said("metier"), commune: said("commune"), closed: parsed.data.args.fermees === true });
     const wait = new Promise<null>((resolve) => setTimeout(() => resolve(null), VOICE_INFO_WAIT_MS + 1_500));
-    const info = await Promise.race([companiesBlockFor(ask), wait]).catch(() => null);
+    // D'abord l'annuaire Tamilya (fiches vérifiées, avec téléphone et horaires), puis l'annuaire officiel.
+    const asked = [said("nom"), said("metier"), said("commune")].filter(Boolean).join(" ");
+    const verified = (await canUse(user, "entreprises"))
+      ? await directoryFor(asked, ask, { channel: "vocal", count: !user.isAdmin }).catch(() => null)
+      : null;
+    if (verified) after(() => verified.counted);
+    const official = await Promise.race([companiesBlockFor(ask), wait]).catch(() => null);
+    const info = [verified?.block, official].filter(Boolean).join("\n\n") || null;
     return NextResponse.json({
       info: info
-        ? `${info}\n\nRéponds en une ou deux phrases, avec seulement ce qui répond à la question ; ne lis ni les liens ni les numéros SIREN, sauf si on te les demande.`
+        ? `${info}\n\nRéponds en une ou deux phrases, avec seulement ce qui répond à la question ; ne lis ni les liens ni les numéros SIREN ou SIRET, sauf si on te les demande. Un numéro de téléphone : dis-le chiffre par chiffre, lentement.`
         : "L'annuaire des entreprises ne répond pas pour l'instant : dis-le simplement, sans inventer.",
     });
   }

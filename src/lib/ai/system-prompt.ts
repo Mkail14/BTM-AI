@@ -68,6 +68,8 @@ export type PromptContext = {
   knowledge?: readonly KnowledgeEntry[];
   /** Infos de Mayotte récupérées pour ce message : emploi, actualité, météo, services publics, communes (src/lib/live). */
   live?: string | null;
+  /** Fiches de l'annuaire Tamilya des entreprises (vérifiées par GROUPE BTM) dont parle le message. */
+  directory?: string | null;
   memories?: readonly MemoryFact[];
   /** Dernières conversations de la personne et derniers débuts de réponse de Tamilya (getPastTalks). */
   pastTalks?: PastTalks | null;
@@ -532,6 +534,8 @@ export function buildSystemPrompt(
       ].join("\n\n"),
     );
   }
+
+  if (context.directory?.trim()) sections.push(context.directory.trim());
 
   if (context.live?.trim()) {
     sections.push(

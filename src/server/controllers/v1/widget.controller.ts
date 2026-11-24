@@ -14,6 +14,11 @@ import { findIdentityViolation, IDENTITY_INSTRUCTIONS, replyBreaksIdentity } fro
 import { findDeveloperWidget, touchDeveloperWidget } from "@/server/services/developers/widgets";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/server/middlewares/rate-limit";
 import { getClientIp, hashIdentifier } from "@/server/middlewares/request";
+import { canUse } from "@/server/services/site/features";
+import { companyAsk } from "@/server/services/live/companies";
+import { directoryFor } from "@/server/services/entreprises/listings";
+import { widgetListing } from "@/server/services/entreprises/widgets";
+import { listingForTamilya } from "@/lib/entreprises/listing";
 
 /**
  * Widget de Tamilya, appelé depuis le navigateur des visiteurs d'un site
@@ -158,7 +163,17 @@ export async function POST(request: NextRequest) {
     return fail(503, "unavailable", origin);
   }
 
-  const [brain, personalityInstructions] = await Promise.all([loadTamilyaBrain(), loadPersonalityInstructions(DEFAULT_PERSONALITY)]);
+  // Widget relié à la fiche de l'entreprise : Tamilya répond avec ses vraies informations.
+  // Les autres entreprises citées par le visiteur : l'annuaire Tamilya, s'il est ouvert à tous.
+  const [brain, personalityInstructions, ownListing, directory] = await Promise.all([
+    loadTamilyaBrain(),
+    loadPersonalityInstructions(DEFAULT_PERSONALITY),
+    widgetListing(widget.id, widget.userId).catch(() => null),
+    canUse(null, "entreprises")
+      .then((open) => (open ? directoryFor(question.content, companyAsk(question.content), { channel: "widget", count: true }) : null))
+      .catch(() => null),
+  ]);
+  if (directory) after(() => directory.counted);
   const system = buildSystemPrompt(DEFAULT_PERSONALITY, {
     personalityInstructions,
     identity: brain.identity,
@@ -167,10 +182,18 @@ export async function POST(request: NextRequest) {
     grammar: brain.grammar,
     words: wordsFor(brain, question.content),
     knowledge: knowledgeFor(brain, question.content),
+    directory: directory?.block,
     site: {
       intro: INTRO,
       instructions: INSTRUCTIONS,
-      data: [`Adresse du site : ${origin}`, mission && `Mission confiée par le développeur :\n${mission}`].filter(Boolean).join("\n\n"),
+      data: [
+        `Adresse du site : ${origin}`,
+        ownListing &&
+          `Ce site est celui de l'entreprise ci-dessous, qui a relié sa fiche à ce widget. Réponds à ses visiteurs avec ces informations (horaires, services, numéro, adresse) ; ce qui n'y est pas, dis que tu ne l'as pas et propose de la contacter.\n${listingForTamilya(ownListing)}`,
+        mission && `Mission confiée par le développeur :\n${mission}`,
+      ]
+        .filter(Boolean)
+        .join("\n\n"),
     },
   });
   flow.step("prompt", true);

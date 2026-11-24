@@ -79,7 +79,7 @@ const COMPANY = /\b(entreprises?|societes?|siret|siren|sarl|sasu?|eurl|auto-?ent
 /** Mots de tous les jours (« je vais au magasin ») : on ne répond que si une entreprise porte vraiment ce nom. */
 const SHOP = /\b(commerces?|commercants?|magasins?|boutiques?|artisans?)\b/;
 /** Avec un métier seul (« un plombier à Sada »), il faut aussi une vraie recherche. */
-const SEARCHING = /\b(quels?|quelles?|combien|liste|cherche\w*|trouver?|connais\w*|y a-t-il|il y a|besoin d'une?|ou est|adresse)\b/;
+const SEARCHING = /\b(quels?|quelles?|combien|liste|cherche\w*|trouver?|connais\w*|y a-t-il|il y a|besoin d'une?|ou est|adresse|numeros?|telephones?|horaires?|joindre|contacter|appeler)\b/;
 const CLOSED = /\b(fermee?s?|ferme|disparue?s?|radiee?s?|liquide\w*|faillite|ancien(ne)?s?|n'existent? plus|ont existe|a existe|cesse\w*)\b/;
 const NUMBER = /\b(\d{14}|\d{9}|\d{3} ?\d{3} ?\d{3}(?: ?\d{5})?)\b/;
 
