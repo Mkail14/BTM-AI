@@ -13,7 +13,7 @@ function authorized(request: NextRequest): boolean {
 /**
  * Tours d'eau : appelée toutes les heures par GitHub (.github/workflows/tours-d-eau.yml) et chaque
  * jour vers 5 h à Mayotte par Vercel (vercel.json), au cas où GitHub ne passe pas. Regarde
- * l'accueil de la SMAE et, si un nouveau planning y est annoncé, le fait lire par Gemini et le met
+ * l'accueil de la SMAE et, si un nouveau planning y est annoncé, le lit (sans IA) et le met
  * en service sur la carte de l'eau. Protégée par CRON_SECRET.
  */
 export async function GET(request: NextRequest) {

@@ -51,6 +51,8 @@ const ROWS: [name: string, lat: number, lng: number, aliases?: string[]][] = [
   ["Kangani", -12.7306, 45.1869],
   ["Kani-Bé", -12.965, 45.1119],
   ["Kani-Kéli village", -12.9565, 45.1053, ["Kani-Kéli"]],
+  ["Kani-Kéli haut", -12.9548, 45.1078],
+  ["Kani-Kéli bas", -12.9578, 45.1031],
   ["Kawéni village", -12.7727, 45.2248, ["Kawéni"]],
   ["Koungou village", -12.7358, 45.2067, ["Koungou"]],
   ["Kwalé", -12.8, 45.199],

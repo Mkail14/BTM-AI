@@ -4,7 +4,7 @@ import { readPlanning, type WaterAlert, type WaterPlanning } from "@/lib/water/s
 
 /**
  * Tours d'eau gardés dans le stockage Supabase (dossier privé « eau ») : le dernier planning de
- * la SMAE lu par Gemini (utilisé tel quel par la carte), et les coupures annoncées. Pas de table
+ * la SMAE tel que lu sur son site (utilisé tel quel par la carte), et les coupures annoncées. Pas de table
  * ni de migration : le dossier se crée tout seul au premier enregistrement.
  */
 

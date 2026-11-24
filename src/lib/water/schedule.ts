@@ -1,6 +1,6 @@
 /**
  * Tours d'eau de la SMAE (Mahoraise des Eaux) : le planning officiel, publié en images sur
- * mahoraisedeseaux.com, lu automatiquement par Gemini dès qu'un nouveau planning est annoncé (/api/cron/eau).
+ * mahoraisedeseaux.com, lu automatiquement (sans IA) dès qu'un nouveau planning est annoncé (/api/cron/eau).
  * Ici : les types et le calcul de l'état de l'eau à une heure donnée. Code commun au serveur
  * et au navigateur, sans appel réseau.
  *
@@ -27,7 +27,7 @@ export type WaterPlanning = {
   source: string;
   title: string;
   images: string[];
-  /** Lu par Gemini le… (ISO). */
+  /** Lu le… (ISO). */
   readAt: string;
 };
 
@@ -100,7 +100,7 @@ export function sayWhen(at: number, now: number): string {
   return `${day} ${d.getUTCDate()} à ${hour}`;
 }
 
-/** Vérifie un planning (relu de Gemini ou du stockage) ; null s'il est inutilisable. */
+/** Vérifie un planning (tout juste lu ou relu du stockage) ; null s'il est inutilisable. */
 export function readPlanning(raw: unknown): WaterPlanning | null {
   if (!raw || typeof raw !== "object") return null;
   const p = raw as Partial<WaterPlanning>;
