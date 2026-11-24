@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `d82bcb4` (2026-11-25, develop)**
+**Dernier commit noté : `1e8926d` (2026-11-25, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -139,6 +139,7 @@ Comment le tenir :
 
 ## Journal (le plus récent en haut)
 
+- **Mon compte : les modifications s’ouvrent dans une fenêtre flottante au fond flouté** (`1e8926d`, 2026-11-25, develop). Demande de l’utilisateur : « Ajouter une adresse » (et tous les boutons de Mon compte) ouvrait un bloc dans la page qui poussait tout vers le bas, jugé moche. `RowEditor` ouvre maintenant une fenêtre par-dessus la page (feuille du bas sur téléphone, centrée sur ordinateur), fond assombri et flouté ; fermée par Annuler, Échap ou un clic à côté. Exception : la première adresse Maison d’un compte qui n’en a pas reste dans la page (rien à annuler). Vérifié : types, capture téléphone sur le site local.
 - **Mon compte : code d’accès admin déplacé dans Sécurité, rubrique Sécurité rangée** (`d82bcb4`, 2026-11-25, develop). Demande de l’utilisateur : le code de l’application d’authentification, c’est de la sécurité. L’onglet « Code » de l’Administration est retiré ; la ligne « Code d’accès admin » (admins seulement) est dans Sécurité. La rubrique est rangée en groupes titrés : Connexion (mot de passe, code admin, session), Paiement et voix (admins), Urgence (proches SOS), puis Supprimer le compte à part en bas. Le changement de code ne demande plus d’avoir ouvert l’admin avant : le code actuel juste l’ouvre (comme la page du verrou), sinon l’étape 2 aurait échoué. Vérifié : types, lint, 969 tests. Pas vu à l’écran.
 - **Mon compte, Administration : rangée en onglets** (`6179b8c`, 2026-11-25, develop ; `d61c9dd` sur main). Demande de l’utilisateur : la rubrique empilait trois gros blocs et défilait. Maintenant des onglets Site (état, message, mode démo, historique replié), Partenaires, Bandeau, Admins, Code ; un délégué ne voit que Admins et Code. Point orange sur Site si le site est fermé ou le mode démo allumé. Changer d’onglet ferme la modification, les 10 minutes déverrouillées restent. Vérifié : types, lint. Pas vu à l’écran (code à 6 chiffres demandé).
 - **Menu du compte admin : « Parler à Tamilya » retiré** (`25e5326`, 2026-11-25, develop ; `dc2ee26` sur main). Demande de l’utilisateur : restent « Mon compte » et « Se déconnecter ». Pas vu à l’écran.
