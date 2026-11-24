@@ -82,13 +82,14 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
 
 /** Réservé à l'administrateur principal. */
 const PRINCIPAL_SECTION: { title: string; items: MenuItem[] } = {
-  title: "Entreprise",
+  title: "Mon compte",
   items: [
     {
-      label: "Profil de l'entreprise",
-      tab: "Profil",
+      // État du site et administrateurs : rubrique Administration de Mon compte.
+      label: "Administration",
+      tab: "Administration",
       icon: IconShield,
-      href: "/admin/profil",
+      href: "/parametres?rubrique=administration",
     },
   ],
 };

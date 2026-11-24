@@ -2,13 +2,14 @@
 
 import { useSearchParams } from "next/navigation";
 import { useEffect, useRef, type ComponentType, type MouseEvent, type ReactNode, type SVGProps } from "react";
-import { IconFolder, IconLock, IconSparkle, IconStar, IconSun, IconUser, IconWallet } from "@/components/ui/icons";
+import { IconFolder, IconLock, IconShield, IconSparkle, IconStar, IconSun, IconUser, IconWallet } from "@/components/ui/icons";
 import { useAuth } from "@/components/auth/AuthProvider";
 import { SignOutButton } from "./SignOutButton";
 
-export type SettingsTab = "profil" | "securite" | "tamilya" | "apparence" | "avis";
+export type SettingsTab = "profil" | "securite" | "administration" | "tamilya" | "apparence" | "avis";
 
-type Section = { id: SettingsTab; label: string; hint: string; icon: ComponentType<SVGProps<SVGSVGElement>> };
+/** admin : rubrique montrée aux administrateurs seulement. */
+type Section = { id: SettingsTab; label: string; hint: string; icon: ComponentType<SVGProps<SVGSVGElement>>; admin?: boolean };
 
 const GROUPS: { title: string; sections: Section[] }[] = [
   {
@@ -16,6 +17,7 @@ const GROUPS: { title: string; sections: Section[] }[] = [
     sections: [
       { id: "profil", label: "Profil", hint: "Nom, téléphone, e-mail et adresses.", icon: IconUser },
       { id: "securite", label: "Sécurité", hint: "Proches SOS, paiement, mot de passe et compte.", icon: IconLock },
+      { id: "administration", label: "Administration", hint: "État du site, administrateurs et code d'accès admin.", icon: IconShield, admin: true },
     ],
   },
   {
@@ -71,10 +73,12 @@ export function SettingsView({
   /** Rubriques où il manque quelque chose (adresse, téléphone). */
   toComplete?: SettingsTab[];
 }) {
-  const active = tabFrom(useSearchParams().get("rubrique"));
+  const asked = tabFrom(useSearchParams().get("rubrique"));
+  const active = asked === "administration" && !isAdmin ? null : asked;
   // « Mes documents » seulement s'il est ouvert à cette personne (/admin/fonctionnalites).
   const documents = useAuth().user?.features?.includes("documents") ?? false;
   const current = SECTIONS.find((section) => section.id === active) ?? SECTIONS[0];
+  const groups = GROUPS.map((group) => ({ ...group, sections: group.sections.filter((s) => !s.admin || isAdmin) }));
   const heading = useRef<HTMLHeadingElement>(null);
   const panel = useRef<HTMLElement>(null);
   const fromList = useRef(false);
@@ -121,7 +125,7 @@ export function SettingsView({
         </div>
 
         <nav aria-label="Rubriques des paramètres" className="flex flex-col gap-5">
-          {GROUPS.map((group) => (
+          {groups.map((group) => (
             <div key={group.title}>
               <p className={GROUP_TITLE}>{group.title}</p>
               <ul className={LIST}>

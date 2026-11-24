@@ -8,13 +8,15 @@ import { grantSecondaryAdmin, revokeSecondaryAdmin } from "@/server/services/adm
 import { lock, unlock, unlockedUntil } from "@/server/services/admin/unlock";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/server/middlewares/rate-limit";
 import { isSupabaseConfigured, supabasePublishableKey, supabaseUrl } from "@/lib/supabase/config";
-import { isValidBic, isValidIban, normalizeBic, normalizeIban } from "@/lib/site/iban";
 import { addPartner, removePartner, validatePartner } from "@/server/services/site/partners";
-import { saveBankDetails, saveSiteFlags, saveSiteStatus } from "@/server/services/site/settings";
+import { saveSiteFlags, saveSiteStatus } from "@/server/services/site/settings";
 import { SITE_STATUSES, type SiteStatus } from "@/lib/site/status";
 import { forgetDemoWallet } from "@/server/services/wallet/demo";
 import { saveAnnouncement } from "@/server/services/site/announcement";
 import { ANNOUNCEMENT_LIMITS, isSafeAnnouncementLink } from "@/lib/site/announcement-rules";
+
+/** Rubrique Administration de Mon compte (/parametres?rubrique=administration). */
+const ADMIN_TAB = "/parametres";
 
 const FAILED: ActionResult = { ok: false, message: "L'enregistrement a échoué (migration site_settings appliquée ?)." };
 
@@ -47,30 +49,7 @@ export async function unlockAction(input: unknown): Promise<ActionResult> {
 
 export async function lockAction(): Promise<ActionResult> {
   await lock();
-  return { ok: true, message: "Profil verrouillé." };
-}
-
-const bankSchema = z.object({
-  holder: z.string().trim().min(2, "Indique le titulaire du compte.").max(120),
-  bankName: z.string().trim().max(120),
-  iban: z.string().trim().refine(isValidIban, "IBAN invalide : vérifie les chiffres (la clé ne correspond pas)."),
-  bic: z
-    .string()
-    .trim()
-    .refine((v) => v === "" || isValidBic(v), "BIC invalide : 8 ou 11 caractères, par exemple BNPAFRPPXXX."),
-});
-
-export async function saveBankAction(input: unknown): Promise<ActionResult> {
-  const auth = await requirePrincipalAdminAction();
-  if (!auth) return NOT_PRINCIPAL;
-  if (!(await unlockedUntil(auth.user.id))) return LOCKED;
-  const parsed = bankSchema.safeParse(input);
-  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Données invalides." };
-  const { holder, bankName, iban, bic } = parsed.data;
-  const saved = await saveBankDetails({ holder, bankName, iban: normalizeIban(iban), bic: normalizeBic(bic) }, auth.user.id);
-  if (!saved) return FAILED;
-  revalidatePath("/admin/profil");
-  return { ok: true, message: "RIB enregistré." };
+  return { ok: true, message: "Modifications verrouillées." };
 }
 
 const MESSAGE_MAX = 300;
@@ -125,7 +104,7 @@ export async function saveAnnouncementAction(input: unknown): Promise<ActionResu
     return { ok: false, message: "L'enregistrement a échoué (migration 20261121000000_bandeau_accueil.sql appliquée ?)." };
   }
   revalidatePath("/");
-  revalidatePath("/admin/profil");
+  revalidatePath(ADMIN_TAB);
   return {
     ok: true,
     message: parsed.data.enabled
@@ -148,7 +127,7 @@ export async function addPartnerAction(input: unknown): Promise<ActionResult> {
   if (!(await addPartner(parsed.data.name, parsed.data.activity))) {
     return { ok: false, message: "Partenaire non ajouté (migration 20261202000000_etats_du_site.sql appliquée ?)." };
   }
-  revalidatePath("/admin/profil");
+  revalidatePath(ADMIN_TAB);
   return { ok: true, message: "Partenaire ajouté : il reste à le valider." };
 }
 
@@ -179,7 +158,7 @@ export async function removePartnerAction(input: unknown): Promise<ActionResult>
   const parsed = partnerIdSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Partenaire invalide." };
   if (!(await removePartner(parsed.data.id))) return { ok: false, message: "Partenaire non retiré, réessaie." };
-  revalidatePath("/admin/profil");
+  revalidatePath(ADMIN_TAB);
   return { ok: true, message: "Partenaire retiré." };
 }
 
@@ -216,7 +195,7 @@ export async function grantAdminAction(input: unknown): Promise<ActionResult> {
   const parsed = z.object({ email: z.string().trim().email("E-mail invalide.") }).safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "E-mail invalide." };
   const result = await grantSecondaryAdmin(parsed.data.email);
-  if (result.ok) revalidatePath("/admin/profil");
+  if (result.ok) revalidatePath(ADMIN_TAB);
   return result;
 }
 
@@ -227,6 +206,6 @@ export async function revokeAdminAction(input: unknown): Promise<ActionResult> {
   const parsed = z.object({ userId: z.string().uuid() }).safeParse(input);
   if (!parsed.success) return { ok: false, message: "Compte invalide." };
   const result = await revokeSecondaryAdmin(parsed.data.userId);
-  if (result.ok) revalidatePath("/admin/profil");
+  if (result.ok) revalidatePath(ADMIN_TAB);
   return result;
 }

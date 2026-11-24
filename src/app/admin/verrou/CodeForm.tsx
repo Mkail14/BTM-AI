@@ -4,9 +4,10 @@ import Link from "next/link";
 import { useEffect, useState, useTransition } from "react";
 import { inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
 import { IconArrowLeft, IconBackspace, IconLock } from "@/components/ui/icons";
+import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { hapticPress } from "@/lib/chat/haptics";
 import { lostOk } from "@/lib/safe-action";
-import { startEnrollAction, verifyCodeAction } from "./actions";
+import { requestCodeResetAction, startEnrollAction, verifyCodeAction } from "./actions";
 
 type Setup = { factorId: string; qr: string; secret: string };
 
@@ -27,6 +28,40 @@ function usePadMode() {
 
 const padKey =
   "grid h-14 place-items-center rounded-xl bg-bg-muted text-2xl font-medium text-fg transition active:scale-95 active:bg-border disabled:opacity-40";
+
+/**
+ * « Code oublié ? » : plus d'application du tout. Après confirmation, la
+ * demande part à l'administrateur principal, qui réinitialisera le compte.
+ */
+function ForgotCode() {
+  const [pending, start] = useTransition();
+  const [answer, setAnswer] = useState<{ ok: boolean; message: string } | null>(null);
+
+  const ask = () =>
+    void confirmDialog({
+      title: "Tu n'as plus accès à ton application ?",
+      message:
+        "L'administrateur principal sera prévenu. Il supprimera ton compte en entier ; tu le recréeras avec la même adresse et il te redonnera l'accès admin.",
+      confirmLabel: "Envoyer la demande",
+      tone: "danger",
+    }).then((ok) => {
+      if (!ok) return;
+      start(async () => setAnswer(await requestCodeResetAction().catch(lostOk)));
+    });
+
+  if (answer) {
+    return (
+      <p role="status" className={`mt-3 text-center text-sm ${answer.ok ? "text-success" : "text-danger"}`}>
+        {answer.message}
+      </p>
+    );
+  }
+  return (
+    <button type="button" onClick={ask} disabled={pending} className="mx-auto mt-3 block text-sm font-medium text-fg-muted hover:text-fg hover:underline">
+      {pending ? "Envoi…" : "Code oublié ?"}
+    </button>
+  );
+}
 
 /**
  * Code à 6 chiffres de l'application d'authentification. Sans application
@@ -138,6 +173,8 @@ export function CodeForm({ enrolled, next, email, minutes }: { enrolled: boolean
           {error}
         </p>
       ) : null}
+
+      {enrolled ? <ForgotCode /> : null}
 
       {pad ? null : (
         <div className="mt-6 flex gap-2">

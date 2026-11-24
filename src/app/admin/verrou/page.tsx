@@ -17,7 +17,9 @@ export default async function AdminLockPage({ searchParams }: { searchParams: Pr
 
   const { suite } = await searchParams;
   const asked = safeNextPath(typeof suite === "string" ? suite : null, "/admin");
-  const next = isAdminGatedPath(asked.split("?")[0]) ? asked : "/admin";
+  // Retour possible aussi vers Mon compte (rubrique Administration, gardée par le même code).
+  const askedPath = asked.split("?")[0];
+  const next = isAdminGatedPath(askedPath) || askedPath === "/parametres" ? asked : "/admin";
   if (await adminGateOpen(user.id)) redirect(next);
 
   const { data } = await supabase.auth.mfa.listFactors();

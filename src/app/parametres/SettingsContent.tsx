@@ -4,6 +4,7 @@ import type { AddressDraft } from "@/components/ui/AddressFields";
 import type { SavedAddress } from "@/lib/address";
 import type { MyReview } from "@/lib/reviews/rules";
 import { AddressBook } from "./AddressBook";
+import { AdminSection } from "./administration/AdminSection";
 import { TamilyaMemory } from "./TamilyaMemory";
 import { DeleteAccount } from "./DeleteAccount";
 import { maskEmail } from "./mask-email";
@@ -24,6 +25,8 @@ export type SettingsData = {
   displayName: string | null;
   email: string | null;
   isAdmin: boolean;
+  isPrincipalAdmin: boolean;
+  userId: string;
   /** Null : pas de portefeuille pour ce compte (réservé aux admins pour l'instant). */
   balance: string | null;
   maskedPhone: string | null;
@@ -69,6 +72,8 @@ export function SettingsContent({ data }: { data: SettingsData }) {
         <DeleteAccount email={data.email} isAdmin={data.isAdmin} />
       </SettingsGroup>
     ),
+    // Administrateurs seulement (la rubrique n'est pas proposée aux autres).
+    administration: data.isAdmin ? <AdminSection userId={data.userId} principal={data.isPrincipalAdmin} /> : null,
     tamilya: (
       <SettingsGroup>
         {/* Le vocal n'est ouvert qu'aux administrateurs pour l'instant. */}

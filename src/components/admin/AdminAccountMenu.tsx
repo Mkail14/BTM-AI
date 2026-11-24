@@ -76,8 +76,8 @@ export function AdminAccountMenu({ email, principal }: { email: string | null; p
                 </div>
                 <hr className="my-1 border-border" />
                 {principal ? (
-                  <Link href="/admin/profil" role="menuitem" onClick={close} className={item}>
-                    <IconShield width={16} height={16} /> Profil de l&apos;entreprise
+                  <Link href="/parametres?rubrique=administration" role="menuitem" onClick={close} className={item}>
+                    <IconShield width={16} height={16} /> État du site et admins
                   </Link>
                 ) : null}
                 <Link href="/voix" role="menuitem" onClick={close} className={item}>

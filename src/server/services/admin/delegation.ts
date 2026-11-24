@@ -10,7 +10,16 @@ import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
  * n'attend pas la fin de son jeton (au plus une heure) pour perdre ses droits.
  */
 
-export type AdminAccount = { id: string; email: string | null; secondary: boolean };
+export type AdminAccount = {
+  id: string;
+  email: string | null;
+  secondary: boolean;
+  /** « Code oublié » demandé (date ISO), en attente de l'administrateur principal. */
+  codeResetAt: string | null;
+};
+
+/** Clé de app_metadata (modifiable seulement avec la clé secrète) qui garde la demande « code oublié ». */
+export const CODE_RESET_KEY = "code_reset_requested_at";
 
 const PER_PAGE = 1000;
 const MAX_PAGES = 20;
@@ -36,7 +45,7 @@ async function allUsers(): Promise<User[] | null> {
  * Faux si la fonction manque (migration 20261126000000 pas encore appliquée) :
  * le rôle relu à chaque action d'administration suffit alors à couper ses droits.
  */
-async function closeSessions(userId: string): Promise<boolean> {
+export async function closeSessions(userId: string): Promise<boolean> {
   const admin = getSupabaseAdminClient();
   if (!admin) return false;
   const { error } = await admin.rpc("close_user_sessions", { p_user_id: userId });
@@ -47,7 +56,15 @@ async function closeSessions(userId: string): Promise<boolean> {
   return true;
 }
 
-const toAccount = (u: User): AdminAccount => ({ id: u.id, email: u.email ?? null, secondary: u.app_metadata?.admin_level === "secondary" });
+const toAccount = (u: User): AdminAccount => {
+  const reset = u.app_metadata?.[CODE_RESET_KEY];
+  return {
+    id: u.id,
+    email: u.email ?? null,
+    secondary: u.app_metadata?.admin_level === "secondary",
+    codeResetAt: typeof reset === "string" ? reset : null,
+  };
+};
 
 export async function listAdmins(): Promise<AdminAccount[] | null> {
   const users = await allUsers();

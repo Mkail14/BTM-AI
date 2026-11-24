@@ -1,18 +1,17 @@
 "use client";
 
-import { Check, X } from "lucide-react";
+import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useRef, useState, useTransition, type ComponentType, type ReactNode } from "react";
 import { ActionStatus, inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
-import { IconExternal, IconLock, IconPencil, IconSettings, IconUsers, IconWallet } from "@/components/ui/icons";
+import { IconExternal, IconLock, IconPencil, IconSettings, IconUsers } from "@/components/ui/icons";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { lostOk } from "@/lib/safe-action";
 import type { AdminAccount } from "@/server/services/admin/delegation";
-import { bankFromBic, bankFromIban, formatIban, isValidBic, isValidIban, normalizeIban, parseRib } from "@/lib/site/iban";
 import type { Partner } from "@/server/services/site/partners";
-import type { BankDetails, SiteFlags, StatusChange } from "@/server/services/site/settings";
+import type { SiteFlags, StatusChange } from "@/server/services/site/settings";
 import { SITE_STATUS_LABELS, type SiteStatus } from "@/lib/site/status";
 import type { Announcement } from "@/lib/site/announcement-rules";
 import { AnnouncementForm } from "./AnnouncementForm";
@@ -22,22 +21,11 @@ import {
   lockAction,
   removePartnerAction,
   revokeAdminAction,
-  saveBankAction,
   saveFlagsAction,
   setPlatformStatusAction,
   unlockAction,
   validatePartnerAction,
 } from "./actions";
-
-/** « Copié » suivi d'une coche (icône, pas de symbole texte). */
-function Copied({ text }: { text: string }) {
-  return (
-    <span className="inline-flex items-center gap-1">
-      {text}
-      <Check aria-hidden="true" className="size-4" />
-    </span>
-  );
-}
 
 /** Lance une action serveur, montre son résultat et relit la page (verrou compris). */
 function useAction() {
@@ -58,7 +46,7 @@ function useAction() {
 /* Verrou : lecture seule, mot de passe redemandé avant de modifier           */
 /* -------------------------------------------------------------------------- */
 
-type Section = "site" | "bank" | "admins";
+type Section = "site" | "admins";
 
 type Lock = {
   /** Fin des modifications permises (ms), null : verrouillé. */
@@ -179,7 +167,7 @@ function PasswordDialog({ onClose, onUnlocked }: { onClose: () => void; onUnlock
           Confirme que c&apos;est bien toi
         </h2>
         <p className="mt-1 text-center text-sm text-fg-muted">
-          Pour protéger le RIB et les accès de GROUPE BTM, tape ton mot de passe. Tu pourras modifier pendant 10 minutes.
+          Pour protéger l&apos;état du site et les accès admin, tape ton mot de passe. Tu pourras modifier pendant 10 minutes.
         </p>
         <label htmlFor="unlock-password" className={`${labelClass} mt-5`}>
           Mot de passe
@@ -301,17 +289,6 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
       <span className="min-w-0 text-right font-medium">{children}</span>
     </div>
   );
-}
-
-/** Copie un texte et affiche « copié » deux secondes. */
-function useCopy() {
-  const [copied, setCopied] = useState<string | null>(null);
-  const copy = (key: string, text: string) =>
-    void navigator.clipboard.writeText(text).then(() => {
-      setCopied(key);
-      setTimeout(() => setCopied((current) => (current === key ? null : current)), 2000);
-    });
-  return { copied, copy };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -744,342 +721,17 @@ export function SitePanel({
 }
 
 /* -------------------------------------------------------------------------- */
-/* RIB                                                                        */
-/* -------------------------------------------------------------------------- */
-
-/** Aide sous le champ IBAN : rien tant qu'il est trop court, puis valide ou non. */
-function ibanCheck(value: string): { ok: boolean; text: string } | null {
-  const iban = normalizeIban(value);
-  if (iban.length < 15) return null;
-  return isValidIban(iban)
-    ? { ok: true, text: "IBAN valide" }
-    : { ok: false, text: "IBAN incorrect : un chiffre est sans doute mal tapé." };
-}
-
-/** Derniers chiffres de l'IBAN, comme les 4 derniers chiffres d'une carte. */
-const ibanEnd = (iban: string) => normalizeIban(iban).slice(-4);
-
-/**
- * Le RIB en carte bancaire. Face avant : coordonnées masquées. Un clic la
- * retourne : IBAN et BIC au dos, chacun copiable.
- */
-function BankCard({
-  bank,
-  copied,
-  copy,
-  full,
-}: {
-  bank: BankDetails;
-  copied: string | null;
-  copy: (key: string, text: string) => void;
-  full: string;
-}) {
-  const [flipped, setFlipped] = useState(false);
-  const face =
-    "absolute inset-0 overflow-hidden rounded-[1.25rem] text-white ring-1 ring-white/10 [backface-visibility:hidden] [-webkit-backface-visibility:hidden]";
-  // Fond « métal » : noir profond, halo rose et violet, grain très fin.
-  const surface = {
-    backgroundColor: "#0b0a10",
-    backgroundImage: [
-      "radial-gradient(70% 90% at 95% 5%, color-mix(in srgb, var(--accent) 70%, transparent) 0%, transparent 60%)",
-      "radial-gradient(60% 80% at 5% 100%, rgba(109, 40, 217, 0.55) 0%, transparent 65%)",
-      "linear-gradient(115deg, transparent 35%, rgba(255,255,255,0.07) 48%, transparent 60%)",
-    ].join(", "),
-  };
-
-  return (
-    <div className="flex flex-1 flex-col">
-      <div className="mx-auto w-full max-w-sm [perspective:1200px]">
-        <button
-          type="button"
-          onClick={() => setFlipped((v) => !v)}
-          aria-pressed={flipped}
-          aria-label={flipped ? "Masquer les coordonnées" : "Afficher les coordonnées bancaires"}
-          className="group relative block aspect-[1.586] w-full rounded-[1.25rem] text-left shadow-[0_24px_50px_-18px_rgba(0,0,0,0.75)] transition-transform duration-700 [transform-style:preserve-3d] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent motion-reduce:transition-none"
-          style={{ transform: flipped ? "rotateY(180deg)" : undefined }}
-        >
-          {/* Face avant. */}
-          <div className={face} style={surface}>
-            <Grain />
-            <div className="relative flex h-full flex-col p-5">
-              <div className="flex items-start justify-between">
-                <span className="text-[13px] font-black tracking-[0.18em]">GROUPE BTM</span>
-                <Contactless />
-              </div>
-              <Chip />
-              <div className="mt-auto flex items-end justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-mono text-sm tracking-[0.2em] text-white/80">•••• {ibanEnd(bank.iban)}</p>
-                  <p className="mt-1 truncate text-xs font-medium tracking-[0.14em] text-white/60 uppercase">{bank.holder}</p>
-                </div>
-                <span className="shrink-0 text-lg font-bold tracking-tight italic">{bank.bankName || "Banque"}</span>
-              </div>
-            </div>
-            <span className="absolute right-4 bottom-[42%] text-[10px] font-medium tracking-wider text-white/45 transition group-hover:text-white/80">
-              Toucher pour afficher
-            </span>
-          </div>
-
-          {/* Dos : les coordonnées. */}
-          <div className={face} style={{ ...surface, transform: "rotateY(180deg)" }}>
-            <Grain />
-            <div aria-hidden="true" className="absolute inset-x-0 top-5 h-9 bg-black/70" />
-            <div className="relative flex h-full flex-col justify-end gap-3 p-5">
-              <div>
-                <p className="text-[10px] font-semibold tracking-[0.2em] text-white/50 uppercase">IBAN</p>
-                <p className="mt-0.5 font-mono text-[clamp(0.8rem,2.4vw,0.98rem)] font-medium tracking-[0.08em]">
-                  {formatIban(bank.iban)}
-                </p>
-              </div>
-              <div className="flex items-end justify-between gap-3">
-                <div>
-                  <p className="text-[10px] font-semibold tracking-[0.2em] text-white/50 uppercase">BIC</p>
-                  <p className="mt-0.5 font-mono text-sm font-medium tracking-[0.12em]">{bank.bic || "—"}</p>
-                </div>
-                <p className="truncate text-right text-xs font-medium tracking-[0.14em] text-white/60 uppercase">{bank.holder}</p>
-              </div>
-            </div>
-          </div>
-        </button>
-      </div>
-
-      <p className="mt-3 text-center text-xs text-fg-muted">
-        {flipped ? "Touchez la carte pour masquer." : "Coordonnées masquées : touchez la carte pour les voir."}
-      </p>
-
-      <div className="mt-auto flex flex-wrap justify-center gap-2 pt-4">
-        <button type="button" className={primaryButton} onClick={() => copy("all", full)}>
-          {copied === "all" ? <Copied text="RIB copié" /> : "Copier le RIB"}
-        </button>
-        <button type="button" className={secondaryButton} onClick={() => copy("iban", normalizeIban(bank.iban))}>
-          {copied === "iban" ? <Copied text="IBAN copié" /> : "Copier l'IBAN"}
-        </button>
-        {bank.bic ? (
-          <button type="button" className={secondaryButton} onClick={() => copy("bic", bank.bic)}>
-            {copied === "bic" ? <Copied text="BIC copié" /> : "Copier le BIC"}
-          </button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-/** Grain très fin sur la carte (effet métal brossé). */
-function Grain() {
-  return (
-    <svg aria-hidden="true" className="pointer-events-none absolute inset-0 h-full w-full opacity-[0.18] mix-blend-overlay">
-      <filter id="grain-carte">
-        <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch" />
-        <feColorMatrix values="0 0 0 0 1  0 0 0 0 1  0 0 0 0 1  0 0 0 0.7 0" />
-      </filter>
-      <rect width="100%" height="100%" filter="url(#grain-carte)" />
-    </svg>
-  );
-}
-
-function Chip() {
-  return (
-    <svg aria-hidden="true" width="40" height="30" viewBox="0 0 40 30" className="mt-5 drop-shadow-[0_1px_1px_rgba(0,0,0,0.4)]">
-      <defs>
-        <linearGradient id="puce-carte" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#e9e4d8" />
-          <stop offset="0.5" stopColor="#b9b3a6" />
-          <stop offset="1" stopColor="#8f897d" />
-        </linearGradient>
-      </defs>
-      <rect x="0.5" y="0.5" width="39" height="29" rx="6" fill="url(#puce-carte)" />
-      <path d="M0 10h12M0 20h12M28 10h12M28 20h12M12 0v30M28 0v30M12 15h16" stroke="rgba(0,0,0,0.22)" strokeWidth="1" fill="none" />
-    </svg>
-  );
-}
-
-function Contactless() {
-  return (
-    <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-white/70">
-      <path d="M7 9.5a3.5 3.5 0 0 1 0 5" />
-      <path d="M10.5 7a7 7 0 0 1 0 10" />
-      <path d="M14 4.5a10.5 10.5 0 0 1 0 15" />
-    </svg>
-  );
-}
-
-export function BankForm({ bank }: { bank: BankDetails }) {
-  const { pending, result, run } = useAction();
-  const { copied, copy } = useCopy();
-  const lock = useLock();
-  const editing = lock.editing === "bank";
-  const [draft, setDraft] = useState(bank);
-  const set = (key: keyof BankDetails) => (e: React.ChangeEvent<HTMLInputElement>) => setDraft({ ...draft, [key]: e.target.value });
-  const [filled, setFilled] = useState<string | null>(null);
-
-  // RIB collé dans n'importe quel champ : on remplit tout ce qu'on reconnaît.
-  function onPaste(e: React.ClipboardEvent<HTMLFormElement>) {
-    const rib = parseRib(e.clipboardData.getData("text"));
-    if (!rib.iban) return; // pas un RIB : collage normal
-    e.preventDefault();
-    setDraft((d) => ({
-      holder: rib.holder ?? d.holder,
-      bankName: rib.bankName ?? d.bankName,
-      iban: formatIban(rib.iban!),
-      bic: rib.bic ?? d.bic,
-    }));
-    const found = [rib.holder && "titulaire", "IBAN", rib.bankName && "banque", rib.bic && "BIC"].filter(Boolean);
-    setFilled(
-      `RIB reconnu : ${found.join(", ")}.${rib.bic ? "" : " Banque non reconnue : tapez le BIC (il est sur le RIB)."} Vérifiez avant d'enregistrer.`,
-    );
-  }
-
-  // Banque et BIC laissés vides : déduits de l'IBAN (code banque) ou du BIC, affichés et enregistrés.
-  const known = isValidIban(draft.iban) ? bankFromIban(draft.iban) : null;
-  const filledBic = draft.bic || known?.bic || "";
-  const shown: BankDetails = { ...draft, bic: filledBic, bankName: draft.bankName || bankFromBic(filledBic) || known?.name || "" };
-
-  const panel = (children: ReactNode) => (
-    <Panel
-      icon={IconWallet}
-      title="Coordonnées bancaires"
-      subtitle="RIB de GROUPE BTM"
-      editing={editing}
-      aside={
-        <>
-          {bank.iban ? null : (
-            <span className="rounded-full bg-warning-soft px-2.5 py-1 text-xs font-medium text-warning">À compléter</span>
-          )}
-          <EditButton section="bank" label="Coordonnées bancaires" />
-        </>
-      }
-      status={result}
-    >
-      {children}
-    </Panel>
-  );
-
-  if (!editing && !bank.iban) {
-    return panel(
-      <div className="grid flex-1 place-items-center rounded-xl border border-dashed border-border p-6 text-center">
-        <div>
-          <p className="font-medium">Aucun RIB enregistré</p>
-          <p className="mt-1 text-sm text-fg-muted">Clique sur le stylo pour l&apos;ajouter.</p>
-        </div>
-      </div>,
-    );
-  }
-
-  if (!editing) {
-    const full = [
-      `Titulaire : ${bank.holder}`,
-      bank.bankName && `Banque : ${bank.bankName}`,
-      `IBAN : ${formatIban(bank.iban)}`,
-      bank.bic && `BIC : ${bank.bic}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
-    return panel(
-      <BankCard bank={bank} copied={copied} copy={copy} full={full} />,
-    );
-  }
-
-  const iban = ibanCheck(draft.iban);
-  const bicWrong = shown.bic.trim().length >= 8 && !isValidBic(shown.bic);
-  return panel(
-    <form
-      className="flex flex-1 flex-col gap-3"
-      onPaste={onPaste}
-      onSubmit={(e) => {
-        e.preventDefault();
-        run(() => saveBankAction(shown), lock.done);
-      }}
-    >
-      <p aria-live="polite" className={`text-xs ${filled ? "rounded-lg bg-success/10 px-3 py-2 text-success" : "text-fg-muted"}`}>
-        {filled ?? "Astuce : collez le RIB entier dans un champ, tout se remplit seul."}
-      </p>
-      <div>
-        <label htmlFor="bank-holder" className={labelClass}>
-          Titulaire du compte
-        </label>
-        <input
-          id="bank-holder"
-          value={draft.holder}
-          onChange={set("holder")}
-          maxLength={120}
-          required
-          className={`${inputClass} mt-1.5`}
-          placeholder="Ex. : GROUPE BTM"
-        />
-      </div>
-      <div>
-        <label htmlFor="bank-iban" className={labelClass}>
-          IBAN
-        </label>
-        <input
-          id="bank-iban"
-          value={draft.iban}
-          onChange={set("iban")}
-          maxLength={42}
-          required
-          autoComplete="off"
-          spellCheck={false}
-          aria-invalid={iban ? !iban.ok : undefined}
-          aria-describedby="bank-iban-check"
-          className={`${inputClass} mt-1.5 font-mono uppercase`}
-          placeholder="FR76 …"
-        />
-        <p id="bank-iban-check" aria-live="polite" className={`mt-1 min-h-4 text-xs ${iban?.ok ? "text-success" : "text-danger"}`}>
-          {iban?.text}
-        </p>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label htmlFor="bank-name" className={labelClass}>
-            Banque
-          </label>
-          <input id="bank-name" value={shown.bankName} onChange={set("bankName")} maxLength={120} className={`${inputClass} mt-1.5`} />
-        </div>
-        <div>
-          <label htmlFor="bank-bic" className={labelClass}>
-            BIC
-          </label>
-          <input
-            id="bank-bic"
-            value={shown.bic}
-            onChange={set("bic")}
-            maxLength={11}
-            autoComplete="off"
-            spellCheck={false}
-            aria-invalid={bicWrong || undefined}
-            className={`${inputClass} mt-1.5 font-mono uppercase`}
-            placeholder="Ex. : AGRIRERX"
-          />
-          {bicWrong ? <p className="mt-1 text-xs text-danger">BIC incorrect.</p> : null}
-        </div>
-      </div>
-      <div className="mt-auto flex flex-wrap items-center gap-2 pt-2">
-        <button type="submit" disabled={pending || iban?.ok === false || bicWrong} className={primaryButton}>
-          {pending ? "Enregistrement…" : "Enregistrer"}
-        </button>
-        <button
-          type="button"
-          className={secondaryButton}
-          onClick={() => {
-            setDraft(bank);
-            lock.done();
-          }}
-        >
-          Annuler
-        </button>
-      </div>
-    </form>,
-  );
-}
-
-/* -------------------------------------------------------------------------- */
 /* Délégation                                                                 */
 /* -------------------------------------------------------------------------- */
 
-export function Delegation({ admins, selfId }: { admins: AdminAccount[] | null; selfId: string }) {
+/**
+ * Liste des administrateurs. L'administrateur principal ajoute et retire les
+ * délégués ; un délégué voit seulement les adresses (manage false).
+ */
+export function Delegation({ admins, selfId, manage }: { admins: AdminAccount[] | null; selfId: string; manage: boolean }) {
   const { pending, result, run } = useAction();
   const { editing } = useLock();
-  const canEdit = editing === "admins";
+  const canEdit = manage && editing === "admins";
   const [email, setEmail] = useState("");
   // L'administrateur principal (toi d'abord) en haut, puis les délégués par e-mail.
   const sorted = admins
@@ -1095,12 +747,12 @@ export function Delegation({ admins, selfId }: { admins: AdminAccount[] | null; 
     <Panel
       icon={IconUsers}
       title="Administrateurs"
-      subtitle="Délégués : tout le site sauf cette page"
+      subtitle={manage ? "Délégués : tout l'espace admin sauf l'état du site et cette liste" : "Les comptes qui ont accès à l'espace admin"}
       editing={canEdit}
       aside={
         <>
           {admins ? <span className="text-xs tabular-nums text-fg-muted">{admins.length}</span> : null}
-          <EditButton section="admins" label="Administrateurs" />
+          {manage ? <EditButton section="admins" label="Administrateurs" /> : null}
         </>
       }
       status={result}
@@ -1140,7 +792,7 @@ export function Delegation({ admins, selfId }: { admins: AdminAccount[] | null; 
       {sorted === null ? (
         <p className="text-sm text-fg-muted">Liste des administrateurs indisponible.</p>
       ) : (
-        <ul className="min-h-0 flex-1 divide-y divide-border overflow-y-auto overscroll-contain rounded-xl border border-border">
+        <ul className="divide-y divide-border rounded-xl border border-border">
           {sorted.map((a) => (
             <li key={a.id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
               <span

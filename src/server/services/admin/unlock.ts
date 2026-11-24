@@ -3,7 +3,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 
 /**
- * Déverrouillage du Profil de l'entreprise, comme les réglages sensibles d'un
+ * Déverrouillage de la rubrique Administration (Mon compte), comme les réglages sensibles d'un
  * compte Google : le mot de passe est redemandé, puis les modifications sont
  * permises quelques minutes. Preuve gardée dans un cookie httpOnly signé
  * (HMAC), lié au compte et à son heure de fin : impossible à fabriquer ou à
@@ -12,7 +12,8 @@ import { cookies } from "next/headers";
 
 export const UNLOCK_MINUTES = 10;
 const COOKIE = "btm_profile_unlock";
-const PATH = "/admin/profil";
+// Rubrique Administration de Mon compte (/parametres) : ses actions y sont envoyées.
+const PATH = "/parametres";
 
 function secret(): string | null {
   return process.env.AI_KEYS_SECRET?.trim() || process.env.SUPABASE_SECRET_KEY?.trim() || null;
