@@ -44,9 +44,11 @@ export async function findPlanningPage(): Promise<{ url: string; title: string }
   throw new Error("Aucun planning des tours d'eau annoncé sur l'accueil de la SMAE.");
 }
 
-/** Images publiées dans la page du planning. */
+/** Images publiées dans la page du planning (sans le logo de la SMAE, présent sur toutes ses pages). */
 export function planningImages(html: string): string[] {
-  const found = [...html.matchAll(/src="([^"]*\/uploads\/[^"]+\.(?:jpe?g|png|webp))"/gi)].map((m) => (m[1].startsWith("http") ? m[1] : SITE + m[1]));
+  const found = [...html.matchAll(/src="([^"]*\/uploads\/[^"]+\.(?:jpe?g|png|webp))"/gi)]
+    .map((m) => (m[1].startsWith("http") ? m[1] : SITE + m[1]))
+    .filter((url) => !/logo/i.test(url));
   return [...new Set(found)].slice(0, MAX_IMAGES);
 }
 
