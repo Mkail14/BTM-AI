@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `25e5326` (2026-11-25, develop ; `dc2ee26` sur main)**
+**Dernier commit noté : `6179b8c` (2026-11-25, develop ; `d61c9dd` sur main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -139,6 +139,7 @@ Comment le tenir :
 
 ## Journal (le plus récent en haut)
 
+- **Mon compte, Administration : rangée en onglets** (`6179b8c`, 2026-11-25, develop ; `d61c9dd` sur main). Demande de l’utilisateur : la rubrique empilait trois gros blocs et défilait. Maintenant des onglets Site (état, message, mode démo, historique replié), Partenaires, Bandeau, Admins, Code ; un délégué ne voit que Admins et Code. Point orange sur Site si le site est fermé ou le mode démo allumé. Changer d’onglet ferme la modification, les 10 minutes déverrouillées restent. Vérifié : types, lint. Pas vu à l’écran (code à 6 chiffres demandé).
 - **Menu du compte admin : « Parler à Tamilya » retiré** (`25e5326`, 2026-11-25, develop ; `dc2ee26` sur main). Demande de l’utilisateur : restent « Mon compte » et « Se déconnecter ». Pas vu à l’écran.
 - **Chat : « C'est juste » et « Corriger » seulement sous le shimaoré** (`a2648c9`, 2026-11-25, develop ; `d63e6fb` sur main). Demande de l'utilisateur : ces boutons ne doivent s'afficher que si Tamilya a essayé de parler shimaoré. `src/lib/language/tried-shimaore.ts` lit la réponse : mot en italique (pas sûr) ou français entre [[ ]], mot shimaoré courant (jéjé, marahaba, wami…), mot en minuscules qui commence comme le shimaoré (mb, nd, ny, dz, mw…), ou presque aucun petit mot français. Les mots avec majuscule (Dzaoudzi, Mtsamboro…) ne comptent pas. La bulle qui apparaît en sélectionnant un passage reste partout. Vérifié : 3 tests, types. Pas encore vu à l'écran.
 - **Menu du compte admin : « État du site et admins » retiré** (`5acf77e`, 2026-11-25, develop ; `bb7d176` sur main). Demande de l’utilisateur : tout est déjà dans Mon compte. Gardés : « Mon compte » dans ce menu et « Administration » dans le menu ☰.
