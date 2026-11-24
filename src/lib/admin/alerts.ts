@@ -17,6 +17,8 @@ type AlertInput = {
   wordsToTranslate?: number;
   /** Lecture des horaires du code sur le site de La Poste en échec (null : elle fonctionne). */
   codeExamProblem?: string | null;
+  /** Lecture des offres France Travail en échec (null : elle fonctionne). */
+  jobsProblem?: string | null;
   /** Construit un lien vers le tableau de bord Supabase (null si inconnu). */
   supabaseLink: (path: string) => string | null;
 };
@@ -34,6 +36,7 @@ export function buildAdminAlerts({
   overview,
   wordsToTranslate = 0,
   codeExamProblem = null,
+  jobsProblem = null,
   supabaseLink,
 }: AlertInput): AdminAlert[] {
   const alerts: AdminAlert[] = [];
@@ -108,6 +111,15 @@ export function buildAdminAlerts({
       title: "Horaires du code de la route illisibles",
       detail: `${codeExamProblem} Tamilya renvoie vers le site de La Poste en attendant : le site a sans doute changé, la lecture est à mettre à jour (src/server/services/code-exam/laposte.ts).`,
       action: { label: "Voir le site de La Poste", href: "https://www.lecode.laposte.fr/recherche-salle" },
+    });
+  }
+
+  if (jobsProblem) {
+    alerts.push({
+      level: "warning",
+      title: "Offres France Travail illisibles",
+      detail: `${jobsProblem} Tamilya ne montre plus que les postes des mairies et du Département : la lecture est à mettre à jour (src/server/services/live/france-travail-site.ts).`,
+      action: { label: "Voir le site de France Travail", href: "https://candidat.francetravail.fr/offres/recherche?lieux=976D" },
     });
   }
 

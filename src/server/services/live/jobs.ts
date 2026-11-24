@@ -1,16 +1,17 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
-import { jobsTownFor, type JobContract, type JobOffer } from "@/lib/emploi/intent";
+import type { JobContract, JobOffer } from "@/lib/emploi/intent";
 import { fetchTerritorialOffers, TERRITORIAL_SOURCE } from "@/server/services/live/emploi-territorial";
 import { forgetFranceTravailToken, franceTravailKeys, franceTravailToken } from "@/server/services/live/france-travail";
+import { fetchFranceTravailSiteOffers, FT_SOURCE, placeOf } from "@/server/services/live/france-travail-site";
 
 /**
  * Offres d'emploi de Mayotte (département 976), de deux sites :
  * - Emploi Territorial (flux RSS public, sans clé) : les postes des mairies, du Département,
  *   des intercommunalités… Toujours lu.
- * - France Travail, API « Offres d'emploi v2 » : lue seulement quand l'accès est accordé
- *   (FRANCE_TRAVAIL_OFFRES=on, clés FRANCE_TRAVAIL_CLIENT_ID et FRANCE_TRAVAIL_CLIENT_SECRET).
- *   Toutes les offres en cours (150 par page, l'API s'arrête à 3 150).
+ * - France Travail : par l'API « Offres d'emploi v2 » quand l'accès est accordé
+ *   (FRANCE_TRAVAIL_OFFRES=on, clés FRANCE_TRAVAIL_CLIENT_ID et FRANCE_TRAVAIL_CLIENT_SECRET),
+ *   sinon sur la page publique de recherche (france-travail-site.ts), relue toutes les 4 h.
  *
  * Les plus récentes d'abord : la liste de la conversation (bloc ```offres-emploi```)
  * les montre toutes, le prompt n'en reçoit que quelques-unes.
@@ -18,9 +19,10 @@ import { forgetFranceTravailToken, franceTravailKeys, franceTravailToken } from 
 const SEARCH_URL = "https://api.francetravail.io/partenaire/offresdemploi/v2/offres/search";
 const SCOPE = "api_offresdemploiv2 o2dsoffre";
 const MAYOTTE = "976";
-const FT_SOURCE = "France Travail";
 
 const CACHE_MS = 30 * 60_000;
+/** France Travail relu au plus toutes les 4 h : les offres ne changent pas d'heure en heure. */
+const FT_CACHE_MS = 4 * 3_600_000;
 const FETCH_TIMEOUT_MS = 8_000;
 /** Taille d'une page, et dernière position que l'API accepte. */
 const PAGE = 150;
@@ -43,7 +45,7 @@ let cache: ({ at: number } & Loaded) | null = null;
 const franceTravailJobsOn = () => franceTravailKeys() !== null && process.env.FRANCE_TRAVAIL_OFFRES?.trim() === "on";
 
 /** Sites lus pour les offres, dans l'ordre où on les nomme. */
-export const jobsSources = () => [TERRITORIAL_SOURCE, ...(franceTravailJobsOn() ? [FT_SOURCE] : [])];
+export const jobsSources = () => [TERRITORIAL_SOURCE, FT_SOURCE];
 
 /** Des offres peuvent toujours être montrées : Emploi Territorial ne demande aucune clé. */
 export const jobsConfigured = () => true;
@@ -62,13 +64,6 @@ type RawOffer = {
   lieuTravail?: { libelle?: string };
   origineOffre?: { urlOrigine?: string };
 };
-
-/** « 976 - MAMOUDZOU » → « Mamoudzou » ; « 976 - Mayotte » (sans commune) → null. */
-function placeOf(libelle?: string): string | null {
-  const name = libelle?.replace(/^\s*976\s*-?\s*/, "").trim();
-  if (!name || /^mayotte$/i.test(name)) return null;
-  return jobsTownFor(name) || name.toLowerCase().replace(/(^|[\s'-])(\p{L})/gu, (_, sep: string, letter: string) => sep + letter.toUpperCase());
-}
 
 const kindOf = (code?: string): JobContract => (code === "CDI" || code === "CDD" || code === "MIS" ? code : "AUTRE");
 
@@ -108,9 +103,9 @@ async function page(access: string, from: number, to: number): Promise<{ offers:
   return { offers, total };
 }
 
-/** Toutes les offres France Travail en cours à Mayotte, les plus récentes d'abord (une erreur est levée : rien n'est gardé). */
+/** Toutes les offres France Travail en cours à Mayotte (API, sinon page publique), les plus récentes d'abord (une erreur est levée : rien n'est gardé). */
 async function searchFranceTravail(): Promise<{ offers: JobOffer[]; total: number }> {
-  if (!franceTravailJobsOn()) return { offers: [], total: 0 };
+  if (!franceTravailJobsOn()) return fetchFranceTravailSiteOffers();
   const access = await franceTravailToken(SCOPE);
   const first = await page(access, 0, PAGE - 1);
   const raws = [...first.offers];
@@ -128,23 +123,25 @@ async function searchFranceTravail(): Promise<{ offers: JobOffer[]; total: numbe
 }
 
 /**
- * Offres gardées 30 min dans le cache de données de Next, partagé entre les
+ * Offres gardées dans le cache de données de Next (France Travail 4 h, Emploi Territorial 30 min), partagé entre les
  * instances du serveur. Le jeton d'accès change souvent : c'est le résultat
  * qui est gardé, pas la réponse HTTP (dont la clé contiendrait le jeton).
  */
-const cachedFranceTravail = unstable_cache(searchFranceTravail, ["france-travail-offres-976-toutes"], { revalidate: CACHE_MS / 1000 });
+const cachedFranceTravail = unstable_cache(searchFranceTravail, ["france-travail-offres-976-toutes", franceTravailJobsOn() ? "api" : "site"], {
+  revalidate: FT_CACHE_MS / 1000,
+});
 const cachedTerritorial = unstable_cache(fetchTerritorialOffers, ["emploi-territorial-offres-976"], { revalidate: CACHE_MS / 1000 });
 
 const reasonOf = (r: PromiseRejectedResult) => (r.reason instanceof Error ? r.reason.message : String(r.reason));
 
 /** Les sites en même temps ; un site en panne n'empêche pas de montrer l'autre (erreur levée si aucun ne répond). */
 async function allOffers(): Promise<Loaded & { error?: string }> {
-  const sources = jobsSources();
-  const [territorial, franceTravail] = await Promise.allSettled([
-    cachedTerritorial(),
-    sources.includes(FT_SOURCE) ? cachedFranceTravail() : Promise.resolve({ offers: [] as JobOffer[], total: 0 }),
-  ]);
-  if (territorial.status === "rejected" && (franceTravail.status === "rejected" || !sources.includes(FT_SOURCE))) throw territorial.reason;
+  const [territorial, franceTravail] = await Promise.allSettled([cachedTerritorial(), cachedFranceTravail()]);
+  if (territorial.status === "rejected" && franceTravail.status === "rejected") throw territorial.reason;
+  // Seulement les sites qui ont répondu : sans France Travail, Tamilya dit que ce sont les postes publics.
+  const sources = [territorial.status === "fulfilled" ? TERRITORIAL_SOURCE : null, franceTravail.status === "fulfilled" ? FT_SOURCE : null].filter(
+    (name): name is string => name !== null,
+  );
   const fromTerritorial = territorial.status === "fulfilled" ? territorial.value : [];
   const fromFranceTravail = franceTravail.status === "fulfilled" ? franceTravail.value : { offers: [], total: 0 };
   const offers = [...fromTerritorial, ...fromFranceTravail.offers].sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
@@ -178,4 +175,22 @@ export async function getMayotteJobs(): Promise<JobsResult> {
       error: error instanceof Error ? error.message : "erreur",
     };
   }
+}
+
+/**
+ * Tableau de bord : la lecture de France Travail marche-t-elle ? Une erreur n'est pas
+ * gardée en cache, elle est donc redemandée à chaque affichage. Lecture pas finie à
+ * temps : pas d'alerte cette fois.
+ */
+export async function getFranceTravailJobsHealth({ waitMs }: { waitMs: number }): Promise<{ ok: true } | { ok: false; message: string }> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const outcome = await Promise.race([
+    cachedFranceTravail().then(
+      () => ({ ok: true }) as const,
+      (error: unknown) => ({ ok: false, message: error instanceof Error ? error.message : String(error) }) as const,
+    ),
+    new Promise<{ ok: true }>((resolve) => (timer = setTimeout(() => resolve({ ok: true }), waitMs))),
+  ]);
+  clearTimeout(timer);
+  return outcome;
 }

@@ -12,6 +12,7 @@ import {
 import { supabaseDashboardLink } from "@/lib/admin/supabase-links";
 import { getAIProvider } from "@/server/services/ai";
 import { getCodeExamHealth } from "@/server/services/code-exam/laposte";
+import { getFranceTravailJobsHealth } from "@/server/services/live/jobs";
 import { requireAdmin } from "@/server/middlewares/session";
 import { API_STATE_LABELS, getApiStatuses, type ApiStatus } from "@/server/services/ai/api-status";
 import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
@@ -476,9 +477,10 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
   const admin = getSupabaseAdminClient();
   const hasSalt = Boolean(process.env.RATE_LIMIT_SALT?.trim());
   // Tout part en même temps : un seul temps d'attente au lieu de trois à la suite.
-  const [ai, codeExam, overviewResult, usersResult, progressResult, spendResult] = await Promise.all([
+  const [ai, codeExam, franceTravailJobs, overviewResult, usersResult, progressResult, spendResult] = await Promise.all([
     getAIProvider(),
     getCodeExamHealth({ waitMs: 1500 }),
+    getFranceTravailJobsHealth({ waitMs: 1500 }),
     admin ? settle(getAdminOverview(admin)) : null,
     admin ? settle(listAdminUsers(admin, page)) : null,
     admin ? settle(getTamilyaProgress(admin)) : null,
@@ -506,6 +508,7 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
     overview,
     wordsToTranslate,
     codeExamProblem: codeExam.ok ? null : codeExam.message,
+    jobsProblem: franceTravailJobs.ok ? null : franceTravailJobs.message,
     supabaseLink,
   });
   const statsMissing = admin
