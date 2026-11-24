@@ -128,6 +128,7 @@ Comment le tenir :
 - **Étape 3 :** un profil par proche (ce que Tamilya sait de lui), remplacé quand l'utilisateur le demande (« ce n'est plus ma copine »).
 
 ### Auto-école en ligne (décidé le 2026-11-05, rien de lancé)
+- **Tours d'eau : page admin en un seul écran** (`77b05da`, 2026-11-25, develop). Demande de l'utilisateur : retravailler la page « Tours d'eau » pour qu'elle tienne en une page. En haut : dates, heure de lecture, lien SMAE, images, bouton « Relire ». Puis 4 cases, une par secteur : eau ou coupée maintenant, et prochain changement (« ↓ 16 h », « ↑ dem. 10 h »). Toucher une case ouvre la liste de ses lieux dans une fenêtre. Le tableau montre une semaine à la fois (flèches, aujourd'hui en avant) au lieu des 21 jours ; les coupures hors planning tiennent sur une ligne, et le formulaire s'ouvre dans une fenêtre. Sur un écran bas (moins de 720 px), la phrase d'explication et l'avertissement « pas encore sur la carte » sont masqués ; en paysage sur téléphone, la page défile, car 7 jours ne tiennent pas en 390 px. Aussi : le logo de la SMAE n'est plus compté comme image du planning (il en faisait une 5e). Vérifié par captures sur le site local : sans défilement en 360×640, 390×844 (clair et sombre) et 1280×800, plus la fenêtre des villages. Constaté dans les journaux Vercel : « Relire » cliqué sur tamilya.yt à 00:43 a lu les villages avec Tesseract, en 19 s et sans erreur.
 - Agrément de la préfecture, exploitant, local et enseignants à prévoir avant toute annonce.
 
 ---
