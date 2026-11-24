@@ -7,7 +7,6 @@ import { getAnnouncement } from "@/server/services/site/announcement";
 import { listPartners } from "@/server/services/site/partners";
 import { getSiteFlags, getStatusLog } from "@/server/services/site/settings";
 import { AdminTabs, AnnouncementPanel, Delegation, LockBar, PartnersPanel, ProfileLock, SitePanel, type AdminTab } from "./AdminPanels";
-import { ChangeCode } from "./ChangeCode";
 import { PRIMARY } from "../ui";
 
 const HERE = "/parametres?rubrique=administration";
@@ -15,8 +14,8 @@ const HERE = "/parametres?rubrique=administration";
 /**
  * Rubrique Administration de Mon compte, gardée par le code d'accès admin, en
  * onglets. Principal : site, partenaires, bandeau et délégués. Délégué : la liste des
- * adresses des administrateurs, sans rien pouvoir changer. Tous : changer
- * d'application d'authentification.
+ * adresses des administrateurs, sans rien pouvoir changer. Le code d'accès
+ * lui-même se change dans la rubrique Sécurité (../ChangeCode.tsx).
  */
 export async function AdminSection({ userId, principal }: { userId: string; principal: boolean }) {
   if (!(await adminGateOpen(userId))) {
@@ -57,9 +56,7 @@ export async function AdminSection({ userId, principal }: { userId: string; prin
           { id: "banner", label: "Bandeau", content: <AnnouncementPanel announcement={announcement} /> },
         ] satisfies AdminTab[])
       : []),
-    { id: "admins", label: "Admins", content: <Delegation admins={admins} selfId={userId} manage={principal} /> },
-    { id: "code", label: "Code", content: <ChangeCode /> },
-  ];
+    { id: "admins", label: "Admins", content: <Delegation admins={admins} selfId={userId} manage={principal} /> },  ];
 
   return (
     <ProfileLock until={until}>

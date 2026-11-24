@@ -5,6 +5,7 @@ import type { SavedAddress } from "@/lib/address";
 import type { MyReview } from "@/lib/reviews/rules";
 import { AddressBook } from "./AddressBook";
 import { AdminSection } from "./administration/AdminSection";
+import { ChangeCode } from "./ChangeCode";
 import { TamilyaMemory } from "./TamilyaMemory";
 import { DeleteAccount } from "./DeleteAccount";
 import { maskEmail } from "./mask-email";
@@ -54,23 +55,34 @@ export function SettingsContent({ data }: { data: SettingsData }) {
       </SettingsGroup>
     ),
     securite: (
-      <SettingsGroup>
+      <div className="space-y-6">
+        <SettingsGroup title="Connexion">
+          <SettingsRow label="Mot de passe">
+            <Link href="/auth/nouveau-mot-de-passe" className={SECONDARY}>
+              Changer
+            </Link>
+          </SettingsRow>
+          {data.isAdmin ? <ChangeCode /> : null}
+          <SettingsRow label="Session">
+            <SignOutButton />
+          </SettingsRow>
+        </SettingsGroup>
+        {/* Paiement et voix : réservés aux administrateurs pour l'instant, comme le portefeuille. */}
+        {data.isAdmin ? (
+          <SettingsGroup title="Paiement et voix">
+            <PaymentPin />
+            <VoicePrint />
+          </SettingsGroup>
+        ) : null}
         <div id="sos" className="scroll-mt-24">
-          <SosContacts contacts={data.sosContacts} />
+          <SettingsGroup title="Urgence" description="Les proches prévenus quand tu lances un SOS.">
+            <SosContacts contacts={data.sosContacts} />
+          </SettingsGroup>
         </div>
-        {/* Code de paiement : réservé aux administrateurs pour l'instant, comme le portefeuille. */}
-        {data.isAdmin ? <PaymentPin /> : null}
-        {data.isAdmin ? <VoicePrint /> : null}
-        <SettingsRow label="Mot de passe">
-          <Link href="/auth/nouveau-mot-de-passe" className={SECONDARY}>
-            Changer
-          </Link>
-        </SettingsRow>
-        <SettingsRow label="Session">
-          <SignOutButton />
-        </SettingsRow>
-        <DeleteAccount email={data.email} isAdmin={data.isAdmin} />
-      </SettingsGroup>
+        <SettingsGroup>
+          <DeleteAccount email={data.email} isAdmin={data.isAdmin} />
+        </SettingsGroup>
+      </div>
     ),
     // Administrateurs seulement (la rubrique n'est pas proposée aux autres).
     administration: data.isAdmin ? <AdminSection userId={data.userId} principal={data.isPrincipalAdmin} /> : null,

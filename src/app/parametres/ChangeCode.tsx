@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { lostOk } from "@/lib/safe-action";
 import { cancelChangeAction, confirmChangeAction, startChangeAction } from "@/app/admin/verrou/actions";
-import { INPUT_CLASS, PRIMARY, QUIET, SECONDARY, RowEditor, SettingsGroup, SettingsRow } from "../ui";
+import { INPUT_CLASS, PRIMARY, QUIET, SECONDARY, RowEditor, SettingsRow } from "./ui";
 
 type Step = { kind: "idle" } | { kind: "current" } | { kind: "scan"; factorId: string; qr: string; secret: string } | { kind: "done"; message: string };
 
@@ -28,6 +28,7 @@ function CodeInput({ id, value, onChange }: { id: string; value: string; onChang
 /**
  * Changer d'application d'authentification (nouveau téléphone…) : le code de
  * l'application actuelle d'abord, puis le nouveau QR code et son premier code.
+ * Ligne de la rubrique Sécurité, admins seulement.
  */
 export function ChangeCode() {
   const [step, setStep] = useState<Step>({ kind: "idle" });
@@ -71,11 +72,11 @@ export function ChangeCode() {
     });
 
   return (
-    <SettingsGroup title="Code d'accès admin" description="L'application qui affiche le code à 6 chiffres demandé à l'entrée de l'espace admin.">
+    <>
       {step.kind === "idle" || step.kind === "done" ? (
         <SettingsRow
-          label="Application d'authentification"
-          value={step.kind === "done" ? <span className="text-success">{step.message}</span> : "Liée"}
+          label="Code d'accès admin"
+          value={step.kind === "done" ? <span className="text-success">{step.message}</span> : "Application liée"}
         >
           <button type="button" className={SECONDARY} onClick={() => setStep({ kind: "current" })}>
             Changer
@@ -130,6 +131,6 @@ export function ChangeCode() {
           </form>
         </RowEditor>
       )}
-    </SettingsGroup>
+    </>
   );
 }
