@@ -125,7 +125,7 @@ export function liveToolDeclarations(access: LiveAccess) {
     {
       name: "entreprises_mayotte",
       description:
-        "Cherche une entreprise de Mayotte dans l'annuaire officiel de l'État, qu'elle soit en activité ou fermée : son activité, son adresse, sa date de création, si elle existe encore, qui la dirige. Sert aussi à lister les entreprises d'un métier ou d'une commune (« les plombiers de Sada »). À utiliser avant de parler d'une entreprise, sans rien inventer.",
+        "Cherche une entreprise de Mayotte, d'abord dans l'annuaire Tamilya vérifié par GROUPE BTM (téléphone, adresse, horaires, services), puis dans l'annuaire officiel de l'État, qu'elle soit en activité ou fermée : son activité, son adresse, sa date de création, si elle existe encore, qui la dirige. Sert aussi à lister les entreprises d'un métier ou d'une commune (« les plombiers de Sada »). À utiliser avant de parler d'une entreprise, sans rien inventer.",
       parameters: {
         type: "OBJECT",
         properties: {

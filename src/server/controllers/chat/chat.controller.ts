@@ -50,6 +50,8 @@ import {
   insertMessage,
 } from "@/server/models/conversations.model";
 import { liveContextFor } from "@/server/services/live";
+import { companyAsk } from "@/server/services/live/companies";
+import { directoryFor } from "@/server/services/entreprises/listings";
 import { glossFor, invalidateTamilyaBrain, knownTranslations, knowledgeFor, lexiconFor, loadTamilyaBrain, wordsFor } from "@/server/services/ai/brain";
 import { AI_ERROR_LABELS } from "@/lib/ai/flow-events";
 import { startFlowTrace } from "@/server/services/ai/flow-trace";
@@ -487,6 +489,14 @@ export async function POST(request: NextRequest) {
   const features = await userFeatures(user);
   // Envoi de documents éteint pour ce compte : le fichier joint est ignoré.
   if (!features.includes("documents")) delete messages[messages.length - 1].attachment;
+  // Annuaire Tamilya des entreprises (fiches vérifiées par GROUPE BTM) : en mémoire, lu en quelques millisecondes.
+  // Le maître et l'équipe testent : leurs questions ne comptent pas dans les statistiques des entreprises.
+  const directoryText = understood?.retrieval ?? body.message;
+  const directory =
+    !master && features.includes("entreprises")
+      ? await directoryFor(directoryText, companyAsk(directoryText), { channel: body.voice ? "vocal" : "ecrit", count: !user?.isAdmin }).catch(() => null)
+      : null;
+  if (directory) after(() => directory.counted);
   const attached = Boolean(messages[messages.length - 1].attachment);
   // Demande de ticket de barge reconnue ici : l'achat s'ouvre à coup sûr.
   const bargeIntent = bargeTickets && !body.voice ? detectBargeTicket(body.message) : null;
@@ -567,6 +577,7 @@ export async function POST(request: NextRequest) {
     gloss: glossFor(brain, body.message),
     knowledge: knowledgeFor(brain, understood?.retrieval ?? body.message),
     live: liveContext,
+    directory: directory?.block,
     understanding: understood?.block,
     memories,
     pastTalks,

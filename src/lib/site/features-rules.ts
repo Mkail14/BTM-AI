@@ -41,6 +41,15 @@ export const FEATURES = [
     default: true,
   },
   {
+    id: "entreprises",
+    label: "Profil entreprise",
+    summary: "L'annuaire vérifié des entreprises de Mayotte, et l'espace où chaque entreprise tient sa fiche.",
+    details:
+      "Les fiches relevées par l'équipe GROUPE BTM (vrai numéro, adresse, horaires, date d'ouverture…) : Tamilya les donne en priorité, avec leur source. Une entreprise qui prend la main sur sa fiche (/entreprise) la modifie sans validation, voit combien de fois on l'a demandée et relie son widget Tamilya.",
+    settings: "/admin/entreprises",
+    default: false,
+  },
+  {
     id: "attestation",
     label: "Attestation d'hébergement",
     summary: "Remplir une attestation d'hébergement.",
@@ -136,7 +145,7 @@ export const FEATURE_INFO = Object.fromEntries(FEATURES.map((f) => [f.id, f as F
 
 /** Rangement de la page /admin/fonctionnalites : chaque fonctionnalité dans un seul thème. */
 export const FEATURE_GROUPS: { id: string; label: string; features: FeatureId[] }[] = [
-  { id: "pratique", label: "Vie pratique", features: ["eau", "cyclone", "trajet", "attestation"] },
+  { id: "pratique", label: "Vie pratique", features: ["eau", "cyclone", "trajet", "entreprises", "attestation"] },
   { id: "emploi", label: "Emploi et formation", features: ["emploi", "evenements", "code"] },
   { id: "documents", label: "Documents", features: ["documents", "signature", "livres"] },
   { id: "achats", label: "Achats et paiements", features: ["devis", "repas", "barge", "portefeuille"] },

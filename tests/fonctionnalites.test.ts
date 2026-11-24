@@ -17,6 +17,7 @@ describe("Fonctionnalités allumées pour tous", () => {
     emploi: true,
     evenements: true,
     eau: true,
+    entreprises: false,
     attestation: true,
     signature: false,
     livres: false,
