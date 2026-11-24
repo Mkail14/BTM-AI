@@ -7,6 +7,8 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { alertDialog, confirmDialog } from "@/components/ui/ConfirmDialog";
 import { IconClose, IconDashboard, IconFolder, IconLock, IconPlus, IconSettings, IconSidebar } from "@/components/ui/icons";
+import { pendingCountAction } from "@/app/admin/demandes/actions";
+import { PendingBadge } from "@/components/admin/PendingBadge";
 import { AccountMenu } from "./AccountMenu";
 import { ConversationItem } from "./ConversationItem";
 import { useChatShell } from "./ChatShell";
@@ -33,6 +35,23 @@ function setStoredCollapsed(value: boolean) {
   window.dispatchEvent(new Event(COLLAPSED_EVENT));
 }
 
+/** Demandes qui attendent un administrateur (pastille du Tableau de bord), relues toutes les 2 minutes. */
+function usePendingCount(isAdmin: boolean) {
+  const [count, setCount] = useState(0);
+  useEffect(() => {
+    if (!isAdmin) return;
+    let stop = false;
+    const read = () => void pendingCountAction().then((n) => !stop && setCount(n), () => {});
+    read();
+    const timer = window.setInterval(read, 120_000);
+    return () => {
+      stop = true;
+      window.clearInterval(timer);
+    };
+  }, [isAdmin]);
+  return isAdmin ? count : 0;
+}
+
 export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { user, openAuthDialog, signOut } = useAuth();
   const { conversations, conversationsLoading, refreshConversations, startNewChat, goToLanding } = useChatShell();
@@ -44,6 +63,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
   // Le tiroir du téléphone, lui, est toujours déplié (classes md: seulement).
   const collapsed = useSyncExternalStore(subscribeCollapsed, readCollapsed, () => true);
   const toggleCollapsed = () => setStoredCollapsed(!collapsed);
+  const pendingCount = usePendingCount(Boolean(user?.isAdmin));
   /** Masqué quand la barre est repliée (ordinateur). */
   const wide = collapsed ? "md:hidden" : "";
   /** Texte d'un bouton : seulement lu par les lecteurs d'écran quand la barre est repliée. */
@@ -186,8 +206,13 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
               title={collapsed ? "Tableau de bord" : undefined}
               className={`flex w-full items-center gap-2 rounded-lg bg-accent px-3 py-2 text-sm font-medium whitespace-nowrap text-accent-fg hover:bg-accent-hover ${iconOnly}`}
             >
-              <IconDashboard className="shrink-0" />
-              <span className={label}>Tableau de bord</span>
+              <span className="relative shrink-0">
+                <IconDashboard />
+                {/* Repliée : la pastille se pose sur l'icône. */}
+                {collapsed ? <PendingBadge count={pendingCount} className="absolute -top-2.5 -right-3 hidden ring-2 ring-accent md:inline-grid" /> : null}
+              </span>
+              <span className={`${label} flex-1`}>Tableau de bord</span>
+              <PendingBadge count={pendingCount} className={collapsed ? "md:hidden" : ""} />
             </Link>
           ) : null}
         </div>

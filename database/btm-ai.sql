@@ -8,7 +8,7 @@
 -- Sur Supabase : à jouer sur un projet vide (Auth fournit le schéma auth).
 -- Sur un PostgreSQL local : jouer d'abord database/imitation-supabase.sql (voir database/README.md).
 --
--- 70 migrations · 44 tables dans le schéma public :
+-- 71 migrations · 44 tables dans le schéma public :
 --   ai_providers, ai_usage, app_reviews, awa_branches, awa_cleanup_ignored, awa_grammar,
 --   awa_knowledge, awa_lexicon, awa_library_chunks, awa_library_documents, awa_memories,
 --   awa_partner_keys, awa_personalities, awa_questions, awa_settings, awa_word_requests,
@@ -5226,3 +5226,18 @@ $$;
 
 revoke execute on function public.count_business_listings(uuid[], uuid[], text) from public, anon, authenticated;
 grant execute on function public.count_business_listings(uuid[], uuid[], text) to service_role;
+
+-- ============================================================================
+-- 20261227000000_retrait_rib.sql
+-- ============================================================================
+
+-- BTM AI — Retrait du RIB de GROUPE BTM
+-- Le Profil de l'entreprise est devenu la rubrique Administration de Mon
+-- compte, sans coordonnées bancaires : le RIB enregistré est effacé avec ses
+-- colonnes (aucune copie gardée).
+
+alter table public.site_settings
+  drop column if exists bank_holder,
+  drop column if exists bank_name,
+  drop column if exists bank_iban,
+  drop column if exists bank_bic;

@@ -61,7 +61,7 @@ export async function AdminHeader({ section }: { section?: string; email?: strin
               const className =
                 "mr-0.5 inline-flex items-center gap-2 rounded-full border border-border px-2.5 py-2 text-xs font-medium sm:mr-1 sm:px-3 sm:py-1";
               return principal ? (
-                <Link key={s.label} href="/admin/profil" title={s.label} className={`${className} hover:bg-bg-muted`}>
+                <Link key={s.label} href="/parametres?rubrique=administration" title={s.label} className={`${className} hover:bg-bg-muted`}>
                   {chip}
                 </Link>
               ) : (

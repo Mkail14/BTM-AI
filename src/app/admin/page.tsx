@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { AdminHeader } from "@/components/admin/AdminHeader";
+import { AdminRequests } from "@/components/admin/AdminRequests";
+import { listCodeResets } from "@/server/services/admin/code-reset";
 import { buildAdminAlerts, type AdminAlert } from "@/lib/admin/alerts";
 import {
   getAdminOverview,
@@ -472,7 +474,10 @@ function settle<T>(promise: PromiseLike<T>): Promise<Settled<T>> {
 
 export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
   // Vérifie la session et le rôle avant toute lecture avec la clé secrète.
-  await requireAdmin("/admin");
+  const { user } = await requireAdmin("/admin");
+  const principal = Boolean(user.isPrincipalAdmin);
+  // Demandes « code oublié » : seul l'administrateur principal les traite.
+  const resetsTask = principal ? listCodeResets({ fresh: true }).catch(() => []) : Promise.resolve([]);
   const page = readPage((await searchParams).page);
   const admin = getSupabaseAdminClient();
   const hasSalt = Boolean(process.env.RATE_LIMIT_SALT?.trim());
@@ -500,13 +505,15 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
   else if (usersResult) console.error("[admin] Liste des comptes indisponible", usersResult.reason);
 
   const wordsToTranslate = progress?.toTranslate ?? 0;
+  const resets = (await resetsTask).map((a) => ({ id: a.id, email: a.email, at: a.codeResetAt ?? "" }));
 
   const alerts = buildAdminAlerts({
     aiProblem: ai.ok ? null : ai.reason,
     hasSecretKey: Boolean(admin),
     hasRateLimitSalt: hasSalt,
     overview,
-    wordsToTranslate,
+    // Les mots à traduire sont comptés dans « Demandes en attente », pas en alerte.
+    wordsToTranslate: 0,
     codeExamProblem: codeExam.ok ? null : codeExam.message,
     jobsProblem: franceTravailJobs.ok ? null : franceTravailJobs.message,
     supabaseLink,
@@ -598,7 +605,15 @@ export default async function AdminPage({ searchParams }: PageProps<"/admin">) {
           </span>
         </Link>
 
+        {/* Téléphone : les demandes juste sous les alertes. */}
+        {resets.length + wordsToTranslate > 0 ? (
+          <div className="md:hidden">
+            <AdminRequests resets={resets} wordsToTranslate={wordsToTranslate} />
+          </div>
+        ) : null}
+
         <div className={`hidden min-h-0 flex-col gap-4 md:col-start-2 md:flex ${alerts.length > 0 ? "md:row-start-2" : "md:row-start-1"}`}>
+          <AdminRequests resets={resets} wordsToTranslate={wordsToTranslate} />
           <Card
             id="comptes"
             title={usersPage ? `Comptes (${fmt(usersPage.total)})` : "Comptes"}

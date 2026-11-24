@@ -49,6 +49,8 @@ export default async function SettingsPage() {
           displayName: profile.displayName,
           email: user.email,
           isAdmin: user.isAdmin,
+          isPrincipalAdmin: Boolean(user.isPrincipalAdmin),
+          userId: user.id,
           balance: walletOn ? `${formatEuros(balanceCents)}${demo ? " (démo)" : ""}` : null,
           maskedPhone: contact.phone ? maskPhone(contact.phone) : null,
           home: contact.address,
