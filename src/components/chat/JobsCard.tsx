@@ -249,6 +249,8 @@ function JobsPanel({ data, spec, onClose }: { data: Loaded; spec: JobsSpec; onCl
                         <span className="rounded-full bg-bg-subtle px-2 py-0.5 font-semibold text-fg">{o.kind === "MIS" ? "Intérim" : o.kind === "AUTRE" || o.kind === "PUBLIC" ? (o.contract ?? "Autre") : o.kind}</span>
                         {o.hours ? <span>{o.hours}</span> : null}
                         {deadlineOf(o.deadline) ? <span>· {deadlineOf(o.deadline)}</span> : published(o.date) ? <span>· {published(o.date)}</span> : null}
+                        {/* D'où vient l'offre, en mots que tout le monde comprend (« Emploi Territorial » ne parle à personne). */}
+                        <span className="rounded-full border border-border px-2 py-0.5">{o.source === "France Travail" ? "France Travail" : "Mairie, Département"}</span>
                       </span>
                     </span>
                     <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-fg-muted" />
