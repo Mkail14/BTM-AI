@@ -15,7 +15,7 @@ import { CATEGORIES, COMMUNES, DAYS, LANGUAGES, PAYMENTS, STATUSES, type Listing
 type Result = { ok: boolean; message: string };
 
 const TABS = [
-  { id: "essentiel", label: "L'essentiel" },
+  { id: "essentiel", label: "Infos" },
   { id: "lieu", label: "Où" },
   { id: "contact", label: "Contact" },
   { id: "horaires", label: "Horaires" },
@@ -147,7 +147,7 @@ export function ListingForm({
         submit();
       }}
     >
-      <div role="tablist" aria-label="Parties de la fiche" className="flex gap-1 overflow-x-auto border-b border-border">
+      <div role="tablist" aria-label="Parties de la fiche" className="flex flex-wrap gap-x-1 border-b border-border">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -155,7 +155,7 @@ export function ListingForm({
             role="tab"
             aria-selected={tab === t.id}
             onClick={() => setTab(t.id)}
-            className={`relative shrink-0 px-3 py-2 text-sm whitespace-nowrap ${
+            className={`relative shrink-0 px-2.5 py-2 text-sm whitespace-nowrap ${
               tab === t.id ? "font-medium text-fg after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-full after:bg-accent" : "text-fg-muted hover:text-fg"
             }`}
           >
@@ -267,7 +267,7 @@ export function ListingForm({
                   <span className="w-20 shrink-0 font-medium">{d.label}</span>
                   <input
                     maxLength={80}
-                    placeholder="7h30-12h, 14h-17h ou fermé"
+                    placeholder="7h-12h, 14h-17h"
                     className={input}
                     value={values.hours[d.id] ?? ""}
                     onChange={(e) => set("hours", { ...values.hours, [d.id]: e.target.value })}
