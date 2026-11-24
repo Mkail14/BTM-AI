@@ -121,7 +121,7 @@ async function readErrorMessage(res: Response): Promise<{ code: string; message:
 export function ChatView({ conversationId: initialConversationId, initialMessages, authPrompt, startWith = null }: ChatViewProps) {
   const router = useRouter();
   const { user, openAuthDialog } = useAuth();
-  const { refreshConversations, newChatSignal, openSidebar, startNewChat, goToLanding } = useChatShell();
+  const { refreshConversations, newChatSignal, openSidebar, goToLanding } = useChatShell();
   const online = useOnlineStatus();
 
   const [messages, setMessages] = useState<UiMessage[]>(initialMessages);
@@ -628,7 +628,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
       // overscroll-contain : l'effet élastique en bout de liste ne fait pas bouger toute la page.
       className={`relative flex h-full min-h-0 flex-col overscroll-contain ${messages.length === 0 ? "overflow-hidden" : "overflow-y-auto"}`}
     >
-      <ChatHeader onBack={goToLanding} onMenu={openSidebar} onNewChat={messages.length > 0 ? startNewChat : null}>
+      <ChatHeader onBack={goToLanding} onMenu={openSidebar}>
         {/* Notifications : livraisons, paiements, réservations (compte connecté). */}
         {userId ? <NotificationBell /> : null}
       </ChatHeader>
