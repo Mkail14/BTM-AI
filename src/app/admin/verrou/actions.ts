@@ -80,13 +80,15 @@ export async function requestCodeResetAction(): Promise<ActionResult> {
 }
 
 /**
- * Changer d'application (Mon compte, Administration), étape 1 : le code de
+ * Changer d'application (Mon compte, Sécurité), étape 1 : le code de
  * l'application actuelle prouve que c'est bien toi, puis un nouveau QR code
  * est préparé. L'ancienne reste valable tant que la nouvelle n'est pas confirmée.
+ * Pas besoin d'avoir ouvert l'admin avant : ce code juste l'ouvre, comme
+ * verifyCodeAction, pour que l'étape 2 passe.
  */
 export async function startChangeAction(input: unknown): Promise<EnrollResult> {
-  const auth = await requireAdminAction();
-  if (!auth) return { ok: false, message: "Espace admin verrouillé : retape ton code d'abord." };
+  const auth = await requireAdminRoleAction();
+  if (!auth) return { ok: false, message: NOT_ADMIN.message };
   const { supabase, user } = auth;
   const parsed = z.object({ code: codeSchema.shape.code }).safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Code invalide." };
@@ -102,6 +104,7 @@ export async function startChangeAction(input: unknown): Promise<EnrollResult> {
 
   const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: current.id, code: parsed.data.code });
   if (error) return { ok: false, message: "Code faux ou expiré : tape le code affiché maintenant." };
+  if (!(await openAdminGate(user.id))) return { ok: false, message: "Ouverture impossible (clé secrète manquante)." };
 
   // Changements commencés puis abandonnés (QR jamais confirmé).
   await Promise.all(totp.filter((f) => f.status !== "verified").map((f) => supabase.auth.mfa.unenroll({ factorId: f.id })));
