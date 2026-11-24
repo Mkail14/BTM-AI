@@ -14,6 +14,7 @@ import {
   IconDatabase,
   IconGauge,
   IconLanguage,
+  IconMail,
   IconMapPin,
   IconMenu,
   IconSettings,
@@ -57,6 +58,7 @@ const SECTIONS: { title: string | null; items: MenuItem[] }[] = [
     title: "Savoir",
     items: [
       { label: "Connaissances", icon: IconBook, href: "/admin/connaissances" },
+      { label: "Candidatures emploi (essai)", tab: "Candidatures", icon: IconMail, href: "/admin/candidatures" },
       { label: "Annuaire des entreprises", tab: "Entreprises", icon: IconMapPin, href: "/admin/entreprises" },
     ],
   },
