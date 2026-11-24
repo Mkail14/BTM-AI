@@ -1,11 +1,11 @@
-# Toutes les heures, demande au site de regarder l'accueil de la SMAE : si un nouveau planning
-# des tours d'eau y est annoncé, il est lu par Gemini et mis sur la carte de l'eau.
+# Deux fois par jour (6 h et 18 h à Mayotte), demande au site de regarder l'accueil de la SMAE :
+# si un nouveau planning des tours d'eau y est annoncé, il est lu (sans IA) et mis sur la carte de l'eau.
 # Utilise les mêmes secrets que l'actu : SITE_URL et CRON_SECRET.
 name: Tours d'eau (SMAE)
 
 on:
   schedule:
-    - cron: "17 * * * *"
+    - cron: "17 3,15 * * *"
   workflow_dispatch:
 
 jobs:
