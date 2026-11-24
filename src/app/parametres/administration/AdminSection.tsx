@@ -6,15 +6,15 @@ import { unlockedUntil } from "@/server/services/admin/unlock";
 import { getAnnouncement } from "@/server/services/site/announcement";
 import { listPartners } from "@/server/services/site/partners";
 import { getSiteFlags, getStatusLog } from "@/server/services/site/settings";
-import { Delegation, LockBar, ProfileLock, SitePanel } from "./AdminPanels";
+import { AdminTabs, AnnouncementPanel, Delegation, LockBar, PartnersPanel, ProfileLock, SitePanel, type AdminTab } from "./AdminPanels";
 import { ChangeCode } from "./ChangeCode";
 import { PRIMARY } from "../ui";
 
 const HERE = "/parametres?rubrique=administration";
 
 /**
- * Rubrique Administration de Mon compte, gardée par le code d'accès admin.
- * Principal : état de la plateforme et délégués. Délégué : la liste des
+ * Rubrique Administration de Mon compte, gardée par le code d'accès admin, en
+ * onglets. Principal : site, partenaires, bandeau et délégués. Délégué : la liste des
  * adresses des administrateurs, sans rien pouvoir changer. Tous : changer
  * d'application d'authentification.
  */
@@ -44,12 +44,27 @@ export async function AdminSection({ userId, principal }: { userId: string; prin
     principal ? unlockedUntil(userId) : null,
   ]);
 
+  const tabs: AdminTab[] = [
+    ...(principal && flags
+      ? ([
+          {
+            id: "site",
+            label: "Site",
+            alert: flags.status !== "online" || flags.demoMode,
+            content: <SitePanel flags={flags} log={log} partners={partners} />,
+          },
+          { id: "partners", label: "Partenaires", content: <PartnersPanel partners={partners} status={flags.status} /> },
+          { id: "banner", label: "Bandeau", content: <AnnouncementPanel announcement={announcement} /> },
+        ] satisfies AdminTab[])
+      : []),
+    { id: "admins", label: "Admins", content: <Delegation admins={admins} selfId={userId} manage={principal} /> },
+    { id: "code", label: "Code", content: <ChangeCode /> },
+  ];
+
   return (
     <ProfileLock until={until}>
       {principal ? <LockBar /> : null}
-      {principal && flags ? <SitePanel flags={flags} log={log} partners={partners} announcement={announcement} /> : null}
-      <Delegation admins={admins} selfId={userId} manage={principal} />
-      <ChangeCode />
+      <AdminTabs tabs={tabs} />
     </ProfileLock>
   );
 }
