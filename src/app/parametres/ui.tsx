@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState, useTransition, type ReactNode } from "react";
+import { useEffect, useRef, useState, useTransition, type ReactNode } from "react";
 import { lostStatus } from "@/lib/safe-action";
 import type { ProfileFormState } from "./actions";
 
@@ -71,9 +71,38 @@ export function SettingsRow({ label, value, children }: { label: ReactNode; valu
   );
 }
 
-/** Zone qui s'ouvre à la place d'une ligne pour la modifier. */
-export function RowEditor({ children }: { children: ReactNode }) {
-  return <div className="profile-swap px-4 py-4 sm:px-5 sm:py-5">{children}</div>;
+/**
+ * Modification d'un réglage. Avec `onClose` : fenêtre flottante par-dessus la
+ * page, fond flouté (feuille du bas sur téléphone), fermée par Échap ou un clic
+ * à côté. Sans `onClose` (rien à annuler) : zone dans la page, comme avant.
+ */
+export function RowEditor({ children, onClose }: { children: ReactNode; onClose?: () => void }) {
+  const ref = useRef<HTMLDialogElement>(null);
+  useEffect(() => {
+    const dialog = ref.current;
+    if (dialog && !dialog.open) dialog.showModal();
+  }, []);
+
+  if (!onClose) return <div className="profile-swap px-4 py-4 sm:px-5 sm:py-5">{children}</div>;
+
+  return (
+    <dialog
+      ref={ref}
+      onCancel={(e) => {
+        e.preventDefault();
+        onClose();
+      }}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+      className="confirm-dialog m-0 mt-auto w-full max-w-none bg-transparent p-0 text-fg backdrop:bg-black/40 backdrop:backdrop-blur-md sm:m-auto sm:max-w-lg"
+    >
+      <div className="confirm-dialog-panel max-h-[90dvh] overflow-y-auto rounded-t-3xl border border-border bg-bg/95 p-6 pb-[max(1.5rem,env(safe-area-inset-bottom))] shadow-2xl backdrop-blur-xl sm:rounded-3xl sm:pb-6">
+        <div aria-hidden="true" className="mx-auto -mt-2 mb-4 h-1 w-10 rounded-full bg-border sm:hidden" />
+        {children}
+      </div>
+    </dialog>
+  );
 }
 
 /** Choix unique dans un groupe : vrai bouton radio, utilisable au clavier. */

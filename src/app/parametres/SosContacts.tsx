@@ -32,7 +32,7 @@ export function SosContacts({ contacts }: { contacts: string[] }) {
   }
 
   return (
-    <RowEditor>
+    <RowEditor onClose={() => setEditing(false)}>
       <form
         className="space-y-4"
         onSubmit={(event) => {

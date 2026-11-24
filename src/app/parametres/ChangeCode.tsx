@@ -83,7 +83,7 @@ export function ChangeCode() {
           </button>
         </SettingsRow>
       ) : (
-        <RowEditor>
+        <RowEditor onClose={cancel}>
           <form
             className="space-y-4"
             onSubmit={(e) => {
