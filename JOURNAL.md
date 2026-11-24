@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `a2648c9` (2026-11-25, develop ; `d63e6fb` sur main)**
+**Dernier commit noté : `25e5326` (2026-11-25, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -139,6 +139,7 @@ Comment le tenir :
 
 ## Journal (le plus récent en haut)
 
+- **Menu du compte admin : « Parler à Tamilya » retiré** (`25e5326`, 2026-11-25, develop). Demande de l’utilisateur : restent « Mon compte » et « Se déconnecter ». Pas vu à l’écran.
 - **Chat : « C'est juste » et « Corriger » seulement sous le shimaoré** (`a2648c9`, 2026-11-25, develop ; `d63e6fb` sur main). Demande de l'utilisateur : ces boutons ne doivent s'afficher que si Tamilya a essayé de parler shimaoré. `src/lib/language/tried-shimaore.ts` lit la réponse : mot en italique (pas sûr) ou français entre [[ ]], mot shimaoré courant (jéjé, marahaba, wami…), mot en minuscules qui commence comme le shimaoré (mb, nd, ny, dz, mw…), ou presque aucun petit mot français. Les mots avec majuscule (Dzaoudzi, Mtsamboro…) ne comptent pas. La bulle qui apparaît en sélectionnant un passage reste partout. Vérifié : 3 tests, types. Pas encore vu à l'écran.
 - **Menu du compte admin : « État du site et admins » retiré** (`5acf77e`, 2026-11-25, develop ; `bb7d176` sur main). Demande de l’utilisateur : tout est déjà dans Mon compte. Gardés : « Mon compte » dans ce menu et « Administration » dans le menu ☰.
 - **Profil entreprise : table en ligne, essai réel, onglets au téléphone** (`748868e` sur develop ; `124ac1a` sur main, 2026-11-25). Migration `20261226000000_annuaire_entreprises.sql` collée dans Supabase par l’utilisateur ; vérifié : les 3 tables répondent avec la clé secrète, refusées sans (401). Essai sur la vraie base avec une fiche « Garage Essai Tamilya » (supprimée ensuite) : trouvée par son nom et par « un garage à Mamoudzou », compteur à jour. Captures téléphone de /entreprise (fiche, horaires, chiffres, chatbot, rattachement) : les onglets de la fiche débordaient avec une barre rose de défilement ; maintenant sur deux lignes (« L’essentiel » devient « Infos »), exemple d’horaire raccourci. Pas vu : /admin/entreprises (verrou à code de l’admin).
