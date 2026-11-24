@@ -28,7 +28,7 @@ export function NameRow({ displayName }: { displayName: string | null }) {
   }
 
   return (
-    <RowEditor>
+    <RowEditor onClose={() => setEditing(false)}>
       <form action={formAction} className="space-y-4">
         <div>
           <label htmlFor="displayName" className="block text-sm font-medium">
@@ -78,7 +78,7 @@ export function PhoneRow({ maskedPhone }: { maskedPhone: string | null }) {
   }
 
   return (
-    <RowEditor>
+    <RowEditor onClose={() => setEditing(false)}>
       <form
         className="space-y-4"
         onSubmit={(e) => {

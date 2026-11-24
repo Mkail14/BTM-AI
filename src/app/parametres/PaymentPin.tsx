@@ -122,7 +122,7 @@ export function PaymentPin() {
         </SettingsRow>
       ) : null}
       {hasPin === null || mode === null ? null : (
-        <RowEditor>
+        <RowEditor onClose={close}>
           <form
             className="space-y-4"
             onSubmit={(event) => {

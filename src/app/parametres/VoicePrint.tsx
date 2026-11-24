@@ -187,7 +187,7 @@ export function VoicePrint() {
       {status === null ? (
         <div className="m-4 h-8 animate-pulse rounded-lg bg-bg-muted" />
       ) : removing || pending ? (
-        <RowEditor>{pinForm}</RowEditor>
+        <RowEditor onClose={reset}>{pinForm}</RowEditor>
       ) : !open ? (
         <SettingsRow label="Empreinte de voix" value={status.enrolled ? `Enregistrée${status.since ? ` le ${dateFormat.format(new Date(status.since))}` : ""}` : "Aucune"}>
           <div className="flex gap-2">
@@ -202,7 +202,7 @@ export function VoicePrint() {
           </div>
         </SettingsRow>
       ) : (
-        <RowEditor>
+        <RowEditor onClose={reset}>
           {!consent ? (
             <div className="space-y-4">
               <p className="text-sm text-fg-muted">

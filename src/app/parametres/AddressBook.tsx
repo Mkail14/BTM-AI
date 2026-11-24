@@ -175,7 +175,7 @@ function AddressForm({
   const labelError = named && !label.trim() ? "Donne un nom à cette adresse." : null;
 
   return (
-    <RowEditor>
+    <RowEditor onClose={onCancel}>
     <form
       noValidate
       className="space-y-4"

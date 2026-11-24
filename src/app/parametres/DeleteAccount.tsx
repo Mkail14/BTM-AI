@@ -41,7 +41,7 @@ export function DeleteAccount({ email, isAdmin }: { email: string | null; isAdmi
           </button>
         </SettingsRow>
       ) : (
-        <RowEditor>
+        <RowEditor onClose={() => setOpened(false)}>
           <form
             className="space-y-4"
             onSubmit={(event) => {
