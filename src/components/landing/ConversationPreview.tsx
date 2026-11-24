@@ -131,7 +131,7 @@ export function ConversationPreview() {
         <div ref={box} className="relative flex h-full min-h-0 flex-col overflow-y-auto overscroll-contain [scrollbar-width:none]">
           {/* Place de la barre d'iOS, dessinée par l'accueil : même fond que la barre du haut, collées ensemble. */}
           <div className="persona-backdrop sticky top-0 z-20 shrink-0" style={{ paddingTop: PHONE.statusBar }}>
-            <ChatHeader onMenu={noop} onNewChat={noop}>
+            <ChatHeader onMenu={noop}>
               <BellButton />
             </ChatHeader>
           </div>

@@ -1,6 +1,6 @@
 import type { CSSProperties, ReactNode } from "react";
 import { BrandLogo } from "@/components/brand/BrandLogo";
-import { IconArrowLeft, IconMenu, IconMic, IconPlus } from "@/components/ui/icons";
+import { IconArrowLeft, IconMenu, IconMic } from "@/components/ui/icons";
 
 /*
  * L'habillage de la page de conversation : fond, barre du haut, liste des messages,
@@ -20,17 +20,15 @@ export function ChatSurface({ persona, style, children }: { persona: string; sty
   );
 }
 
-/** Barre du haut. `onBack` : flèche et logo qui ramènent à l'accueil (visiteur). `onNewChat` : le « + » du téléphone. */
+/** Barre du haut. `onBack` : flèche et logo qui ramènent à l'accueil (visiteur). */
 export function ChatHeader({
   onBack,
   onMenu,
-  onNewChat,
   children,
 }: {
   onBack?: (() => void) | null;
   onMenu: () => void;
-  onNewChat?: (() => void) | null;
-  /** À droite, après le « + » : la cloche des notifications. */
+  /** À droite : la cloche des notifications. */
   children?: ReactNode;
 }) {
   return (
@@ -62,12 +60,7 @@ export function ChatHeader({
         </span>
       )}
       <div className="ml-auto flex items-center gap-2">
-        {/* Téléphone : nouvelle conversation sans ouvrir le menu (sur ordinateur, le « + » est dans la barre latérale). */}
-        {onNewChat ? (
-          <button type="button" onClick={onNewChat} aria-label="Nouvelle conversation" className="app-hide rounded-lg p-2 text-fg-muted hover:bg-bg-muted hover:text-fg md:hidden">
-            <IconPlus width={22} height={22} />
-          </button>
-        ) : null}
+        {/* Nouvelle conversation : seulement par le menu, pas de « + » ici (demande du 2026-11-25). */}
         {children}
       </div>
     </header>
