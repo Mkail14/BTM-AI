@@ -1,0 +1,498 @@
+{
+ "1": [
+  {
+   "text": "PLANNING D",
+   "x": 170
+  },
+  {
+   "text": "ma",
+   "x": 0
+  },
+  {
+   "text": "Ÿ des Eaux",
+   "x": 0
+  },
+  {
+   "text": "SECTEUR",
+   "x": 96
+  },
+  {
+   "text": "01",
+   "x": 165
+  },
+  {
+   "text": "VILLAGES",
+   "x": 18
+  },
+  {
+   "text": "-  Acoua haut",
+   "x": 19
+  },
+  {
+   "text": "- Bambo-Est",
+   "x": 19
+  },
+  {
+   "text": "-  Bambo-Ouest",
+   "x": 19
+  },
+  {
+   "text": "«  Bandraboua village (nord)",
+   "x": 19
+  },
+  {
+   "text": "-  Barakani",
+   "x": 19
+  },
+  {
+   "text": "-  Bouyouni",
+   "x": 19
+  },
+  {
+   "text": "-  Coconi",
+   "x": 19
+  },
+  {
+   "text": "Combani sud",
+   "x": 19
+  },
+  {
+   "text": "-  Convaslescence — Mdz",
+   "x": 19
+  },
+  {
+   "text": "(100 villas, vertivert)",
+   "x": 54
+  },
+  {
+   "text": "-  Dembeni village",
+   "x": 19
+  },
+  {
+   "text": "-  Doujani",
+   "x": 19
+  },
+  {
+   "text": "Hagnoundrou",
+   "x": 19
+  },
+  {
+   "text": "-  Handrema",
+   "x": 19
+  },
+  {
+   "text": "« Hapandzo",
+   "x": 19
+  },
+  {
+   "text": "- Hauts Vallons",
+   "x": 19
+  },
+  {
+   "text": "« Iloni",
+   "x": 19
+  },
+  {
+   "text": "«  Kani-Kéli haut",
+   "x": 19
+  },
+  {
+   "text": "«  Labattoir - Centre",
+   "x": 19
+  },
+  {
+   "text": "Majicavo-Lamir",
+   "x": 19
+  },
+  {
+   "text": "«  Mamoudzou Centre",
+   "x": 19
+  },
+  {
+   "text": "-  Mbouenatsa",
+   "x": 19
+  },
+  {
+   "text": "«  Mramadoudou",
+   "x": 19
+  },
+  {
+   "text": "Mtsahara",
+   "x": 19
+  },
+  {
+   "text": "« Mtsamoudou Bas",
+   "x": 19
+  },
+  {
+   "text": "Mtsapéré Bonovo",
+   "x": 19
+  },
+  {
+   "text": "*  Nyambadao",
+   "x": 19
+  },
+  {
+   "text": "Pamandzi Est",
+   "x": 19
+  },
+  {
+   "text": "Pamandzi La Vigie",
+   "x": 19
+  },
+  {
+   "text": "Passamainty Manguiers",
+   "x": 19
+  },
+  {
+   "text": "-  Poroani",
+   "x": 19
+  },
+  {
+   "text": "« Sohoa",
+   "x": 19
+  },
+  {
+   "text": "-  Trévani",
+   "x": 19
+  },
+  {
+   "text": "«  Tsingoni",
+   "x": 19
+  }
+ ],
+ "2": [
+  {
+   "text": "5 TOURS D'EAU - DU 23",
+   "x": 0
+  },
+  {
+   "text": "SECTEUR",
+   "x": 103
+  },
+  {
+   "text": "02",
+   "x": 173
+  },
+  {
+   "text": "VILLAGES",
+   "x": 17
+  },
+  {
+   "text": "-  Acoua bas",
+   "x": 18
+  },
+  {
+   "text": "«  Bandraboua village (sud -",
+   "x": 18
+  },
+  {
+   "text": "Ngambo Titi)",
+   "x": 54
+  },
+  {
+   "text": "-  Bandrélé village",
+   "x": 18
+  },
+  {
+   "text": "-  Bouéni (quartier Mrambolé)",
+   "x": 18
+  },
+  {
+   "text": "«  Chembenyoumba",
+   "x": 18
+  },
+  {
+   "text": "«  Chiconi village",
+   "x": 18
+  },
+  {
+   "text": "«  Chirongui village",
+   "x": 18
+  },
+  {
+   "text": "«  Combani Champs d’Ylangs",
+   "x": 18
+  },
+  {
+   "text": "«  Convalescence - Cavani",
+   "x": 18
+  },
+  {
+   "text": "sud",
+   "x": 54
+  },
+  {
+   "text": "Dapani",
+   "x": 18
+  },
+  {
+   "text": "- Ironi-Bé",
+   "x": 18
+  },
+  {
+   "text": "-  Kani-Bé",
+   "x": 18
+  },
+  {
+   "text": "-_ Kawéni village",
+   "x": 18
+  },
+  {
+   "text": "«  Koungou village",
+   "x": 18
+  },
+  {
+   "text": "«  Labattoir - Badamiers",
+   "x": 18
+  },
+  {
+   "text": "«  Longoni",
+   "x": 18
+  },
+  {
+   "text": "-  Mamoudzou - Boboka et",
+   "x": 18
+  },
+  {
+   "text": "Marché Couvert",
+   "x": 54
+  },
+  {
+   "text": "Mbouini",
+   "x": 18
+  },
+  {
+   "text": "«  Miréréni (Chirongui)",
+   "x": 18
+  },
+  {
+   "text": "-  Miréréni (Tsingoni)",
+   "x": 18
+  },
+  {
+   "text": "-  Moinatrindri Bas",
+   "x": 18
+  },
+  {
+   "text": "«  Mroalé",
+   "x": 18
+  },
+  {
+   "text": "«  Mtsamboro village",
+   "x": 18
+  },
+  {
+   "text": "“ Mtsangadoua",
+   "x": 18
+  },
+  {
+   "text": "Musicale Plage",
+   "x": 18
+  },
+  {
+   "text": "-  Mzouazia",
+   "x": 18
+  },
+  {
+   "text": "«  Ouangani village",
+   "x": 18
+  },
+  {
+   "text": "«  Passamainty Kavani-Bé +",
+   "x": 18
+  },
+  {
+   "text": "Ngambo Titi",
+   "x": 54
+  },
+  {
+   "text": "«  Tsararano",
+   "x": 18
+  },
+  {
+   "text": "«  Tsoundzou |",
+   "x": 18
+  }
+ ],
+ "3": [
+  {
+   "text": "OVEMBRE AU 13 DÉCEM",
+   "x": 0
+  },
+  {
+   "text": "SECTEUR",
+   "x": 111
+  },
+  {
+   "text": "03",
+   "x": 180
+  },
+  {
+   "text": "VILLAGES",
+   "x": 18
+  },
+  {
+   "text": "-  Acoua Marvatou et Bon Soleil",
+   "x": 19
+  },
+  {
+   "text": "-  Bouéni (sauf Mrambolé)",
+   "x": 19
+  },
+  {
+   "text": "-  Cavani-Mamoudzou",
+   "x": 19
+  },
+  {
+   "text": "«  Choungui",
+   "x": 19
+  },
+  {
+   "text": "-  Combani Nord",
+   "x": 19
+  },
+  {
+   "text": "«  Dzaoudzi - Blv des Crabes",
+   "x": 19
+  },
+  {
+   "text": "* Dzoumogné",
+   "x": 19
+  },
+  {
+   "text": "Hajangoua",
+   "x": 19
+  },
+  {
+   "text": "«  Hamjago",
+   "x": 19
+  },
+  {
+   "text": "-  Hamouro",
+   "x": 19
+  },
+  {
+   "text": "-  Kahani",
+   "x": 19
+  },
+  {
+   "text": "« Kangani",
+   "x": 19
+  },
+  {
+   "text": "«  Kani-Kéli bas",
+   "x": 19
+  },
+  {
+   "text": "* Kwalé",
+   "x": 19
+  },
+  {
+   "text": "«  Labattoir La Vigie",
+   "x": 19
+  },
+  {
+   "text": "Majicavo-Koropa",
+   "x": 19
+  },
+  {
+   "text": "-  Malamani",
+   "x": 19
+  },
+  {
+   "text": "-  Mangajou",
+   "x": 19
+  },
+  {
+   "text": "-  Mgnambani",
+   "x": 19
+  },
+  {
+   "text": "« Mliha",
+   "x": 19
+  },
+  {
+   "text": "«  Moinatrindri Haut",
+   "x": 19
+  },
+  {
+   "text": "*  Mronabéja",
+   "x": 19
+  },
+  {
+   "text": "« Mtsamoudou Haut",
+   "x": 19
+  },
+  {
+   "text": "« Mtsangamboua",
+   "x": 19
+  },
+  {
+   "text": "«  Mtsangamouji village",
+   "x": 19
+  },
+  {
+   "text": "* Mtsapéré",
+   "x": 19
+  },
+  {
+   "text": "«  Ongoujou",
+   "x": 19
+  },
+  {
+   "text": "Pamandzi Ouest",
+   "x": 19
+  },
+  {
+   "text": "»  Passi-Kéli",
+   "x": 19
+  },
+  {
+   "text": "- Sada",
+   "x": 19
+  },
+  {
+   "text": "-  Tsimkoura",
+   "x": 19
+  },
+  {
+   "text": "Tsoundzou Il",
+   "x": 19
+  },
+  {
+   "text": "«  Vahibé",
+   "x": 19
+  }
+ ],
+ "4": [
+  {
+   "text": "E 2026 pre",
+   "x": 0
+  },
+  {
+   "text": "de MayC",
+   "x": 213
+  },
+  {
+   "text": "SECTEUR",
+   "x": 51
+  },
+  {
+   "text": "04",
+   "x": 119
+  },
+  {
+   "text": "VILLAGES",
+   "x": 15
+  },
+  {
+   "text": "- Z.l. Kawéni",
+   "x": 16
+  },
+  {
+   "text": "« Z.l. Vallée 3",
+   "x": 16
+  }
+ ]
+}

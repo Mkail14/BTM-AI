@@ -105,7 +105,7 @@ export function WaterAdmin({ planning, alerts, unplaced }: { planning: WaterPlan
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Tours d&apos;eau</h1>
         <p className="mt-1 text-sm text-fg-muted">
-          Planning officiel de la SMAE, lu par Gemini sur mahoraisedeseaux.com et mis sur la carte tout seul : le site regarde toutes les heures si un
+          Planning officiel de la SMAE, lu sur mahoraisedeseaux.com (couleurs des cases et texte des villages, sans IA) et mis sur la carte tout seul : le site regarde toutes les heures si un
           nouveau planning est annoncé.
         </p>
       </div>

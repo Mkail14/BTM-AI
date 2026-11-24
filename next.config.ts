@@ -40,6 +40,13 @@ const imageCache = "public, max-age=86400, stale-while-revalidate=604800";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Lecture de texte des villages des tours d'eau (Tesseract) : lancé tel quel par Node, avec son
+  // moteur (fichiers .wasm chargés à l'exécution, à joindre aux deux pages qui lisent la SMAE).
+  serverExternalPackages: ["tesseract.js", "tesseract.js-core"],
+  outputFileTracingIncludes: {
+    "/api/cron/eau": ["./node_modules/tesseract.js/**", "./node_modules/.pnpm/tesseract.js*/**", "./node_modules/.pnpm/node_modules/tesseract.js-core/**"],
+    "/admin/eau": ["./node_modules/tesseract.js/**", "./node_modules/.pnpm/tesseract.js*/**", "./node_modules/.pnpm/node_modules/tesseract.js-core/**"],
+  },
   turbopack: {
     // Un package-lock.json vide existe dans le dossier parent : on fixe la racine.
     root: __dirname,

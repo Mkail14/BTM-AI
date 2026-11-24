@@ -9,7 +9,7 @@ import type { WaterAlert, WaterPlanning } from "@/lib/water/schedule";
 import { WaterAdmin } from "./WaterAdmin";
 
 export const metadata: Metadata = { title: "Tours d'eau", robots: { index: false, follow: false } };
-/** « Relire maintenant » : Gemini lit plusieurs images, jusqu'à 2 minutes. */
+/** « Relire maintenant » : lecture des images sans IA, moins d'une minute. */
 export const maxDuration = 300;
 
 const unplaced = (planning: WaterPlanning | null) => planning?.sectors.flatMap((s) => s.villages).filter((name) => !findZone(name)) ?? [];
