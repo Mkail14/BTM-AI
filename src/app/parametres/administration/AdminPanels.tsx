@@ -4,7 +4,7 @@ import { X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, useRef, useState, useTransition, type ComponentType, type ReactNode } from "react";
 import { ActionStatus, inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
-import { IconExternal, IconLock, IconPencil, IconSettings, IconUsers } from "@/components/ui/icons";
+import { IconExternal, IconGauge, IconLock, IconMapPin, IconMegaphone, IconPencil, IconSettings, IconUsers } from "@/components/ui/icons";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { PasswordInput } from "@/components/ui/PasswordInput";
 import type { ActionResult } from "@/server/middlewares/admin-auth";
@@ -566,18 +566,120 @@ function PartnerList({
   );
 }
 
-/** État de la plateforme : un seul état enregistré, choisi parmi trois. */
+/* -------------------------------------------------------------------------- */
+/* Onglets de la rubrique                                                     */
+/* -------------------------------------------------------------------------- */
+
+const TAB_ICONS = { site: IconGauge, partners: IconMapPin, banner: IconMegaphone, admins: IconUsers, code: IconLock } satisfies Record<string, IconType>;
+
+/** L'icône est donnée par son nom : un composant ne passe pas du serveur au client. */
+export type AdminTab = { id: keyof typeof TAB_ICONS; label: string; /** Pastille orange : quelque chose à surveiller. */ alert?: boolean; content: ReactNode };
+
+/**
+ * Un onglet à la fois : chaque partie tient dans l'écran au lieu d'une longue
+ * page. Changer d'onglet referme la modification en cours ; les 10 minutes
+ * déverrouillées restent valables.
+ */
+export function AdminTabs({ tabs }: { tabs: AdminTab[] }) {
+  const { done } = useLock();
+  const [active, setActive] = useState(tabs[0]?.id);
+  const current = tabs.find((tab) => tab.id === active) ?? tabs[0];
+  if (!current) return null;
+
+  return (
+    <div className="space-y-4">
+      <div role="tablist" aria-label="Parties de l'administration" className="scrollbar-none -mx-1 flex gap-1 overflow-x-auto px-1">
+        {tabs.map((tab) => {
+          const selected = tab.id === current.id;
+          const Icon = TAB_ICONS[tab.id];
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              id={`admin-tab-${tab.id}`}
+              aria-selected={selected}
+              aria-controls="admin-tab-panel"
+              onClick={() => {
+                if (selected) return;
+                done();
+                setActive(tab.id);
+              }}
+              className={`inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full px-3.5 text-sm font-medium whitespace-nowrap transition ${
+                selected ? "bg-fg text-bg" : "text-fg-muted hover:bg-bg-muted hover:text-fg"
+              }`}
+            >
+              <Icon width={15} height={15} />
+              {tab.label}
+              {tab.alert ? <span aria-label="à surveiller" className="size-1.5 rounded-full bg-warning" /> : null}
+            </button>
+          );
+        })}
+      </div>
+      <div key={current.id} id="admin-tab-panel" role="tabpanel" aria-labelledby={`admin-tab-${current.id}`} className="profile-swap">
+        {current.content}
+      </div>
+    </div>
+  );
+}
+
+/** Partenaires à Mayotte : leur validation peut ouvrir le site. */
+export function PartnersPanel({ partners, status }: { partners: Partner[] | null; status: SiteStatus }) {
+  const { pending, result, run } = useAction();
+  const { editing } = useLock();
+  const canEdit = editing === "site";
+  return (
+    <Panel
+      icon={IconMapPin}
+      title="Partenaires"
+      subtitle="Le premier validé ouvre le site s'il est en attente"
+      editing={canEdit}
+      aside={<EditButton section="site" label="Partenaires" />}
+      status={result}
+    >
+      <PartnerList partners={partners} status={status} canEdit={canEdit} pending={pending} run={run} />
+    </Panel>
+  );
+}
+
+/** Bandeau en haut de la page d'accueil. */
+export function AnnouncementPanel({ announcement }: { announcement: Announcement | null }) {
+  const { editing } = useLock();
+  const canEdit = editing === "site";
+  return (
+    <Panel
+      icon={IconMegaphone}
+      title="Bandeau d'accueil"
+      subtitle="Message affiché en haut de la page d'accueil"
+      editing={canEdit}
+      aside={<EditButton section="site" label="Bandeau d'accueil" />}
+      status={null}
+    >
+      {announcement === null ? (
+        <p className="rounded-xl bg-warning-soft px-4 py-3 text-xs">Bandeau d&apos;accueil indisponible : migration 20261121000000_bandeau_accueil.sql à appliquer.</p>
+      ) : canEdit ? (
+        <AnnouncementForm saved={announcement} />
+      ) : (
+        <div className="divide-y divide-border rounded-xl border border-border">
+          <Row label="Bandeau">
+            {announcement.enabled ? <span className="text-success">Affiché</span> : <span className="font-normal text-fg-muted">Masqué</span>}
+          </Row>
+          {announcement.text ? <p className="px-4 py-3 text-sm text-fg-muted">« {announcement.text} »</p> : null}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+/** État de la plateforme : un seul état enregistré, choisi parmi trois, plus le mode démo. */
 export function SitePanel({
   flags,
   log,
   partners,
-  announcement,
 }: {
   flags: SiteFlags;
   log: StatusChange[] | null;
   partners: Partner[] | null;
-  /** null : migration du bandeau pas appliquée. */
-  announcement: Announcement | null;
 }) {
   const { pending, result, run } = useAction();
   const { editing } = useLock();
@@ -597,13 +699,25 @@ export function SitePanel({
   const aside = (
     <>
       <Badge on={closed} onLabel={SITE_STATUS_LABELS[flags.status]} offLabel={SITE_STATUS_LABELS.online} />
-      <EditButton section="site" label="État de la plateforme" />
+      <EditButton section="site" label="État du site" />
     </>
+  );
+
+  const history = (
+    <details className="group rounded-xl border border-border">
+      <summary className="cursor-pointer list-none px-4 py-3 text-xs font-medium text-fg-muted hover:text-fg">
+        Derniers changements
+        {log?.length ? <span className="tabular-nums"> ({log.length})</span> : null}
+      </summary>
+      <div className="px-4 pb-4">
+        <StatusHistory log={log} />
+      </div>
+    </details>
   );
 
   if (editing !== "site") {
     return (
-      <Panel icon={IconSettings} title="État de la plateforme" subtitle="Accès du public, bandeau et démonstration" aside={aside} status={result}>
+      <Panel icon={IconSettings} title="État du site" subtitle="Accès du public et démonstration" aside={aside} status={result}>
         <div className="divide-y divide-border rounded-xl border border-border">
           <Row label="État du site">
             <span className={closed ? "text-warning" : "text-success"}>{SITE_STATUS_LABELS[flags.status]}</span>
@@ -611,26 +725,16 @@ export function SitePanel({
           <Row label="Message aux visiteurs">
             {flags.maintenanceMessage ? flags.maintenanceMessage : <span className="font-normal text-fg-muted">Aucun</span>}
           </Row>
-          <Row label="Bandeau d'accueil">
-            {announcement?.enabled ? <span className="text-success">Affiché</span> : <span className="font-normal text-fg-muted">Masqué</span>}
-          </Row>
-          {announcement?.enabled && announcement.text ? (
-            <p className="px-4 py-3 text-sm text-fg-muted">« {announcement.text} »</p>
-          ) : null}
           <Row label="Mode démo">{flags.demoMode ? <span className="text-accent">Allumé</span> : "Éteint"}</Row>
         </div>
         {flags.demoMode ? <p className="text-xs text-warning">Mode démo allumé : pense à l&apos;éteindre après la présentation.</p> : null}
-        <PartnerList partners={partners} status={flags.status} canEdit={false} pending={pending} run={run} />
-        <div className="rounded-xl border border-border p-4">
-          <p className="mb-3 text-xs font-medium text-fg-muted">Derniers changements</p>
-          <StatusHistory log={log} />
-        </div>
+        {history}
       </Panel>
     );
   }
 
   return (
-    <Panel icon={IconSettings} title="État de la plateforme" subtitle="Accès du public, bandeau et démonstration" aside={aside} status={result} editing>
+    <Panel icon={IconSettings} title="État du site" subtitle="Accès du public et démonstration" aside={aside} status={result} editing>
       <div className="space-y-4 rounded-xl border border-border p-4">
         <fieldset className="space-y-2">
           <legend className={`${labelClass} mb-2`}>État du site</legend>
@@ -692,14 +796,6 @@ export function SitePanel({
         ) : null}
       </div>
 
-      <PartnerList partners={partners} status={flags.status} canEdit pending={pending} run={run} />
-
-      {announcement ? (
-        <AnnouncementForm saved={announcement} />
-      ) : (
-        <p className="rounded-xl bg-warning-soft px-4 py-3 text-xs">Bandeau d&apos;accueil indisponible : migration 20261121000000_bandeau_accueil.sql à appliquer.</p>
-      )}
-
       <div className="space-y-3 rounded-xl border border-border p-4">
         <Switch
           label="Mode démo"
@@ -712,10 +808,7 @@ export function SitePanel({
         {flags.demoMode ? <p className="text-xs text-warning">Allumé : pense à l&apos;éteindre après la présentation.</p> : null}
       </div>
 
-      <div className="rounded-xl border border-border p-4">
-        <p className="mb-3 text-xs font-medium text-fg-muted">Derniers changements</p>
-        <StatusHistory log={log} />
-      </div>
+      {history}
     </Panel>
   );
 }
