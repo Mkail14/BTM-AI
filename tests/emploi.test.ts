@@ -132,3 +132,37 @@ describe("offres d'emploi : la liste ne s'ouvre jamais vide", () => {
     assert.deepEqual(fixJobsSpec(offers, { metier: "boulanger", ville: "Koungou" }), { metier: "", ville: "Koungou" });
   });
 });
+
+describe("offres France Travail : page publique de recherche", () => {
+  const li = (id: string, title: string, company: string, place: string, contract: string, hours: string, published: string) =>
+    `<li data-id-offre="${id}" class="result"><a id="pagelink" class="media with-fav" role="button" href="/offres/recherche/detail/${id}"><div class="media-body"><h2 data-intitule-offre="${id}" class="t4 media-heading"><span class="media-heading-title">${title}</span></h2><p translate="no" class="subtext">\n${company}\n - <span>${place}</span></p><p class="description">Texte...</p><p class="contrat visible-xs">${contract}\n - ${hours}</p><p class="date">\n${published}\n</p></div><div class="media-right media-middle hidden-xs"><p class="contrat">${contract}<span class="type-contrat">${hours}</span></p></div></a></li>`;
+  const html = `<h1 class="title">\n482 offres\n<span class="subtitle">\n - Mayotte (976)\n</span></h1><ul>${li("216VDFR", "UN ADULTE RELAIS (H/F)", "MAIRIE", "976 - MAMOUDZOU", "CDI", "Temps plein", "Publié aujourd'hui")}${li("216VMNT", "Gestionnaire de paie (H/F)", "SOGEA MAYOTTE", "976 - Mayotte", "Intérim", "Non renseigné", "Publié il y a 3 jours")}</ul>`;
+  // 25 novembre 2026, 10 h à Mayotte.
+  const now = Date.parse("2026-11-25T07:00:00Z");
+
+  it("lit le total et chaque offre avec employeur, commune, contrat, date et lien", async () => {
+    const { parseFranceTravailPage } = await import("@/server/services/live/france-travail-site");
+    const { offers, total } = parseFranceTravailPage(html, now);
+    assert.equal(total, 482);
+    assert.equal(offers.length, 2);
+    const [first, second] = offers;
+    assert.equal(first.id, "ft-216VDFR");
+    assert.equal(first.title, "UN ADULTE RELAIS (H/F)");
+    assert.equal(first.company, "MAIRIE");
+    assert.equal(first.place, "Mamoudzou");
+    assert.equal(first.kind, "CDI");
+    assert.equal(first.hours, "Temps plein");
+    assert.equal(first.date, "2026-11-24T21:00:00.000Z");
+    assert.equal(first.source, "France Travail");
+    assert.equal(first.link, "https://candidat.francetravail.fr/offres/recherche/detail/216VDFR");
+    assert.equal(second.place, null);
+    assert.equal(second.kind, "MIS");
+    assert.equal(second.hours, null);
+    assert.equal(second.date, "2026-11-21T21:00:00.000Z");
+  });
+
+  it("page changée : pas de total trouvé", async () => {
+    const { parseFranceTravailPage } = await import("@/server/services/live/france-travail-site");
+    assert.deepEqual(parseFranceTravailPage("<html><body>Nouveau site</body></html>", now), { offers: [], total: null });
+  });
+});
