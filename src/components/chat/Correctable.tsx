@@ -1,10 +1,11 @@
 "use client";
 
 import { Check } from "lucide-react";
-import { createContext, use, useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
+import { createContext, use, useEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { guessFrenchAction } from "@/app/(chat)/actions";
 import { IconCheck, IconClose, IconPencil } from "@/components/ui/icons";
+import { triedShimaore } from "@/lib/language/tried-shimaore";
 import type { ActionResult } from "@/server/middlewares/admin-auth";
 
 export type Correction = { wrote: string; shimaore: string; french: string; context: string };
@@ -92,6 +93,7 @@ export function Correctable({
     { state: "loading" } | { state: "done"; french: string; fromLexicon: boolean } | { state: "error"; message: string } | null
   >(null);
   const meaningRequest = useRef(0);
+  const shimaore = useMemo(() => triedShimaore(reply), [reply]);
 
   // Sélection dans cette réponse : bouton « Corriger » juste en dessous.
   useEffect(() => {
@@ -205,6 +207,8 @@ export function Correctable({
 
       {/* Sans sélection (téléphone, tablette) : « C'est juste » garde la réponse entière, le crayon ouvre la correction.
           Cachés seulement avec une souris : sur écran tactile, il n'y a pas de survol pour les faire apparaître. */}
+      {/* Seulement si Tamilya a essayé de parler shimaoré : une réponse en français n'a rien à corriger. */}
+      {shimaore ? (
       <div className="mt-2 flex flex-wrap gap-1.5 opacity-80 transition focus-within:opacity-100 [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover/correct:opacity-80 [@media(hover:hover)]:focus-within:opacity-100">
         <button
           type="button"
@@ -223,6 +227,7 @@ export function Correctable({
           <IconPencil width={13} height={13} /> Corriger
         </button>
       </div>
+      ) : null}
 
       {selection && !form ? (
         <div
