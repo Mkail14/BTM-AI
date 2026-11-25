@@ -139,9 +139,12 @@ export function AccountMenu({
               ) : null}
             </Link>
           ) : null}
-          <Link prefetch={false} href="/parametres" role="menuitem" onClick={close} className={itemClass}>
-            <IconSettings /> Paramètres
-          </Link>
+          {/* Admin : Mon compte s'ouvre depuis le tableau de bord (menu du compte en haut à droite). */}
+          {!user.isAdmin ? (
+            <Link prefetch={false} href="/parametres" role="menuitem" onClick={close} className={itemClass}>
+              <IconSettings /> Paramètres
+            </Link>
+          ) : null}
           <Link prefetch={false} href="/utilisation" role="menuitem" onClick={close} className={itemClass}>
             <IconGauge /> Utilisation
           </Link>
