@@ -1,68 +1,75 @@
-"use client";
-
 import Link from "next/link";
-import { useMemo, useState } from "react";
 import { COMMUNES, STATUSES } from "@/lib/entreprises/listing";
-import { normalize } from "@/lib/live/intent";
-import type { ListingSummary } from "@/server/services/entreprises/listings";
+import { LISTINGS_PER_PAGE, type ListingFilter, type ListingSummary } from "@/server/services/entreprises/listings";
 
 const monthFormat = new Intl.DateTimeFormat("fr-FR", { month: "short", year: "numeric", timeZone: "UTC" });
 
 /** Plus d'un an sans vérification : à revoir lors de la prochaine tournée. */
 const isOld = (verifiedOn: string | null) => !verifiedOn || Date.now() - Date.parse(verifiedOn) > 365 * 86_400_000;
 
-export function ListingsTable({ listings }: { listings: ListingSummary[] }) {
-  const [query, setQuery] = useState("");
-  const [filter, setFilter] = useState<"toutes" | "brouillons" | "a_revoir" | "tenues">("toutes");
+const LABELS: Record<ListingFilter, string> = {
+  toutes: "Toutes",
+  completes: "Complètes",
+  a_completer: "À compléter",
+  brouillons: "Brouillons",
+  a_revoir: "À revérifier",
+  tenues: "Tenues par l'entreprise",
+};
 
-  const shown = useMemo(() => {
-    const q = normalize(query.trim());
-    return listings.filter(
-      (l) =>
-        (!q || normalize(`${l.name} ${l.category ?? ""} ${l.commune ? COMMUNES[l.commune] : ""}`).includes(q)) &&
-        (filter === "toutes" ||
-          (filter === "brouillons" && !l.published) ||
-          (filter === "a_revoir" && isOld(l.verifiedOn)) ||
-          (filter === "tenues" && l.ownerId !== null)),
-    );
-  }, [listings, query, filter]);
+type Props = {
+  listings: ListingSummary[];
+  found: number;
+  counts: Record<ListingFilter, number>;
+  query: string;
+  filter: ListingFilter;
+  page: number;
+};
 
-  const counts = {
-    toutes: listings.length,
-    brouillons: listings.filter((l) => !l.published).length,
-    a_revoir: listings.filter((l) => isOld(l.verifiedOn)).length,
-    tenues: listings.filter((l) => l.ownerId !== null).length,
+/** Liste des fiches : recherche, filtres et pages lus par le serveur (des dizaines de milliers de fiches). */
+export function ListingsTable({ listings, found, counts, query, filter, page }: Props) {
+  const href = (f: ListingFilter, p = 1) => {
+    const s = new URLSearchParams();
+    if (query) s.set("q", query);
+    if (f !== "toutes") s.set("filtre", f);
+    if (p > 1) s.set("page", String(p));
+    const qs = s.toString();
+    return `/admin/entreprises${qs ? `?${qs}` : ""}`;
   };
-  const labels = { toutes: "Toutes", brouillons: "Brouillons", a_revoir: "À revérifier", tenues: "Tenues par l'entreprise" };
+  const pages = Math.max(1, Math.ceil(found / LISTINGS_PER_PAGE));
 
   return (
     <section className="rounded-xl border border-border bg-bg p-4 sm:p-5">
       <div className="flex flex-wrap items-center gap-3">
-        <input
-          type="search"
-          placeholder="Chercher un nom, une activité, une commune"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="min-w-0 flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-accent"
-        />
+        <form method="get" action="/admin/entreprises" className="flex min-w-0 flex-1 gap-2">
+          {filter !== "toutes" ? <input type="hidden" name="filtre" value={filter} /> : null}
+          <input
+            type="search"
+            name="q"
+            placeholder="Chercher un nom, une activité, une commune, un SIRET"
+            defaultValue={query}
+            className="min-w-0 flex-1 rounded-lg border border-border bg-bg px-3 py-2 text-sm outline-none focus:border-accent"
+          />
+          <button type="submit" className="rounded-lg border border-border px-3 text-sm hover:bg-bg-muted">
+            Chercher
+          </button>
+        </form>
         <div className="flex flex-wrap gap-1.5">
-          {(Object.keys(labels) as (keyof typeof labels)[]).map((f) => (
-            <button
+          {(Object.keys(LABELS) as ListingFilter[]).map((f) => (
+            <Link
               key={f}
-              type="button"
-              aria-pressed={filter === f}
-              onClick={() => setFilter(f)}
+              href={href(f)}
+              aria-current={filter === f ? "page" : undefined}
               className={`rounded-full border px-3 py-1 text-xs ${filter === f ? "border-accent bg-accent text-accent-fg" : "border-border hover:bg-bg-muted"}`}
             >
-              {labels[f]} · {counts[f]}
-            </button>
+              {LABELS[f]} · {counts[f].toLocaleString("fr-FR")}
+            </Link>
           ))}
         </div>
       </div>
 
-      {shown.length ? (
+      {listings.length ? (
         <ul className="mt-4 divide-y divide-border">
-          {shown.map((l) => (
+          {listings.map((l) => (
             <li key={l.id}>
               <Link href={`/admin/entreprises/${l.id}`} className="flex flex-wrap items-center gap-x-4 gap-y-1 py-3 hover:bg-bg-muted/50">
                 <span className="min-w-0 flex-1">
@@ -72,6 +79,7 @@ export function ListingsTable({ listings }: { listings: ListingSummary[] }) {
                   </span>
                 </span>
                 <span className="flex flex-wrap gap-1.5 text-xs">
+                  <span className={`rounded-full px-2 py-0.5 ${l.complete ? "bg-success-soft" : "bg-warning-soft"}`}>{l.complete ? "Complète" : "À compléter"}</span>
                   {!l.published ? <span className="rounded-full bg-bg-muted px-2 py-0.5">Brouillon</span> : null}
                   {l.status !== "ouvert" ? <span className="rounded-full bg-warning-soft px-2 py-0.5">{STATUSES[l.status]}</span> : null}
                   {l.ownerId ? <span className="rounded-full bg-success-soft px-2 py-0.5">Tenue par l&apos;entreprise</span> : null}
@@ -84,8 +92,30 @@ export function ListingsTable({ listings }: { listings: ListingSummary[] }) {
           ))}
         </ul>
       ) : (
-        <p className="mt-4 text-sm text-fg-muted">{listings.length ? "Aucune fiche ne correspond." : "Aucune fiche pour l'instant. Commencez par « Nouvelle fiche »."}</p>
+        <p className="mt-4 text-sm text-fg-muted">{counts.toutes || query ? "Aucune fiche ne correspond." : "Aucune fiche pour l'instant. Commencez par « Nouvelle fiche »."}</p>
       )}
+
+      {pages > 1 ? (
+        <nav className="mt-4 flex items-center justify-between gap-3 text-sm" aria-label="Pages">
+          {page > 1 ? (
+            <Link href={href(filter, page - 1)} className="rounded-full border border-border px-4 py-1.5 hover:bg-bg-muted">
+              Précédente
+            </Link>
+          ) : (
+            <span />
+          )}
+          <span className="text-fg-muted">
+            Page {page} sur {pages.toLocaleString("fr-FR")} · {found.toLocaleString("fr-FR")} fiches
+          </span>
+          {page < pages ? (
+            <Link href={href(filter, page + 1)} className="rounded-full border border-border px-4 py-1.5 hover:bg-bg-muted">
+              Suivante
+            </Link>
+          ) : (
+            <span />
+          )}
+        </nav>
+      ) : null}
     </section>
   );
 }
