@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `ed06d31` (2026-11-25, develop)**
+**Dernier commit noté : `7a2a326` (2026-11-25, develop et main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -141,6 +141,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Bouton « Tableau de bord » : une seule pastille, fond blanc** (`7a2a326`, 2026-11-25, develop et main). Sur téléphone, deux pastilles s'affichaient : celle posée sur l'icône devait être cachée, mais `hidden` et `md:inline-grid` se battaient. Elle ne sort plus que sur ordinateur, barre repliée (`max-md:hidden`). La pastille passe en fond blanc et chiffre rose (le rouge sur le rose était mal choisi) ; celle de la page admin « Demandes en attente » reste rouge.
 
 - **Carte d'un lieu dans l'app : plus de saut avant « Voir en grand »** (`ed06d31`, 2026-11-25, develop, pas encore poussé ; app : `65f563e` sur feat/coeur-natif). Sur la Pad 6, le panneau s'ouvrait d'abord écrasé dans la petite carte, puis la page sautait en haut de l'écran et la carte se recalait avec des rectangles noirs. Cause : la carte de la conversation native est une petite page ; le panneau s'ouvrait dedans avant que l'app l'agrandisse. Maintenant : l'app passe la page en plein écran cachée (une capture d'écran garde la carte à sa place), le panneau s'ouvre à la bonne taille et l'app montre la page à ce moment-là. Vérifié par vidéo de l'écran de la Pad 6 (ouverture et fermeture). Pour tester les cartes avant mise en ligne : `adb shell setprop debug.tamilya.cartes http://localhost:3100` + `adb reverse tcp:3100 tcp:3100` (APK de test).
 
