@@ -693,6 +693,8 @@ export function buildSystemPrompt(
         "Réponds en une ou deux phrases simples avec ces informations seulement (le lieu demandé, sinon l'essentiel), puis ce bloc exactement, seul sur ses lignes :",
         `\`\`\`carte-eau\n${context.water.place}\n\`\`\``,
         "La carte montre déjà chaque village en couleur : tu ne récites pas la liste. Tu n'inventes jamais une heure ni un secteur : si un lieu n'est pas dans ces informations, dis que le planning officiel n'en parle pas.",
+        // 2026-11-25 : « Le planning de l'eau ? » → « je n'ai pas accès aux données de la SMAE », avec la carte du planning juste dessous.
+        "Quand un planning est donné ci-dessus, tu L'AS, et la carte s'affiche sous ta réponse : ne dis jamais que tu n'y as pas accès, ni d'appeler la SMAE pour connaître le planning. Si son village n'est pas dans ces lignes, dis-lui de toucher « Voir » pour le trouver sur la carte. Le numéro de la SMAE sert seulement pour une fuite.",
       ].join("\n"),
     );
   }

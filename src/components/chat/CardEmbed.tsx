@@ -54,6 +54,8 @@ export function CardEmbed({ block, content }: { block: string; content: string }
       {/* Rien d'autre que la carte : ni écran de lancement, ni message de connexion, ni pastille, fond transparent. */}
       <style>{`
         html, body { background: transparent !important; min-height: 0 !important; }
+        /* Pas de rond de Tamilya à côté ici : sans ça, le décalage « téléphone » de .chat-card coupe la carte à gauche. */
+        [data-carte-seule] .chat-card { margin-left: 0 !important; }
         body:has(> [data-carte-seule]) > #ecran-chargement,
         body:has(> [data-carte-seule]) > [aria-live="polite"],
         body:has(> [data-carte-seule]) > [aria-hidden="true"].fixed { display: none !important; }
