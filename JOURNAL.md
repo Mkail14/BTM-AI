@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `a39aa02` (2026-11-25, develop ; `d80050e` sur main)**
+**Dernier commit noté : `96d9098` (2026-11-25, develop ; `d80050e` sur main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -141,6 +141,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Tamilya : pas de recherche Google pour bonjour, merci, ça va** (`96d9098`, 2026-11-25, develop). La recherche était allumée pour chaque message écrit ; les clés sans facturation la refusent (429) et Tamilya devait recommencer sans recherche, même pour « salut ». Les journaux montraient aussi des modèles sans quota essayés en premier (2.5-pro, retiré par Mikail). `isSmallTalk` (`src/lib/ai/small-talk.ts`) : message fait seulement de mots de politesse (français et shimaoré, au plus 8 mots, sans « oui » ni « non ») → pas de recherche. Mesuré sur dev.tamilya.yt, « salut ça va ? » : premier mot côté serveur 4,3 s avant, 0,3 à 0,8 s après (1,3 à 1,9 s vu depuis Mayotte).
 
 - **Carte d'un lieu : panneau à droite sur tablette, avec « Y aller »** (`a39aa02`, 2026-11-25, develop ; `23d083e` prêt pour main, pas encore poussé ; app : `e2c89b5` sur feat/coeur-natif). Sur la Pad 6, « c'est où Chiconi » montrait la page /mayotte du site dans le cadre de la carte : « Voir en grand » était un lien Next qui changeait de page à l'intérieur du petit cadre de l'app. Maintenant : « Voir en grand » ouvre le panneau de la carte (à droite sur grand écran, comme le suivi de livraison), qui s'ouvre seul quand Tamilya vient d'écrire la carte (écran ≥ 600 px) ; « Y aller » trace le chemin depuis la position, sinon depuis l'adresse du compte, dans le même panneau que « comment aller à … » (TripPanel exporté). CardEmbed envoie tout lien en vraie navigation, que l'app ouvre hors de la carte. L'app ajoute ?frais=1 aux cartes arrivées pendant le flux (sinon une page neuve ne sait pas si la carte est neuve) et donne la position au cadre si elle a déjà le droit. Vérifié en local (capture) ; pas encore sur la tablette, le site n'étant pas en ligne.
 
