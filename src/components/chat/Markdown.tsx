@@ -13,6 +13,7 @@ import { DOCUMENT_BLOCK } from "@/lib/document-signe/intent";
 import { BTM_DEVIS_BLOCK } from "@/lib/btm/intent";
 import { CYCLONE_BLOCK, cycloneZoneOf } from "@/lib/cyclone/intent";
 import { WATER_BLOCK } from "@/lib/water/intent";
+import { PLACE_BLOCK } from "@/lib/mayotte/place-intent";
 import { JOBS_BLOCK, jobsSpecOf } from "@/lib/emploi/intent";
 import { EVENTS_BLOCK } from "@/lib/emploi/events";
 import { SONG_BLOCK } from "@/lib/music/intent";
@@ -34,6 +35,7 @@ const BtmDevis = dynamic(() => import("./BtmDevis").then((m) => m.BtmDevis));
 const CombinedBoard = dynamic(() => import("./CombinedBoard").then((m) => m.CombinedBoard));
 const CycloneCard = dynamic(() => import("./CycloneCard").then((m) => m.CycloneCard));
 const WaterCard = dynamic(() => import("./WaterCard").then((m) => m.WaterCard));
+const PlaceCard = dynamic(() => import("./PlaceCard").then((m) => m.PlaceCard), { ssr: false });
 const JobsCard = dynamic(() => import("./JobsCard").then((m) => m.JobsCard));
 const EventsCard = dynamic(() => import("./EventsCard").then((m) => m.EventsCard));
 const CodeExamSlots = dynamic(() => import("./CodeExamSlots").then((m) => m.CodeExamSlots));
@@ -67,6 +69,7 @@ const CARD_BLOCKS = [
   TRIP_BLOCK,
   CYCLONE_BLOCK,
   WATER_BLOCK,
+  PLACE_BLOCK,
   JOBS_BLOCK,
   EVENTS_BLOCK,
   SONG_BLOCK,
@@ -145,6 +148,12 @@ function renderPre(children: ReactNode) {
     if (code === `language-${CYCLONE_BLOCK}`) return <CycloneCard zone={cycloneZoneOf(textOf(children))} />;
     // Bloc ```carte-eau``` : carte des tours d'eau (planning officiel de la SMAE), centrée sur le lieu écrit dedans s'il y en a un.
     if (code === `language-${WATER_BLOCK}`) return <WaterCard place={textOf(children).trim()} />;
+    // Bloc ```carte-lieu``` : un lieu de Mayotte (« Chiconi ») montré sur la carte de l'île, avec un repère à son nom.
+    // Clé : un autre lieu écrit dans le bloc, nouvelle carte.
+    if (code === `language-${PLACE_BLOCK}`) {
+      const block = textOf(children).trim();
+      return <PlaceCard key={block} place={block} />;
+    }
     // Bloc ```offres-emploi``` : toutes les offres de Mayotte (France Travail), avec un métier et une commune de départ.
     if (code === `language-${JOBS_BLOCK}`) return <JobsCard spec={jobsSpecOf(textOf(children))} />;
     // Bloc ```evenements-emploi``` : prochains job datings, réunions et ateliers à Mayotte (France Travail).

@@ -5,6 +5,9 @@ import { getAuthContext } from "@/server/middlewares/session";
 import { canOrderFood } from "@/server/services/food/access";
 import { canBuyBargeTickets } from "@/server/services/barge/access";
 import { CYCLONE_BLOCK, cycloneBlock, cycloneZoneFor, detectCyclone } from "@/lib/cyclone/intent";
+import { ISLAND_FACTS, PLACE_BLOCK, detectPlace, placeBlock } from "@/lib/mayotte/place-intent";
+import { describeTown } from "@/lib/mayotte/towns";
+import { communePopulation } from "@/server/services/live/communes";
 import { WATER_BLOCK, detectWater, waterBlock } from "@/lib/water/intent";
 import { waterContext } from "@/server/services/water/context";
 import { detectJobs, fixJobsSpec, JOBS_BLOCK, jobsBlock, jobsSpecOf, jobsTownFor, matchJobs } from "@/lib/emploi/intent";
@@ -14,6 +17,8 @@ import { eventsConfigured, getMayotteEvents } from "@/server/services/live/event
 
 /** Événements emploi : attente maximale (gardés 30 min, c'est presque toujours instantané) et nombre donné au prompt. */
 const EVENTS_WAIT_MS = 3_000;
+/** Habitants de la commune d'un lieu demandé (« c'est où Chiconi ? ») : attendus 2 s au plus, sinon la réponse part sans. */
+const PLACE_INFO_WAIT_MS = 2_000;
 const EVENTS_IN_PROMPT = 6;
 /** Offres d'emploi données au prompt (celles de la commune demandée, sinon les plus récentes). */
 const JOBS_IN_PROMPT = 40;
@@ -553,6 +558,22 @@ export async function POST(request: NextRequest) {
   // essai réservé aux administrateurs.
   // Ses deux derniers messages : « en vocal » peut suivre une histoire collée un peu plus haut.
   const previousAsks = [...history].reverse().filter((turn) => turn.role === "user").map((turn) => turn.content).slice(0, 2);
+  // Lieu de Mayotte demandé (« c'est où Chiconi ? », puis « montre », « la carte ») : la carte de l'île s'ouvre sur lui à coup sûr,
+  // avec seulement des faits sûrs (sa commune, où il est sur l'île, les habitants de la commune lus en 2 s au plus).
+  // « La carte de Mayotte » : l'île entière, sans repère.
+  const placeAsked = !body.voice && !trip && !water && !jobsAsked && !cyclone && !foodQuery && !foodGroup && !bargeIntent && !btmDevis ? detectPlace(body.message, previousAsks) : null;
+  const placeTown = placeAsked?.town;
+  const place = placeAsked
+    ? {
+        name: placeAsked.name,
+        facts: placeTown
+          ? describeTown(
+              placeTown,
+              await Promise.race([communePopulation(placeTown.commune), new Promise<null>((resolve) => setTimeout(() => resolve(null), PLACE_INFO_WAIT_MS))]).catch(() => null),
+            )
+          : ISLAND_FACTS,
+      }
+    : null;
   // Texte écrit ou collé (dans ce message ou les deux précédents) : lu tel quel ; sinon « lis-moi une
   // histoire » : Tamilya l'invente et la joue en 3D ; une page en photo seulement s'il en parle.
   const reading = Boolean(user?.isAdmin) && !body.voice ? readingMode(body.message, previousAsks) : null;
@@ -600,6 +621,7 @@ export async function POST(request: NextRequest) {
     btmDevisOffer: features.includes("devis"),
     btmDevis,
     trip,
+    place,
     cyclone,
     water,
     jobs,
@@ -625,7 +647,7 @@ export async function POST(request: NextRequest) {
   // Réservé d'abord aux administrateurs : l'équipe ajoute environ 10 s avant le premier mot (mesuré le 2026-11-08).
   const agentsMode = process.env.AI_AGENTS?.trim() || "admin";
   const agentsAllowed = agentsMode === "all" || (agentsMode === "admin" && Boolean(user?.isAdmin));
-  const dedicatedFlow = Boolean(foodQuery || foodGroup || bargeIntent || btmDevis || trip || cyclone || water || jobs || jobEvents?.asked || song || reading || attestation || documentTask || shimaoreTranslation || composition);
+  const dedicatedFlow = Boolean(foodQuery || foodGroup || bargeIntent || btmDevis || trip || place || cyclone || water || jobs || jobEvents?.asked || song || reading || attestation || documentTask || shimaoreTranslation || composition);
   // Fichier joint : seule Tamilya le reçoit, l'équipe d'agents ne le verrait pas.
   const teamPlan =
     !agentsAllowed || attached
@@ -873,6 +895,12 @@ ${block}`;
         // Trajet demandé mais pas de bloc dans la réponse : on l'ajoute.
         if (trip && text && !text.includes("```" + TRIP_BLOCK)) {
           const block = tripBlock(trip);
+          text += block;
+          send({ type: "delta", text: block });
+        }
+        // Lieu demandé mais pas de carte dans la réponse : on l'ajoute.
+        if (place && text && !text.includes("```" + PLACE_BLOCK)) {
+          const block = placeBlock(place.name);
           text += block;
           send({ type: "delta", text: block });
         }
