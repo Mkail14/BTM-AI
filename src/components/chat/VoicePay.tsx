@@ -3,7 +3,9 @@
 import { useSyncExternalStore } from "react";
 import { acceptPayment, cancelPayment, eraseDigit, getPay, subscribePay, typeDigit } from "@/lib/voice-live/voice-pay";
 
-const idle = () => ({ step: "idle" as const, label: "", typed: 0, error: null });
+// Créé une seule fois : un nouvel objet à chaque lecture fait tourner React en boucle (page /voix figée).
+const IDLE = { step: "idle" as const, label: "", typed: 0, error: null };
+const idle = () => IDLE;
 
 /**
  * Paiement à la voix, à l'écran : l'avertissement à accepter (une seule fois), puis le code à
