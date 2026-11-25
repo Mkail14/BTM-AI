@@ -5,7 +5,7 @@ import { getAuthContext } from "@/server/middlewares/session";
 import { canOrderFood } from "@/server/services/food/access";
 import { canBuyBargeTickets } from "@/server/services/barge/access";
 import { CYCLONE_BLOCK, cycloneBlock, cycloneZoneFor, detectCyclone } from "@/lib/cyclone/intent";
-import { PLACE_BLOCK, detectPlace, placeBlock } from "@/lib/mayotte/place-intent";
+import { ISLAND_FACTS, PLACE_BLOCK, detectPlace, placeBlock } from "@/lib/mayotte/place-intent";
 import { describeTown } from "@/lib/mayotte/towns";
 import { communePopulation } from "@/server/services/live/communes";
 import { WATER_BLOCK, detectWater, waterBlock } from "@/lib/water/intent";
@@ -560,14 +560,18 @@ export async function POST(request: NextRequest) {
   const previousAsks = [...history].reverse().filter((turn) => turn.role === "user").map((turn) => turn.content).slice(0, 2);
   // Lieu de Mayotte demandé (« c'est où Chiconi ? », puis « montre », « la carte ») : la carte de l'île s'ouvre sur lui à coup sûr,
   // avec seulement des faits sûrs (sa commune, où il est sur l'île, les habitants de la commune lus en 2 s au plus).
-  const placeTown = !body.voice && !trip && !water && !jobsAsked && !cyclone && !foodQuery && !foodGroup && !bargeIntent && !btmDevis ? detectPlace(body.message, previousAsks) : null;
-  const place = placeTown
+  // « La carte de Mayotte » : l'île entière, sans repère.
+  const placeAsked = !body.voice && !trip && !water && !jobsAsked && !cyclone && !foodQuery && !foodGroup && !bargeIntent && !btmDevis ? detectPlace(body.message, previousAsks) : null;
+  const placeTown = placeAsked?.town;
+  const place = placeAsked
     ? {
-        name: placeTown.name,
-        facts: describeTown(
-          placeTown,
-          await Promise.race([communePopulation(placeTown.commune), new Promise<null>((resolve) => setTimeout(() => resolve(null), PLACE_INFO_WAIT_MS))]).catch(() => null),
-        ),
+        name: placeAsked.name,
+        facts: placeTown
+          ? describeTown(
+              placeTown,
+              await Promise.race([communePopulation(placeTown.commune), new Promise<null>((resolve) => setTimeout(() => resolve(null), PLACE_INFO_WAIT_MS))]).catch(() => null),
+            )
+          : ISLAND_FACTS,
       }
     : null;
   // Texte écrit ou collé (dans ce message ou les deux précédents) : lu tel quel ; sinon « lis-moi une
