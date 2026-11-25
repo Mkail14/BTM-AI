@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `6656d6d` (2026-11-25, develop ; `d80050e` sur main)**
+**Dernier commit noté : `a39aa02` (2026-11-25, develop ; `d80050e` sur main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -141,6 +141,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Carte d'un lieu : panneau à droite sur tablette, avec « Y aller »** (`a39aa02`, 2026-11-25, develop ; `23d083e` prêt pour main, pas encore poussé ; app : `e2c89b5` sur feat/coeur-natif). Sur la Pad 6, « c'est où Chiconi » montrait la page /mayotte du site dans le cadre de la carte : « Voir en grand » était un lien Next qui changeait de page à l'intérieur du petit cadre de l'app. Maintenant : « Voir en grand » ouvre le panneau de la carte (à droite sur grand écran, comme le suivi de livraison), qui s'ouvre seul quand Tamilya vient d'écrire la carte (écran ≥ 600 px) ; « Y aller » trace le chemin depuis la position, sinon depuis l'adresse du compte, dans le même panneau que « comment aller à … » (TripPanel exporté). CardEmbed envoie tout lien en vraie navigation, que l'app ouvre hors de la carte. L'app ajoute ?frais=1 aux cartes arrivées pendant le flux (sinon une page neuve ne sait pas si la carte est neuve) et donne la position au cadre si elle a déjà le droit. Vérifié en local (capture) ; pas encore sur la tablette, le site n'étant pas en ligne.
 
 - **Tamilya : « Je réfléchis… » s'affiche dès qu'elle réfléchit** (`2e04abd`, `b2d0c84`, `6656d6d`, 2026-11-25, develop). Avant, l'écran restait vide pendant toute sa réflexion : chronométré par le relais, premier mot vers 1 s pour un message simple, 5 s pour un message « à lire avec soin », 8 à 20 s pour une question difficile. Gemini envoie maintenant ses pensées (`includeThoughts`, écrit seulement, pas à l'oral ni pour les tâches de fond) ; le serveur envoie l'événement `thinking` une seule fois et « Je réfléchis… » s'affiche sous les trois points. Une API qui réfléchit gagne la course entre API (`fallback.ts`). Le texte des pensées n'est pas montré : essayé, mais Gemini les résume en anglais même avec une consigne en français, et elles parlaient des consignes de Tamilya. Mesuré sur dev.tamilya.yt (question difficile, visiteur) : « Je réfléchis » à 7 s, réponse à 11 s. Les 7 premières secondes restent vides : la préparation avant Gemini est à mesurer.
 
