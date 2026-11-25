@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `7a2a326` (2026-11-25, develop et main)**
+**Dernier commit noté : `acca196` (2026-11-25, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -141,6 +141,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Carte : « Il est où X ? », « Tu connais X ? » et des noms courts ouvrent la carte** (`acca196`, 2026-11-25, develop, pas encore poussé). Signalé avec une capture de la Pad 6 (« Tanaraki », « Cavani »). Essai de 12 façons de demander sur tous les lieux connus : « Il est où X ? » et « Tu connais X ? » ne donnaient aucune carte (172 essais sur 1 020) ; « Montre-moi La Vigie » perdait le « La » ; Majicavo, Dzoumonyé, Mgombani, Hamaha, Hauts Vallons introuvables. Corrigé : « il/elle est où », « il/elle se trouve où » ; « tu connais X » seulement si X est un lieu exact ; M’Gombani et Hamaha ajoutés (positions OpenStreetMap) ; autres noms pour Majicavo-Koropa, Dzoumogné, La Vigie, Les Hauts Vallons. Après : 0 sans carte sur 1 044 essais ; 989 tests. Pas réglé : Tamilya résume mal la position (« un peu à l’ouest de Mamoudzou » pour Tanaraki) ; Petite-Terre et Grande-Terre ne sont pas des lieux de la carte.
 
 - **Bouton « Tableau de bord » : une seule pastille, fond blanc** (`7a2a326`, 2026-11-25, develop et main). Sur téléphone, deux pastilles s'affichaient : celle posée sur l'icône devait être cachée, mais `hidden` et `md:inline-grid` se battaient. Elle ne sort plus que sur ordinateur, barre repliée (`max-md:hidden`). La pastille passe en fond blanc et chiffre rose (le rouge sur le rose était mal choisi) ; celle de la page admin « Demandes en attente » reste rouge.
 
