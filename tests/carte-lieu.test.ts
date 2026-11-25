@@ -36,6 +36,16 @@ test("relance « montre », « la carte » : le lieu du message d'avant", () => 
   assert.equal(name("la carte"), null);
 });
 
+test("« oui », « ok » au début et relance « et Trévani ? »", () => {
+  assert.equal(name("Oui c'est ou chiconi"), "Chiconi");
+  assert.equal(name("ok bon c'est où Sada ?"), "Sada");
+  assert.equal(name("Et trevani ?", ["Oui c'est ou chiconi"]), "Trévani");
+  assert.equal(name("et Combani", ["où se trouve Sada"]), "Combani");
+  assert.equal(name("Et trevani ?"), null);
+  assert.equal(name("et toi ?", ["c'est où chiconi"]), null);
+  assert.equal(name("et trevani ?", ["bonjour"]), null);
+});
+
 test("pas une question de lieu : pas de carte", () => {
   assert.equal(name("Chiconi"), null);
   assert.equal(name("j'habite à Chiconi"), null);
