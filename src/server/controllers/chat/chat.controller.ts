@@ -60,6 +60,8 @@ import { directoryFor } from "@/server/services/entreprises/listings";
 import { glossFor, invalidateTamilyaBrain, knownTranslations, knowledgeFor, lexiconFor, loadTamilyaBrain, wordsFor } from "@/server/services/ai/brain";
 import { AI_ERROR_LABELS } from "@/lib/ai/flow-events";
 import { isSmallTalk } from "@/lib/ai/small-talk";
+import { needsWebSearch } from "@/lib/ai/web-intent";
+import { searchBlock, searchWeb } from "@/server/services/search/web";
 import { startFlowTrace } from "@/server/services/ai/flow-trace";
 import { ALL_APIS_CUT, flowCutStop, loadFlowCutsForMessage } from "@/server/services/ai/flow-cuts";
 import { buildDossier } from "@/server/services/ai/dossier";
@@ -107,6 +109,8 @@ const VOICE_MAX_OUTPUT_TOKENS = 500;
 const DEEP_MAX_OUTPUT_TOKENS = 12_000;
 /** À l'oral : attente maximale des journaux et offres d'emploi avant de répondre. */
 const VOICE_LIVE_WAIT_MS = 1_200;
+/** Recherche sur internet faite avant la réponse : au-delà, Tamilya répond sans (son outil reste là). */
+const WEB_WAIT_MS = 4_500;
 
 function errorResponse(status: number, code: ChatErrorCode, headers?: HeadersInit) {
   return NextResponse.json(chatErrorBody(code), { status, headers });
@@ -268,6 +272,13 @@ export async function POST(request: NextRequest) {
       : Promise.resolve(null);
   // Offres d'emploi et actu de Mayotte, seulement si le message en parle (mode maître compris).
   const liveTask = liveContextFor(body.message, { maxWaitMs: body.voice ? VOICE_LIVE_WAIT_MS : undefined }).catch(() => null);
+  // Demande d'information (qui, quel, prix, horaire…, voir web-intent.ts) : le serveur cherche sur internet tout de suite,
+  // pendant que le reste se prépare, et donne les résultats à Tamilya (les petits modèles oublient leur outil de recherche).
+  const webStartedAt = Date.now();
+  const webTask =
+    !body.voice && needsWebSearch(body.message)
+      ? Promise.race([searchWeb(body.message, request.signal), new Promise<null>((resolve) => setTimeout(() => resolve(null), WEB_WAIT_MS))]).catch(() => null)
+      : Promise.resolve(null);
   // Commande de repas et tickets de barge ouverts à ce compte ? Dernière commande (cookie signé).
   const foodTask = canOrderFood(user).catch(() => false);
   const bargeTask = canBuyBargeTickets(user).catch(() => false);
@@ -590,6 +601,13 @@ export async function POST(request: NextRequest) {
   const pastTalksRead = await pastTalksTask;
   const recentReplies = history.filter((turn) => turn.role === "assistant").slice(-4).map((turn) => turn.content);
   const pastTalks = withRecentReplies(pastTalksRead ?? { talks: [], openings: [] }, recentReplies);
+  // Recherche lancée au début : ses résultats rejoignent les infos en direct, ses pages s'affichent en sources.
+  const web = master ? null : await webTask;
+  if (needsWebSearch(body.message) && !body.voice) {
+    console.info(`[recherche] avant la réponse : ${web ? `${web.results.length} résultat(s), ${web.pages.length} page(s) lue(s)` : "rien à temps"}, ${Date.now() - webStartedAt} ms`);
+  }
+  const webFound = web?.results.length ? web : null;
+  const searchedSources = webFound ? (webFound.pages.length ? webFound.pages : webFound.results.slice(0, 3)).map(({ title, url }) => ({ title, url })) : [];
   const system = buildSystemPrompt(DEFAULT_PERSONALITY, {
     personalityInstructions,
     identity: brain.identity,
@@ -599,7 +617,7 @@ export async function POST(request: NextRequest) {
     words: wordsFor(brain, body.message, master),
     gloss: glossFor(brain, body.message),
     knowledge: knowledgeFor(brain, understood?.retrieval ?? body.message),
-    live: liveContext,
+    live: webFound ? [liveContext, searchBlock(webFound)].filter(Boolean).join("\n\n") : liveContext,
     directory: directory?.block,
     understanding: understood?.block,
     memories,
@@ -771,7 +789,8 @@ export async function POST(request: NextRequest) {
       // qui répond elle-même. Un agent en retard ou en panne est laissé de côté.
       let finalSystem = system;
       let finalSearch = search;
-      let teamSources: { title: string; url: string }[] = [];
+      // Sources de secours sous la réponse : la recherche faite avant, remplacée par celle du chercheur s'il en a.
+      let teamSources: { title: string; url: string }[] = searchedSources;
       if (teamPlan && teamPlan.specialists.length > 0) {
         send({ type: "team", agents: teamPlan.specialists.map((id) => AGENT_LABELS[id]) });
         try {
