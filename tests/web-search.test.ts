@@ -3,6 +3,7 @@ import { afterEach, describe, it, mock } from "node:test";
 import { createProvider } from "../src/server/services/ai";
 import type { AIConfig } from "@/lib/ai/config";
 import { pageText, parseDuckDuckGo } from "../src/server/services/search/web";
+import { withoutNoInternetRule } from "../src/lib/ai/system-prompt";
 
 const DDG_HTML = `
 <div class="result results_links results_links_deep result--ad"><a class="result__a" href="https://duckduckgo.com/y.js?ad=1">Annonce</a></div>
@@ -20,6 +21,13 @@ describe("Recherche sans Google", () => {
       { title: "Le président du gouvernement", url: "https://gouv.nc/le-president", snippet: "Il dirige l'administration de la Nouvelle-Calédonie." },
       { title: "Exemple", url: "https://exemple.fr/page", snippet: "" },
     ]);
+  });
+
+  it("retire « pas d'accès à internet » des règles quand la recherche est permise", () => {
+    assert.equal(
+      withoutNoInternetRule("Limites : tu n'as pas accès à internet ni à des données en temps réel. Si tu n'es pas sûre, dis-le.\nAutre règle."),
+      "Si tu n'es pas sûre, dis-le.\nAutre règle.",
+    );
   });
 
   it("garde le texte de l'article, sans scripts ni menus", () => {

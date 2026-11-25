@@ -21,7 +21,7 @@ export const SEARCH_TOOL_PARAMETERS = {
 
 /** Ajouté aux consignes quand l'outil est proposé. */
 export const SEARCH_TOOL_RULE =
-  `Pour chercher sur internet, tu as l'outil ${SEARCH_TOOL_NAME}. Dès que tu ne connais pas la réponse, ou qu'elle a pu changer ` +
+  `Important : pour chercher sur internet, tu as l'outil ${SEARCH_TOOL_NAME}. Dès que tu ne connais pas la réponse, ou qu'elle a pu changer ` +
   "(personne en poste, résultat, prix, horaire, date, actualité, loi), cherche d'abord avec cet outil au lieu de dire que tu ne sais pas " +
   "ou que tu n'as pas accès à internet. Pour une conversation ou ce que tu sais déjà, réponds directement.";
 
