@@ -44,6 +44,66 @@ const sse = (events: unknown[]) =>
 
 afterEach(() => mock.restoreAll());
 
+describe("NVIDIA (API compatible OpenAI) : Tamilya cherche avec l'outil", () => {
+  it("assemble l'appel reçu en morceaux, cherche, puis répond avec les sources", async () => {
+    const bodies: { tools?: unknown[]; tool_choice?: string; messages: Record<string, unknown>[] }[] = [];
+    mock.method(globalThis, "fetch", async (url: string, init?: RequestInit) => {
+      if (url.includes("html.duckduckgo.com")) return new Response(DDG_HTML);
+      if (url.includes("wikipedia.org")) return Response.json({ query: { search: [] } });
+      if (url.startsWith("https://gouv.nc")) return new Response(`<article><p>${"Le président est Jean Exemple, élu en juillet 2026. ".repeat(10)}</p></article>`, { headers: { "content-type": "text/html" } });
+      if (url.startsWith("https://exemple.fr")) return new Response("introuvable", { status: 404 });
+      const body = JSON.parse(init!.body as string);
+      bodies.push(body);
+      const events =
+        bodies.length === 1
+          ? [
+              { choices: [{ delta: { tool_calls: [{ index: 0, id: "c1", function: { name: "chercher_sur_internet", arguments: '{"requete":"président ' } }] } }] },
+              { choices: [{ delta: { tool_calls: [{ index: 0, function: { arguments: 'Nouvelle-Calédonie"}' } }] }, finish_reason: "tool_calls" }] },
+            ]
+          : [{ choices: [{ delta: { content: "C'est Jean Exemple." }, finish_reason: "stop" }] }];
+      return new Response(`${events.map((e) => `data: ${JSON.stringify(e)}\n\n`).join("")}data: [DONE]\n\n`, { headers: { "Content-Type": "text/event-stream" } });
+    });
+
+    const chunks = [];
+    for await (const chunk of createProvider({ ...config, apiKey: "nvapi-test", model: "nvidia/nemotron-test", baseUrl: "https://integrate.api.nvidia.com/v1" }).stream({
+      system: "",
+      messages: [{ role: "user", content: "Qui est le président du gouvernement ?" }],
+      maxOutputTokens: 256,
+      signal: new AbortController().signal,
+      search: true,
+    })) {
+      chunks.push(chunk);
+    }
+
+    assert.deepEqual(chunks, [
+      { type: "searching", query: "président Nouvelle-Calédonie" },
+      { type: "text", text: "C'est Jean Exemple." },
+      { type: "sources", sources: [{ url: "https://gouv.nc/le-president", title: "Le président du gouvernement" }] },
+      { type: "finish", reason: "stop" },
+    ]);
+    assert.equal(bodies.length, 2);
+    const [call, result] = bodies[1].messages.slice(-2);
+    assert.deepEqual(call.tool_calls, [{ id: "c1", type: "function", function: { name: "chercher_sur_internet", arguments: '{"requete":"président Nouvelle-Calédonie"}' } }]);
+    assert.equal(result.role, "tool");
+    assert.match(String(result.content), /Jean Exemple/);
+  });
+
+  it("sans recherche demandée, aucun outil n'est envoyé", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    mock.method(globalThis, "fetch", async (_url: string, init?: RequestInit) => {
+      bodies.push(JSON.parse(init!.body as string));
+      return new Response(`data: ${JSON.stringify({ choices: [{ delta: { content: "Salut" }, finish_reason: "stop" }] })}\n\ndata: [DONE]\n\n`);
+    });
+    for await (const _ of createProvider({ ...config, apiKey: "nvapi-test", model: "nvidia/nemotron-test", baseUrl: "https://integrate.api.nvidia.com/v1" }).stream({
+      system: "",
+      messages: [{ role: "user", content: "salut" }],
+      maxOutputTokens: 64,
+      signal: new AbortController().signal,
+    }));
+    assert.equal(bodies[0].tools, undefined);
+  });
+});
+
 describe("Gemini : recherche Google refusée, Tamilya cherche elle-même", () => {
   it("appelle l'outil, le serveur cherche, puis elle répond avec les sources", async () => {
     const bodies: { tools?: unknown[]; contents: unknown[] }[] = [];

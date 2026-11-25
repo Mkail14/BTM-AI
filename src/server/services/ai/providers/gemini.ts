@@ -4,7 +4,16 @@ import type { AIConfig } from "@/lib/ai/config";
 import { createSseDataParser } from "@/lib/ai/sse";
 import { AIProviderError, type AIProvider, type AIStreamChunk, type AIStreamInput } from "@/lib/ai/types";
 import { errorFromStatus } from "@/server/services/ai/providers/openai-compatible";
-import { searchBlock, searchWeb } from "@/server/services/search/web";
+import {
+  MAX_SEARCH_ROUNDS,
+  SEARCH_TOOL_DESCRIPTION,
+  SEARCH_TOOL_NAME,
+  SEARCH_TOOL_PARAMETERS,
+  SEARCH_TOOL_RULE,
+  runSearches,
+  searchQuery,
+  shownQueries,
+} from "@/server/services/search/tool";
 
 /**
  * Google Gemini par son API native. Les clés « AQ. » que Google AI Studio
@@ -51,31 +60,7 @@ type ThinkingConfig = { thinkingLevel: string } | { thinkingBudget: number };
  * Recherche sans Google : quand la clé refuse la recherche Google (pas de facturation),
  * Tamilya reçoit cet outil ; le serveur cherche lui-même (services/search/web.ts).
  */
-export const SEARCH_TOOL_NAME = "chercher_sur_internet";
-const SEARCH_TOOL = {
-  functionDeclarations: [
-    {
-      name: SEARCH_TOOL_NAME,
-      description:
-        "Cherche sur internet (moteur de recherche et Wikipédia) et renvoie les résultats avec le texte des meilleures pages. " +
-        "À utiliser quand tu n'as pas l'information ou qu'elle a pu changer (fait récent, personne, chiffre, date, horaire, prix, loi, actualité). " +
-        "Pas pour une simple conversation ni pour ce que tu sais déjà.",
-      parameters: {
-        type: "object",
-        properties: { requete: { type: "string", description: "La recherche en quelques mots, comme dans un moteur de recherche, en français de préférence." } },
-        required: ["requete"],
-      },
-    },
-  ],
-};
-/** Ajouté aux consignes quand notre outil remplace la recherche Google. */
-const SEARCH_TOOL_RULE =
-  `Pour chercher sur internet, tu as l'outil ${SEARCH_TOOL_NAME}. Dès que tu ne connais pas la réponse, ou qu'elle a pu changer ` +
-  "(personne en poste, résultat, prix, horaire, date, actualité, loi), cherche d'abord avec cet outil au lieu de dire que tu ne sais pas " +
-  "ou que tu n'as pas accès à internet. Pour une conversation ou ce que tu sais déjà, réponds directement.";
-/** Au plus deux tours de recherche, puis Tamilya répond avec ce qu'elle a. */
-const MAX_SEARCH_ROUNDS = 2;
-const MAX_CALLS_PER_ROUND = 2;
+const SEARCH_TOOL = { functionDeclarations: [{ name: SEARCH_TOOL_NAME, description: SEARCH_TOOL_DESCRIPTION, parameters: SEARCH_TOOL_PARAMETERS }] };
 /**
  * Réflexion réduite (AI_DISABLE_REASONING) : les modèles récents « pensent »
  * plusieurs secondes avant d'écrire. Gemini 3 et suivants : thinkingLevel ;
@@ -362,22 +347,13 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
 
           // Tamilya veut chercher : le serveur cherche, puis elle reprend avec les résultats.
           rounds++;
-          const queries = calls.map((call) => (call.name === SEARCH_TOOL_NAME ? String(call.args?.requete ?? "").trim().slice(0, 200) : ""));
-          for (const query of queries.slice(0, MAX_CALLS_PER_ROUND)) if (query) yield { type: "searching", query };
-          const started = Date.now();
-          const found = await Promise.all(
-            queries.map((query, i) => (query && i < MAX_CALLS_PER_ROUND ? searchWeb(query, combined).catch(() => null) : Promise.resolve(null))),
-          );
-          console.info(`[recherche] ${queries.filter(Boolean).map((q) => `« ${q} »`).join(", ")} : ${found.map((f) => f?.results.length ?? 0).join("+")} résultat(s), ${Date.now() - started} ms`);
-          for (const result of found) for (const page of result?.pages.length ? result.pages : (result?.results.slice(0, 3) ?? [])) sources.set(page.url, page.title);
+          const queries = calls.map((call) => searchQuery(call.name, call.args));
+          for (const query of shownQueries(queries)) yield { type: "searching", query };
+          const found = await runSearches(queries, combined, usedModel);
+          for (const page of found.sources) sources.set(page.url, page.title);
           turns.push(
             { role: "model", parts: modelParts },
-            {
-              role: "user",
-              parts: calls.map((call, i) => ({
-                functionResponse: { name: call.name, response: { resultat: found[i] ? searchBlock(found[i]) : "Recherche impossible pour l'instant. Réponds avec ce que tu sais, en le disant." } },
-              })),
-            },
+            { role: "user", parts: calls.map((call, i) => ({ functionResponse: { name: call.name, response: { resultat: found.answers[i] } } })) },
           );
           const response = await request(usedModel, opened.thinking, new AbortController().signal, turns, rounds >= MAX_SEARCH_ROUNDS);
           if (!response.ok || !response.body) throw errorFromStatus(response.status, await response.text().catch(() => ""));
