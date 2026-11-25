@@ -52,7 +52,21 @@ test("« tu sais c'est où Cavani ? » : la carte s'ouvre aussi", () => {
   assert.equal(name("est-ce que tu sais c'est où Sada"), "Sada");
   assert.equal(name("Tu sais où c'est Kavani ?"), "Cavani");
   assert.equal(name("tu sais"), null);
-  assert.equal(name("tu connais Sada ?"), null);
+});
+
+test("« il est où », « tu connais », noms courts : la carte s'ouvre", () => {
+  assert.equal(name("Il est où Tanaraki ?"), "Tanaraki");
+  assert.equal(name("elle se trouve où Chiconi"), "Chiconi");
+  assert.equal(name("Tu connais Sada ?"), "Sada");
+  assert.equal(name("est-ce que tu connais Combani"), "Combani");
+  assert.equal(name("tu connais le mot pavani ?"), null);
+  assert.equal(name("tu connais la chanson"), null);
+  assert.equal(name("Montre-moi La Vigie"), "La Vigie");
+  assert.equal(name("Montre-moi Les Hauts Vallons"), "Les Hauts Vallons");
+  assert.equal(name("c'est où Majicavo ?"), "Majicavo-Koropa");
+  assert.equal(name("c'est où Dzoumonyé ?"), "Dzoumogné");
+  assert.equal(name("c'est où Mgombani ?"), "M'Gombani");
+  assert.equal(name("c'est où Hamaha ?"), "Hamaha");
 });
 
 test("pas une question de lieu : pas de carte", () => {
