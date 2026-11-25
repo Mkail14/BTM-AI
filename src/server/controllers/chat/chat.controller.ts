@@ -59,6 +59,7 @@ import { companyAsk } from "@/server/services/live/companies";
 import { directoryFor } from "@/server/services/entreprises/listings";
 import { glossFor, invalidateTamilyaBrain, knownTranslations, knowledgeFor, lexiconFor, loadTamilyaBrain, wordsFor } from "@/server/services/ai/brain";
 import { AI_ERROR_LABELS } from "@/lib/ai/flow-events";
+import { isSmallTalk } from "@/lib/ai/small-talk";
 import { startFlowTrace } from "@/server/services/ai/flow-trace";
 import { ALL_APIS_CUT, flowCutStop, loadFlowCutsForMessage } from "@/server/services/ai/flow-cuts";
 import { buildDossier } from "@/server/services/ai/dossier";
@@ -454,7 +455,8 @@ export async function POST(request: NextRequest) {
   const deep = !body.voice && (challenged || isComplexRequest(asked) || (follows !== undefined && isComplexRequest(follows)));
   // Internet toujours ouvert à l'écrit : c'est Tamilya qui décide de chercher (comme les autres IA), plus une liste de mots.
   // Fermé pendant la leçon de shimaoré, où elle n'a rien à chercher dehors.
-  const search = !body.voice && !master;
+  // Petit message de politesse (bonjour, merci, ça va…) : rien à chercher, la réponse part tout de suite.
+  const search = !body.voice && !master && !isSmallTalk(body.message);
   // Suite (« et à Dembéni ? ») ou message à fautes : les infos du moment sont cherchées sur le texte remis au propre,
   // avec la demande précédente. Les messages clairs gardent la recherche lancée au départ.
   const liveContext =
