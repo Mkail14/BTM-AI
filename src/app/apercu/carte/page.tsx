@@ -15,5 +15,7 @@ export default async function CardEmbedPage({ searchParams }: PageProps<"/apercu
   const block = one(params.bloc).toLowerCase();
   const content = one(params.contenu).slice(0, 4000);
   if (!/^[a-z0-9-]{1,40}$/.test(block)) return null;
-  return <CardEmbed block={block} content={content} />;
+  // ?grand=N : l'app ouvre le panneau de la carte dans une page à part, en plein écran.
+  const big = /^\d{1,2}$/.test(one(params.grand));
+  return <CardEmbed block={block} content={content} big={big} />;
 }
