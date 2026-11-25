@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `949d381` (2026-11-25, develop)**
+**Dernier commit noté : `64f197d` (2026-11-25, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -141,6 +141,12 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Tout develop envoyé sur main** (`74e7789`, 2026-11-25, à la demande de l'utilisateur). Fusion « develop dans main » : main a maintenant exactement le contenu de develop `09a2779` (recherche internet, « Je réfléchis… », code d'accès admin, cartes en français, carte d'un lieu en grand, etc.). Main n'avait rien de plus que develop (vérifié avant).
+
+- **Pastille « Mode démo » revenue dans l'app** (`64f197d`, 2026-11-25, develop, pas encore poussé ; app : `2339cb5` sur feat/coeur-natif). Elle avait disparu sur la Pad 6 : l'app la cherchait par son lien `/admin`, or depuis `7b42675` le lien de l'administrateur principal mène à `/parametres?rubrique=administration`. Le site pose maintenant un repère `data-admin-badge` sur la pastille ; l'app lit ce repère (ou l'un des deux liens, en attendant la mise en ligne). APK installé sur la Pad 6.
+
+- **Tamilya cherche sur internet avant de répondre aux demandes d'information** (`09a2779`, 2026-11-25, develop) : commit de l'autre session, noté ici en rattrapage.
 
 - **Carte d'un lieu dans l'app : le panneau s'ouvre dans une page à part** (`949d381`, 2026-11-25, develop, pas encore poussé ; app : `b239a04` sur feat/coeur-natif). L'utilisateur voyait encore un saut à la fermeture et a demandé une vraie correction, pas un masque : la photo de la carte et le déplacement de la page sont retirés. Maintenant la petite carte ne bouge jamais : « Voir en grand » (bouton `data-grand`) demande à l'app une deuxième page `/apercu/carte?…&grand=N`, posée par-dessus l'écran, qui ouvre directement le panneau et dit « fermer » à l'app quand il est fermé. Vérifié par vidéo sur la Pad 6 (ouverture et fermeture sans saut). Ancienne app : l'ancien passage en plein écran reste. Les autres cartes (eau, emploi, cyclones, trajet) peuvent passer au même système en ajoutant `data-grand` à leur bouton.
 
