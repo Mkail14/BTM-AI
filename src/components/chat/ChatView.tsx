@@ -405,6 +405,13 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
               setLiveStatus("Tamilya réfléchit.");
             }
             break;
+          case "searching":
+            // Tamilya cherche sur internet : « Je cherche sur internet… » sous les trois points.
+            if (!stale()) {
+              updateMessage(assistantId, (m) => ({ ...m, searching: true }));
+              setLiveStatus("Tamilya cherche sur internet.");
+            }
+            break;
           case "replace":
             // Mode maître : version corrigée de la réponse, à la place du texte reçu en direct.
             reply = event.text;

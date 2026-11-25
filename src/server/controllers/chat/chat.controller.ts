@@ -851,6 +851,9 @@ ${block}`;
               thinkingSent = true;
               send({ type: "thinking" });
             }
+          } else if (chunk.type === "searching") {
+            // Recherche sur internet par le serveur : « Je cherche sur internet… » pendant l'attente.
+            if (!body.voice && firstTextMs === null) send({ type: "searching" });
           } else if (chunk.type === "sources") {
             webSources = chunk.sources;
           } else if (chunk.type === "finish") {

@@ -30,6 +30,8 @@ export type UiMessage = {
   team?: string[];
   /** Tamilya réfléchit (signalé en direct) : « Je réfléchis… » tant que la réponse n'a pas commencé. */
   thinking?: boolean;
+  /** Tamilya cherche sur internet : « Je cherche sur internet… » à la place de « Je réfléchis… ». */
+  searching?: boolean;
 };
 
 /** Texte lisible d'une réponse : sans blocs spéciaux (commande, créneaux), sans Markdown. */
@@ -194,7 +196,11 @@ function AssistantMessage({ message, question }: { message: UiMessage; question?
               <span className="size-1.5 animate-bounce rounded-full bg-current [animation-delay:240ms]" />
             </p>
             {message.team?.length ? <p className="mt-1 text-xs text-fg-muted">Je consulte : {message.team.join(", ")}…</p> : null}
-            {message.thinking ? <p className="mt-1 text-xs text-fg-muted">Je réfléchis…</p> : null}
+            {message.searching ? (
+              <p className="mt-1 text-xs text-fg-muted">Je cherche sur internet…</p>
+            ) : message.thinking ? (
+              <p className="mt-1 text-xs text-fg-muted">Je réfléchis…</p>
+            ) : null}
           </div>
         ) : text ? (
           // Même arbre pendant et après l'écriture : sinon tout le message est redessiné à la fin

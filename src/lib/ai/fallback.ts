@@ -162,10 +162,10 @@ export function createFallbackProvider(entries: readonly ChainEntry[], options: 
             }
             if (winner === attempt) {
               yield chunk;
-            } else if (chunk.type !== "text" && chunk.type !== "thought") {
+            } else if (chunk.type !== "text" && chunk.type !== "thought" && chunk.type !== "searching") {
               attempt.held.push(chunk);
             } else {
-              // Premier mot, ou première pensée (l'API est bien au travail) : cette API gagne la course.
+              // Premier mot, première pensée ou recherche lancée (l'API est bien au travail) : cette API gagne la course.
               win(attempt);
               yield* attempt.held;
               attempt.held = [];
