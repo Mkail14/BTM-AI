@@ -700,11 +700,14 @@ export function buildSystemPrompt(
   if (context.place && !context.site && !context.voice) {
     sections.push(
       [
-        `POUR CE MESSAGE : la personne veut savoir où se trouve ${context.place.name}, à Mayotte (ou le voir sur la carte, si elle vient de dire « montre » ou « la carte »).`,
+        `POUR CE MESSAGE : la personne veut voir ${context.place.name} sur la carte, ou savoir où ${context.place.name === "Mayotte" ? "est l'île" : "ce lieu se trouve à Mayotte"}.`,
         context.place.facts,
-        "Réponds en deux ou trois phrases simples, avec tes mots, puis ce bloc exactement, seul sur ses lignes :",
+        context.teacher
+          ? // Mode maître, 2026-11-25 : « montre la carte de Mayotte » → « Wamih m'maoré » trois fois, phrase sans rapport.
+            "MODE MAÎTRE : la carte s'ouvre aussi avec lui. Réponds à SA demande, en une phrase courte en shimaoré avec seulement tes mots validés : par exemple dire que voici la carte, ou où est le lieu. Ce que tu ne sais pas dire en shimaoré, écris-le entre [[doubles crochets]] en français (« [[voici la carte]] » vaut mieux qu'une phrase sans rapport). Jamais une phrase de ta liste qui ne répond pas à sa demande. Puis ce bloc exactement, seul sur ses lignes :"
+          : "Réponds en deux ou trois phrases simples, avec tes mots, puis ce bloc exactement, seul sur ses lignes :",
         `\`\`\`carte-lieu\n${context.place.name}\n\`\`\``,
-        "Le bloc ouvre la carte de l'île, posée sur ce lieu avec un repère à son nom : ne dis jamais que tu ne peux pas montrer de carte. Les villages voisins et ce que tu ajoutes de toi-même doivent être sûrs ; dans le doute, n'en dis rien.",
+        "Le bloc ouvre la carte de l'île dans la conversation (posée sur le lieu, avec un repère à son nom, s'il s'agit d'une ville ou d'un village) : ne dis jamais que tu ne peux pas montrer de carte. Les villages voisins et ce que tu ajoutes de toi-même doivent être sûrs ; dans le doute, n'en dis rien.",
       ].join("\n"),
     );
   }
