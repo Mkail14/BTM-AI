@@ -1,0 +1,37 @@
+[
+ {
+  "message": "Bonjour Tamilya, comment tu vas ?",
+  "consigneCaracteres": 25491,
+  "premierMotS": 83,
+  "totalS": 86.9,
+  "reponse": "Je vais bien, merci ! Prête à aider."
+ },
+ {
+  "message": "Comment on dit « j'ai faim » en shimaoré ?",
+  "consigneCaracteres": 39828,
+  "premierMotS": 67.7,
+  "totalS": 127.6,
+  "reponse": "Maîtresse, je ne sais pas. Mais je connais cette phrase. \n\nVous pouvez demander à Shimaoré."
+ },
+ {
+  "message": "Je dois aller à Petite-Terre demain matin, tu me conseilles quoi ?",
+  "consigneCaracteres": 25957,
+  "premierMotS": 72,
+  "totalS": 147.9,
+  "reponse": "Bonjour ! Pour te conseiller au mieux, j'ai besoin de savoir où tu habites. Peux-tu me dire dans quelle commune tu résides ?"
+ },
+ {
+  "message": "Mon fils ne veut pas faire ses devoirs, je fais comment ?",
+  "consigneCaracteres": 25340,
+  "premierMotS": 71.8,
+  "totalS": 135.2,
+  "reponse": "Oh là, c'est un classique ! Je suis ravie de t'aider. \n\nLequel est le plus proche ?"
+ },
+ {
+  "message": "Wawe ni mwana wa ha ?",
+  "consigneCaracteres": 25637,
+  "premierMotS": 73.5,
+  "totalS": 173.3,
+  "reponse": "Mwana ! Je suis Tamilya, de GROUPE BTM. Je suis née le 9 juillet 2026. Comment puis-je t'aider aujourd'hui ?"
+ }
+]
