@@ -78,14 +78,16 @@ final class ChatStore {
     boolean siteFood() { return prefs.getBoolean("siteFood", false); }
     boolean siteVoice() { return prefs.getBoolean("siteVoice", false); }
     boolean siteAttach() { return prefs.getBoolean("siteAttach", false); }
+    /** Le menu du site montre « Tableau de bord » à ce compte (administrateur). */
+    boolean siteAdmin() { return prefs.getBoolean("siteAdmin", false); }
 
-    void saveSite(String badge, boolean food, boolean voice, boolean attach) {
+    void saveSite(String badge, boolean food, boolean voice, boolean attach, boolean admin) {
         prefs.edit().putString("siteBadge", badge == null ? "" : badge).putBoolean("siteFood", food)
-                .putBoolean("siteVoice", voice).putBoolean("siteAttach", attach).apply();
+                .putBoolean("siteVoice", voice).putBoolean("siteAttach", attach).putBoolean("siteAdmin", admin).apply();
     }
 
     void clearAccount() {
-        prefs.edit().remove("accountName").remove("accountEmail").remove("accountBalance").remove("accountDemo").remove("siteBadge").remove("siteFood").remove("siteVoice").remove("siteAttach").apply();
+        prefs.edit().remove("accountName").remove("accountEmail").remove("accountBalance").remove("accountDemo").remove("siteBadge").remove("siteFood").remove("siteVoice").remove("siteAttach").remove("siteAdmin").apply();
         new File(dir, "historique.json").delete();
     }
 

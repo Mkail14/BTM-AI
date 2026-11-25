@@ -99,7 +99,7 @@ final class HomeChat implements HomeScreen.Actions {
         balanceCents = store.accountBalance();
         demo = store.accountDemo();
         guestSent = store.guestSent();
-        screen.setSite(store.siteBadge(), store.siteFood(), store.siteVoice(), store.siteAttach());
+        screen.setSite(store.siteBadge(), store.siteFood(), store.siteVoice(), store.siteAttach(), store.siteAdmin());
         render();
         // Conversation de la dernière fois, lue hors du fil de l'écran.
         io.execute(() -> {
@@ -215,7 +215,9 @@ final class HomeChat implements HomeScreen.Actions {
             // Une conversation est affichée sur le site : pas d'idées à lire, « food » reste comme avant.
             + "return JSON.stringify({badge:b?b.textContent.trim():'',food:l?l.textContent.indexOf('Commander à manger')>=0:null,"
             + "voice:!!document.querySelector('#composer-form button[aria-label=\"Parler à Tamilya\"]'),"
-            + "attach:!!document.querySelector('button[aria-label=\"Photo ou document\"]')});})()";
+            + "attach:!!document.querySelector('button[aria-label=\"Photo ou document\"]'),"
+            // Bouton « Tableau de bord » du menu du site (Sidebar.tsx), présent même menu fermé.
+            + "admin:!!document.querySelector('a[href=\"/admin\"].bg-accent')});})()";
 
     private void readSite() {
         if (!online) return;
@@ -225,8 +227,8 @@ final class HomeChat implements HomeScreen.Actions {
                 if (!(text instanceof String) || ((String) text).isEmpty()) return;
                 JSONObject site = new JSONObject((String) text);
                 boolean food = site.isNull("food") ? store.siteFood() : site.optBoolean("food");
-                store.saveSite(site.optString("badge"), food, site.optBoolean("voice"), site.optBoolean("attach"));
-                screen.setSite(store.siteBadge(), store.siteFood(), store.siteVoice(), store.siteAttach());
+                store.saveSite(site.optString("badge"), food, site.optBoolean("voice"), site.optBoolean("attach"), site.optBoolean("admin"));
+                screen.setSite(store.siteBadge(), store.siteFood(), store.siteVoice(), store.siteAttach(), store.siteAdmin());
                 render();
             } catch (JSONException ignored) {
                 // Page inattendue : on garde ce qu'on savait.
@@ -253,7 +255,7 @@ final class HomeChat implements HomeScreen.Actions {
                 demo = false;
                 history = new JSONArray();
                 io.execute(store::clearAccount);
-                screen.setSite("", false, false, false);
+                screen.setSite("", false, false, false, false);
             }
             // La conversation de l'autre état ne peut pas continuer : on en commence une neuve.
             if (!streaming) {
