@@ -143,6 +143,7 @@ export function BellButton({
   /** Change à chaque notification reçue : la cloche sonne. */
   ring?: number;
 }) {
+  // Bien visible : blanche en thème sombre, couleur pleine du texte en thème clair (du blanc y disparaîtrait).
   return (
     <button
       ref={ref}
@@ -151,7 +152,7 @@ export function BellButton({
       onClick={onClick}
       aria-label={unread ? `Notifications : ${unread} nouvelle${unread > 1 ? "s" : ""}` : "Notifications"}
       aria-expanded={expanded}
-      className="relative rounded-full p-2 text-fg-muted transition hover:bg-bg-muted hover:text-fg"
+      className="relative rounded-full p-2 text-fg transition hover:bg-bg-muted dark:text-white"
     >
       <svg
         key={ring}
