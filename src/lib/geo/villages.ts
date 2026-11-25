@@ -116,7 +116,11 @@ for (const village of VILLAGES) {
 }
 
 // Autres noms du même lieu (liste des villages de l'Insee, 2017).
-const OTHER_NAMES: [other: string, name: string][] = [["Iloni", "Ironi Bé"]];
+const OTHER_NAMES: [other: string, name: string][] = [
+  ["Iloni", "Ironi Bé"],
+  // Cavani s'écrit aussi Kavani (liste des lieux de la voix).
+  ["Kavani", "Cavani"],
+];
 for (const [other, name] of OTHER_NAMES) {
   const village = BY_KEY.get(placeKey(name));
   if (village) BY_KEY.set(placeKey(other), village);

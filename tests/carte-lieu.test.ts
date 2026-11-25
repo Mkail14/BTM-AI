@@ -46,6 +46,15 @@ test("« oui », « ok » au début et relance « et Trévani ? »", () => {
   assert.equal(name("et trevani ?", ["bonjour"]), null);
 });
 
+test("« tu sais c'est où Cavani ? » : la carte s'ouvre aussi", () => {
+  assert.equal(name("Tu sais c'est ou Cavani ?"), "Cavani");
+  assert.equal(name("tu sais où se trouve Combani"), "Combani");
+  assert.equal(name("est-ce que tu sais c'est où Sada"), "Sada");
+  assert.equal(name("Tu sais où c'est Kavani ?"), "Cavani");
+  assert.equal(name("tu sais"), null);
+  assert.equal(name("tu connais Sada ?"), null);
+});
+
 test("pas une question de lieu : pas de carte", () => {
   assert.equal(name("Chiconi"), null);
   assert.equal(name("j'habite à Chiconi"), null);
