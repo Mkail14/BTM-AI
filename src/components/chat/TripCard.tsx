@@ -8,6 +8,7 @@ import type { TripResponse } from "@/server/controllers/trip/trip.controller";
 import { locateMe, type Point } from "@/lib/geo/communes";
 import { formatMinutes, parseTripSpec } from "@/lib/trip/intent";
 import type { TripPlan } from "@/server/services/trip/plan";
+import { isFreshCard } from "./fresh-card";
 
 // Carte (MapLibre et sa feuille de style) : chargée seulement quand le panneau s'ouvre.
 const CourierMap = dynamic(() => import("./CourierMap").then((m) => m.CourierMap), { ssr: false });
@@ -15,8 +16,6 @@ const CourierMap = dynamic(() => import("./CourierMap").then((m) => m.CourierMap
 const PERSONA = "var(--persona,var(--accent))";
 /** Trajets déjà ouverts d'eux-mêmes une fois : ils ne se rouvrent pas à chaque visite. */
 const SEEN_KEY = "btm-trip-seen";
-/** Un bloc affiché plus tard que ça après l'ouverture de la page vient d'être écrit par Tamilya. */
-const FRESH_AFTER_MS = 3000;
 
 type State =
   | { status: "loading" }
@@ -74,7 +73,7 @@ export function TripCard({ spec }: { spec: string }) {
           setState({ status: "ok", plan: body.plan });
           // Écrit à l'instant par Tamilya (pas relu dans l'historique) : le panneau s'ouvre de lui-même, une fois.
           if (autoOpen.current === null) {
-            autoOpen.current = performance.now() > FRESH_AFTER_MS && !seen(spec);
+            autoOpen.current = isFreshCard() && !seen(spec);
             if (autoOpen.current) setOpen(true);
           }
         } else setState({ status: "error", error: body.error, message: body.message });
@@ -189,7 +188,7 @@ function Mode({ icon, label, value, hint }: { icon: ReactNode; label: string; va
 }
 
 /** Panneau du trajet : la carte en haut, l'essentiel en bas, sans défilement. */
-function TripPanel({
+export function TripPanel({
   plan,
   onClose,
   locate,

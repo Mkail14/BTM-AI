@@ -42,7 +42,18 @@ export function CardEmbed({ block, content }: { block: string; content: string }
     const changes = new MutationObserver(later);
     changes.observe(document.body, { childList: true, subtree: true });
     send();
+    // Un lien du site (« Voir en grand » vers /mayotte…) ne change jamais de page dans ce petit cadre :
+    // il part en vraie navigation, que l'application ouvre en dehors de la carte.
+    const onClick = (e: MouseEvent) => {
+      const link = (e.target as Element | null)?.closest?.("a[href]") as HTMLAnchorElement | null;
+      if (!link || link.getAttribute("href")?.startsWith("#") || e.defaultPrevented) return;
+      e.preventDefault();
+      e.stopPropagation();
+      window.location.href = link.href;
+    };
+    window.addEventListener("click", onClick, true);
     return () => {
+      window.removeEventListener("click", onClick, true);
       size.disconnect();
       changes.disconnect();
       cancelAnimationFrame(frame);
