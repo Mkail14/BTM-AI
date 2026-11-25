@@ -209,10 +209,11 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
               <span className="relative shrink-0">
                 <IconDashboard />
                 {/* Repliée : la pastille se pose sur l'icône. */}
-                {collapsed ? <PendingBadge count={pendingCount} className="absolute -top-2.5 -right-3 hidden ring-2 ring-accent md:inline-grid" /> : null}
+                {/* Téléphone : jamais (max-md:hidden), la pastille du bout suffit. */}
+                {collapsed ? <PendingBadge count={pendingCount} tone="light" className="absolute -top-2.5 -right-3 ring-2 ring-accent max-md:hidden" /> : null}
               </span>
               <span className={`${label} flex-1`}>Tableau de bord</span>
-              <PendingBadge count={pendingCount} className={collapsed ? "md:hidden" : ""} />
+              <PendingBadge count={pendingCount} tone="light" className={collapsed ? "md:hidden" : ""} />
             </Link>
           ) : null}
         </div>
