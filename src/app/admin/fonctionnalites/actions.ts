@@ -4,16 +4,25 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { NOT_ADMIN, requireAdminAction, type ActionResult } from "@/server/middlewares/admin-auth";
 import { saveFeatureSwitch } from "@/server/services/site/features";
-import { FEATURES, FEATURE_IDS, type FeatureId } from "@/lib/site/features-rules";
+import { FEATURES, FEATURE_IDS, FEATURE_INFO, type FeatureId } from "@/lib/site/features-rules";
 
-const schema = z.strictObject({ feature: z.enum(FEATURE_IDS as [FeatureId, ...FeatureId[]]), enabled: z.boolean() });
+const schema = z.strictObject({
+  feature: z.enum(FEATURE_IDS as [FeatureId, ...FeatureId[]]),
+  enabled: z.boolean(),
+  /** Oui à l'alerte « pas encore le droit » (RestrictedAlert). */
+  confirmed: z.boolean().optional(),
+});
 
 export async function setFeatureAction(input: unknown): Promise<ActionResult> {
   const auth = await requireAdminAction();
   if (!auth) return NOT_ADMIN;
   const parsed = schema.safeParse(input);
   if (!parsed.success) return { ok: false, message: "Fonctionnalité inconnue." };
-  const { feature, enabled } = parsed.data;
+  const { feature, enabled, confirmed } = parsed.data;
+  // Fonctionnalité sans accord : ne s'ouvre au public qu'après l'alerte, jamais par un appel direct.
+  if (enabled && FEATURE_INFO[feature].restricted && !confirmed) {
+    return { ok: false, message: "Pas encore le droit : confirme dans l'alerte pour l'allumer quand même." };
+  }
   if (!(await saveFeatureSwitch(feature, enabled, auth.user.id))) {
     return { ok: false, message: "L'enregistrement a échoué (migration 20261210000000_fonctionnalites.sql appliquée ?)." };
   }
