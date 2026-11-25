@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { DANGER, PRIMARY, RowEditor, SECONDARY, SettingsRow } from "./ui";
+import { closeEditor, DANGER, PRIMARY, RowEditor, SECONDARY, SettingsRow } from "./ui";
 
 const digitsOnly = (value: string) => value.replace(/\D/g, "").slice(0, 4);
 
@@ -72,7 +72,7 @@ export function PaymentPin() {
     if (!result?.ok) return setMessage({ ok: false, text: result?.error ?? "Connexion impossible : réessaie." });
     setHasPin(action === "set");
     if (action === "remove") setConsented(false);
-    close();
+    closeEditor(close);
     setMessage({ ok: true, text: action === "set" ? "Code enregistré." : "Code supprimé : Tamilya ne peut plus payer à ta place." });
   }
 
@@ -154,7 +154,7 @@ export function PaymentPin() {
                   {busy ? "Suppression…" : "Supprimer mon code"}
                 </button>
               )}
-              <button type="button" disabled={busy} onClick={close} className={SECONDARY}>
+              <button type="button" disabled={busy} onClick={() => closeEditor(close)} className={SECONDARY}>
                 Annuler
               </button>
             </div>

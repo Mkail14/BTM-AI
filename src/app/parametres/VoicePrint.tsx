@@ -5,7 +5,7 @@ import { IconMic } from "@/components/ui/icons";
 import { average, loadPrinter, similarity } from "@/lib/voice-live/speaker";
 import { speechSeconds, startRecording, type Recording } from "@/lib/voice-live/record";
 import { PinField } from "./PaymentPin";
-import { DANGER, PRIMARY, RowEditor, SECONDARY, SettingsRow } from "./ui";
+import { closeEditor, DANGER, PRIMARY, RowEditor, SECONDARY, SettingsRow } from "./ui";
 
 /** Trois phrases à lire : assez longues pour une empreinte fiable (au moins 2 s de voix chacune). */
 const PHRASES = [
@@ -123,7 +123,7 @@ export function VoicePrint() {
       }
       return setMessage({ ok: false, text: result?.error ?? "Connexion impossible : réessaie." });
     }
-    reset();
+    closeEditor(reset);
     setStatus((previous) => ({ enrolled: true, since: new Date().toISOString(), hasPin: previous?.hasPin }));
     setMessage({ ok: true, text: "Voix enregistrée : Tamilya vérifiera maintenant ta voix avant de payer." });
   }
@@ -146,7 +146,7 @@ export function VoicePrint() {
       }
       return setMessage({ ok: false, text: result?.error ?? "Connexion impossible : réessaie." });
     }
-    reset();
+    closeEditor(reset);
     setStatus((previous) => ({ enrolled: false, since: null, hasPin: previous?.hasPin }));
     setMessage({ ok: true, text: "Empreinte effacée : Tamilya ne vérifie plus ta voix (le code reste demandé)." });
   }
@@ -175,7 +175,7 @@ export function VoicePrint() {
         <button type="submit" disabled={code.length !== 4 || Boolean(busy)} className={pending ? PRIMARY : DANGER}>
           {busy ?? (pending ? "Enregistrer ma voix" : "Effacer ma voix")}
         </button>
-        <button type="button" disabled={Boolean(busy)} onClick={reset} className={SECONDARY}>
+        <button type="button" disabled={Boolean(busy)} onClick={() => closeEditor(reset)} className={SECONDARY}>
           Annuler
         </button>
       </div>
@@ -214,7 +214,7 @@ export function VoicePrint() {
                 <button type="button" onClick={() => setConsent(true)} className={PRIMARY}>
                   J&apos;accepte, on commence
                 </button>
-                <button type="button" onClick={reset} className={SECONDARY}>
+                <button type="button" onClick={() => closeEditor(reset)} className={SECONDARY}>
                   Annuler
                 </button>
               </div>
@@ -230,7 +230,7 @@ export function VoicePrint() {
                   <IconMic width={16} height={16} />
                   {recording ? "J'ai fini" : "Appuie, puis lis la phrase"}
                 </button>
-                <button type="button" disabled={recording || Boolean(busy)} onClick={reset} className={SECONDARY}>
+                <button type="button" disabled={recording || Boolean(busy)} onClick={() => closeEditor(reset)} className={SECONDARY}>
                   Annuler
                 </button>
               </div>

@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { lostOk } from "@/lib/safe-action";
 import { cancelChangeAction, confirmChangeAction, startChangeAction } from "@/app/admin/verrou/actions";
-import { INPUT_CLASS, PRIMARY, QUIET, SECONDARY, RowEditor, SettingsRow } from "./ui";
+import { closeEditor, INPUT_CLASS, PRIMARY, QUIET, SECONDARY, RowEditor, SettingsRow } from "./ui";
 
 type Step = { kind: "idle" } | { kind: "current" } | { kind: "scan"; factorId: string; qr: string; secret: string } | { kind: "done"; message: string };
 
@@ -62,8 +62,11 @@ export function ChangeCode() {
       } else if (step.kind === "scan") {
         const res = await confirmChangeAction({ code, factorId: step.factorId }).catch(lostOk);
         if (res.ok) {
-          reset();
-          setStep({ kind: "done", message: res.message });
+          const message = res.message;
+          closeEditor(() => {
+            reset();
+            setStep({ kind: "done", message });
+          });
         } else {
           setError(res.message);
           setCode("");
@@ -124,7 +127,7 @@ export function ChangeCode() {
               <button type="submit" disabled={pending || code.length !== 6} className={PRIMARY}>
                 {pending ? "Un instant…" : step.kind === "current" ? "Continuer" : "Confirmer"}
               </button>
-              <button type="button" onClick={cancel} className={QUIET}>
+              <button type="button" onClick={() => closeEditor(cancel)} className={QUIET}>
                 Annuler
               </button>
             </div>

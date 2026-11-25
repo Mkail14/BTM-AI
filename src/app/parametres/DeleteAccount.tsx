@@ -6,7 +6,7 @@ import { useAuth } from "@/components/auth/AuthProvider";
 import { lostStatus } from "@/lib/safe-action";
 import { deleteAccountAction } from "./actions";
 import { DELETE_CONFIRMATION } from "./confirmation";
-import { DANGER, INPUT_CLASS, RowEditor, SECONDARY, SettingsRow } from "./ui";
+import { closeEditor, DANGER, INPUT_CLASS, RowEditor, SECONDARY, SettingsRow } from "./ui";
 
 /** Suppression définitive : elle se déplie à la demande, puis il faut recopier le mot de confirmation. */
 export function DeleteAccount({ email, isAdmin }: { email: string | null; isAdmin: boolean }) {
@@ -75,7 +75,7 @@ export function DeleteAccount({ email, isAdmin }: { email: string | null; isAdmi
               >
                 {pending ? "Suppression…" : "Supprimer définitivement"}
               </button>
-              <button type="button" disabled={pending} onClick={() => setOpened(false)} className={SECONDARY}>
+              <button type="button" disabled={pending} onClick={() => closeEditor(() => setOpened(false))} className={SECONDARY}>
                 Annuler
               </button>
             </div>
