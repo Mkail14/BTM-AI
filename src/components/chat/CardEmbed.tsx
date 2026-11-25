@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { cardBridge, FULL_ATTR, waitResize } from "./app-fullscreen";
 import { Markdown } from "./Markdown";
-
-/** Pont posé par l'application Android (CardFrame.java) : taille de la carte et plein écran. */
-type Bridge = { hauteur?: (px: number) => void; pleinEcran?: (on: boolean) => void };
 
 /**
  * Carte seule (page /apercu/carte), pour la conversation native de l'application : elle dit
@@ -17,7 +15,8 @@ export function CardEmbed({ block, content }: { block: string; content: string }
   useEffect(() => {
     const el = box.current;
     if (!el) return;
-    const bridge = (window as unknown as { TamilyaCarte?: Bridge }).TamilyaCarte;
+    const bridge = cardBridge();
+    const root = document.documentElement;
     let height = -1;
     let full: boolean | null = null;
     let frame = 0;
@@ -30,8 +29,12 @@ export function CardEmbed({ block, content }: { block: string; content: string }
       }
       const open = document.querySelector('[aria-modal="true"]') !== null;
       if (open !== full) {
+        const wasFull = full;
         full = open;
+        if (open) root.setAttribute(FULL_ATTR, "");
         bridge?.pleinEcran?.(open);
+        // Panneau fermé : la petite carte revient seulement une fois l'app revenue à sa taille.
+        if (!open && wasFull) void waitResize().then(() => !full && root.removeAttribute(FULL_ATTR));
       }
     };
     const later = () => {
@@ -67,6 +70,8 @@ export function CardEmbed({ block, content }: { block: string; content: string }
         html, body { background: transparent !important; min-height: 0 !important; }
         /* Pas de rond de Tamilya à côté ici : sans ça, le décalage « téléphone » de .chat-card coupe la carte à gauche. */
         [data-carte-seule] .chat-card { margin-left: 0 !important; }
+        /* Panneau plein écran ouvert : la petite carte ne reste pas visible en haut, sous le flou. */
+        html[${FULL_ATTR}] [data-carte-seule] { visibility: hidden; }
         body:has(> [data-carte-seule]) > #ecran-chargement,
         body:has(> [data-carte-seule]) > [aria-live="polite"],
         body:has(> [data-carte-seule]) > [aria-hidden="true"].fixed { display: none !important; }

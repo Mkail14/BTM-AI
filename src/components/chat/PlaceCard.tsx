@@ -11,6 +11,7 @@ import { findTown, type Town } from "@/lib/mayotte/towns";
 import { ISLAND_NAME } from "@/lib/mayotte/place-intent";
 import type { TripResponse } from "@/server/controllers/trip/trip.controller";
 import type { TripPlan } from "@/server/services/trip/plan";
+import { enterAppFullscreen } from "./app-fullscreen";
 import { isFreshCard } from "./fresh-card";
 import { TripPanel } from "./TripCard";
 
@@ -109,6 +110,8 @@ export function PlaceCard({ place }: { place: string }) {
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState(false);
   usePlaceMap(frame, town, island, () => setFailed(true));
+  // Dans l'app, la page passe d'abord en plein écran : le panneau s'ouvre directement à la bonne taille.
+  const show = () => void enterAppFullscreen().then(() => setOpen(true));
 
   // Écrite à l'instant par Tamilya, sur tablette ou ordinateur : le panneau s'ouvre à droite, une fois.
   useEffect(() => {
@@ -117,7 +120,9 @@ export function PlaceCard({ place }: { place: string }) {
     if (Math.min(window.screen.width, window.screen.height) < 600) return;
     if (!isFreshCard()) return;
     // Un court instant : la carte apparaît dans la conversation, puis le panneau glisse à droite.
-    const timer = setTimeout(() => !seen(town?.name ?? ISLAND_NAME) && setOpen(true), 400);
+    const timer = setTimeout(() => {
+      if (!seen(town?.name ?? ISLAND_NAME)) void enterAppFullscreen().then(() => setOpen(true));
+    }, 400);
     return () => clearTimeout(timer);
   }, [town, island]);
 
@@ -138,7 +143,7 @@ export function PlaceCard({ place }: { place: string }) {
           </span>
           <button
             type="button"
-            onClick={() => setOpen(true)}
+            onClick={show}
             aria-haspopup="dialog"
             className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-accent-fg"
             style={{ background: PERSONA }}
