@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `6179b8c` (2026-11-25, develop ; `d61c9dd` sur main)**
+**Dernier commit noté : `0f50b9b` (2026-11-25, develop ; `6574943` sur main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -138,6 +138,9 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Chat : « c'est où Chiconi ? » ouvre la carte** (`0f50b9b`, 2026-11-25, develop ; `6574943` sur main). Signalé par l'utilisateur avec une capture : à « c'est ou chiconi », puis « montre » et « la carte », Tamilya ne montrait rien et a compris « carte d'identité ». La carte qui vole jusqu'à un village n'existait qu'à la voix, sur /mayotte. Maintenant, dans le chat écrit, une question de lieu (« c'est où X », « où se trouve X », « X c'est où », « montre-moi X », « la carte de X ») ouvre le bloc ```carte-lieu``` (`PlaceCard`) : l'île entière, puis vol jusqu'au lieu avec le repère lumineux à son nom, et « Voir en grand » vers /mayotte. « Montre » ou « la carte » juste après reprend le lieu de l'un des deux messages d'avant. Seuls les lieux connus du site (`findTown`) ; Tamilya reçoit les faits sûrs de `describeTown` (commune, place sur l'île, habitants de la commune lus en 2 s au plus) ; le serveur ajoute la carte si elle l'oublie. Vérifié : 3 tests (`tests/carte-lieu.test.ts`), types, lint, build. **Pas vu à l'écran** : prévisualisation Vercel refusée par les permissions ; envoyé sur demande de l'utilisateur.
+- **Dépendances à jour** (`fc67da3`, 2026-11-25, develop ; `f62edaf` sur main). Demande de l'utilisateur : Next 16.4.6, React 19.3.1, @anthropic-ai/sdk 1.13, supabase-js 2.119.2, maplibre-gl 6.19 (moteur recopié dans `public/maplibre`), nodemailer 10.6.1, Tailwind 4.3.5. Pas les nouvelles versions majeures (eslint 10, typescript 7, @types/node 26) : à faire à part. `tesseract.js: false` dans `pnpm-workspace.yaml` : son script d'installation n'affiche qu'un appel aux dons, et `pnpm install` finissait en erreur sans ça. Vérifié : pnpm audit 0 faille, types, lint, 972 tests, build ; main : types et 970 tests. Pas vu à l'écran.
 
 - **Mon compte, Administration : rangée en onglets** (`6179b8c`, 2026-11-25, develop ; `d61c9dd` sur main). Demande de l’utilisateur : la rubrique empilait trois gros blocs et défilait. Maintenant des onglets Site (état, message, mode démo, historique replié), Partenaires, Bandeau, Admins, Code ; un délégué ne voit que Admins et Code. Point orange sur Site si le site est fermé ou le mode démo allumé. Changer d’onglet ferme la modification, les 10 minutes déverrouillées restent. Vérifié : types, lint. Pas vu à l’écran (code à 6 chiffres demandé).
 - **Menu du compte admin : « Parler à Tamilya » retiré** (`25e5326`, 2026-11-25, develop ; `dc2ee26` sur main). Demande de l’utilisateur : restent « Mon compte » et « Se déconnecter ». Pas vu à l’écran.
