@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { cardBridge, FULL_ATTR, waitResize } from "./app-fullscreen";
+import { bigIndex, cardBridge, closeBigPage, FULL_ATTR, waitResize } from "./app-fullscreen";
 import { Markdown } from "./Markdown";
 
 /**
@@ -9,12 +9,45 @@ import { Markdown } from "./Markdown";
  * à l'app sa hauteur, et quand un panneau plein écran s'ouvre (« Voir la carte »), pour que
  * l'app lui donne tout l'écran le temps qu'il reste ouvert.
  */
-export function CardEmbed({ block, content }: { block: string; content: string }) {
+/**
+ * Page en grand : ouvre le panneau du bouton n° `index` (dès qu'il existe), puis dit à l'app
+ * de retirer la page quand il est fermé. Rien ne s'ouvre (carte en erreur) : la page se retire.
+ */
+function openBig(el: HTMLElement, index: number) {
+  let opened = false;
+  let frame = 0;
+  const check = () => {
+    frame = 0;
+    const open = document.querySelector('[aria-modal="true"]') !== null;
+    if (open) opened = true;
+    else if (opened) return closeBigPage();
+    if (opened) return;
+    const button = el.querySelectorAll<HTMLElement>("[data-grand]")[index];
+    if (button) button.click();
+  };
+  const later = () => {
+    if (!frame) frame = requestAnimationFrame(check);
+  };
+  const changes = new MutationObserver(later);
+  changes.observe(document.body, { childList: true, subtree: true });
+  check();
+  const giveUp = setTimeout(() => !opened && closeBigPage(), 15000);
+  return () => {
+    changes.disconnect();
+    cancelAnimationFrame(frame);
+    clearTimeout(giveUp);
+  };
+}
+
+/** big : page en grand de l'app (?grand=N), lu aussi par le serveur pour un premier rendu identique. */
+export function CardEmbed({ block, content, big = false }: { block: string; content: string; big?: boolean }) {
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = box.current;
     if (!el) return;
+    const big = bigIndex();
+    if (big !== null) return openBig(el, big);
     const bridge = cardBridge();
     const root = document.documentElement;
     let height = -1;
@@ -55,7 +88,18 @@ export function CardEmbed({ block, content }: { block: string; content: string }
       window.location.href = link.href;
     };
     window.addEventListener("click", onClick, true);
+    // « Voir … » (bouton data-grand) : l'app ouvre le panneau dans une page à part, déjà en plein
+    // écran, et cette petite carte reste à sa place. Sans ce pouvoir (ancienne app), le panneau s'ouvre ici.
+    const onBig = (e: MouseEvent) => {
+      const button = (e.target as Element | null)?.closest?.("[data-grand]");
+      if (!button || !bridge?.grand) return;
+      e.preventDefault();
+      e.stopPropagation();
+      bridge.grand([...el.querySelectorAll("[data-grand]")].indexOf(button));
+    };
+    window.addEventListener("click", onBig, true);
     return () => {
+      window.removeEventListener("click", onBig, true);
       window.removeEventListener("click", onClick, true);
       size.disconnect();
       changes.disconnect();
@@ -72,11 +116,13 @@ export function CardEmbed({ block, content }: { block: string; content: string }
         [data-carte-seule] .chat-card { margin-left: 0 !important; }
         /* Panneau plein écran ouvert : la petite carte ne reste pas visible en haut, sous le flou. */
         html[${FULL_ATTR}] [data-carte-seule] { visibility: hidden; }
+        /* Page en grand : seulement le panneau, la carte elle-même reste dans la conversation. */
+        [data-carte-grand] { visibility: hidden; }
         body:has(> [data-carte-seule]) > #ecran-chargement,
         body:has(> [data-carte-seule]) > [aria-live="polite"],
         body:has(> [data-carte-seule]) > [aria-hidden="true"].fixed { display: none !important; }
       `}</style>
-      <div ref={box} data-carte-seule="" className="py-0.5">
+      <div ref={box} data-carte-seule="" data-carte-grand={big ? "" : undefined} className="py-0.5">
         <Markdown text={`\`\`\`${block}\n${content}\n\`\`\``} />
       </div>
     </>

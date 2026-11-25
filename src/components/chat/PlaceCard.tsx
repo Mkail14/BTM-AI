@@ -11,7 +11,7 @@ import { findTown, type Town } from "@/lib/mayotte/towns";
 import { ISLAND_NAME } from "@/lib/mayotte/place-intent";
 import type { TripResponse } from "@/server/controllers/trip/trip.controller";
 import type { TripPlan } from "@/server/services/trip/plan";
-import { enterAppFullscreen } from "./app-fullscreen";
+import { bigIndex, closeBigPage, enterAppFullscreen } from "./app-fullscreen";
 import { isFreshCard } from "./fresh-card";
 import { TripPanel } from "./TripCard";
 
@@ -107,10 +107,13 @@ export function PlaceCard({ place }: { place: string }) {
   const island = place === ISLAND_NAME;
   const town = useMemo(() => (island ? null : findTown(place)), [island, place]);
   const frame = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState(false);
-  usePlaceMap(frame, town, island, () => setFailed(true));
-  // Dans l'app, la page passe d'abord en plein écran : le panneau s'ouvre directement à la bonne taille.
+  // Page en grand de l'app : seulement le panneau, ouvert d'emblée ; la petite carte n'y est pas dessinée.
+  const [big] = useState(() => bigIndex() !== null);
+  usePlaceMap(frame, big ? null : town, big ? false : island, () => setFailed(true));
+  // Dans l'app, le bouton (data-grand) ouvre la page en grand ; ancienne app : plein écran d'abord.
   const show = () => void enterAppFullscreen().then(() => setOpen(true));
 
   // Écrite à l'instant par Tamilya, sur tablette ou ordinateur : le panneau s'ouvre à droite, une fois.
@@ -118,17 +121,19 @@ export function PlaceCard({ place }: { place: string }) {
     if (!town && !island) return;
     // L'écran, pas la page : dans l'app, la carte vit dans un cadre plus étroit que l'écran de la tablette.
     if (Math.min(window.screen.width, window.screen.height) < 600) return;
-    if (!isFreshCard()) return;
+    if (big || !isFreshCard()) return;
     // Un court instant : la carte apparaît dans la conversation, puis le panneau glisse à droite.
     const timer = setTimeout(() => {
-      if (!seen(town?.name ?? ISLAND_NAME)) void enterAppFullscreen().then(() => setOpen(true));
+      // Le bouton lui-même : dans l'app, il ouvre la page en grand.
+      if (!seen(town?.name ?? ISLAND_NAME)) button.current?.click();
     }, 400);
     return () => clearTimeout(timer);
-  }, [town, island]);
+  }, [town, island, big]);
 
   if (!town && !island) return null;
   const title = town?.name ?? ISLAND_NAME;
   const detail = !town ? "Grande-Terre et Petite-Terre" : town.isCommune ? "Commune de Mayotte" : `Village de la commune de ${town.commune}`;
+  if (big) return <PlacePanel town={town} island={island} title={title} detail={detail} onClose={closeBigPage} />;
   return (
     <>
       <div className="booking-step carte-cadre w-full overflow-hidden">
@@ -143,8 +148,10 @@ export function PlaceCard({ place }: { place: string }) {
           </span>
           <button
             type="button"
+            ref={button}
             onClick={show}
             aria-haspopup="dialog"
+            data-grand=""
             className="shrink-0 rounded-full px-3 py-1.5 text-xs font-semibold text-accent-fg"
             style={{ background: PERSONA }}
           >
