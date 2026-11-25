@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `c0d2bad` (2026-11-25, develop ; fusionné avec `25cd1ac` de l’autre session ; `e7894e8` sur main)**
+**Dernier commit noté : `db92b70` (2026-11-25, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -141,6 +141,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Carte : « Oui c'est où Chiconi » et « Et Trévani ? » ouvrent la carte ; un nom de ville n'est plus un mot shimaoré inconnu** (`db92b70`, 2026-11-25, develop). Sur la Pad 6, en mode shimaoré : pas de carte, et « Je ne connais pas ce mot » pour Trévani. Causes : `detectPlace` refusait un « oui/ok/bon » au début et ne comprenait pas la relance « et X ? » ; `glossMessage` donnait « trevani » à Gemini comme mot shimaoré inconnu. Corrigé : mots de remplissage retirés au début ; « et/puis/aussi X » ouvre la carte de X si le message d'avant demandait un lieu ; un nom exact de village ou de commune n'est jamais mis dans les mots inconnus (nom exact seulement, pour ne pas cacher un vrai mot shimaoré). Tests ajoutés.
 
 - **Mon compte : la fenêtre flottante se ferme en douceur** (`c0d2bad`, 2026-11-25, develop ; `e7894e8` sur main). Elle disparaissait d’un coup. `closeEditor()` (dans `parametres/ui.tsx`) joue la même sortie que ConfirmDialog (160 ms, la feuille redescend) avant de la retirer : Échap, clic à côté, Annuler et après Enregistrer, dans les 7 formulaires. Vérifié en vrai, Chrome en taille téléphone (390×844), compte Claude Admin : Échap, clic à côté et Annuler ferment avec l’animation ; un clic dans la fenêtre la laisse ouverte. Pas essayé sur la tablette (pas branchée), donc pas le bouton retour d’Android.
 - **Menu du compte : « Paramètres » caché pour les admins** (`9e183e7`, 2026-11-25, develop ; `fecb9f0` sur main). Mon compte s’ouvre depuis le tableau de bord.
