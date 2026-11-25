@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `acca196` (2026-11-25, develop)**
+**Dernier commit noté : `cfc2829` (2026-11-25, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -141,6 +141,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Menu : plus de croix, le « + » seul sans rond** (`cfc2829`, 2026-11-25, develop ; `7979468` sur main). Demandé pour l'app installée : la croix « Fermer le menu » (téléphone) est retirée, on ferme en touchant à côté ou en glissant. Le « + » (nouvelle conversation) perd son rond en verre (`bouton-verre`) et prend la place de la croix.
 
 - **Carte : « Il est où X ? », « Tu connais X ? » et des noms courts ouvrent la carte** (`acca196`, 2026-11-25, develop ; `25e4ea5` sur main). Signalé avec une capture de la Pad 6 (« Tanaraki », « Cavani »). Essai de 12 façons de demander sur tous les lieux connus : « Il est où X ? » et « Tu connais X ? » ne donnaient aucune carte (172 essais sur 1 020) ; « Montre-moi La Vigie » perdait le « La » ; Majicavo, Dzoumonyé, Mgombani, Hamaha, Hauts Vallons introuvables. Corrigé : « il/elle est où », « il/elle se trouve où » ; « tu connais X » seulement si X est un lieu exact ; M’Gombani et Hamaha ajoutés (positions OpenStreetMap) ; autres noms pour Majicavo-Koropa, Dzoumogné, La Vigie, Les Hauts Vallons. Après : 0 sans carte sur 1 044 essais ; 989 tests. Pas réglé : Tamilya résume mal la position (« un peu à l’ouest de Mamoudzou » pour Tanaraki) ; Petite-Terre et Grande-Terre ne sont pas des lieux de la carte.
 
