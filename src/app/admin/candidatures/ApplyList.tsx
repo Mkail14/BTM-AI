@@ -2,37 +2,13 @@
 
 import { useMemo, useState } from "react";
 import { IconExternal, IconMail, IconSend } from "@/components/ui/icons";
+import { APPLY_LABELS, applyMailto as mailtoOf, type ApplyWay } from "@/lib/emploi/apply";
 import { normalize } from "@/lib/live/intent";
-import type { ApplyWay, OfferWithApply } from "@/server/services/live/emploi-territorial-candidature";
+import type { OfferWithApply } from "@/server/services/live/emploi-territorial-candidature";
 
-const LABELS: Record<ApplyWay | "toutes", string> = {
-  toutes: "Toutes",
-  mail: "Par mail",
-  site: "Site de l'employeur",
-  formulaire: "Bouton Emploi Territorial",
-  courrier: "Par courrier",
-  inconnu: "À voir sur l'offre",
-};
+const LABELS: Record<ApplyWay | "toutes", string> = { toutes: "Toutes", ...APPLY_LABELS };
 
 const dayFormat = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "long", timeZone: "UTC" });
-
-/** Mail prêt à envoyer : la personne n'a plus qu'à joindre CV et lettre. */
-function mailtoOf(offer: OfferWithApply, to: string) {
-  const subject = `Candidature : ${offer.title}`;
-  const body = [
-    "Bonjour,",
-    "",
-    `Je vous adresse ma candidature au poste de ${offer.title}${offer.company ? ` (${offer.company})` : ""}, publié sur Emploi Territorial :`,
-    offer.link,
-    "",
-    "Vous trouverez ci-joint mon CV et ma lettre de motivation.",
-    "",
-    "Je reste à votre disposition pour un entretien.",
-    "",
-    "Cordialement,",
-  ].join("\n");
-  return `mailto:${to}?${new URLSearchParams({ subject, body }).toString().replace(/\+/g, "%20")}`;
-}
 
 const button = "inline-flex h-9 items-center gap-1.5 rounded-full px-4 text-sm font-medium";
 
