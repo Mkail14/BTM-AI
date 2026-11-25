@@ -52,9 +52,23 @@ function without(brain: TamilyaBrain, pair: Pair): TamilyaBrain {
     ...brain,
     lexicon: brain.lexicon.filter((e) => !same(e)),
     words: brain.words.filter((e) => !same(e)),
-    grammar: brain.grammar.filter((g) => !g.examples.includes(pair.shimaore) && frenchKey(g.title) !== f),
+    // La fiche reste (c'est la leçon qu'on veut voir appliquée) ; seule la ligne d'exemple de cette phrase est retirée.
+    grammar: brain.grammar
+      .filter((g) => frenchKey(g.title) !== f)
+      .map((g) => ({
+        ...g,
+        examples: g.examples
+          .split("\n")
+          .filter((line) => {
+            const m = line.match(/^(.+?)\s*(?:→|=)\s*(.+)$/);
+            return !m || (frenchKey(m[1]) !== f && wordsOf(m[2]).join(" ") !== s);
+          })
+          .join("\n"),
+      })),
   };
 }
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const UNDERSTAND = `Tu es Tamilya. On te donne une phrase en shimaoré (langue de Mayotte) et ce que tu en sais (lecture mot à mot, vocabulaire, règles).
 Donne ton meilleur sens en français, en une phrase, sur la première ligne.
@@ -69,13 +83,17 @@ void (async () => {
   if (!url || !secret) throw new Error("Il faut AI_RELAY_URL, AI_KEYS_SECRET et NODE_ENV=development.");
   const provider = createRelayProvider(url, secret);
   const brain = await loadTamilyaBrain();
+  // BANC_DEPUIS=2026-11-23 : seulement les expressions validées depuis cette date (sans grammaire ni dictionnaire).
+  // BANC_PAUSE_MS=4000 : attente entre deux appels, pour rester sous la limite de la version gratuite de Gemini.
+  const since = process.env.BANC_DEPUIS ?? "";
+  const pause = Number(process.env.BANC_PAUSE_MS ?? 0);
 
-  // Phrases de référence : expressions validées courtes (au moins 2 mots), et les exemples « a → b » de la grammaire.
+  // Phrases de référence : expressions validées (au moins 1 mot si BANC_DEPUIS, sinon 2), et les exemples « a → b » de la grammaire.
   const pairs: Pair[] = brain.lexicon
-    .filter((e) => wordsOf(e.shimaore).length >= 2 && e.french.length <= 90)
+    .filter((e) => wordsOf(e.shimaore).length >= (since ? 1 : 2) && e.french.length <= 90 && (!since || (e.validatedAt ?? "") >= since))
     .map((e) => ({ french: e.french, shimaore: e.shimaore, from: "expression" }));
   const seen = new Set(pairs.map((p) => frenchKey(p.french)));
-  for (const g of brain.grammar) {
+  for (const g of since ? [] : brain.grammar) {
     for (const line of g.examples.split(/\n/)) {
       const m = line.match(/^(.+?)\s*(?:→|=)\s*(.+)$/);
       if (m && !seen.has(frenchKey(m[1])) && wordsOf(m[2]).length >= 2) {
@@ -85,17 +103,23 @@ void (async () => {
     }
   }
   // Les phrases du dictionnaire (catégorie phrase / conversation) : nombreuses et courtes.
-  for (const w of brain.words) {
+  for (const w of since ? [] : brain.words) {
     if (wordsOf(w.shimaore).length >= 2 && /phrase|conversation/i.test(w.category ?? "") && !seen.has(frenchKey(w.french))) {
       seen.add(frenchKey(w.french));
       pairs.push({ french: w.french, shimaore: w.shimaore, from: "dictionnaire" });
     }
   }
 
+  // BANC_CHERCHE="^(Ma|Mon|Ta|Ton) " : seulement les phrases dont le français correspond.
+  const filter = process.env.BANC_CHERCHE ? new RegExp(process.env.BANC_CHERCHE, "i") : null;
+  if (filter) pairs.splice(0, pairs.length, ...pairs.filter((p) => filter.test(p.french)));
+
   const results = [];
   for (const pair of pairs) {
     const hidden = without(brain, pair);
+    await sleep(pause);
     const c = await composeShimaore(provider, hidden, pair.french);
+    await sleep(pause);
     const built = compare(c.shimaore, pair.shimaore);
 
     const gloss = glossFor(hidden, pair.shimaore);
@@ -110,6 +134,7 @@ void (async () => {
     let judged = "";
     try {
       understood = (await completeText(provider, { system: UNDERSTAND, content, maxOutputTokens: 300, timeoutMs: 20_000 })).trim();
+      if (!/JE NE SAIS PAS/i.test(understood)) await sleep(pause);
       judged = /JE NE SAIS PAS/i.test(understood)
         ? "abstient"
         : (await completeText(provider, { system: JUDGE, content: `A : ${pair.french}\nB : ${understood.split("\n")[0]}`, maxOutputTokens: 200, timeoutMs: 15_000 })).trim().toUpperCase().startsWith("OUI")
@@ -132,7 +157,7 @@ void (async () => {
       sens: judged,
     };
     results.push(row);
-    console.log(`${row.exact ? "EXACT" : row.f1.toFixed(2)} | ${row.montre} | sens ${row.sens} | ${pair.french} → attendu « ${pair.shimaore} » / construit « ${c.shimaore} » / compris « ${understood} »`);
+    console.log(`[${results.length}/${pairs.length}] ${row.exact ? "EXACT" : row.f1.toFixed(2)} | ${row.montre} | sens ${row.sens} | ${pair.french} → attendu « ${pair.shimaore} » / construit « ${c.shimaore} » / compris « ${understood} »`);
   }
 
   const n = results.length;
