@@ -68,6 +68,11 @@ const SEARCH_TOOL = {
     },
   ],
 };
+/** Ajouté aux consignes quand notre outil remplace la recherche Google. */
+const SEARCH_TOOL_RULE =
+  `Pour chercher sur internet, tu as l'outil ${SEARCH_TOOL_NAME}. Dès que tu ne connais pas la réponse, ou qu'elle a pu changer ` +
+  "(personne en poste, résultat, prix, horaire, date, actualité, loi), cherche d'abord avec cet outil au lieu de dire que tu ne sais pas " +
+  "ou que tu n'as pas accès à internet. Pour une conversation ou ce que tu sais déjà, réponds directement.";
 /** Au plus deux tours de recherche, puis Tamilya répond avec ce qu'elle a. */
 const MAX_SEARCH_ROUNDS = 2;
 const MAX_CALLS_PER_ROUND = 2;
@@ -180,7 +185,7 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
           method: "POST",
           headers: geminiHeaders(config.apiKey),
           body: JSON.stringify({
-            systemInstruction: { parts: [{ text: system }] },
+            systemInstruction: { parts: [{ text: !withSearch && search ? `${system}\n\n${SEARCH_TOOL_RULE}` : system }] },
             contents: [
               ...messages.map((m) => ({
                 role: m.role === "assistant" ? "model" : "user",
@@ -350,7 +355,10 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
             spent = { input: spent.input + (round.promptTokenCount ?? 0), output: spent.output + (round.candidatesTokenCount ?? 0) + (round.thoughtsTokenCount ?? 0) };
             usage = null;
           }
-          if (!calls.length || rounds >= MAX_SEARCH_ROUNDS) break;
+          if (!calls.length || rounds >= MAX_SEARCH_ROUNDS) {
+            if (!withSearch && search && rounds === 0) console.info(`[recherche] outil proposé à « ${usedModel} », pas utilisé`);
+            break;
+          }
 
           // Tamilya veut chercher : le serveur cherche, puis elle reprend avec les résultats.
           rounds++;
