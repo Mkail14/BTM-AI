@@ -142,6 +142,8 @@ Comment le tenir :
 
 ## Journal (le plus récent en haut)
 
+- **Tout develop envoyé sur main** (`74e7789`, 2026-11-25, à la demande de l'utilisateur). Fusion « develop dans main » : main a maintenant exactement le contenu de develop `09a2779` (recherche internet, « Je réfléchis… », code d'accès admin, cartes en français, carte d'un lieu en grand, etc.). Main n'avait rien de plus que develop (vérifié avant).
+
 - **Pastille « Mode démo » revenue dans l'app** (`64f197d`, 2026-11-25, develop, pas encore poussé ; app : `2339cb5` sur feat/coeur-natif). Elle avait disparu sur la Pad 6 : l'app la cherchait par son lien `/admin`, or depuis `7b42675` le lien de l'administrateur principal mène à `/parametres?rubrique=administration`. Le site pose maintenant un repère `data-admin-badge` sur la pastille ; l'app lit ce repère (ou l'un des deux liens, en attendant la mise en ligne). APK installé sur la Pad 6.
 
 - **Tamilya cherche sur internet avant de répondre aux demandes d'information** (`09a2779`, 2026-11-25, develop) : commit de l'autre session, noté ici en rattrapage.
