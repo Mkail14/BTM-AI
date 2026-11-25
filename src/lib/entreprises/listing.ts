@@ -63,6 +63,7 @@ export const CATEGORIES = [
   "banque et assurance",
   "immobilier",
   "formation",
+  "service public",
   "agriculture",
   "pêche",
   "association",
@@ -89,6 +90,14 @@ export const STATUSES = {
   ferme_definitif: "Fermé pour toujours",
 } as const;
 export type ListingStatus = keyof typeof STATUSES;
+
+/**
+ * Fiche complète : activité, commune, adresse, au moins un numéro et des horaires. Les fiches
+ * venues des annuaires de l'État n'ont souvent ni numéro ni horaires : « à compléter ».
+ * Même règle que le filtre de la page admin (searchListings).
+ */
+export const isComplete = (l: Pick<Listing, "category" | "commune" | "address" | "phones" | "hours">) =>
+  Boolean(l.category && l.commune && l.address && l.phones.length && Object.keys(l.hours).length);
 
 export type Listing = {
   id: string;

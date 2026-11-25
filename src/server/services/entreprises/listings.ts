@@ -1,7 +1,7 @@
 import "server-only";
 import { getSupabaseAdminClient } from "@/server/config/supabase-admin";
 import { normalize } from "@/lib/live/intent";
-import { DIRECTORY_RULES, listingForTamilya, type Listing, type ListingAdminEdit, type ListingEdit } from "@/lib/entreprises/listing";
+import { COMMUNES, DIRECTORY_RULES, isComplete, listingForTamilya, type Listing, type ListingAdminEdit, type ListingEdit } from "@/lib/entreprises/listing";
 import type { CompanyAsk } from "@/server/services/live/companies";
 
 /**
@@ -221,22 +221,76 @@ export async function directoryFor(message: string, ask: CompanyAsk | null, { ch
 
 export type ListingSummary = Pick<Listing, "id" | "name" | "category" | "commune" | "status" | "published" | "verifiedOn" | "ownerId" | "updatedAt"> & {
   phones: number;
+  complete: boolean;
 };
 
-/** Toutes les fiches, les plus récemment changées d'abord ; null si la table est illisible. */
-export async function listAllListings(): Promise<ListingSummary[] | null> {
+export const LISTING_FILTERS = ["toutes", "completes", "a_completer", "brouillons", "a_revoir", "tenues"] as const;
+export type ListingFilter = (typeof LISTING_FILTERS)[number];
+export const LISTINGS_PER_PAGE = 50;
+
+/** Condition PostgREST de chaque filtre (même règle « complète » que isComplete). */
+function filterCondition(filter: ListingFilter): string | null {
+  const yearAgo = new Date(Date.now() - 365 * 86_400_000).toISOString().slice(0, 10);
+  switch (filter) {
+    case "completes":
+      return "and(category.not.is.null,commune.not.is.null,address.not.is.null,phones.neq.{},hours.neq.{})";
+    case "a_completer":
+      return "or(category.is.null,commune.is.null,address.is.null,phones.eq.{},hours.eq.{})";
+    case "brouillons":
+      return "published.is.false";
+    case "a_revoir":
+      return `or(verified_on.is.null,verified_on.lt.${yearAgo})`;
+    case "tenues":
+      return "owner_id.not.is.null";
+    default:
+      return null;
+  }
+}
+
+/** Recherche sur le nom, l'activité, le SIRET ou la commune. */
+function searchCondition(query: string): string | null {
+  const q = query.replace(/[,()*%"\\:]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+  if (!q) return null;
+  const parts = [`name.ilike.*${q}*`, `category.ilike.*${q}*`];
+  if (/^\d{9,14}$/.test(q.replace(/\s/g, ""))) parts.push(`siret.like.${q.replace(/\s/g, "")}*`);
+  const communes = Object.keys(COMMUNES).filter((c) => normalize(COMMUNES[c]).includes(normalize(q)));
+  if (communes.length) parts.push(`commune.in.(${communes.join(",")})`);
+  return `or(${parts.join(",")})`;
+}
+
+/**
+ * Une page de fiches (les plus récemment changées d'abord), le nombre de fiches trouvées et
+ * le nombre de fiches de chaque filtre ; null si la table est illisible.
+ */
+export async function searchListings(query: string, filter: ListingFilter, page: number) {
   const admin = getSupabaseAdminClient();
   if (!admin) return null;
-  const { data, error } = await admin
+  const search = searchCondition(query);
+  const conditions = [search, filterCondition(filter)].filter(Boolean);
+  const from = (page - 1) * LISTINGS_PER_PAGE;
+
+  let rows = admin
     .from("business_listings")
-    .select("id, name, category, commune, status, published, verified_on, owner_id, updated_at, phones")
+    .select("id, name, category, commune, address, hours, status, published, verified_on, owner_id, updated_at, phones", { count: "exact" })
     .order("updated_at", { ascending: false })
-    .limit(5_000);
-  if (error) {
-    console.error(`[annuaire] Liste illisible (${MIGRATION})`, error.message);
+    .order("id")
+    .range(from, from + LISTINGS_PER_PAGE - 1);
+  if (conditions.length) rows = rows.or(`and(${conditions.join(",")})`);
+
+  const counted = LISTING_FILTERS.map((f) => {
+    let q = admin.from("business_listings").select("id", { count: "exact", head: true });
+    const c = [search, filterCondition(f)].filter(Boolean);
+    if (c.length) q = q.or(`and(${c.join(",")})`);
+    return q;
+  });
+
+  const [list, ...counts] = await Promise.all([rows, ...counted]);
+  const failed = [list, ...counts].find((r) => r.error);
+  if (failed?.error) {
+    console.error(`[annuaire] Liste illisible (${MIGRATION})`, failed.error.message);
     return null;
   }
-  return data.map((r) => ({
+  const listings: ListingSummary[] = (list.data ?? []).map((r) => ({
     id: r.id,
     name: r.name,
     category: r.category,
@@ -247,7 +301,13 @@ export async function listAllListings(): Promise<ListingSummary[] | null> {
     ownerId: r.owner_id,
     updatedAt: r.updated_at,
     phones: (r.phones ?? []).length,
+    complete: isComplete({ category: r.category, commune: r.commune, address: r.address, phones: r.phones ?? [], hours: r.hours ?? {} }),
   }));
+  return {
+    listings,
+    found: list.count ?? 0,
+    counts: Object.fromEntries(LISTING_FILTERS.map((f, i) => [f, counts[i].count ?? 0])) as Record<ListingFilter, number>,
+  };
 }
 
 export async function getListing(id: string): Promise<Listing | null> {
