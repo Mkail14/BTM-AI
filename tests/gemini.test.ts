@@ -39,6 +39,7 @@ describe("Gemini (API native)", () => {
     }
     assert.deepEqual(chunks, [
       { type: "text", text: "Kwezi" },
+      { type: "thought", text: "(pensée)" },
       { type: "text", text: " !" },
       { type: "finish", reason: "stop" },
     ]);
@@ -69,6 +70,20 @@ describe("Gemini (API native)", () => {
     assert.deepEqual(chunks, [{ type: "text", text: "OK" }, { type: "finish", reason: "stop" }]);
     const sent = fetchMock.mock.calls.map((c) => JSON.parse((c.arguments[1] as RequestInit).body as string).generationConfig.thinkingConfig);
     assert.deepEqual(sent, [{ thinkingLevel: "minimal" }, { thinkingLevel: "low" }]);
+  });
+
+  it("demande les pensées en direct seulement pour une réponse écrite qui réfléchit vraiment", async () => {
+    const fetchMock = mock.method(globalThis, "fetch", async () => sse([{ candidates: [{ content: { parts: [{ text: "OK" }] }, finishReason: "STOP" }] }]));
+    const ask = async (input: { persona?: boolean; careful?: boolean; fast?: boolean }) => {
+      for await (const _ of createProvider(config).stream({ system: "", messages: [{ role: "user", content: "Salut" }], maxOutputTokens: 64, signal: new AbortController().signal, ...input }));
+      const call = fetchMock.mock.calls.at(-1)!;
+      return JSON.parse((call.arguments[1] as RequestInit).body as string).generationConfig.thinkingConfig;
+    };
+    assert.deepEqual(await ask({ persona: true, careful: true }), { thinkingLevel: "low", includeThoughts: true });
+    // Réflexion minimale, oral ou tâche de fond : pas de pensées.
+    assert.deepEqual(await ask({ persona: true }), { thinkingLevel: "minimal" });
+    assert.deepEqual(await ask({ persona: true, careful: true, fast: true }), { thinkingLevel: "minimal" });
+    assert.deepEqual(await ask({ careful: true }), { thinkingLevel: "low" });
   });
 
   it("modèle sans quota : passe tout seul à un autre modèle de la clé", async () => {

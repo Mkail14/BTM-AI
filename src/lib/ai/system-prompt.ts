@@ -337,9 +337,14 @@ const CHALLENGED =
   "POUR CE MESSAGE : la personne conteste ce que tu viens de dire. Relis ta réponse et vérifie-la vraiment (cherche, si tu le peux). Si tu t'es trompée, dis-le et donne la bonne réponse. Si tu avais raison, dis-le calmement et explique pourquoi. Si tu ne peux pas trancher, dis-le. Ne cède pas pour lui faire plaisir, n'invente pas une erreur et ne t'entête pas. Reste courte.\n" +
   "Sauf en shimaoré : ta maîtrise n'est pas vérifiée, c'est lui qui la parle. S'il corrige ta traduction ou un mot, il a raison : ne défends pas ta version (« c'est plus simple, non ? »), reprends la sienne avec le sens de sa demande. Pour réparer, n'invente pas d'autre mot (« mutsana ») : s'il te manque quelque chose, demande-lui.";
 
-/** Recherche Google : elle remplace la règle « pas d'accès à internet » pour ce message. */
+/** Phrase « tu n'as pas accès à internet… » retirée des règles quand la recherche est permise. */
+export function withoutNoInternetRule(rules: string): string {
+  return rules.replace(/[^.\n]*\b(?:pas|aucun|jamais)\b[^.\n]*accès à internet[^.\n]*\.\s*/gi, "");
+}
+
+/** Recherche sur internet permise pour ce message (Google ou l'outil de recherche du serveur). */
 const SEARCH =
-  "Recherche Google : tu as accès à internet, ce qui remplace la règle « pas d'accès à internet ». C'est toi qui décides de chercher : fais-le dès que ça rend ta réponse plus juste ou plus à jour (fait récent, date, chiffre, horaire, loi, actualité, lieu, personne, produit, ou tout ce dont tu n'es pas sûre), et réponds directement quand tu sais déjà (conversation, conseil, explication simple). Privilégie les sources officielles (préfecture de Mayotte, communes, service-public.fr, ARS, CHM, Insee) et les médias reconnus ; donne la date de l'information quand elle compte ; si les sources se contredisent ou si l'information est ancienne, dis-le. Distingue ce qui est vérifié de ce qui est probable. Les sources s'affichent automatiquement sous ta réponse : ne recopie pas d'adresse internet.";
+  "Recherche sur internet : tu as accès à internet pour ce message. C'est toi qui décides de chercher : fais-le dès que ça rend ta réponse plus juste ou plus à jour (fait récent, date, chiffre, horaire, loi, actualité, lieu, personne, produit, ou tout ce dont tu n'es pas sûre), et réponds directement quand tu sais déjà (conversation, conseil, explication simple). Privilégie les sources officielles (préfecture de Mayotte, communes, service-public.fr, ARS, CHM, Insee) et les médias reconnus ; donne la date de l'information quand elle compte ; si les sources se contredisent ou si l'information est ancienne, dis-le. Distingue ce qui est vérifié de ce qui est probable. Les sources s'affichent automatiquement sous ta réponse : ne recopie pas d'adresse internet.";
 
 /**
  * Une seule Tamilya, qu'on lui écrive ou qu'on lui parle : même caractère, même
@@ -451,7 +456,9 @@ export function buildSystemPrompt(
     context.personalityInstructions?.trim() || defaultPersonalityInstructions(personality),
     PERSONALITY_GUARDRAILS,
     buildLanguageGuidance(context.lexicon, { master: context.teacher, teaches: context.teachesShimaore }),
-    context.rules || DEFAULT_RULES,
+    // Recherche permise : la phrase « pas d'accès à internet » est retirée des règles (même modifiées depuis l'admin),
+    // sinon les petits modèles la croient et n'utilisent pas leur outil de recherche.
+    context.search ? withoutNoInternetRule(context.rules || DEFAULT_RULES) : context.rules || DEFAULT_RULES,
   ];
 
   if (context.site) {

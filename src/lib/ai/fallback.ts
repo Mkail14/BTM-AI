@@ -44,6 +44,8 @@ type Attempt = {
   /** Morceaux reçus avant le premier mot (sources…), rendus si cette API gagne. */
   held: AIStreamChunk[];
   cancelled: boolean;
+  /** Premier vrai mot déjà chronométré. */
+  spoke: boolean;
 };
 
 type Event =
@@ -78,7 +80,7 @@ export function createFallbackProvider(entries: readonly ChainEntry[], options: 
 
       const start = (entry: ChainEntry) => {
         const controller = new AbortController();
-        const attempt: Attempt = { entry, controller, startedAt: Date.now(), held: [], cancelled: false };
+        const attempt: Attempt = { entry, controller, startedAt: Date.now(), held: [], cancelled: false, spoke: false };
         running.add(attempt);
         const signal = AbortSignal.any([input.signal, controller.signal]);
         void (async () => {
@@ -153,14 +155,18 @@ export function createFallbackProvider(entries: readonly ChainEntry[], options: 
 
           if (event.kind === "chunk") {
             const { chunk } = event;
+            // Temps du premier vrai mot (pas d'une pensée), pour l'aiguillage.
+            if (chunk.type === "text" && !attempt.spoke) {
+              attempt.spoke = true;
+              recordFirstWord(healthId, Date.now() - attempt.startedAt);
+            }
             if (winner === attempt) {
               yield chunk;
-            } else if (chunk.type !== "text") {
+            } else if (chunk.type !== "text" && chunk.type !== "thought" && chunk.type !== "searching") {
               attempt.held.push(chunk);
             } else {
-              // Premier mot : cette API gagne la course.
+              // Premier mot, première pensée ou recherche lancée (l'API est bien au travail) : cette API gagne la course.
               win(attempt);
-              recordFirstWord(healthId, Date.now() - attempt.startedAt);
               yield* attempt.held;
               attempt.held = [];
               yield chunk;

@@ -4,6 +4,16 @@ import type { AIConfig } from "@/lib/ai/config";
 import { createSseDataParser } from "@/lib/ai/sse";
 import { AIProviderError, type AIProvider, type AIStreamChunk, type AIStreamInput } from "@/lib/ai/types";
 import { errorFromStatus } from "@/server/services/ai/providers/openai-compatible";
+import {
+  MAX_SEARCH_ROUNDS,
+  SEARCH_TOOL_DESCRIPTION,
+  SEARCH_TOOL_NAME,
+  SEARCH_TOOL_PARAMETERS,
+  SEARCH_TOOL_RULE,
+  runSearches,
+  searchQuery,
+  shownQueries,
+} from "@/server/services/search/tool";
 
 /**
  * Google Gemini par son API native. Les clés « AQ. » que Google AI Studio
@@ -25,10 +35,12 @@ export function geminiRoot(baseUrl: string | undefined): string {
 
 export const geminiHeaders = (apiKey: string) => ({ "Content-Type": "application/json", "x-goog-api-key": apiKey });
 
+type GeminiPart = { text?: string; thought?: boolean; thoughtSignature?: string; functionCall?: { name: string; args?: Record<string, unknown> } };
+
 type GeminiChunk = {
   usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number; thoughtsTokenCount?: number };
   candidates?: {
-    content?: { parts?: { text?: string; thought?: boolean }[] };
+    content?: { parts?: GeminiPart[] };
     finishReason?: string;
     groundingMetadata?: { groundingChunks?: { web?: { uri?: string; title?: string } }[] };
   }[];
@@ -44,6 +56,11 @@ function mapFinishReason(reason: string | undefined): FinishReason {
 
 type ThinkingConfig = { thinkingLevel: string } | { thinkingBudget: number };
 
+/**
+ * Recherche sans Google : quand la clé refuse la recherche Google (pas de facturation),
+ * Tamilya reçoit cet outil ; le serveur cherche lui-même (services/search/web.ts).
+ */
+const SEARCH_TOOL = { functionDeclarations: [{ name: SEARCH_TOOL_NAME, description: SEARCH_TOOL_DESCRIPTION, parameters: SEARCH_TOOL_PARAMETERS }] };
 /**
  * Réflexion réduite (AI_DISABLE_REASONING) : les modèles récents « pensent »
  * plusieurs secondes avant d'écrire. Gemini 3 et suivants : thinkingLevel ;
@@ -126,7 +143,7 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
 
   return {
     id: "gemini",
-    async *stream({ system, messages, maxOutputTokens, signal, fast, model: tryModel, deep, search, careful }: AIStreamInput): AsyncIterable<AIStreamChunk> {
+    async *stream({ system, messages, maxOutputTokens, signal, fast, model: tryModel, deep, search, careful, persona }: AIStreamInput): AsyncIterable<AIStreamChunk> {
       // Réflexion approfondie ou recherche : le premier morceau peut mettre bien plus longtemps à venir.
       const firstChunkMs = deep || search ? 45_000 : FIRST_CHUNK_MS;
       // À l'oral : modèle réservé au vocal s'il est réglé (AI_VOICE_MODEL, ex. un « flash-lite »), sinon le modèle habituel.
@@ -136,19 +153,35 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
       const combined = AbortSignal.any([signal, timeoutSignal]);
       let withSearch = Boolean(search) && (noSearch.get(keyId(config.apiKey)) ?? 0) <= Date.now();
 
-      const request =(model: string, thinkingConfig: ThinkingConfig | null, attemptSignal: AbortSignal) =>
+      // Réponse écrite à une personne, avec une vraie réflexion : Gemini signale ses pensées en direct,
+      // et « Je réfléchis… » s'affiche pendant l'attente (pas à l'oral ni pour les tâches de fond).
+      // Leur texte n'est pas montré : Gemini le résume toujours en anglais.
+      const showsThoughts = (thinking: ThinkingConfig | null): thinking is ThinkingConfig =>
+        Boolean(thinking && persona && !fast && !("thinkingLevel" in thinking ? thinking.thinkingLevel === "minimal" : thinking.thinkingBudget === 0));
+      const withThoughts = (thinking: ThinkingConfig) => (showsThoughts(thinking) ? { ...thinking, includeThoughts: true } : thinking);
+
+      // Recherche Google refusée par la clé : notre propre recherche, par l'outil SEARCH_TOOL.
+      const tools = () => (withSearch ? { tools: [{ googleSearch: {} }] } : search ? { tools: [SEARCH_TOOL] } : {});
+
+      // turns : échanges de recherche (appel de l'outil, résultats) ajoutés après la question.
+      // lastRound : plus de recherche permise, Tamilya répond avec ce qu'elle a.
+      const request = (model: string, thinkingConfig: ThinkingConfig | null, attemptSignal: AbortSignal, turns: unknown[] = [], lastRound = false) =>
         fetch(`${geminiRoot(config.baseUrl)}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
           method: "POST",
           headers: geminiHeaders(config.apiKey),
           body: JSON.stringify({
-            systemInstruction: { parts: [{ text: system }] },
-            contents: messages.map((m) => ({
-              role: m.role === "assistant" ? "model" : "user",
-              // Photo ou PDF joint : donné au modèle avant la question.
-              parts: [...(m.attachment ? [{ inlineData: { mimeType: m.attachment.mimeType, data: m.attachment.data } }] : []), { text: m.content }],
-            })),
-            generationConfig: { maxOutputTokens, ...(thinkingConfig && { thinkingConfig }) },
-            ...(withSearch ? { tools: [{ googleSearch: {} }] } : {}),
+            systemInstruction: { parts: [{ text: !withSearch && search ? `${system}\n\n${SEARCH_TOOL_RULE}` : system }] },
+            contents: [
+              ...messages.map((m) => ({
+                role: m.role === "assistant" ? "model" : "user",
+                // Photo ou PDF joint : donné au modèle avant la question.
+                parts: [...(m.attachment ? [{ inlineData: { mimeType: m.attachment.mimeType, data: m.attachment.data } }] : []), { text: m.content }],
+              })),
+              ...turns,
+            ],
+            generationConfig: { maxOutputTokens, ...(thinkingConfig && { thinkingConfig: withThoughts(thinkingConfig) }) },
+            ...tools(),
+            ...(lastRound && !withSearch && search ? { toolConfig: { functionCallingConfig: { mode: "NONE" } } } : {}),
           }),
           signal: AbortSignal.any([combined, attemptSignal]),
         });
@@ -160,7 +193,7 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
        * modèle est sans quota, introuvable, surchargé ou muet trop longtemps
        * (on passe au modèle suivant de la clé).
        */
-      const open = async (model: string): Promise<{ reader: ReadableStreamDefaultReader<string>; first: string } | null> => {
+      const open = async (model: string): Promise<{ reader: ReadableStreamDefaultReader<string>; first: string; thinking: ThinkingConfig | null } | null> => {
         // Réglages de réflexion du plus rapide au plus sûr : un réglage que le modèle
         // refuse (400 qui parle de « thinking ») est retiré au lieu de faire échouer la réponse.
         // Message à lire avec soin (hors oral) : réflexion légère, même quand la réflexion est réduite par défaut.
@@ -197,7 +230,7 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
               const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
               try {
                 const { value, done } = await reader.read();
-                return { reader, first: done ? "" : value };
+                return { reader, first: done ? "" : value, thinking: thinkingConfig };
               } catch (error) {
                 reader.releaseLock();
                 const fatal = silent(error);
@@ -251,58 +284,93 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
       }
       if (!opened) throw lastError ?? new AIProviderError("quota", "Aucun modèle Gemini de cette clé n'est disponible");
 
-      const { reader } = opened;
-      const parser = createSseDataParser();
+      let reader = opened.reader;
       let finish: FinishReason = "other";
       let pending: string | null = opened.first;
       let usage: GeminiChunk["usageMetadata"] | null = null;
+      let spent = { input: 0, output: 0 };
       const sources = new Map<string, string>();
       let grounded = false;
+      // Échanges de recherche (notre outil) : renvoyés à Gemini à chaque tour, avec les résultats.
+      const turns: unknown[] = [];
+      let rounds = 0;
 
       try {
         while (true) {
-          // Le premier morceau a déjà été lu par open().
-          const { value, done } = pending !== null ? { value: pending, done: false } : await reader.read();
-          pending = null;
-          if (done) break;
-          for (const data of parser.push(value)) {
-            let chunk: GeminiChunk;
-            try {
-              chunk = JSON.parse(data) as GeminiChunk;
-            } catch {
-              continue;
-            }
-            if (chunk.promptFeedback?.blockReason) finish = "refusal";
-            // Cumul envoyé à chaque morceau : le dernier fait foi.
-            if (chunk.usageMetadata) usage = chunk.usageMetadata;
-            const candidate = chunk.candidates?.[0];
-            for (const part of candidate?.content?.parts ?? []) {
-              // Les « pensées » du modèle ne sont pas montrées.
-              if (part.text && !part.thought) yield { type: "text", text: part.text };
-            }
-            if (candidate?.finishReason) finish = mapFinishReason(candidate.finishReason);
-            if (candidate?.groundingMetadata) grounded = true;
-            for (const ground of candidate?.groundingMetadata?.groundingChunks ?? []) {
-              if (ground.web?.uri) sources.set(ground.web.uri, ground.web.title ?? ground.web.uri);
+          const parser = createSseDataParser();
+          // Tout ce que le modèle a écrit dans ce tour (avec ses signatures de pensée), à lui renvoyer s'il cherche.
+          const modelParts: GeminiPart[] = [];
+          const calls: NonNullable<GeminiPart["functionCall"]>[] = [];
+          while (true) {
+            // Le premier morceau a déjà été lu par open().
+            const { value, done } = pending !== null ? { value: pending, done: false } : await reader.read();
+            pending = null;
+            if (done) break;
+            for (const data of parser.push(value)) {
+              let chunk: GeminiChunk;
+              try {
+                chunk = JSON.parse(data) as GeminiChunk;
+              } catch {
+                continue;
+              }
+              if (chunk.promptFeedback?.blockReason) finish = "refusal";
+              // Cumul envoyé à chaque morceau : le dernier fait foi.
+              if (chunk.usageMetadata) usage = chunk.usageMetadata;
+              const candidate = chunk.candidates?.[0];
+              for (const part of candidate?.content?.parts ?? []) {
+                modelParts.push(part);
+                if (part.functionCall) {
+                  calls.push(part.functionCall);
+                  continue;
+                }
+                // Les « pensées » partent à part : affichées pendant l'attente, jamais dans la réponse.
+                if (part.text) yield part.thought ? { type: "thought", text: part.text } : { type: "text", text: part.text };
+              }
+              if (candidate?.finishReason) finish = mapFinishReason(candidate.finishReason);
+              if (candidate?.groundingMetadata) grounded = true;
+              for (const ground of candidate?.groundingMetadata?.groundingChunks ?? []) {
+                if (ground.web?.uri) sources.set(ground.web.uri, ground.web.title ?? ground.web.uri);
+              }
             }
           }
+          reader.releaseLock();
+          // Chaque tour a son propre cumul : on les additionne.
+          const round = usage as GeminiChunk["usageMetadata"] | null;
+          if (round) {
+            spent = { input: spent.input + (round.promptTokenCount ?? 0), output: spent.output + (round.candidatesTokenCount ?? 0) + (round.thoughtsTokenCount ?? 0) };
+            usage = null;
+          }
+          if (!calls.length || rounds >= MAX_SEARCH_ROUNDS) {
+            if (!withSearch && search && rounds === 0) console.info(`[recherche] outil proposé à « ${usedModel} », pas utilisé`);
+            break;
+          }
+
+          // Tamilya veut chercher : le serveur cherche, puis elle reprend avec les résultats.
+          rounds++;
+          const queries = calls.map((call) => searchQuery(call.name, call.args));
+          for (const query of shownQueries(queries)) yield { type: "searching", query };
+          const found = await runSearches(queries, combined, usedModel);
+          for (const page of found.sources) sources.set(page.url, page.title);
+          turns.push(
+            { role: "model", parts: modelParts },
+            { role: "user", parts: calls.map((call, i) => ({ functionResponse: { name: call.name, response: { resultat: found.answers[i] } } })) },
+          );
+          const response = await request(usedModel, opened.thinking, new AbortController().signal, turns, rounds >= MAX_SEARCH_ROUNDS);
+          if (!response.ok || !response.body) throw errorFromStatus(response.status, await response.text().catch(() => ""));
+          reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
         }
       } catch (error) {
+        if (error instanceof AIProviderError) throw error;
         if (signal.aborted) throw new AIProviderError("aborted", "Requête annulée", { cause: error });
         if (timeoutSignal.aborted) throw new AIProviderError("timeout", "Délai dépassé", { cause: error });
         throw new AIProviderError("unavailable", "Flux interrompu par Gemini", { cause: error });
       } finally {
-        reader.releaseLock();
+        try {
+          reader.releaseLock();
+        } catch {}
       }
 
-      if (usage) {
-        yield {
-          type: "usage",
-          model: usedModel,
-          inputTokens: usage.promptTokenCount ?? 0,
-          outputTokens: (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0),
-        };
-      }
+      if (spent.input || spent.output) yield { type: "usage", model: usedModel, inputTokens: spent.input, outputTokens: spent.output };
       // Journal : la recherche a-t-elle vraiment servi ? (sans métadonnée : réponse de mémoire)
       if (withSearch) console.info(`[ai] recherche Google (${usedModel}) : ${grounded ? `${sources.size} source(s)` : "pas utilisée"}`);
       if (sources.size) yield { type: "sources", sources: [...sources].slice(0, 6).map(([url, title]) => ({ url, title })) };
