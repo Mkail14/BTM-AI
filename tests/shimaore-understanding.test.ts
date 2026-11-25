@@ -52,6 +52,12 @@ describe("lecture du message mot à mot", () => {
   it("ne voit pas de mots inconnus dans un message en français", () => {
     assert.deepEqual(glossMessage(VOCAB, "comment on dit maison en shimaoré ?").unknown, []);
   });
+
+  it("un nom de ville ou de village n'est pas un mot shimaoré inconnu", () => {
+    assert.deepEqual(glossMessage(VOCAB, "Et trevani ?").unknown, []);
+    assert.deepEqual(glossMessage(VOCAB, "jéjé Chiconi").unknown, []);
+    assert.deepEqual(glossMessage(VOCAB, "wami Tsingoni").unknown, ["wami"]);
+  });
 });
 
 describe("vocabulaire donné à Tamilya", () => {

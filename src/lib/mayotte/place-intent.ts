@@ -64,9 +64,12 @@ export type Place = { name: string; town: Town | null };
 /** Nom écrit dans le bloc pour l'île entière. */
 export const ISLAND_NAME = "Mayotte";
 
+/** « Oui », « ok », « bon » au début ne changent pas la question (« Oui c'est où Chiconi »). */
+const FILLER = /^(?:(?:oui|ouais|ok|okay|bon|alors|d accord|dac|euh|ah|super|merci) )+/;
+
 /** Le lieu nommé dans une question de lieu, ou null. */
 function placeAsked(message: string): Place | null {
-  const said = normalize(message);
+  const said = normalize(message).replace(FILLER, "");
   if (!said || said.split(" ").length > 10) return null;
   for (const ask of ASKS) {
     const x = ask.exec(said)?.[1];
@@ -90,6 +93,14 @@ const SHOW_AGAIN =
 export function detectPlace(message: string, previousAsks: readonly string[] = []): Place | null {
   const asked = placeAsked(message);
   if (asked) return asked;
+  // « Et Trévani ? » juste après « c'est où Chiconi ? » : même question, autre lieu.
+  const other = /^(?:et|puis|aussi) (.+)$/.exec(normalize(message).replace(FILLER, ""))?.[1];
+  if (other && other.split(" ").length <= 4 && previousAsks.length > 0 && placeAsked(previousAsks[0])) {
+    const cleaned = cleanPlace(other);
+    if (ISLAND.test(cleaned)) return { name: ISLAND_NAME, town: null };
+    const town = findTown(cleaned);
+    if (town) return { name: town.name, town };
+  }
   if (!SHOW_AGAIN.test(normalize(message))) return null;
   for (const before of previousAsks.slice(0, 2)) {
     const place = placeAsked(before);

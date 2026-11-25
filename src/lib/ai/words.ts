@@ -1,7 +1,14 @@
 import { isFrenchWord, looksFrench } from "@/lib/language/unknown-words";
 import { editDistance, shimaoreKey } from "@/lib/language/shimaore-match";
+import { COMMUNE_CENTERS } from "@/lib/geo/communes";
+import { findVillage, placeKey } from "@/lib/geo/villages";
 
 export type WordEntry = { french: string; shimaore: string; category?: string };
+
+const COMMUNE_KEYS = new Set(Object.keys(COMMUNE_CENTERS).map(placeKey));
+
+/** Nom exact d'une ville ou d'un village de Mayotte (« trevani », « Chiconi ») : un lieu, pas un mot shimaoré à apprendre. */
+const isPlaceName = (word: string) => Boolean(findVillage(word)) || COMMUNE_KEYS.has(placeKey(word));
 
 /** Minuscules sans accents ni apostrophes, pour comparer « École » et « ecole ». */
 function normalize(text: string): string {
@@ -264,7 +271,7 @@ export function glossMessage(entries: readonly WordEntry[], message: string): Gl
       ? []
       : [
           ...new Set(
-            raw.filter((w, i) => !covered.has(i) && w.length >= 3 && !/\d/.test(w) && !isFrenchWord(w) && !/^(?:tamilya|btm|mayotte|ok|okay)$/i.test(w)),
+            raw.filter((w, i) => !covered.has(i) && w.length >= 3 && !/\d/.test(w) && !isFrenchWord(w) && !/^(?:tamilya|btm|mayotte|ok|okay)$/i.test(w) && !isPlaceName(w)),
           ),
         ].slice(0, 8);
 
