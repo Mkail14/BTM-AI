@@ -15,6 +15,8 @@ const INPUTS = ["pointerdown", "pointermove", "keydown", "wheel", "touchstart", 
  */
 export function AdminIdleLock({ minutes }: { minutes: number }) {
   useEffect(() => {
+    // « Jamais » (Mon compte, Sécurité) : rien ne referme le verrou tout seul.
+    if (minutes <= 0) return;
     const idleMs = minutes * 60_000;
     let lastInput = Date.now();
     let lastKeep = Date.now();

@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
-import { ADMIN_IDLE_MINUTES, adminGateOpen, isAdminGatedPath } from "@/server/services/admin/gate";
+import { adminGateOpen, codeOffFromMetadata, idleFromMetadata, isAdminGatedPath } from "@/server/services/admin/gate";
 import { safeNextPath } from "@/lib/auth/redirect";
 import { requireUser } from "@/server/middlewares/session";
 import { CodeForm } from "./CodeForm";
+import { OpenWithoutCode } from "./OpenWithoutCode";
 
 export const metadata: Metadata = { title: "Code d'accès", robots: { index: false, follow: false } };
 
@@ -22,8 +23,10 @@ export default async function AdminLockPage({ searchParams }: { searchParams: Pr
   const next = isAdminGatedPath(askedPath) || askedPath === "/parametres" ? asked : "/admin";
   if (await adminGateOpen(user.id)) redirect(next);
 
-  const { data } = await supabase.auth.mfa.listFactors();
+  const [{ data }, { data: fresh }] = await Promise.all([supabase.auth.mfa.listFactors(), supabase.auth.getUser()]);
   const enrolled = Boolean(data?.all.some((f) => f.factor_type === "totp" && f.status === "verified"));
+  // Code retiré (Mon compte, Sécurité) : l'admin s'ouvre tout seul, sans rien demander.
+  if (!enrolled && codeOffFromMetadata(fresh.user?.app_metadata)) return <OpenWithoutCode next={next} />;
 
   return (
     <main className="persona-surface relative grid min-h-dvh place-items-center overflow-hidden px-4 py-10">
@@ -31,7 +34,7 @@ export default async function AdminLockPage({ searchParams }: { searchParams: Pr
         <div className="fond-lagon fond-lagon--page" />
       </div>
       <div aria-hidden="true" className="persona-line pointer-events-none fixed inset-x-0 top-0 z-20 h-0.5" />
-      <CodeForm enrolled={enrolled} next={next} email={user.email} minutes={ADMIN_IDLE_MINUTES} />
+      <CodeForm enrolled={enrolled} next={next} email={user.email} minutes={idleFromMetadata(fresh.user?.app_metadata)} />
     </main>
   );
 }

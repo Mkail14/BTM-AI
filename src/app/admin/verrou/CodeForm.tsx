@@ -6,6 +6,7 @@ import { inputClass, primaryButton, secondaryButton } from "@/components/admin/f
 import { IconArrowLeft, IconBackspace, IconLock } from "@/components/ui/icons";
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { hapticPress } from "@/lib/chat/haptics";
+import { idleLabel } from "@/lib/admin/idle";
 import { lostOk } from "@/lib/safe-action";
 import { requestCodeResetAction, startEnrollAction, verifyCodeAction } from "./actions";
 
@@ -124,8 +125,8 @@ export function CodeForm({ enrolled, next, email, minutes }: { enrolled: boolean
 
       {enrolled ? (
         <p className="mt-1 text-center text-sm text-fg-muted">
-          Tape le code à 6 chiffres affiché dans ton application d&apos;authentification. Sans utilisation pendant {minutes} minutes,
-          l&apos;espace se verrouille à nouveau.
+          Tape le code à 6 chiffres affiché dans ton application d&apos;authentification.
+          {minutes > 0 ? ` Sans utilisation pendant ${idleLabel(minutes)}, l'espace se verrouille à nouveau.` : null}
         </p>
       ) : setup ? (
         <>

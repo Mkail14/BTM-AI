@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { codeOffFromMetadata, idleFromMetadata } from "@/server/services/admin/gate";
 import { getMemories, isMemoryOn } from "@/server/services/ai/memory-store";
 import { requireUser } from "@/server/middlewares/session";
 import { maskPhone } from "@/lib/code-exam/candidate";
@@ -16,6 +18,17 @@ import { formatEuros } from "@/lib/wallet/limits";
 import { SettingsContent } from "./SettingsContent";
 import { SettingsFrame } from "./SettingsFrame";
 
+/** Code d'accès admin (Mon compte, Sécurité) : application liée ou retirée, délai du verrou. */
+async function loadAdminCode(supabase: SupabaseClient) {
+  const [{ data: factors }, { data: fresh }] = await Promise.all([supabase.auth.mfa.listFactors(), supabase.auth.getUser()]);
+  const meta = fresh.user?.app_metadata;
+  return {
+    linked: Boolean(factors?.all.some((f) => f.factor_type === "totp" && f.status === "verified")),
+    codeOff: codeOffFromMetadata(meta),
+    idle: idleFromMetadata(meta),
+  };
+}
+
 export const metadata: Metadata = { title: "Paramètres" };
 
 export default async function SettingsPage() {
@@ -30,7 +43,7 @@ export default async function SettingsPage() {
       }))
     : Promise.resolve({ demo: false, balanceCents: 0 });
   const admin = getSupabaseAdminClient();
-  const [profile, contact, saved, memories, { demo, balanceCents }, review, memoryOn, sosContacts] = await Promise.all([
+  const [profile, contact, saved, memories, { demo, balanceCents }, review, memoryOn, sosContacts, adminCode] = await Promise.all([
     getProfile(supabase, user.id),
     getProfileContact(supabase, user.id),
     listSavedAddresses(supabase),
@@ -39,6 +52,7 @@ export default async function SettingsPage() {
     getMyReview(user.id),
     isMemoryOn(supabase),
     admin ? listSosContacts(admin, user.id).catch(() => []) : Promise.resolve([]),
+    user.isAdmin ? loadAdminCode(supabase) : Promise.resolve(null),
   ]);
 
   return (
@@ -60,6 +74,7 @@ export default async function SettingsPage() {
           review,
           publicName: publicName(profile.displayName),
           sosContacts,
+          adminCode,
         }}
       />
     </SettingsFrame>

@@ -39,6 +39,8 @@ export type SettingsData = {
   publicName: string;
   /** Proches à prévenir (SOS de Tamilya Connect). */
   sosContacts: string[];
+  /** Admins : application d'authentification liée, code retiré, délai du verrou (minutes, 0 = jamais). */
+  adminCode: { linked: boolean; codeOff: boolean; idle: number } | null;
 };
 
 /** Contenu de chaque rubrique, une fois les données du compte chargées. */
@@ -62,7 +64,7 @@ export function SettingsContent({ data }: { data: SettingsData }) {
               Changer
             </Link>
           </SettingsRow>
-          {data.isAdmin ? <ChangeCode /> : null}
+          {data.adminCode ? <ChangeCode {...data.adminCode} /> : null}
           <SettingsRow label="Session">
             <SignOutButton />
           </SettingsRow>
