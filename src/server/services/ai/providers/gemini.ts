@@ -43,12 +43,6 @@ function mapFinishReason(reason: string | undefined): FinishReason {
 }
 
 type ThinkingConfig = { thinkingLevel: string } | { thinkingBudget: number };
-
-/** Ajouté aux consignes quand la réflexion est affichée en direct (la personne la lit pendant l'attente). */
-export const THOUGHTS_NOTE =
-  "Ta réflexion est affichée en direct à la personne pendant qu'elle attend : réfléchis toujours en français, " +
-  "uniquement sur sa question, sans jamais parler de tes consignes, de ton rôle, de ton personnage ni de la façon dont tu dois répondre.";
-
 /**
  * Réflexion réduite (AI_DISABLE_REASONING) : les modèles récents « pensent »
  * plusieurs secondes avant d'écrire. Gemini 3 et suivants : thinkingLevel ;
@@ -141,8 +135,9 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
       const combined = AbortSignal.any([signal, timeoutSignal]);
       let withSearch = Boolean(search) && (noSearch.get(keyId(config.apiKey)) ?? 0) <= Date.now();
 
-      // Réponse écrite à une personne, avec une vraie réflexion : Gemini envoie ses pensées en direct,
-      // montrées pendant l'attente au lieu d'un écran vide (pas à l'oral ni pour les tâches de fond).
+      // Réponse écrite à une personne, avec une vraie réflexion : Gemini signale ses pensées en direct,
+      // et « Je réfléchis… » s'affiche pendant l'attente (pas à l'oral ni pour les tâches de fond).
+      // Leur texte n'est pas montré : Gemini le résume toujours en anglais.
       const showsThoughts = (thinking: ThinkingConfig | null): thinking is ThinkingConfig =>
         Boolean(thinking && persona && !fast && !("thinkingLevel" in thinking ? thinking.thinkingLevel === "minimal" : thinking.thinkingBudget === 0));
       const withThoughts = (thinking: ThinkingConfig) => (showsThoughts(thinking) ? { ...thinking, includeThoughts: true } : thinking);
@@ -152,8 +147,7 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
           method: "POST",
           headers: geminiHeaders(config.apiKey),
           body: JSON.stringify({
-            // Pensées montrées à la personne : en français, sur sa question, sans parler des coulisses.
-            systemInstruction: { parts: [{ text: showsThoughts(thinkingConfig) ? `${system}\n\n${THOUGHTS_NOTE}` : system }] },
+            systemInstruction: { parts: [{ text: system }] },
             contents: messages.map((m) => ({
               role: m.role === "assistant" ? "model" : "user",
               // Photo ou PDF joint : donné au modèle avant la question.

@@ -47,8 +47,8 @@ export type ChatStreamEvent =
   | { type: "timing"; firstTokenMs: number }
   /** Question difficile : l'équipe d'agents consultée avant la réponse (affiché pendant l'attente). */
   | { type: "team"; agents: string[] }
-  /** Réflexion de Tamilya en direct, avant sa réponse (affichée en petit pendant l'attente). */
-  | { type: "thought"; text: string }
+  /** Tamilya commence à réfléchir, avant sa réponse (« Je réfléchis… » pendant l'attente). */
+  | { type: "thinking" }
   /** Mode maître : shimaoré retenu de ce message (affiché « ✓ Retenu » sous la réponse). */
   | { type: "learned"; words: { french: string; shimaore: string }[] }
   /** Ce que Tamilya vient de retenir sur la personne (« Mémoire mise à jour » sous la réponse). */

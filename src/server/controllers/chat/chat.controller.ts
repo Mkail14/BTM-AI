@@ -802,6 +802,7 @@ ${block}`;
 
       // Chronométrage du vocal (journaux du serveur) : préparation avant l'appel au modèle.
       const modelStartMs = Date.now() - startedAt;
+      let thinkingSent = false;
       try {
         for await (const chunk of ai.provider.stream({
           system: finalSystem,
@@ -842,8 +843,12 @@ ${block}`;
               speak(chunk.text);
             }
           } else if (chunk.type === "thought") {
-            // Réflexion en direct : montrée pendant l'attente (écrit seulement), jamais enregistrée.
-            if (!body.voice && firstTextMs === null) send({ type: "thought", text: chunk.text });
+            // Tamilya réfléchit : signalé une fois pendant l'attente (écrit seulement). Le texte des pensées
+            // n'est pas envoyé : Gemini le résume en anglais et il parle parfois des consignes.
+            if (!body.voice && firstTextMs === null && !thinkingSent) {
+              thinkingSent = true;
+              send({ type: "thinking" });
+            }
           } else if (chunk.type === "sources") {
             webSources = chunk.sources;
           } else if (chunk.type === "finish") {

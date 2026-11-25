@@ -398,9 +398,12 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
               setLiveStatus(`Tamilya consulte : ${event.agents.join(", ")}.`);
             }
             break;
-          case "thought":
-            // Réflexion de Tamilya en direct, montrée pendant l'attente.
-            if (!stale()) updateMessage(assistantId, (m) => ({ ...m, thinking: (m.thinking ?? "") + event.text }));
+          case "thinking":
+            // Tamilya réfléchit : « Je réfléchis… » sous les trois points pendant l'attente.
+            if (!stale()) {
+              updateMessage(assistantId, (m) => ({ ...m, thinking: true }));
+              setLiveStatus("Tamilya réfléchit.");
+            }
             break;
           case "replace":
             // Mode maître : version corrigée de la réponse, à la place du texte reçu en direct.
