@@ -31,7 +31,7 @@ const MAP = "(?:carte|acarte|plan)";
 /** Questions de lieu ; le seul groupe capturé est le lieu. */
 const ASKS = [
   // « c'est où Chiconi », « cest ou chiconi », « c ou chiconi »
-  /^(?:mais |et |dis moi |stp |)(?:c est |cest |c |ca se trouve |ca est |)ou (?:se trouve |se situe |est situe |est situee |est |c est |cest |ca se trouve |il y a |)(.+)$/,
+  /^(?:mais |et |dis moi |stp |)(?:c est |cest |c |ca se trouve |ca est |il est |elle est |il se trouve |elle se trouve |)ou (?:se trouve |se situe |est situe |est situee |est |c est |cest |ca se trouve |il y a |)(.+)$/,
   // « Chiconi c'est où », « Chiconi se trouve où », « Chiconi est où »
   /^(.+?) (?:c est |cest |c |ca se trouve |se trouve |se situe |est situe |est situee |est |)ou(?: exactement| a mayotte| sur l ile| sur la carte)?$/,
   // « montre-moi Chiconi (sur la carte) », « situe Chiconi », « localise Sada »
@@ -71,10 +71,20 @@ export const ISLAND_NAME = "Mayotte";
 const FILLER =
   /^(?:(?:oui|ouais|ok|okay|bon|alors|d accord|dac|euh|ah|super|merci|(?:est ce que |)tu (?:sais|connais|peux me dire|pourrais me dire)|sais tu|dis moi) )+/;
 
+/** « Tu connais Sada ? », « connais-tu Chiconi ? » : seulement un nom de lieu exact après ; le seul groupe capturé est le lieu. */
+const KNOWS = /^(?:(?:oui|ok|bon|et) )*(?:est ce que |)(?:tu connais|connais tu|vous connaissez) (.+)$/;
+
 /** Le lieu nommé dans une question de lieu, ou null. */
 function placeAsked(message: string): Place | null {
   const said = normalize(message).replace(FILLER, "");
   if (!said || said.split(" ").length > 10) return null;
+  const known = KNOWS.exec(normalize(message))?.[1];
+  if (known) {
+    const cleaned = cleanPlace(known);
+    if (ISLAND.test(cleaned)) return { name: ISLAND_NAME, town: null };
+    const town = findTown(cleaned);
+    if (town) return { name: town.name, town };
+  }
   for (const ask of ASKS) {
     const x = ask.exec(said)?.[1];
     if (!x) continue;

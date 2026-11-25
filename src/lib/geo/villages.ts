@@ -43,6 +43,7 @@ const ROWS: [name: string, lat: number, lng: number][] = [
   ["Kangani", -12.7306, 45.1869],
   ["Kani-Bé", -12.965, 45.1119],
   ["Kani-Kéli", -12.9565, 45.1053],
+  ["Hamaha", -12.7647, 45.2361],
   ["Kawéni", -12.7727, 45.2248],
   ["Koungou", -12.7358, 45.2067],
   ["La Vigie", -12.7882, 45.2815],
@@ -50,6 +51,7 @@ const ROWS: [name: string, lat: number, lng: number][] = [
   ["Les Hauts Vallons", -12.7556, 45.2279],
   ["Longoni", -12.7345, 45.1632],
   ["M'Bouini", -12.9882, 45.1372],
+  ["M'Gombani", -12.7837, 45.2316],
   ["M'Ronabéja", -12.9794, 45.1234],
   ["M'Tsahara", -12.681, 45.0833],
   ["M'Tsamboro", -12.6997, 45.068],
@@ -120,6 +122,11 @@ const OTHER_NAMES: [other: string, name: string][] = [
   ["Iloni", "Ironi Bé"],
   // Cavani s'écrit aussi Kavani (liste des lieux de la voix).
   ["Kavani", "Cavani"],
+  // Noms courts ou autres écritures demandés au chat (« c'est où Majicavo ? »).
+  ["Majicavo", "Majicavo-Koropa"],
+  ["Dzoumonyé", "Dzoumogné"],
+  ["Vigie", "La Vigie"],
+  ["Hauts Vallons", "Les Hauts Vallons"],
 ];
 for (const [other, name] of OTHER_NAMES) {
   const village = BY_KEY.get(placeKey(name));
