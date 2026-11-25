@@ -398,6 +398,10 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
               setLiveStatus(`Tamilya consulte : ${event.agents.join(", ")}.`);
             }
             break;
+          case "thought":
+            // Réflexion de Tamilya en direct, montrée pendant l'attente.
+            if (!stale()) updateMessage(assistantId, (m) => ({ ...m, thinking: (m.thinking ?? "") + event.text }));
+            break;
           case "replace":
             // Mode maître : version corrigée de la réponse, à la place du texte reçu en direct.
             reply = event.text;

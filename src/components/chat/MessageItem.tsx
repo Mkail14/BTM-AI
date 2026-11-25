@@ -28,7 +28,20 @@ export type UiMessage = {
   remembered?: string[];
   /** Question difficile : spécialistes consultés avant la réponse (montrés pendant l'attente). */
   team?: string[];
+  /** Réflexion de Tamilya reçue en direct, montrée tant que la réponse n'a pas commencé. */
+  thinking?: string;
 };
+
+/** Pensée en direct : les dernières lignes seulement, sans le gras Markdown des titres. */
+function ThinkingPreview({ text }: { text: string }) {
+  const clean = text.replace(/\*\*/g, "").trim();
+  if (!clean) return null;
+  return (
+    <div className="mt-1.5 flex max-h-[4.5em] max-w-prose flex-col justify-end overflow-hidden text-xs leading-[1.5] text-fg-muted whitespace-pre-line">
+      <p>{clean}</p>
+    </div>
+  );
+}
 
 /** Texte lisible d'une réponse : sans blocs spéciaux (commande, créneaux), sans Markdown. */
 function plainText(markdown: string) {
@@ -192,6 +205,7 @@ function AssistantMessage({ message, question }: { message: UiMessage; question?
               <span className="size-1.5 animate-bounce rounded-full bg-current [animation-delay:240ms]" />
             </p>
             {message.team?.length ? <p className="mt-1 text-xs text-fg-muted">Je consulte : {message.team.join(", ")}…</p> : null}
+            {message.thinking ? <ThinkingPreview text={message.thinking} /> : null}
           </div>
         ) : text ? (
           // Même arbre pendant et après l'écriture : sinon tout le message est redessiné à la fin

@@ -841,6 +841,9 @@ ${block}`;
               send({ type: "delta", text: chunk.text });
               speak(chunk.text);
             }
+          } else if (chunk.type === "thought") {
+            // Réflexion en direct : montrée pendant l'attente (écrit seulement), jamais enregistrée.
+            if (!body.voice && firstTextMs === null) send({ type: "thought", text: chunk.text });
           } else if (chunk.type === "sources") {
             webSources = chunk.sources;
           } else if (chunk.type === "finish") {

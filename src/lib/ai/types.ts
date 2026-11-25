@@ -2,6 +2,8 @@ import type { ChatTurn, FinishReason } from "@/lib/chat/types";
 
 export type AIStreamChunk =
   | { type: "text"; text: string }
+  /** Réflexion du modèle, en direct, avant la réponse (montrée pendant l'attente, jamais enregistrée). */
+  | { type: "thought"; text: string }
   | { type: "finish"; reason: FinishReason }
   /** Pages consultées par la recherche Google (titre, adresse), envoyées à la fin. */
   | { type: "sources"; sources: { title: string; url: string }[] }

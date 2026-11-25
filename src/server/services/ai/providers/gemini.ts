@@ -126,7 +126,7 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
 
   return {
     id: "gemini",
-    async *stream({ system, messages, maxOutputTokens, signal, fast, model: tryModel, deep, search, careful }: AIStreamInput): AsyncIterable<AIStreamChunk> {
+    async *stream({ system, messages, maxOutputTokens, signal, fast, model: tryModel, deep, search, careful, persona }: AIStreamInput): AsyncIterable<AIStreamChunk> {
       // Réflexion approfondie ou recherche : le premier morceau peut mettre bien plus longtemps à venir.
       const firstChunkMs = deep || search ? 45_000 : FIRST_CHUNK_MS;
       // À l'oral : modèle réservé au vocal s'il est réglé (AI_VOICE_MODEL, ex. un « flash-lite »), sinon le modèle habituel.
@@ -135,6 +135,13 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
       const timeoutSignal = AbortSignal.timeout(config.timeoutMs);
       const combined = AbortSignal.any([signal, timeoutSignal]);
       let withSearch = Boolean(search) && (noSearch.get(keyId(config.apiKey)) ?? 0) <= Date.now();
+
+      // Réponse écrite à une personne, avec une vraie réflexion : Gemini envoie ses pensées en direct,
+      // montrées pendant l'attente au lieu d'un écran vide (pas à l'oral ni pour les tâches de fond).
+      const withThoughts = (thinking: ThinkingConfig) =>
+        persona && !fast && !("thinkingLevel" in thinking ? thinking.thinkingLevel === "minimal" : thinking.thinkingBudget === 0)
+          ? { ...thinking, includeThoughts: true }
+          : thinking;
 
       const request =(model: string, thinkingConfig: ThinkingConfig | null, attemptSignal: AbortSignal) =>
         fetch(`${geminiRoot(config.baseUrl)}/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`, {
@@ -147,7 +154,7 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
               // Photo ou PDF joint : donné au modèle avant la question.
               parts: [...(m.attachment ? [{ inlineData: { mimeType: m.attachment.mimeType, data: m.attachment.data } }] : []), { text: m.content }],
             })),
-            generationConfig: { maxOutputTokens, ...(thinkingConfig && { thinkingConfig }) },
+            generationConfig: { maxOutputTokens, ...(thinkingConfig && { thinkingConfig: withThoughts(thinkingConfig) }) },
             ...(withSearch ? { tools: [{ googleSearch: {} }] } : {}),
           }),
           signal: AbortSignal.any([combined, attemptSignal]),
@@ -277,8 +284,8 @@ export function createGeminiProvider(config: AIConfig): AIProvider {
             if (chunk.usageMetadata) usage = chunk.usageMetadata;
             const candidate = chunk.candidates?.[0];
             for (const part of candidate?.content?.parts ?? []) {
-              // Les « pensées » du modèle ne sont pas montrées.
-              if (part.text && !part.thought) yield { type: "text", text: part.text };
+              // Les « pensées » partent à part : affichées pendant l'attente, jamais dans la réponse.
+              if (part.text) yield part.thought ? { type: "thought", text: part.text } : { type: "text", text: part.text };
             }
             if (candidate?.finishReason) finish = mapFinishReason(candidate.finishReason);
             if (candidate?.groundingMetadata) grounded = true;
