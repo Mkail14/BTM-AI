@@ -1,5 +1,6 @@
 import "server-only";
 import { unstable_cache } from "next/cache";
+import type { ApplyInfo, ApplyWay } from "@/lib/emploi/apply";
 import type { JobOffer } from "@/lib/emploi/intent";
 import { fetchTerritorialOffers } from "@/server/services/live/emploi-territorial";
 
@@ -18,23 +19,7 @@ const TIMEOUT_MS = 10_000;
 const PARALLEL = 3;
 const DAY_S = 86_400;
 
-/** Façon principale de postuler, de la plus simple à la plus lourde. */
-export type ApplyWay = "mail" | "site" | "formulaire" | "courrier" | "inconnu";
-
-export type ApplyInfo = {
-  way: ApplyWay;
-  /** Adresses où envoyer CV et lettre (jamais celles d'Emploi Territorial). */
-  emails: string[];
-  /** Site de recrutement de l'employeur. */
-  links: string[];
-  /** Bouton « Déposer ma candidature » d'Emploi Territorial (compte demandeur demandé). */
-  form: string | null;
-  /** Adresse postale quand il faut écrire par courrier. */
-  postal: string | null;
-  phone: string | null;
-  /** « Informations complémentaires » telles qu'écrites par l'employeur. */
-  note: string | null;
-};
+export type { ApplyInfo, ApplyWay };
 
 export type OfferWithApply = JobOffer & { apply: ApplyInfo | null };
 
@@ -103,6 +88,12 @@ async function readOffer(link: string): Promise<ApplyInfo> {
 
 /** Une page d'offre, gardée 24 h. */
 const cachedOffer = (link: string) => unstable_cache(() => readOffer(link), ["emploi-territorial-candidature", link], { revalidate: DAY_S })();
+
+/** Comment postuler à une seule offre (bouton Postuler de la conversation) ; null : pas une page d'offre Emploi Territorial. */
+export async function getApplyForOffer(link: string): Promise<ApplyInfo | null> {
+  if (!link.startsWith(`${SITE}/offre/`) || link.length > 300) return null;
+  return cachedOffer(link);
+}
 
 /** Les offres de Mayotte avec leur façon de postuler (null : page de l'offre illisible cette fois). */
 export async function getTerritorialOffersWithApply(): Promise<OfferWithApply[]> {

@@ -1,11 +1,15 @@
 "use client";
 
 import { Briefcase, ChevronRight, Search, X } from "lucide-react";
+import dynamic from "next/dynamic";
 import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { useAuth } from "@/components/auth/AuthProvider";
 import { jobHaystack, jobQueryWords, normalizeJobs, type JobContract, type JobOffer, type JobsResponse, type JobsSpec } from "@/lib/emploi/intent";
 
 const PERSONA = "var(--persona,var(--accent))";
+/** Bouton Postuler (essai admin, fonctionnalité « candidatures ») : offres Emploi Territorial seulement. */
+const JobApply = dynamic(() => import("./JobApply").then((m) => m.JobApply));
 /** Un bloc affiché plus tard que ça après l'ouverture de la page vient d'être écrit par Tamilya. */
 const FRESH_AFTER_MS = 3000;
 /** Lignes montrées d'un coup ; « Voir plus » ajoute la suite (des centaines d'offres ralentiraient le téléphone). */
@@ -107,6 +111,7 @@ export function JobsCard({ spec }: { spec: JobsSpec }) {
 
 /** Liste complète : recherche et filtres en haut, offres en dessous (seule la liste défile). */
 function JobsPanel({ data, spec, onClose }: { data: Loaded; spec: JobsSpec; onClose: () => void }) {
+  const canApply = Boolean(useAuth().user?.features?.includes("candidatures"));
   const towns = useMemo(() => {
     const count = new Map<string, number>();
     for (const o of data.offers) if (o.place) count.set(o.place, (count.get(o.place) ?? 0) + 1);
@@ -255,6 +260,11 @@ function JobsPanel({ data, spec, onClose }: { data: Loaded; spec: JobsSpec; onCl
                     </span>
                     <ChevronRight aria-hidden="true" className="size-4 shrink-0 text-fg-muted" />
                   </a>
+                  {canApply && o.source === "Emploi Territorial" ? (
+                    <div className="px-3 pb-3">
+                      <JobApply offer={o} />
+                    </div>
+                  ) : null}
                 </li>
               ))}
             </ul>
