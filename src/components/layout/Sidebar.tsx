@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, useSyncExternalStore, type TouchEvent } fr
 import { useAuth } from "@/components/auth/AuthProvider";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 import { alertDialog, confirmDialog } from "@/components/ui/ConfirmDialog";
-import { IconClose, IconDashboard, IconFolder, IconLock, IconPlus, IconSettings, IconSidebar } from "@/components/ui/icons";
+import { IconDashboard, IconFolder, IconLock, IconPlus, IconSettings, IconSidebar } from "@/components/ui/icons";
 import { pendingCountAction } from "@/app/admin/demandes/actions";
 import { PendingBadge } from "@/components/admin/PendingBadge";
 import { AccountMenu } from "./AccountMenu";
@@ -173,17 +173,9 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
               aria-label="Nouvelle conversation"
               aria-keyshortcuts="Control+Shift+O Meta+Shift+O"
               title="Nouvelle conversation"
-              className={`bouton-verre ${collapsed ? "md:order-last" : ""}`}
+              className={`zone-appui relative grid size-10 place-items-center text-fg transition hover:text-fg-muted ${collapsed ? "md:order-last" : ""}`}
             >
-              <IconPlus width={18} height={18} strokeWidth={2.2} />
-            </button>
-            <button
-              type="button"
-              onClick={dismiss}
-              className="zone-appui relative grid size-10 place-items-center rounded-lg text-fg-muted hover:bg-bg-muted md:hidden"
-              aria-label="Fermer le menu"
-            >
-              <IconClose />
+              <IconPlus width={22} height={22} strokeWidth={2.2} />
             </button>
             <button
               type="button"
