@@ -157,6 +157,8 @@ final class HomeScreen extends FrameLayout {
     private boolean food;
     private boolean voice;
     private boolean attach;
+    /** Compte administrateur : « Tableau de bord » dans le menu des trois tirets. */
+    private boolean admin;
     private boolean signedIn;
     private int exampleIndex;
     private View globeBox;
@@ -568,7 +570,8 @@ final class HomeScreen extends FrameLayout {
      * Ce que le site montre à ce compte : la pastille des administrateurs, l'idée « Commander à
      * manger », le micro, le « + » des documents. Lu sur le site, redonné ici à chaque ouverture.
      */
-    void setSite(String badgeText, boolean food, boolean voice, boolean attach) {
+    void setSite(String badgeText, boolean food, boolean voice, boolean attach, boolean admin) {
+        this.admin = admin;
         badge.setText(badgeText == null ? "" : badgeText);
         badge.setVisibility(badgeText == null || badgeText.isEmpty() ? GONE : VISIBLE);
         mic.setVisibility(voice ? VISIBLE : GONE);
@@ -1892,7 +1895,7 @@ final class HomeScreen extends FrameLayout {
 
     /** Contenu du menu (HomeMenu) : historique, compte et solde ; le reste vient de ce que le site montre à ce compte. */
     void showMenu(JSONArray history, String currentId, String name, String email, boolean signedIn, boolean loading, Long balanceCents, boolean demo) {
-        menu.show(history, currentId, name, email, signedIn, loading, badge.getVisibility() == VISIBLE, attach, balanceCents, demo);
+        menu.show(history, currentId, name, email, signedIn, loading, admin, attach, balanceCents, demo);
     }
 
     /** Erreur : dans la fenêtre du site si le menu est ouvert, sinon au-dessus de la barre d'écriture. */
