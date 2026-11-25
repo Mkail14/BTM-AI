@@ -3,7 +3,7 @@
 import { useActionState, useId, useState } from "react";
 import { lostStatus } from "@/lib/safe-action";
 import { savePhoneAction, updateProfileAction, type ProfileFormState } from "./actions";
-import { Feedback, INPUT_CLASS, PRIMARY, RowEditor, SECONDARY, SettingsRow, useSave } from "./ui";
+import { closeEditor, Feedback, INPUT_CLASS, PRIMARY, RowEditor, SECONDARY, SettingsRow, useSave } from "./ui";
 
 /** Nom affiché : le champ ne s'ouvre qu'après un clic sur « Modifier ». */
 export function NameRow({ displayName }: { displayName: string | null }) {
@@ -11,7 +11,7 @@ export function NameRow({ displayName }: { displayName: string | null }) {
   const [state, formAction, pending] = useActionState<ProfileFormState, FormData>(
     async (previous, formData) => {
       const result = await updateProfileAction(previous, formData).catch(lostStatus);
-      if (result.status === "saved") setEditing(false);
+      if (result.status === "saved") closeEditor(() => setEditing(false));
       return result;
     },
     { status: "idle" },
@@ -50,7 +50,7 @@ export function NameRow({ displayName }: { displayName: string | null }) {
           <button type="submit" disabled={pending} className={PRIMARY}>
             {pending ? "Enregistrement…" : "Enregistrer"}
           </button>
-          <button type="button" onClick={() => setEditing(false)} disabled={pending} className={SECONDARY}>
+          <button type="button" onClick={() => closeEditor(() => setEditing(false))} disabled={pending} className={SECONDARY}>
             Annuler
           </button>
           {state.status === "error" ? <Feedback state={state} /> : null}
@@ -83,7 +83,7 @@ export function PhoneRow({ maskedPhone }: { maskedPhone: string | null }) {
         className="space-y-4"
         onSubmit={(e) => {
           e.preventDefault();
-          run(() => savePhoneAction(phone), () => setEditing(false));
+          run(() => savePhoneAction(phone), () => closeEditor(() => setEditing(false)));
         }}
       >
         <div>
@@ -108,7 +108,7 @@ export function PhoneRow({ maskedPhone }: { maskedPhone: string | null }) {
           <button type="submit" disabled={pending} className={PRIMARY}>
             {pending ? "Enregistrement…" : "Enregistrer"}
           </button>
-          <button type="button" disabled={pending} onClick={() => setEditing(false)} className={SECONDARY}>
+          <button type="button" disabled={pending} onClick={() => closeEditor(() => setEditing(false))} className={SECONDARY}>
             Annuler
           </button>
           {state?.status === "error" ? <Feedback state={state} /> : null}

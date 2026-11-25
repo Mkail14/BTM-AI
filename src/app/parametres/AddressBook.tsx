@@ -6,7 +6,7 @@ import { AddressFields, EMPTY_ADDRESS, type AddressDraft } from "@/components/ui
 import { confirmDialog } from "@/components/ui/ConfirmDialog";
 import { addressFieldErrors, kindOf, MAX_SAVED_ADDRESSES, SAVED_ADDRESS_KINDS, type SavedAddress, type SavedAddressKind } from "@/lib/address";
 import { deleteSavedAddressAction, saveAddressAction, saveSavedAddressAction } from "./actions";
-import { Feedback, INPUT_CLASS, PRIMARY, RowEditor, SECONDARY, useSave } from "./ui";
+import { closeEditor, Feedback, INPUT_CLASS, PRIMARY, RowEditor, SECONDARY, useSave } from "./ui";
 
 /** Ce qui est en cours de modification : la maison, une adresse du carnet, ou une nouvelle. */
 type Editing = { what: "home" } | { what: "saved"; id: string } | { what: "new" } | null;
@@ -31,7 +31,7 @@ export function AddressBook({ home, saved }: { home: AddressDraft | null; saved:
           hint={home ? null : "Ajoute ton adresse : tes livraisons arriveront au bon endroit et Tamilya saura ce qui est près de chez toi."}
           initial={home ?? EMPTY_ADDRESS}
           onCancel={home ? close : undefined}
-          onSave={(address, done) => run(() => saveAddressAction(address), () => (close(), done()))}
+          onSave={(address, done) => run(() => saveAddressAction(address), () => closeEditor(() => (close(), done())))}
           pending={pending}
           state={state}
         />
@@ -60,7 +60,7 @@ export function AddressBook({ home, saved }: { home: AddressDraft | null; saved:
                 });
                 if (ok) run(() => deleteSavedAddressAction(a.id), close);
               }}
-              onSave={(address, done, named) => run(() => saveSavedAddressAction({ ...address, ...named }, a.id), () => (close(), done()))}
+              onSave={(address, done, named) => run(() => saveSavedAddressAction({ ...address, ...named }, a.id), () => closeEditor(() => (close(), done())))}
               pending={pending}
               state={state}
             />
@@ -82,7 +82,7 @@ export function AddressBook({ home, saved }: { home: AddressDraft | null; saved:
           initial={EMPTY_ADDRESS}
           named={{ kind: "travail", label: "" }}
           onCancel={close}
-          onSave={(address, done, named) => run(() => saveSavedAddressAction({ ...address, ...named }), () => (close(), done()))}
+          onSave={(address, done, named) => run(() => saveSavedAddressAction({ ...address, ...named }), () => closeEditor(() => (close(), done())))}
           pending={pending}
           state={state}
         />
@@ -245,7 +245,7 @@ function AddressForm({
           {pending ? "Enregistrement…" : "Enregistrer"}
         </button>
         {onCancel ? (
-          <button type="button" disabled={pending} onClick={onCancel} className={SECONDARY}>
+          <button type="button" disabled={pending} onClick={() => closeEditor(onCancel)} className={SECONDARY}>
             Annuler
           </button>
         ) : null}

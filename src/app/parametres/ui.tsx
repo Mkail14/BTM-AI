@@ -71,16 +71,40 @@ export function SettingsRow({ label, value, children }: { label: ReactNode; valu
   );
 }
 
+/** Durée de l'animation de fermeture (globals.css, .confirm-dialog[data-closing]), comme ConfirmDialog. */
+const CLOSE_MS = 160;
+
+/** Fenêtre RowEditor ouverte : une seule à la fois, elle est modale. */
+let openEditor: HTMLDialogElement | null = null;
+
+/**
+ * Ferme la fenêtre RowEditor ouverte en douceur : l'animation de sortie joue,
+ * puis `then` la retire (ex. setEditing(false)). Sans fenêtre : `then` tout de suite.
+ */
+export function closeEditor(then: () => void) {
+  const dialog = openEditor;
+  if (!dialog) return then();
+  if (dialog.hasAttribute("data-closing")) return;
+  dialog.setAttribute("data-closing", "");
+  setTimeout(then, CLOSE_MS);
+}
+
 /**
  * Modification d'un réglage. Avec `onClose` : fenêtre flottante par-dessus la
  * page, fond flouté (feuille du bas sur téléphone), fermée par Échap ou un clic
  * à côté. Sans `onClose` (rien à annuler) : zone dans la page, comme avant.
+ * Pour fermer depuis un bouton (Annuler, après Enregistrer) : closeEditor(...).
  */
 export function RowEditor({ children, onClose }: { children: ReactNode; onClose?: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
     const dialog = ref.current;
-    if (dialog && !dialog.open) dialog.showModal();
+    if (!dialog) return;
+    if (!dialog.open) dialog.showModal();
+    openEditor = dialog;
+    return () => {
+      if (openEditor === dialog) openEditor = null;
+    };
   }, []);
 
   if (!onClose) return <div className="profile-swap px-4 py-4 sm:px-5 sm:py-5">{children}</div>;
@@ -90,10 +114,10 @@ export function RowEditor({ children, onClose }: { children: ReactNode; onClose?
       ref={ref}
       onCancel={(e) => {
         e.preventDefault();
-        onClose();
+        closeEditor(onClose);
       }}
       onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
+        if (e.target === e.currentTarget) closeEditor(onClose);
       }}
       className="confirm-dialog m-0 mt-auto w-full max-w-none bg-transparent p-0 text-fg backdrop:bg-black/40 backdrop:backdrop-blur-md sm:m-auto sm:max-w-lg"
     >

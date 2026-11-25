@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { saveSosContactsAction } from "./actions";
-import { Feedback, INPUT_CLASS, PRIMARY, RowEditor, SECONDARY, SettingsRow, useSave } from "./ui";
+import { closeEditor, Feedback, INPUT_CLASS, PRIMARY, RowEditor, SECONDARY, SettingsRow, useSave } from "./ui";
 
 const MAX = 4;
 
@@ -37,7 +37,7 @@ export function SosContacts({ contacts }: { contacts: string[] }) {
         className="space-y-4"
         onSubmit={(event) => {
           event.preventDefault();
-          run(() => saveSosContactsAction(fields), () => setEditing(false));
+          run(() => saveSosContactsAction(fields), () => closeEditor(() => setEditing(false)));
         }}
       >
         <p className="text-sm text-fg-muted">
@@ -64,7 +64,7 @@ export function SosContacts({ contacts }: { contacts: string[] }) {
           <button type="submit" disabled={pending} className={PRIMARY}>
             {pending ? "Enregistrement…" : "Enregistrer"}
           </button>
-          <button type="button" disabled={pending} onClick={() => setEditing(false)} className={SECONDARY}>
+          <button type="button" disabled={pending} onClick={() => closeEditor(() => setEditing(false))} className={SECONDARY}>
             Annuler
           </button>
         </div>
