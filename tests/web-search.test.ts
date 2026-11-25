@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it, mock } from "node:test";
 import { createProvider } from "../src/server/services/ai";
 import type { AIConfig } from "@/lib/ai/config";
-import { pageText, parseDuckDuckGo } from "../src/server/services/search/web";
+import { pageText, parseDuckDuckGo, searchTerms } from "../src/server/services/search/web";
 import { withoutNoInternetRule } from "../src/lib/ai/system-prompt";
 
 const DDG_HTML = `
@@ -28,6 +28,11 @@ describe("Recherche sans Google", () => {
       withoutNoInternetRule("Limites : tu n'as pas accès à internet ni à des données en temps réel. Si tu n'es pas sûre, dis-le.\nAutre règle."),
       "Si tu n'es pas sûre, dis-le.\nAutre règle.",
     );
+  });
+
+  it("garde seulement les mots utiles pour Wikipédia", () => {
+    assert.equal(searchTerms("Qui est le maire de Mamoudzou ?"), "maire Mamoudzou");
+    assert.equal(searchTerms("Qui est l'actuel président du gouvernement de la Nouvelle-Calédonie et depuis quand ?"), "président gouvernement Nouvelle-Calédonie");
   });
 
   it("garde le texte de l'article, sans scripts ni menus", () => {
