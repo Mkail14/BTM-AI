@@ -2,3 +2,4 @@ allowBuilds:
   esbuild: true
   unrs-resolver: true
   protobufjs: false
+  tesseract.js: false
