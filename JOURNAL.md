@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `1e8926d` (2026-11-25, develop)**
+**Dernier commit noté : `c0d2bad` (2026-11-25, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -63,6 +63,9 @@ Comment le tenir :
 ---
 
 ## Idées en attente
+
+### Mon compte : essai sur tablette (noté le 2026-11-25)
+- Essayer la fermeture de la fenêtre flottante avec le bouton retour d’Android, sur la Pad 6.
 
 ### Candidatures emploi : suite (noté le 2026-11-25)
 - Écrire au GIP Informatique des CDG (qui tient Emploi Territorial) pour avoir l'accès à leur API et leur accord, avant d'ouvrir au public.
@@ -139,6 +142,14 @@ Comment le tenir :
 
 ## Journal (le plus récent en haut)
 
+- **Mon compte : la fenêtre flottante se ferme en douceur** (`c0d2bad`, 2026-11-25, develop). Elle disparaissait d’un coup. `closeEditor()` (dans `parametres/ui.tsx`) joue la même sortie que ConfirmDialog (160 ms, la feuille redescend) avant de la retirer : Échap, clic à côté, Annuler et après Enregistrer, dans les 7 formulaires. Vérifié en vrai, Chrome en taille téléphone (390×844), compte Claude Admin : Échap, clic à côté et Annuler ferment avec l’animation ; un clic dans la fenêtre la laisse ouverte. Pas essayé sur la tablette (pas branchée), donc pas le bouton retour d’Android.
+- **Menu du compte : « Paramètres » caché pour les admins** (`9e183e7`, 2026-11-25, develop). Mon compte s’ouvre depuis le tableau de bord.
+- **Voix : la page /voix ne se fige plus** (`8efa709`, 2026-11-25, develop). VoicePay créait un nouvel objet à chaque lecture de l’état : React tournait en boucle.
+- **Banc shimaoré : nouvelles options** (`1442a97`, 2026-11-25, develop). BANC_DEPUIS (seulement les expressions validées depuis une date), BANC_CHERCHE (filtre sur le français), BANC_PAUSE_MS (rester sous la limite gratuite de Gemini). La fiche de grammaire reste ; seule la ligne d’exemple de la phrase testée est cachée.
+- **Essai : Tamilya avec un modèle local** (`d5cc385`, 2026-11-25, develop). `scripts/essai-cerveau-local.ts` avec Ollama gemma3:4b sur le PC, vraie consigne : 67 à 83 s avant le premier mot, réponses faibles (n’arrive pas à dire « j’ai faim » en shimaoré). Pas utilisable tel quel. Résultats : `essai-cerveau-gemma3-4b.json`.
+- **Annuaire : recherche, filtres et pages côté serveur** (`0b0cd4e`, 2026-11-25, develop). Pour tenir des dizaines de milliers de fiches : 50 par page, recherche par nom, activité, commune ou SIRET, filtres « Complète » (activité, commune, adresse, numéro, horaires) et « À compléter ». Nouvelle activité « service public ». `scripts/annuaire-etat.ts` remplit l’annuaire en brouillon avec les annuaires de l’État (service-public.fr, Sirene) ; sans `--ecrire` il n’écrit rien. Vérifié : types, lint. Page pas vue à l’écran.
+- **Emploi : bouton Postuler sous les offres Emploi Territorial** (`a1409e4`, 2026-11-25, develop). Dans la liste des offres de la conversation, réservé aux admins (fonctionnalité « candidatures ») : lu sur la page de l’offre au clic, mail prêt, site de l’employeur, formulaire ou téléphone. Code commun avec /admin/candidatures (`src/lib/emploi/apply.ts`). Vérifié : types, lint. Pas vu à l’écran.
+- **Admin : alerte avant d’ouvrir une fonctionnalité sans accord** (`9dbdfdc`, 2026-11-25, develop). Postuler, code de la route, repas et barge portent « Pas encore le droit » ; les allumer ouvre une alerte rouge avec la raison et 10 s d’attente avant « Activer quand même ». Le serveur refuse aussi sans confirmation. Le travail était à moitié fait : le serveur rejetait le nouveau champ et plus aucun interrupteur ne marchait. Vérifié : 970 tests, types, lint.
 - **Mon compte : les modifications s’ouvrent dans une fenêtre flottante au fond flouté** (`1e8926d`, 2026-11-25, develop). Demande de l’utilisateur : « Ajouter une adresse » (et tous les boutons de Mon compte) ouvrait un bloc dans la page qui poussait tout vers le bas, jugé moche. `RowEditor` ouvre maintenant une fenêtre par-dessus la page (feuille du bas sur téléphone, centrée sur ordinateur), fond assombri et flouté ; fermée par Annuler, Échap ou un clic à côté. Exception : la première adresse Maison d’un compte qui n’en a pas reste dans la page (rien à annuler). Vérifié : types, capture téléphone sur le site local.
 - **Mon compte : code d’accès admin déplacé dans Sécurité, rubrique Sécurité rangée** (`d82bcb4`, 2026-11-25, develop). Demande de l’utilisateur : le code de l’application d’authentification, c’est de la sécurité. L’onglet « Code » de l’Administration est retiré ; la ligne « Code d’accès admin » (admins seulement) est dans Sécurité. La rubrique est rangée en groupes titrés : Connexion (mot de passe, code admin, session), Paiement et voix (admins), Urgence (proches SOS), puis Supprimer le compte à part en bas. Le changement de code ne demande plus d’avoir ouvert l’admin avant : le code actuel juste l’ouvre (comme la page du verrou), sinon l’étape 2 aurait échoué. Vérifié : types, lint, 969 tests. Pas vu à l’écran.
 - **Mon compte, Administration : rangée en onglets** (`6179b8c`, 2026-11-25, develop ; `d61c9dd` sur main). Demande de l’utilisateur : la rubrique empilait trois gros blocs et défilait. Maintenant des onglets Site (état, message, mode démo, historique replié), Partenaires, Bandeau, Admins, Code ; un délégué ne voit que Admins et Code. Point orange sur Site si le site est fermé ou le mode démo allumé. Changer d’onglet ferme la modification, les 10 minutes déverrouillées restent. Vérifié : types, lint. Pas vu à l’écran (code à 6 chiffres demandé).
