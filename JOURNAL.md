@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `cfc2829` (2026-11-25, develop)**
+**Dernier commit noté : `949d381` (2026-11-25, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -141,6 +141,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Carte d'un lieu dans l'app : le panneau s'ouvre dans une page à part** (`949d381`, 2026-11-25, develop, pas encore poussé ; app : `b239a04` sur feat/coeur-natif). L'utilisateur voyait encore un saut à la fermeture et a demandé une vraie correction, pas un masque : la photo de la carte et le déplacement de la page sont retirés. Maintenant la petite carte ne bouge jamais : « Voir en grand » (bouton `data-grand`) demande à l'app une deuxième page `/apercu/carte?…&grand=N`, posée par-dessus l'écran, qui ouvre directement le panneau et dit « fermer » à l'app quand il est fermé. Vérifié par vidéo sur la Pad 6 (ouverture et fermeture sans saut). Ancienne app : l'ancien passage en plein écran reste. Les autres cartes (eau, emploi, cyclones, trajet) peuvent passer au même système en ajoutant `data-grand` à leur bouton.
 
 - **Menu : plus de croix, le « + » seul sans rond** (`cfc2829`, 2026-11-25, develop ; `7979468` sur main). Demandé pour l'app installée : la croix « Fermer le menu » (téléphone) est retirée, on ferme en touchant à côté ou en glissant. Le « + » (nouvelle conversation) perd son rond en verre (`bouton-verre`) et prend la place de la croix.
 
