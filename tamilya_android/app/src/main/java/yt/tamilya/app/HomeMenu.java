@@ -37,8 +37,8 @@ import java.util.Locale;
  * ConversationItem.tsx, AccountMenu.tsx, ConfirmDialog.tsx), aux mêmes mesures (les « px » du
  * CSS sont des dp ici). En haut le logo et le « + » rond (pas de croix) ; le bouton « Tableau de
  * bord » des administrateurs ; l'historique (appui long ou « ⋯ » pour supprimer) ; en bas
- * « Mes documents », le compte et le solde. Le compte ouvre Paramètres, Utilisation, Obtenir de
- * l'aide et Se déconnecter. Il glisse depuis la gauche et se referme en touchant à côté, en
+ * « Mes documents », le compte et le solde. Le compte ouvre Paramètres (pas pour les admins,
+ * qui passent par le tableau de bord), Utilisation, Obtenir de l'aide et Se déconnecter. Il glisse depuis la gauche et se referme en touchant à côté, en
  * glissant vers la gauche ou avec le bouton retour.
  */
 final class HomeMenu extends FrameLayout {
@@ -489,7 +489,10 @@ final class HomeMenu extends FrameLayout {
             pad(mail, 12, 6, 12, 8);
             card.addView(mail);
         }
-        card.addView(menuItem(R.drawable.ic_site_settings, "Paramètres", () -> actions.openPage("/parametres")));
+        // Admin : pas de « Paramètres » ici, Mon compte s'ouvre depuis le tableau de bord (comme AccountMenu.tsx).
+        if (adminBox.getVisibility() != VISIBLE) {
+            card.addView(menuItem(R.drawable.ic_site_settings, "Paramètres", () -> actions.openPage("/parametres")));
+        }
         card.addView(menuItem(R.drawable.ic_site_gauge, "Utilisation", () -> actions.openPage("/utilisation")));
         card.addView(menuItem(R.drawable.ic_site_help, "Obtenir de l'aide", actions::help));
         View rule = new View(getContext());
