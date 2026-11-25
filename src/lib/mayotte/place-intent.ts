@@ -64,8 +64,12 @@ export type Place = { name: string; town: Town | null };
 /** Nom écrit dans le bloc pour l'île entière. */
 export const ISLAND_NAME = "Mayotte";
 
-/** « Oui », « ok », « bon » au début ne changent pas la question (« Oui c'est où Chiconi »). */
-const FILLER = /^(?:(?:oui|ouais|ok|okay|bon|alors|d accord|dac|euh|ah|super|merci) )+/;
+/**
+ * « Oui », « ok », « bon » au début ne changent pas la question (« Oui c'est où Chiconi »),
+ * ni « tu sais », « est-ce que tu sais », « tu peux me dire » (« Tu sais c'est où Cavani ? »).
+ */
+const FILLER =
+  /^(?:(?:oui|ouais|ok|okay|bon|alors|d accord|dac|euh|ah|super|merci|(?:est ce que |)tu (?:sais|connais|peux me dire|pourrais me dire)|sais tu|dis moi) )+/;
 
 /** Le lieu nommé dans une question de lieu, ou null. */
 function placeAsked(message: string): Place | null {
