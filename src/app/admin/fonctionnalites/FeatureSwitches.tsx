@@ -8,6 +8,7 @@ import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { FEATURE_GROUPS, FEATURE_IDS, FEATURE_INFO, type FeatureId, type FeatureSwitches as Switches } from "@/lib/site/features-rules";
 import { lostOk } from "@/lib/safe-action";
 import { setFeatureAction } from "./actions";
+import { RestrictedAlert } from "./RestrictedAlert";
 
 const GROUP_ICONS: Record<string, ComponentType<SVGProps<SVGSVGElement>>> = {
   pratique: IconMapPin,
@@ -24,13 +25,19 @@ export function FeatureSwitches({ saved }: { saved: Switches }) {
   const [status, setStatus] = useState<{ feature: FeatureId; result: ActionResult } | null>(null);
   const [pending, setPending] = useState<FeatureId | null>(null);
   const [, startSaving] = useTransition();
+  /** Fonctionnalité sans accord qu'on vient d'allumer : l'alerte attend la réponse, l'interrupteur ne bouge pas. */
+  const [asking, setAsking] = useState<FeatureId | null>(null);
 
-  function toggle(feature: FeatureId, enabled: boolean) {
+  function toggle(feature: FeatureId, enabled: boolean, confirmed = false) {
+    if (enabled && FEATURE_INFO[feature].restricted && !confirmed) {
+      setAsking(feature);
+      return;
+    }
     setSwitches((s) => ({ ...s, [feature]: enabled }));
     setStatus(null);
     setPending(feature);
     startSaving(async () => {
-      const result = await setFeatureAction({ feature, enabled }).catch(lostOk);
+      const result = await setFeatureAction({ feature, enabled, confirmed }).catch(lostOk);
       if (!result.ok) setSwitches((s) => ({ ...s, [feature]: !enabled }));
       setStatus({ feature, result });
       setPending(null);
@@ -93,6 +100,9 @@ export function FeatureSwitches({ saved }: { saved: Switches }) {
                             <label htmlFor={`fonction-${id}`} className="cursor-pointer font-medium">
                               {feature.label}
                             </label>
+                            {feature.restricted ? (
+                              <span className="rounded-full bg-danger-soft px-2 py-0.5 text-[11px] font-medium text-danger">Pas encore le droit</span>
+                            ) : null}
                             {feature.costly ? (
                               <span className="rounded-full bg-warning-soft px-2 py-0.5 text-[11px] font-medium">Coûte des appels</span>
                             ) : null}
@@ -155,6 +165,17 @@ export function FeatureSwitches({ saved }: { saved: Switches }) {
           );
         })}
       </div>
+
+      {asking ? (
+        <RestrictedAlert
+          feature={FEATURE_INFO[asking]}
+          onQuit={() => setAsking(null)}
+          onConfirm={() => {
+            setAsking(null);
+            toggle(asking, true, true);
+          }}
+        />
+      ) : null}
     </>
   );
 }

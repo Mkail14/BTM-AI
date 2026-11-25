@@ -26,6 +26,15 @@ export const FEATURES = [
     default: true,
   },
   {
+    id: "candidatures",
+    label: "Postuler aux offres",
+    summary: "Comment postuler à chaque offre des mairies et du Département, sous l'offre.",
+    details: "Dans la liste des offres de la conversation, un bouton Postuler sous chaque offre Emploi Territorial : mail prêt à envoyer, site de l'employeur ou formulaire, lus sur la page de l'offre. Liste complète : /admin/candidatures.",
+    restricted: "Emploi Territorial n'a pas encore donné son accord : leurs mentions légales interdisent de reprendre le contenu de leurs pages sans autorisation.",
+    settings: "/admin/candidatures",
+    default: false,
+  },
+  {
     id: "evenements",
     label: "Événements emploi",
     summary: "Job datings, réunions d'information et ateliers à Mayotte.",
@@ -89,6 +98,7 @@ export const FEATURES = [
     label: "Code de la route",
     summary: "Les créneaux de l'examen du code et la réservation d'une place.",
     details: "Les créneaux de l'examen du code et la réservation d'une place, depuis la conversation.",
+    restricted: "La Poste n'a pas encore donné son accord pour réserver l'examen du code depuis Tamilya.",
     default: true,
   },
   {
@@ -110,6 +120,7 @@ export const FEATURES = [
     label: "Commande de repas",
     summary: "Commander à manger, seul ou en panier groupé.",
     details: "Commander à manger depuis la conversation, seul ou en panier groupé. Éteinte : les administrateurs l'ont seulement en mode démo.",
+    restricted: "Les restaurants de la démo sont de vrais restaurants (démarchage de Jeje Livraison), qui n'ont pas donné leur accord.",
     default: false,
   },
   {
@@ -117,6 +128,7 @@ export const FEATURES = [
     label: "Tickets de barge",
     summary: "Acheter un ticket de barge pour Petite-Terre.",
     details: "Acheter un ticket de barge pour Petite-Terre depuis la conversation. Éteinte : les administrateurs l'ont seulement en mode démo.",
+    restricted: "Le gestionnaire des barges n'a pas encore donné son accord pour vendre les tickets depuis Tamilya.",
     default: false,
   },
   {
@@ -138,15 +150,27 @@ export const FEATURES = [
 
 export type FeatureId = (typeof FEATURES)[number]["id"];
 
-/** Fiche d'une fonctionnalité : phrase courte, détails cachés, coût, page de réglages éventuelle. */
-export type FeatureInfo = { id: FeatureId; label: string; summary: string; details?: string; costly?: boolean; settings?: string; default: boolean };
+/**
+ * Fiche d'une fonctionnalité : phrase courte, détails cachés, coût, page de réglages éventuelle.
+ * restricted : pas encore le droit de l'ouvrir au public (la raison) ; l'allumer demande une confirmation.
+ */
+export type FeatureInfo = {
+  id: FeatureId;
+  label: string;
+  summary: string;
+  details?: string;
+  costly?: boolean;
+  restricted?: string;
+  settings?: string;
+  default: boolean;
+};
 
 export const FEATURE_INFO = Object.fromEntries(FEATURES.map((f) => [f.id, f as FeatureInfo])) as Record<FeatureId, FeatureInfo>;
 
 /** Rangement de la page /admin/fonctionnalites : chaque fonctionnalité dans un seul thème. */
 export const FEATURE_GROUPS: { id: string; label: string; features: FeatureId[] }[] = [
   { id: "pratique", label: "Vie pratique", features: ["eau", "cyclone", "trajet", "entreprises", "attestation"] },
-  { id: "emploi", label: "Emploi et formation", features: ["emploi", "evenements", "code"] },
+  { id: "emploi", label: "Emploi et formation", features: ["emploi", "candidatures", "evenements", "code"] },
   { id: "documents", label: "Documents", features: ["documents", "signature", "livres"] },
   { id: "achats", label: "Achats et paiements", features: ["devis", "repas", "barge", "portefeuille"] },
   { id: "loisirs", label: "Loisirs", features: ["chanson", "youtube"] },
