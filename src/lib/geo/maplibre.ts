@@ -15,6 +15,31 @@ export const MAPLIBRE_VERSION = version;
 const BASE = "/maplibre";
 
 type MapLibre = typeof import("maplibre-gl");
+
+/** Textes du moteur des cartes, en français (le moteur est en anglais par défaut). */
+const LOCALE_FR: Record<string, string> = {
+  "AttributionControl.ToggleAttribution": "Afficher les sources",
+  "AttributionControl.MapFeedback": "Signaler une erreur sur la carte",
+  "FullscreenControl.Enter": "Plein écran",
+  "FullscreenControl.Exit": "Quitter le plein écran",
+  "GeolocateControl.FindMyLocation": "Trouver ma position",
+  "GeolocateControl.LocationNotAvailable": "Position indisponible",
+  "LogoControl.Title": "Logo MapLibre",
+  "Map.Title": "Carte",
+  "Marker.Title": "Repère sur la carte",
+  "NavigationControl.ResetBearing": "Glisser pour tourner la carte, toucher pour remettre le nord en haut",
+  "NavigationControl.ZoomIn": "Zoomer",
+  "NavigationControl.ZoomOut": "Dézoomer",
+  "Popup.Close": "Fermer",
+  "GlobeControl.Enable": "Afficher le globe",
+  "GlobeControl.Disable": "Masquer le globe",
+  "TerrainControl.Enable": "Afficher le relief",
+  "TerrainControl.Disable": "Masquer le relief",
+  "CooperativeGesturesHandler.WindowsHelpText": "Ctrl + molette pour zoomer sur la carte",
+  "CooperativeGesturesHandler.MacHelpText": "⌘ + molette pour zoomer sur la carte",
+  "CooperativeGesturesHandler.MobileHelpText": "Utilisez deux doigts pour déplacer la carte",
+};
+
 let loading: Promise<MapLibre> | null = null;
 
 /** Le moteur des cartes, chargé une seule fois (et déjà prêt si la carte a été préchargée). */
@@ -22,7 +47,13 @@ export function loadMapLibre(): Promise<MapLibre> {
   loading ??= (import(/* webpackIgnore: true */ /* turbopackIgnore: true */ `${BASE}/maplibre-gl.mjs?v=${version}`) as Promise<MapLibre>).then((maplibre) => {
     // Le travail lourd (tuiles) se fait dans un worker, servi lui aussi par le site.
     maplibre.setWorkerUrl(`${BASE}/maplibre-gl-worker.mjs?v=${version}`);
-    return maplibre;
+    // Toutes les cartes parlent français (sinon « Use two fingers to move the map »…).
+    class FrenchMap extends maplibre.Map {
+      constructor(options: ConstructorParameters<MapLibre["Map"]>[0]) {
+        super({ ...options, locale: { ...LOCALE_FR, ...options.locale } });
+      }
+    }
+    return { ...maplibre, Map: FrenchMap } as MapLibre;
   });
   loading.catch(() => {
     loading = null;
