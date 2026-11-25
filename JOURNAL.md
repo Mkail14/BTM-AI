@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `08b8a6f` (2026-11-25, develop ; `c418899` sur main)**
+**Dernier commit noté : `25cd1ac` (2026-11-25, develop ; `9aee3f0` sur main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
