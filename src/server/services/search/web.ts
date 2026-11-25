@@ -68,13 +68,12 @@ export function parseDuckDuckGo(html: string): WebResult[] {
 }
 
 async function duckDuckGo(query: string, signal: AbortSignal): Promise<WebResult[]> {
-  const response = await fetch("https://html.duckduckgo.com/html/", {
-    method: "POST",
-    headers: { "User-Agent": BROWSER_UA, "Content-Type": "application/x-www-form-urlencoded", "Accept-Language": "fr-FR,fr;q=0.9" },
-    body: new URLSearchParams({ q: query, kl: "fr-fr" }),
+  // En GET : la même demande en POST reçoit une page de blocage (202 « anomaly »), essayé le 2026-11-25.
+  const response = await fetch(`https://html.duckduckgo.com/html/?${new URLSearchParams({ q: query, kl: "fr-fr" })}`, {
+    headers: { "User-Agent": BROWSER_UA, "Accept-Language": "fr-FR,fr;q=0.9", Accept: "text/html" },
     signal,
   });
-  if (!response.ok) throw new Error(`DuckDuckGo ${response.status}`);
+  if (response.status !== 200) throw new Error(`DuckDuckGo ${response.status}${response.status === 202 ? " (blocage)" : ""}`);
   const results = parseDuckDuckGo(await response.text());
   // Page sans résultat lisible : souvent un blocage (« anomalie ») plutôt qu'une vraie absence.
   if (!results.length) throw new Error("DuckDuckGo : aucun résultat lisible");

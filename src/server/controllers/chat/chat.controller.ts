@@ -1020,7 +1020,7 @@ ${block}`;
         if (master && !flushed) text = toShimaore(text);
         closeTag();
         console.info(
-          `[chat] vitesse : contexte ${contextMs} ms, premier mot ${firstTextMs ?? "—"} ms, total ${Date.now() - startedAt} ms (${answeredBy ?? "aucune API"})`,
+          `[chat] vitesse : contexte ${contextMs} ms, premier mot ${firstTextMs ?? "—"} ms, total ${Date.now() - startedAt} ms (${answeredBy ?? "aucune API"}), recherche ${finalSearch ? "permise" : "non"}`,
         );
         if (user && supabase && conversationId) {
           try {
