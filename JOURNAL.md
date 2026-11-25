@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `cfa39e1` (2026-11-25, develop)**
+**Dernier commit noté : `ed06d31` (2026-11-25, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -141,6 +141,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Carte d'un lieu dans l'app : plus de saut avant « Voir en grand »** (`ed06d31`, 2026-11-25, develop, pas encore poussé ; app : `65f563e` sur feat/coeur-natif). Sur la Pad 6, le panneau s'ouvrait d'abord écrasé dans la petite carte, puis la page sautait en haut de l'écran et la carte se recalait avec des rectangles noirs. Cause : la carte de la conversation native est une petite page ; le panneau s'ouvrait dedans avant que l'app l'agrandisse. Maintenant : l'app passe la page en plein écran cachée (une capture d'écran garde la carte à sa place), le panneau s'ouvre à la bonne taille et l'app montre la page à ce moment-là. Vérifié par vidéo de l'écran de la Pad 6 (ouverture et fermeture). Pour tester les cartes avant mise en ligne : `adb shell setprop debug.tamilya.cartes http://localhost:3100` + `adb reverse tcp:3100 tcp:3100` (APK de test).
 
 - **Carte : « Tu sais c'est où Cavani ? » ouvre la carte** (`1c8b4b5`, 2026-11-25, develop, pas encore poussé). Sur la Pad 6, Tamilya a pris « Cavani » pour un mot shimaoré. Cause : `detectPlace` ne retirait pas « tu sais » au début de la question. Corrigé : « tu sais », « est-ce que tu sais », « tu peux me dire », « sais-tu », « dis-moi » retirés au début ; « Kavani » reconnu comme Cavani. « Tu connais Sada ? » n'ouvre toujours pas de carte (pas forcément une question de lieu). Tests ajoutés.
 
