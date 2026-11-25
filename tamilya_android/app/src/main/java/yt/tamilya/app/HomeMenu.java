@@ -89,7 +89,7 @@ final class HomeMenu extends FrameLayout {
         panelWidth = Math.min(dp(288), Math.round(getResources().getDisplayMetrics().widthPixels * 0.85f));
         addView(panel, new LayoutParams(panelWidth, ViewGroup.LayoutParams.MATCH_PARENT, Gravity.LEFT));
 
-        // Haut : px-4 pt-4 pb-3 ; le logo, puis le « + » rond (bouton-verre) et la croix (size-10), gap-1.5.
+        // Haut : px-4 pt-4 pb-3 ; le logo, puis le « + » nu.
         LinearLayout top = new LinearLayout(context);
         top.setOrientation(LinearLayout.HORIZONTAL);
         top.setGravity(Gravity.CENTER_VERTICAL);
@@ -99,13 +99,12 @@ final class HomeMenu extends FrameLayout {
         top.addView(logo, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT));
         top.addView(new View(context), new LinearLayout.LayoutParams(0, 1, 1f));
         FrameLayout plus = new FrameLayout(context);
-        // Juste le « + », sans rond ; un léger fond gris seulement sous le doigt.
-        plus.setBackground(pressable(999, theme.bgMuted));
+        // Juste le « + », nu, comme le site (size-10, icône 22).
         plus.setContentDescription("Nouvelle conversation");
         plus.setClickable(true);
         plus.setOnClickListener(v -> go(actions::newConversation));
-        plus.addView(icon(R.drawable.ic_site_plus_fort, theme.fgMuted), new LayoutParams(dp(18), dp(18), Gravity.CENTER));
-        top.addView(plus, new LinearLayout.LayoutParams(dp(36), dp(36)));
+        plus.addView(icon(R.drawable.ic_site_plus_fort, theme.fg), new LayoutParams(dp(22), dp(22), Gravity.CENTER));
+        top.addView(plus, new LinearLayout.LayoutParams(dp(40), dp(40)));
         // Pas de croix : on referme en touchant la zone floutée à côté.
         panel.addView(top);
 
