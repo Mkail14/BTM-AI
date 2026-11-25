@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AdminIdleLock } from "@/components/admin/AdminIdleLock";
-import { ADMIN_IDLE_MINUTES } from "@/server/services/admin/gate";
+import { ADMIN_IDLE_MINUTES, adminGateIdle } from "@/server/services/admin/gate";
 import { slotHealthId } from "@/server/services/ai";
 import { loadAIChain, loadRemovedApis } from "@/server/services/ai/registry";
 import { readAIChain } from "@/lib/ai/config";
@@ -126,7 +126,8 @@ async function readModels() {
 }
 
 export default async function AdminCircuitPage() {
-  await requireAdmin("/admin/circuit");
+  const { user } = await requireAdmin("/admin/circuit");
+  const idle = (await adminGateIdle(user.id)) ?? ADMIN_IDLE_MINUTES;
   const admin = getSupabaseAdminClient();
   const hasSalt = Boolean(process.env.RATE_LIMIT_SALT?.trim());
 
@@ -357,7 +358,7 @@ export default async function AdminCircuitPage() {
   return (
     // Plein écran, sans la barre de l'admin : le schéma se déplace à la main (voir AIFlow).
     <div className="fixed inset-0 overflow-hidden bg-bg-subtle">
-      <AdminIdleLock minutes={ADMIN_IDLE_MINUTES} />
+      <AdminIdleLock minutes={idle} />
       <main id="contenu" className="flex size-full flex-col">
         <h1 className="sr-only">Circuit de Tamilya</h1>
         <AIFlow nodes={nodes} edges={edges} canAddApi={Boolean(admin) && canEncrypt()} removedApis={removedApis} />

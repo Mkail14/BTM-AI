@@ -4,7 +4,7 @@ import { IconMessage } from "@/components/ui/icons";
 import { getAuthContext } from "@/server/middlewares/session";
 import { getSiteFlags } from "@/server/services/site/settings";
 import { SITE_STATUS_LABELS } from "@/lib/site/status";
-import { ADMIN_IDLE_MINUTES } from "@/server/services/admin/gate";
+import { ADMIN_IDLE_MINUTES, adminGateIdle } from "@/server/services/admin/gate";
 import { AdminAccountMenu } from "./AdminAccountMenu";
 import { AdminIdleLock } from "./AdminIdleLock";
 import { AdminGroupTabs, AdminMenu, AdminTabs } from "./AdminMenu";
@@ -18,6 +18,7 @@ import { AdminGroupTabs, AdminMenu, AdminTabs } from "./AdminMenu";
  */
 export async function AdminHeader({ section }: { section?: string; email?: string | null }) {
   const [{ user }, flags] = await Promise.all([getAuthContext(), getSiteFlags()]);
+  const idle = (user ? await adminGateIdle(user.id) : null) ?? ADMIN_IDLE_MINUTES;
   const principal = Boolean(user?.isPrincipalAdmin);
   const status = [
     flags.status !== "online" ? { label: SITE_STATUS_LABELS[flags.status], dot: "bg-warning" } : null,
@@ -27,7 +28,7 @@ export async function AdminHeader({ section }: { section?: string; email?: strin
 
   return (
     <header className="sticky top-0 z-30 shrink-0 border-b border-border bg-bg/90 pt-[env(safe-area-inset-top)] backdrop-blur">
-      <AdminIdleLock minutes={ADMIN_IDLE_MINUTES} />
+      <AdminIdleLock minutes={idle} />
       <div className="mx-auto max-w-[1600px] px-3 md:px-6">
         <div className="flex h-14 items-center gap-2 sm:gap-3">
           <AdminMenu principal={principal} />

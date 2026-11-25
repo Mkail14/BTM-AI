@@ -18,7 +18,7 @@ async function freshRoles(supabase: SupabaseClient) {
   const { data, error } = await supabase.auth.getUser();
   if (error || !data.user) return null;
   const claims = { app_metadata: data.user.app_metadata };
-  return { isAdmin: hasAdminRole(claims), isPrincipalAdmin: hasPrincipalAdminRole(claims) };
+  return { isAdmin: hasAdminRole(claims), isPrincipalAdmin: hasPrincipalAdminRole(claims), meta: (data.user.app_metadata ?? {}) as Record<string, unknown> };
 }
 
 /**
@@ -28,8 +28,10 @@ async function freshRoles(supabase: SupabaseClient) {
 export async function requireAdminRoleAction() {
   const { supabase, user } = await getAuthContext();
   if (!supabase || !user?.isAdmin) return null;
-  if (!(await freshRoles(supabase))?.isAdmin) return null;
-  return { supabase, user };
+  const roles = await freshRoles(supabase);
+  if (!roles?.isAdmin) return null;
+  // meta : app_metadata à jour (délai du verrou, code retiré).
+  return { supabase, user, meta: roles.meta };
 }
 
 /**

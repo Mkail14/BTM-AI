@@ -3,7 +3,8 @@
 import QRCode from "qrcode";
 import { z } from "zod";
 import { NOT_ADMIN, requireAdminAction, requireAdminRoleAction, type ActionResult } from "@/server/middlewares/admin-auth";
-import { closeAdminGate, openAdminGate } from "@/server/services/admin/gate";
+import { closeAdminGate, codeOffFromMetadata, idleFromMetadata, isIdleChoice, openAdminGate } from "@/server/services/admin/gate";
+import { saveGateSettings } from "@/server/services/admin/gate-settings";
 import { requestCodeReset } from "@/server/services/admin/code-reset";
 import { consumeRateLimits, RATE_LIMIT_POLICIES } from "@/server/middlewares/rate-limit";
 
@@ -47,7 +48,7 @@ export async function startEnrollAction(): Promise<EnrollResult> {
 export async function verifyCodeAction(input: unknown): Promise<ActionResult> {
   const auth = await requireAdminRoleAction();
   if (!auth) return NOT_ADMIN;
-  const { supabase, user } = auth;
+  const { supabase, user, meta } = auth;
   const parsed = codeSchema.safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Code invalide." };
 
@@ -63,7 +64,9 @@ export async function verifyCodeAction(input: unknown): Promise<ActionResult> {
   const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: factor.id, code: parsed.data.code });
   if (error) return { ok: false, message: "Code faux ou expiré : tape le code affiché maintenant." };
 
-  if (!(await openAdminGate(user.id))) return { ok: false, message: "Ouverture impossible (clé secrète manquante)." };
+  // Application liée de nouveau après l'avoir retirée : le code redevient obligatoire.
+  if (codeOffFromMetadata(meta)) await saveGateSettings(user.id, { codeOff: false });
+  if (!(await openAdminGate(user.id, idleFromMetadata(meta)))) return { ok: false, message: "Ouverture impossible (clé secrète manquante)." };
   return { ok: true, message: "Code juste." };
 }
 
@@ -89,7 +92,7 @@ export async function requestCodeResetAction(): Promise<ActionResult> {
 export async function startChangeAction(input: unknown): Promise<EnrollResult> {
   const auth = await requireAdminRoleAction();
   if (!auth) return { ok: false, message: NOT_ADMIN.message };
-  const { supabase, user } = auth;
+  const { supabase, user, meta } = auth;
   const parsed = z.object({ code: codeSchema.shape.code }).safeParse(input);
   if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Code invalide." };
 
@@ -104,7 +107,7 @@ export async function startChangeAction(input: unknown): Promise<EnrollResult> {
 
   const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: current.id, code: parsed.data.code });
   if (error) return { ok: false, message: "Code faux ou expiré : tape le code affiché maintenant." };
-  if (!(await openAdminGate(user.id))) return { ok: false, message: "Ouverture impossible (clé secrète manquante)." };
+  if (!(await openAdminGate(user.id, idleFromMetadata(meta)))) return { ok: false, message: "Ouverture impossible (clé secrète manquante)." };
 
   // Changements commencés puis abandonnés (QR jamais confirmé).
   await Promise.all(totp.filter((f) => f.status !== "verified").map((f) => supabase.auth.mfa.unenroll({ factorId: f.id })));
@@ -143,6 +146,75 @@ export async function cancelChangeAction(input: unknown): Promise<{ ok: boolean 
   const pending = (factors?.all ?? []).find((f) => f.id === parsed.data.factorId && f.status !== "verified");
   if (pending) await auth.supabase.auth.mfa.unenroll({ factorId: pending.id });
   return { ok: true };
+}
+
+/**
+ * Retirer l'application (Mon compte, Sécurité) : son code juste d'abord, puis
+ * plus aucun code demandé pour entrer dans l'admin. Il reste ouvert, sans délai.
+ */
+export async function removeCodeAction(input: unknown): Promise<ActionResult> {
+  const auth = await requireAdminRoleAction();
+  if (!auth) return NOT_ADMIN;
+  const { supabase, user } = auth;
+  const parsed = z.object({ code: codeSchema.shape.code }).safeParse(input);
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Code invalide." };
+
+  const limit = await consumeRateLimits([{ key: `admin-gate:${user.id}`, rules: RATE_LIMIT_POLICIES.adminGate }]);
+  if (!limit.allowed) return { ok: false, message: "Trop d'essais : réessaie dans 15 minutes." };
+
+  const { data: factors, error: listError } = await supabase.auth.mfa.listFactors();
+  if (listError) return { ok: false, message: "Vérification impossible pour le moment." };
+  const totp = factors.all.filter((f) => f.factor_type === "totp");
+  const current = totp.find((f) => f.status === "verified");
+  if (!current) return { ok: false, message: "Aucune application liée." };
+
+  const { error } = await supabase.auth.mfa.challengeAndVerify({ factorId: current.id, code: parsed.data.code });
+  if (error) return { ok: false, message: "Code faux ou expiré : tape le code affiché maintenant." };
+
+  // Le drapeau d'abord : si le retrait échoue ensuite, l'application reste liée et rien ne change.
+  if (!(await saveGateSettings(user.id, { codeOff: true }))) return { ok: false, message: "Retrait impossible pour le moment : réessaie." };
+  const results = await Promise.all(totp.map((f) => supabase.auth.mfa.unenroll({ factorId: f.id })));
+  if (results.some((r) => r.error)) {
+    await saveGateSettings(user.id, { codeOff: false });
+    return { ok: false, message: "Retrait impossible pour le moment : réessaie." };
+  }
+  await openAdminGate(user.id, 0);
+  return { ok: true, message: "Application retirée : plus de code pour entrer dans l'admin." };
+}
+
+/**
+ * Page du verrou, code retiré : ouvre l'admin sans code. Revérifié ici (le
+ * drapeau ET aucune application liée), la page seule ne suffit pas.
+ */
+export async function openWithoutCodeAction(): Promise<{ ok: boolean }> {
+  const auth = await requireAdminRoleAction();
+  if (!auth || !codeOffFromMetadata(auth.meta)) return { ok: false };
+  const { data: factors, error } = await auth.supabase.auth.mfa.listFactors();
+  if (error || factors.all.some((f) => f.factor_type === "totp" && f.status === "verified")) return { ok: false };
+  return { ok: await openAdminGate(auth.user.id, 0) };
+}
+
+/**
+ * Remettre un code : l'admin se referme, la page du verrou propose de lier une
+ * application. Le rôle suffit : remettre le code ne fait que protéger plus.
+ */
+export async function restoreCodeAction(): Promise<ActionResult> {
+  const auth = await requireAdminRoleAction();
+  if (!auth) return NOT_ADMIN;
+  if (!(await saveGateSettings(auth.user.id, { codeOff: false }))) return { ok: false, message: "Réglage non enregistré : réessaie." };
+  await closeAdminGate();
+  return { ok: true, message: "Lie ton application pour remettre le code." };
+}
+
+/** Délai avant que l'admin se reverrouille (0 = jamais). Appliqué tout de suite. */
+export async function setIdleAction(input: unknown): Promise<ActionResult> {
+  const auth = await requireAdminAction();
+  if (!auth) return { ok: false, message: "Entre d'abord ton code admin pour changer ce délai." };
+  const minutes = (input as { minutes?: unknown } | null)?.minutes;
+  if (!isIdleChoice(minutes)) return { ok: false, message: "Délai inconnu." };
+  if (!(await saveGateSettings(auth.user.id, { idle: minutes }))) return { ok: false, message: "Réglage non enregistré : réessaie." };
+  await openAdminGate(auth.user.id, minutes);
+  return { ok: true, message: "Délai enregistré." };
 }
 
 /** Utilisation pendant que la page reste ouverte (souris, clavier) : le verrou reste ouvert. */
