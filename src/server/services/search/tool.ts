@@ -9,7 +9,7 @@ import { searchBlock, searchWeb } from "@/server/services/search/web";
 export const SEARCH_TOOL_NAME = "chercher_sur_internet";
 
 export const SEARCH_TOOL_DESCRIPTION =
-  "Cherche sur internet (moteur de recherche et Wikipédia) et renvoie les résultats avec le texte des meilleures pages. " +
+  "Cherche sur internet (dans Wikipédia) et renvoie les résultats avec le texte des meilleurs articles. " +
   "À utiliser quand tu n'as pas l'information ou qu'elle a pu changer (fait récent, personne, chiffre, date, horaire, prix, loi, actualité). " +
   "Pas pour une simple conversation ni pour ce que tu sais déjà.";
 
