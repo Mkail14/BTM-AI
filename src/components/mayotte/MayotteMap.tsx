@@ -8,6 +8,7 @@ import { useLiveVoiceConversation } from "@/components/chat/useLiveVoiceConversa
 import { personaStyle } from "@/components/personality/PersonalityContext";
 import { DEFAULT_PERSONALITY } from "@/lib/ai/personalities";
 import { loadMapLibre } from "@/lib/geo/maplibre";
+import type { NewsPlace } from "@/lib/mayotte/news-place";
 import { describeRoute, describeTown, findTown, type Town, type TownRoute } from "@/lib/mayotte/towns";
 
 /**
@@ -19,6 +20,10 @@ import { describeRoute, describeTown, findTown, type Town, type TownRoute } from
  * Toucher le globe : Tamilya écoute. Ici elle ne parle que des villes et
  * villages de l'île (map-mode.ts) : on en nomme un, la carte vole jusque-là ;
  * on en nomme deux, la route entre eux se trace en rose.
+ *
+ * Le reste du temps, la carte suit les « unes » des journaux affichées à côté :
+ * elle vole vers le lieu de l'article, ou revient sur l'île entière. Elle s'arrête
+ * de les suivre quand on la touche ou qu'on parle à Tamilya.
  */
 
 const STYLE_LIGHT = "https://tiles.openfreemap.org/styles/positron";
@@ -51,6 +56,17 @@ const ROUTE_FIT_MS = 2_600;
 /** Envoyé par le mot « Mayotte » du titre de la page : la carte revient à sa vue de départ. */
 export const MAP_RESET_EVENT = "tamilya:carte-mayotte-depart";
 
+/** Envoyé par les « unes » (MayotteHeadlines) à chaque titre : detail = le lieu de l'article, ou null (toute l'île). */
+export const MAP_NEWS_EVENT = "tamilya:carte-mayotte-une";
+export type MapNewsDetail = NewsPlace | null;
+
+/** Vol vers le lieu d'une « une » : plus court et moins penché que pour Tamilya (un titre reste 5 s). */
+const NEWS_FLIGHT_MS = 2_200;
+const NEWS_ZOOM = 12.8;
+const NEWS_PITCH = 40;
+/** Après un geste sur la carte ou une ville montrée par Tamilya, la carte ne suit plus les « unes » pendant ce temps. */
+const NEWS_HOLD_MS = 45_000;
+
 const isDark = () => document.documentElement.dataset.theme === "dark";
 const isCalm = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -75,6 +91,14 @@ export function MayotteMap() {
   const routeLine = useRef<[number, number][] | null>(null);
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
+  /** Jusqu'à quand la carte ignore les « unes » (geste sur la carte, ville montrée par Tamilya). */
+  const newsHeldUntil = useRef(0);
+  /** La carte a fini son premier chargement. */
+  const loaded = useRef(false);
+  /** Lieu de la « une » montré en ce moment ("" : l'île entière), pour ne pas revoler au même endroit. */
+  const newsShown = useRef<string | null>(null);
+  /** Dernier lieu reçu des « unes », montré dès que la carte est prête. */
+  const pendingNews = useRef<MapNewsDetail | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
@@ -98,7 +122,18 @@ export function MayotteMap() {
       });
       created.touchZoomRotate.disableRotation();
       created.on("error", (e) => console.warn("[carte Mayotte]", e.error?.message));
-      created.on("load", () => setReady(true));
+      created.on("load", () => {
+        loaded.current = true;
+        setReady(true);
+      });
+      // Geste sur la carte (glisser, zoomer) : elle arrête un moment de suivre les « unes ».
+      const hold = (e: { originalEvent?: unknown }) => {
+        if (!e.originalEvent) return;
+        newsHeldUntil.current = Date.now() + NEWS_HOLD_MS;
+        newsShown.current = null;
+      };
+      created.on("dragstart", hold);
+      created.on("zoomstart", hold);
       // Changement de fond (thème) : le tracé du trajet est effacé avec l'ancien fond, on le repose.
       created.on("style.load", () => {
         if (created && routeLine.current) drawRoute(created, routeLine.current);
@@ -123,6 +158,7 @@ export function MayotteMap() {
       pins.current.forEach((p) => p.remove());
       pins.current = [];
       routeLine.current = null;
+      loaded.current = false;
       map.current = null;
       created?.remove();
     };
@@ -141,11 +177,11 @@ export function MayotteMap() {
   }, []);
 
   /** Pose un repère lumineux au nom du lieu. */
-  const addPin = useCallback((town: Town) => {
+  const addPin = useCallback((town: Pick<Town, "name" | "point">, quick = false) => {
     const [view, maplibre] = [map.current, engine.current];
     if (!view || !maplibre) return null;
     const mark = document.createElement("div");
-    mark.className = "town-pin";
+    mark.className = quick ? "town-pin town-pin--quick" : "town-pin";
     const name = document.createElement("span");
     name.className = "town-pin__name";
     name.textContent = town.name;
@@ -212,10 +248,57 @@ export function MayotteMap() {
     return true;
   }, [clearMarks]);
 
-  // Mot « Mayotte » du titre touché : vue de départ.
+  /** Tamilya écoute ou parle : la carte ne suit plus les « unes ». */
+  const talking = useRef(false);
+
+  /** Lieu de la « une » affichée : vol court jusque-là avec un repère, ou retour sur l'île si l'article ne cite aucun lieu. */
+  const showNews = useCallback(
+    (place: MapNewsDetail) => {
+      const view = map.current;
+      if (!view || !loaded.current) {
+        pendingNews.current = place;
+        return;
+      }
+      pendingNews.current = undefined;
+      if (talking.current || Date.now() < newsHeldUntil.current) return;
+      const key = place?.name ?? "";
+      if (newsShown.current === key) return;
+      newsShown.current = key;
+      if (!place) {
+        showIsland();
+        return;
+      }
+      clearMarks();
+      addPin(place, true);
+      view.stop();
+      const center: [number, number] = [place.point.lng, place.point.lat];
+      if (isCalm()) view.jumpTo({ center, zoom: NEWS_ZOOM, pitch: 0, bearing: 0 });
+      else view.flyTo({ center, zoom: NEWS_ZOOM, pitch: NEWS_PITCH, bearing: Math.random() * 40 - 20, duration: NEWS_FLIGHT_MS, curve: 1.3, essential: true });
+    },
+    [addPin, clearMarks, showIsland],
+  );
+
+  // Carte prête : elle montre tout de suite le lieu de la « une » déjà affichée.
   useEffect(() => {
-    window.addEventListener(MAP_RESET_EVENT, showIsland);
-    return () => window.removeEventListener(MAP_RESET_EVENT, showIsland);
+    if (ready && pendingNews.current !== undefined) showNews(pendingNews.current);
+  }, [ready, showNews]);
+
+  // Les « unes » à côté de la carte : chaque nouveau titre envoie son lieu.
+  useEffect(() => {
+    const onNews = (event: Event) => showNews((event as CustomEvent<MapNewsDetail>).detail ?? null);
+    window.addEventListener(MAP_NEWS_EVENT, onNews);
+    return () => window.removeEventListener(MAP_NEWS_EVENT, onNews);
+  }, [showNews]);
+
+  // Mot « Mayotte » du titre touché : vue de départ (et pause des « unes » sur la carte).
+  useEffect(() => {
+    const reset = () => {
+      newsHeldUntil.current = Date.now() + NEWS_HOLD_MS;
+      newsShown.current = null;
+      showIsland();
+    };
+    window.addEventListener(MAP_RESET_EVENT, reset);
+    return () => window.removeEventListener(MAP_RESET_EVENT, reset);
   }, [showIsland]);
 
   // Boutons de Tamilya sur cette page : montrer une ville, tracer un trajet, revenir à l'île.
@@ -223,6 +306,9 @@ export function MayotteMap() {
     () => ({
       map: true,
       onTool: async (name: string, args: Record<string, unknown>) => {
+        // Ce que Tamilya montre reste à l'écran : les « unes » attendent avant de reprendre la carte.
+        newsHeldUntil.current = Date.now() + NEWS_HOLD_MS;
+        newsShown.current = null;
         if (name === "montrer_ile") return showIsland() ? "La carte revient sur Mayotte en entier. Dis-le en quelques mots, à ta façon." : "La carte n'est pas encore chargée : dis-lui de réessayer dans un instant.";
         if (name === "montrer_trajet") {
           const [from, to] = [findTown(String(args.depart ?? "")), findTown(String(args.arrivee ?? ""))];
@@ -281,6 +367,11 @@ export function MayotteMap() {
     options,
   );
   const listening = voice.state !== "off";
+  useEffect(() => {
+    // Fin de la conversation : les « unes » reprendront la carte après une petite pause.
+    if (talking.current && !listening) newsHeldUntil.current = Math.max(newsHeldUntil.current, Date.now() + 8_000);
+    talking.current = listening;
+  }, [listening]);
 
   return (
     <div className="relative size-full overflow-hidden bg-[#eef0f2] dark:bg-[#1b1e22]">

@@ -138,14 +138,17 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         ref={panelRef}
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
-        className={`fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col overflow-x-hidden border-r border-border bg-bg-subtle transition-[width,translate] duration-200 ease-out md:static md:z-auto md:translate-x-0 ${
-          collapsed ? "md:w-16" : "md:w-72"
+        // Repliée (ordinateur) : deux blocs arrondis qui flottent sur le fond, rien entre les deux.
+        data-rail={collapsed ? "" : undefined}
+        className={`fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col overflow-x-hidden border-r border-border bg-bg-subtle transition-[width,translate] duration-200 ease-out md:translate-x-0 ${
+          collapsed ? "md:absolute md:z-30 md:w-[76px] md:border-r-0 md:bg-transparent md:p-2" : "md:static md:z-auto md:w-72"
         } ${open ? "visible translate-x-0" : "invisible -translate-x-full md:visible"}`}
         aria-label="Navigation"
         role={open ? "dialog" : undefined}
         aria-modal={open ? true : undefined}
       >
-        <div className={`flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 ${collapsed ? "md:justify-center md:px-0" : ""}`}>
+        <div className={collapsed ? "md:rounded-2xl md:border md:border-border md:bg-bg-subtle md:pb-2" : ""}>
+        <div className={`flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 ${collapsed ? "md:justify-center md:px-0 md:pt-2" : ""}`}>
           <Link
             prefetch={false}
             href="/"
@@ -190,7 +193,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
           </div>
         </div>
 
-        <div className={`px-3 ${collapsed ? "md:px-2.5" : ""}`}>
+        <div className={`px-3 ${collapsed ? "md:px-2" : ""}`}>
           {user?.isAdmin ? (
             <Link prefetch={false}
               href="/admin"
@@ -208,6 +211,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
               <PendingBadge count={pendingCount} tone="light" className={collapsed ? "md:hidden" : ""} />
             </Link>
           ) : null}
+        </div>
         </div>
 
         {/* Repliée : pas d'historique, la colonne reste vide jusqu'au compte. */}
@@ -261,7 +265,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         </nav>
 
         <div
-          className={`border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-sm ${collapsed ? "md:px-2" : ""}`}
+          className={`border-t border-border p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] text-sm ${collapsed ? "md:rounded-2xl md:border md:border-border md:bg-bg-subtle md:px-2 md:pb-3" : ""}`}
         >
           {user ? (
             <>

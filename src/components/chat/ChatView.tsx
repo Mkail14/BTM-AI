@@ -664,9 +664,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
                 {greeting()}
                 {user?.displayName ? `, ${user.displayName}` : ""}
               </h1>
-              <p className="tamilya-hello-rise mt-2 max-w-xs text-sm text-fg-muted [animation-delay:120ms] sm:max-w-none sm:text-base">
-                Je suis Tamilya. Pose-moi ta question, en français ou en shimaoré.
-              </p>
             </div>
 
             {/* Téléphone : une idée à la fois, en carrousel. */}
@@ -680,7 +677,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
                     type="button"
                     disabled={blocked || !online}
                     onClick={() => void send(s.text)}
-                    className="group flex h-full w-full items-center gap-2.5 rounded-2xl border border-border bg-bg/60 p-2.5 text-left backdrop-blur transition sm:gap-3 hover:-translate-y-0.5 hover:border-[var(--persona-border,var(--border))] hover:bg-[var(--persona-surface,var(--bg-subtle))] hover:shadow-[0_10px_30px_-14px_var(--persona,var(--accent))] disabled:opacity-50 sm:p-4"
+                    className="group flex h-full w-full items-center gap-2.5 rounded-2xl border border-border bg-bg p-2.5 text-left transition-colors sm:gap-3 hover:border-fg-muted/40 hover:bg-bg-subtle disabled:opacity-50 sm:p-4"
                   >
                     <span
                       aria-hidden="true"
