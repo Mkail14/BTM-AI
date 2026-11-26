@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `ffc77ac` (2026-11-26, develop et main ; `98f391d` de l'autre session reste à noter)**
+**Dernier commit noté : `7f2bfb4` (2026-11-26, develop et main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -142,7 +142,9 @@ Comment le tenir :
 
 ## Journal (le plus récent en haut)
 
-- **Tout develop envoyé sur main** (`ffc77ac`, 2026-11-26, à la demande de l'utilisateur). Fusion sans conflit, main a exactement le contenu de develop `15f6acb` (vérifié). Le commit `98f391d` (menu du compte, autre session) est arrivé sur develop juste après : il n'est pas encore sur main.
+- **Menu du compte : le solde reste sur une ligne** (`98f391d`, 2026-11-26, develop et main). Barre latérale repliée, « 111,50 € (démo) » passait sur deux lignes à côté de « Portefeuille » alors qu'il restait de la place : il manquait moins d'un demi-pixel (94,3 px demandés, 93,9 disponibles), le navigateur coupait le texte et le bloc ne gardait que la largeur du plus long morceau. Le montant ne peut plus passer à la ligne (`whitespace-nowrap` dans `AccountMenu.tsx`). Mesuré avec les styles de l'appli : 2 lignes avant, 1 après, toujours dans le cadre.
+
+- **Tout develop envoyé sur main** (`ffc77ac`, puis `7f2bfb4`, 2026-11-26, à la demande de l'utilisateur). Fusion sans conflit ; `ffc77ac` contient déjà `98f391d` (menu du compte), donc main a exactement le contenu de develop `98f391d` (vérifié). `7f2bfb4` est une seconde fusion identique, faite en même temps par une autre session, sans aucun changement.
 
 - **Plusieurs commandes de repas : suivis côte à côte** (`15f6acb`, 2026-11-26, develop). Avec deux commandes ou plus, toucher leur notification ne faisait rien, et la pastille « Ma commande » ne suivait que la dernière. Maintenant une notification de commande en cours (ou la pastille, qui affiche leur nombre) ouvre tous les suivis côte à côte, en cartes flottantes sur la conversation floutée (`OrderGroup` dans `OrderTracker.tsx`) : centrées sur ordinateur ; sur téléphone une carte par écran, on glisse et elle se cale. La croix d'une carte ferme celle-là ; le fond, la croix du haut ou Échap ferment tout. Une seule commande : le suivi habituel. Chaque commande en cours a son horloge, donc ses notifications. Liste partagée des commandes en cours : `src/lib/food/active-orders.ts`. Testé dans un Chromium sans fenêtre (ordinateur 1440×900 et téléphone 390×844, comptes utilisateur et admin de test).
 
