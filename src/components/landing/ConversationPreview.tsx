@@ -154,13 +154,13 @@ export function ConversationPreview() {
           </div>
 
           <ComposerDock empty={false}>
+            <ChatFootnote>{CHAT_DISCLAIMER}</ChatFootnote>
             <ComposerRow>
               <PlusMenu />
               <div className="min-w-0 flex-1">
                 <Composer isStreaming={typing} disabled={false} onSend={noop} onStop={noop} placeholder={CHAT_PLACEHOLDER} trailing={<MicButton />} />
               </div>
             </ComposerRow>
-            <ChatFootnote>{CHAT_DISCLAIMER}</ChatFootnote>
             {/* Place du trait du bas de l'iPhone. */}
             <div style={{ height: PHONE.homeBar }} />
           </ComposerDock>
