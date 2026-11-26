@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `1890e9a` (2026-11-26, develop)**
+**Dernier commit noté : `7dec5e7` (2026-11-26, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -142,6 +142,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **2026-11-26** — Lexique admin, conflits : nouveau bouton « Aucune, j'écris la bonne ». Parfois toutes les traductions proposées sont fausses ; on tape la bonne, elle remplace les autres et le conflit disparaît. (`7dec5e7` sur develop)
 
 - **2026-11-26** — Conversation : la phrase « Tamilya peut se tromper… » passe au-dessus de la barre pour écrire (avant, en dessous), à la demande de l'utilisateur ; idem dans l'aperçu du téléphone de l'accueil et pour le compteur « Encore X messages sans compte ». La cloche affichée quand il n'y a aucune notification était blanche et collée à gauche (une icône SVG ne se centre pas comme du texte) : elle est maintenant centrée et grise. (`1890e9a` sur develop, `5077675` sur main)
 
