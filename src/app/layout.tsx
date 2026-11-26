@@ -7,6 +7,7 @@ import { SplashScreen } from "@/components/brand/SplashScreen";
 import { ConnectionNotice } from "@/components/layout/ConnectionNotice";
 import { HelpBubble } from "@/components/help/HelpBubble";
 import { EnvBadge } from "@/components/layout/EnvBadge";
+import { PageScrollbar } from "@/components/layout/PageScrollbar";
 import { DialogHost } from "@/components/ui/ConfirmDialog";
 import { PayPinHost } from "@/components/ui/PayPinHost";
 import { PressHaptics } from "@/components/ui/PressHaptics";
@@ -97,6 +98,7 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         {/* Grand globe de Tamilya quand elle raconte une histoire (lecture en 3D), hors de la conversation. */}
         <StoryStage />
         <SongStage />
+        <PageScrollbar />
         <EnvBadge isAdmin={initialUser?.isAdmin ?? false} />
       </body>
     </html>
