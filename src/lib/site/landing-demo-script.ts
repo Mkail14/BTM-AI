@@ -20,3 +20,11 @@ export const DEMO_SCRIPT = [
 ] as const;
 
 export type DemoLine = { from: "user" | "tamilya"; fr: string; shimaore: string | null };
+
+/**
+ * Le message parle de la page d'accueil, même mal écrit : « dacceuil », « acueil »,
+ * « page d'entrée » (le 2026-11-26, « la page dacceuil » n'était pas reconnu).
+ */
+export function mentionsLanding(text: string): boolean {
+  return /ac+(?:ue|eu|u|e)i?l|page\s+d.?entr/i.test(text);
+}

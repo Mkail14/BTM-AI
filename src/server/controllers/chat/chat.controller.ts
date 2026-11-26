@@ -91,6 +91,7 @@ import { AGENT_LABELS, runTeam, teamBlock, teamSummary } from "@/lib/ai/agents/t
 import { mayotteClock } from "@/lib/ai/clock";
 import { understand } from "@/lib/ai/understanding";
 import { getLandingDemo } from "@/server/services/site/landing-demo";
+import { mentionsLanding } from "@/lib/site/landing-demo-script";
 
 const DEVICE_COOKIE = "btm_device";
 /** Texte et historique (128 Ko), plus une photo ou un PDF joint, en base64. */
@@ -618,7 +619,7 @@ export async function POST(request: NextRequest) {
   const webFound = web?.results.length ? web : null;
   const searchedSources = webFound ? (webFound.pages.length ? webFound.pages : webFound.results.slice(0, 3)).map(({ title, url }) => ({ title, url })) : [];
   // Admin qui parle de la page d'accueil (ce message ou le précédent) : Tamilya a sous les yeux la conversation affichée.
-  const aboutLanding = Boolean(user?.isAdmin) && !master && /accueil/i.test([body.message, ...previousAsks.slice(0, 1)].join(" "));
+  const aboutLanding = Boolean(user?.isAdmin) && !master && mentionsLanding([body.message, ...previousAsks.slice(0, 1)].join(" "));
   const landingDemo = aboutLanding
     ? await Promise.race([getLandingDemo(), new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000))])
         .then((lines) => lines?.map((l) => `- ${l.from === "user" ? "Visiteur" : "Tamilya"} : ${l.shimaore ?? l.fr}${l.shimaore ? ` (${l.fr})` : ""}`).join("\n") ?? null)

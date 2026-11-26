@@ -15,3 +15,11 @@ describe("Tamilya et son administrateur", () => {
     assert.doesNotMatch(buildSystemPrompt(undefined, { admin: true, teacher: true }), /TON ADMINISTRATEUR/);
   });
 });
+
+describe("L'admin parle de la page d'accueil", () => {
+  it("reconnu même mal écrit", async () => {
+    const { mentionsLanding } = await import("@/lib/site/landing-demo-script");
+    for (const text of ["la page d'accueil", "reeccris le phrases ue tu expose a la page dacceuil", "l'acueil", "la page d'entrée"]) assert.ok(mentionsLanding(text), text);
+    for (const text of ["bonjour", "un recueil de poèmes", "c'est ton systeme"]) assert.ok(!mentionsLanding(text), text);
+  });
+});
