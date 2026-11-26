@@ -1,26 +1,51 @@
 /**
  * Pont posé par l'application Android (CardFrame.java) sur la page /apercu/carte.
- * Petite carte : hauteur, pleinEcran (anciennes versions), grand (ouvre la page en grand à part).
- * Page en grand : fermer (le panneau est fermé, l'app retire la page).
+ * Petite carte : hauteur, pleinEcran (anciennes versions), preparer (l'app prépare la page en
+ * grand, cachée), grand (l'ouvre). Page en grand : fermer (panneau fermé, l'app retire la page).
  */
 type Bridge = {
   hauteur?: (px: number) => void;
   pleinEcran?: (on: boolean) => void;
+  preparer?: () => void;
   grand?: (index: number) => void;
   fermer?: () => void;
 };
+
+type BigWindow = { __tamilyaGrand?: (index: number) => void; __tamilyaGrandIndex?: number };
 
 /** Marque posée sur <html> pendant que la carte occupe tout l'écran de l'app. */
 export const FULL_ATTR = "data-plein-ecran";
 
 /**
- * Page en grand de l'app (?grand=N) : le panneau du N-ième bouton « Voir … » de la carte,
- * ouvert tout de suite dans une page à part en plein écran. La petite carte ne bouge jamais.
+ * Page en grand de l'app : le panneau du N-ième bouton « Voir … » de la carte, dans une page à
+ * part posée en plein écran par-dessus la conversation. La petite carte ne bouge jamais.
+ * ?grand=N : ouvert tout de suite. ?grand=attente : page préparée à l'avance, cachée ; l'app
+ * dit quel panneau ouvrir au moment du clic (window.__tamilyaGrand), sans attendre le chargement.
  */
-export function bigIndex(): number | null {
-  if (typeof window === "undefined") return null;
-  const value = new URLSearchParams(window.location.search).get("grand");
-  return value && /^\d{1,2}$/.test(value) ? Number(value) : null;
+export function isBigPage(): boolean {
+  if (typeof window === "undefined") return false;
+  return /^(\d{1,2}|attente)$/.test(new URLSearchParams(window.location.search).get("grand") ?? "");
+}
+
+/** Appelle `open(N)` quand le panneau n° N doit s'ouvrir (tout de suite ou au clic) ; renvoie de quoi arrêter. */
+export function whenBigOpen(open: (index: number) => void): () => void {
+  const value = new URLSearchParams(window.location.search).get("grand") ?? "";
+  if (/^\d{1,2}$/.test(value)) {
+    open(Number(value));
+    return () => {};
+  }
+  const w = window as unknown as BigWindow;
+  let active = true;
+  const previous = w.__tamilyaGrand;
+  w.__tamilyaGrand = (index) => {
+    previous?.(index);
+    if (active) open(index);
+  };
+  // Clic arrivé avant que la page soit prête : l'app a laissé le numéro.
+  if (typeof w.__tamilyaGrandIndex === "number") open(w.__tamilyaGrandIndex);
+  return () => {
+    active = false;
+  };
 }
 
 /** Panneau de la page en grand fermé : l'app retire la page. */

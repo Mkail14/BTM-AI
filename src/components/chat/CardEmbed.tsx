@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { bigIndex, cardBridge, closeBigPage, FULL_ATTR, waitResize } from "./app-fullscreen";
+import { cardBridge, closeBigPage, FULL_ATTR, isBigPage, waitResize, whenBigOpen } from "./app-fullscreen";
 import { Markdown } from "./Markdown";
 
 /**
@@ -39,16 +39,26 @@ function openBig(el: HTMLElement, index: number) {
   };
 }
 
-/** big : page en grand de l'app (?grand=N), lu aussi par le serveur pour un premier rendu identique. */
+/** big : page en grand de l'app (?grand=N ou attente), lu aussi par le serveur pour un premier rendu identique. */
 export function CardEmbed({ block, content, big = false }: { block: string; content: string; big?: boolean }) {
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const el = box.current;
     if (!el) return;
-    const big = bigIndex();
-    if (big !== null) return openBig(el, big);
+    if (isBigPage()) {
+      let stop = () => {};
+      const unsubscribe = whenBigOpen((index) => {
+        stop();
+        stop = openBig(el, index);
+      });
+      return () => {
+        unsubscribe();
+        stop();
+      };
+    }
     const bridge = cardBridge();
+    let prepared = false;
     const root = document.documentElement;
     let height = -1;
     let full: boolean | null = null;
@@ -59,6 +69,11 @@ export function CardEmbed({ block, content, big = false }: { block: string; cont
       if (h !== height) {
         height = h;
         bridge?.hauteur?.(h);
+      }
+      // Une carte avec un bouton « Voir … » : l'app prépare déjà sa page en grand, pour l'ouvrir sans attendre.
+      if (!prepared && bridge?.preparer && el.querySelector("[data-grand]")) {
+        prepared = true;
+        bridge.preparer();
       }
       const open = document.querySelector('[aria-modal="true"]') !== null;
       if (open !== full) {
