@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `6a9af72` (2026-11-26, develop)**
+**Dernier commit noté : `63a73d9` (2026-11-26, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -142,6 +142,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Tamilya connaît ses fonctions et ses chiffres** (`63a73d9`, 2026-11-26, develop, pas encore sur main). Demandé par l'utilisateur : qu'elle soit au courant de chacun de ses systèmes, de leur fonctionnement et de ce qu'ils valent. Pour un admin (hors mode maître), un bloc `adminSelfReport` (`src/server/services/ai/self-report.ts`) lui donne ce qui est toujours là (recherche Wikipédia, cartes, shimaoré, mémoire, Android), chaque fonction de /admin/fonctionnalites (lue dans `FEATURES` : description, allumée pour tous ou non, accord attendu, coût Gemini) et ses chiffres : mots, phrases, règles de grammaire, fiches de connaissances, mots et questions en attente (comptés en 2 s au plus, gardés 1 min). Essai sur la vraie base : 1890 mots, 181 phrases, 15 règles, 1 mot et 104 questions en attente.
 
 - **Page d'accueil reconnue même mal écrite** (`6a9af72`, 2026-11-26, develop, pas encore sur main). L'admin a écrit « la page dacceuil » : le serveur ne cherchait que « accueil » bien écrit, donc Tamilya n'a pas reçu les phrases et a répondu qu'elle ne les voyait pas. `mentionsLanding` accepte maintenant les fautes courantes (dacceuil, acueil, page d'entrée). Test : `tests/admin-prompt.test.ts`.
 
