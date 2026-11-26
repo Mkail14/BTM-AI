@@ -965,6 +965,31 @@ input::-ms-clear {
   }
 }
 
+/* Plusieurs commandes côte à côte (OrderGroup) : les cartes montent l'une après l'autre
+   et flottent au-dessus de la conversation floutée ; une carte fermée retombe seule. */
+.order-card {
+  animation: order-card-in 480ms cubic-bezier(0.2, 0.8, 0.2, 1) calc(var(--i, 0) * 80ms) backwards;
+}
+
+.order-card[data-closing],
+[data-closing] .order-card {
+  animation: order-card-out 260ms cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+@keyframes order-card-in {
+  from {
+    transform: translateY(2rem) scale(0.95);
+    opacity: 0;
+  }
+}
+
+@keyframes order-card-out {
+  to {
+    transform: translateY(1.25rem) scale(0.95);
+    opacity: 0;
+  }
+}
+
 .order-rise {
   animation: order-rise 600ms cubic-bezier(0.2, 0.8, 0.2, 1) 120ms backwards;
 }
@@ -1035,6 +1060,7 @@ input::-ms-clear {
 
 @media (prefers-reduced-motion: reduce) {
   .order-sheet,
+  .order-card,
   .order-backdrop,
   .order-rise,
   .order-pulse,

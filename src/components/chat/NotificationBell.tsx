@@ -6,6 +6,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent, type ReactNode, type Ref } from "react";
 import { createPortal } from "react-dom";
 import { BELL_ID, dismiss, lastSeen, markSeen, NOTIFY_EVENT, readHidden, readLocal, RING_EVENT, type AppNotification } from "@/lib/notifications";
+import { activeOrders, OPEN_ORDERS_EVENT, orderCodeOfNotification } from "@/lib/food/active-orders";
 
 const relative = new Intl.RelativeTimeFormat("fr-FR", { numeric: "auto" });
 const date = new Intl.DateTimeFormat("fr-FR", { day: "numeric", month: "short", timeZone: "Indian/Mayotte" });
@@ -193,6 +194,8 @@ export function NotificationBell() {
   const [hidden, setHidden] = useState<Set<string>>(new Set());
   const button = useRef<HTMLButtonElement>(null);
   const [place, setPlace] = useState({ top: 0, right: 0 });
+  // Commandes encore en cours (lues à l'ouverture) : leurs notifications ouvrent les suivis.
+  const [ordering, setOrdering] = useState<Set<string>>(new Set());
 
   const loadServer = useCallback(() => {
     fetch("/api/notifications", { cache: "no-store" })
@@ -234,6 +237,7 @@ export function NotificationBell() {
     const rect = button.current?.getBoundingClientRect();
     if (rect) setPlace({ top: rect.bottom + 10, right: Math.max(12, window.innerWidth - rect.right - 8) });
     setNow(Date.now());
+    setOrdering(new Set(activeOrders().map((o) => o.code)));
     loadServer();
     setOpen(true);
   };
@@ -323,9 +327,24 @@ export function NotificationBell() {
                           // pr-11 : place de la croix de suppression.
                           const cls = "notif-item flex items-start gap-3 rounded-2xl px-3 py-2.5 pr-11 transition hover:bg-bg-muted";
                           const style = { "--i": gi * 4 + i } as CSSProperties;
+                          // Commande encore en cours : ses suivis s'ouvrent (côte à côte s'il y en a plusieurs).
+                          const order = orderCodeOfNotification(n.id);
                           return (
                             <NotificationRow key={n.id} onRemove={() => dismiss([n.id])}>
-                              {n.href ? (
+                              {order && ordering.has(order) ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    close();
+                                    window.dispatchEvent(new CustomEvent<string>(OPEN_ORDERS_EVENT, { detail: order }));
+                                  }}
+                                  aria-haspopup="dialog"
+                                  className={`${cls} w-full text-left`}
+                                  style={style}
+                                >
+                                  {body}
+                                </button>
+                              ) : n.href ? (
                                 <Link href={n.href} onClick={close} className={cls} style={style}>
                                   {body}
                                 </Link>

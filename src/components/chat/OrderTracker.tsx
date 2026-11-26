@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, 
 import { createPortal } from "react-dom";
 import { hapticTear } from "@/lib/chat/haptics";
 import { FLY_MS, flyToBell, notify } from "@/lib/notifications";
+import { activeOrders, OPEN_ORDERS_EVENT, ORDER_KEY } from "@/lib/food/active-orders";
 import { hangUpVoice } from "@/lib/voice-live/hang-up";
 import { formatEuros } from "@/lib/wallet/limits";
 import type { Courier } from "@/lib/food/courier";
@@ -51,12 +52,9 @@ export type PlacedOrder = {
   scheduled?: boolean;
 };
 
-/** Commandes payées, gardées sur l'appareil : « btm-food-order:<recherche> ». */
-export const ORDER_KEY = "btm-food-order:";
+export { ORDER_KEY };
 /** Prévient la pastille « Ma commande » qu'une commande a été payée ou reçue. */
 export const ORDER_EVENT = "btm-food-order";
-/** Une commande arrivée et jamais marquée reçue disparaît d'elle-même après ce délai. */
-const ARRIVED_KEPT_MS = 20 * 60_000;
 /** Démonstration : le livreur simulé récupère la commande quelques secondes après la fin de la préparation. */
 const DEMO_PICKUP_DELAY_MS = 8000;
 /** Démonstration : le livreur simulé scanne le code un moment après son arrivée (le temps de toucher soi-même). */
@@ -80,23 +78,6 @@ const zigzag = (top: boolean) => {
 const TEAR_STYLE = { "--tear-top": zigzag(true), "--tear-bottom": zigzag(false) } as CSSProperties;
 
 type StoredOrder = PlacedOrder & { receivedAt?: string; cancelledAt?: string };
-
-/** Commande en cours la plus récente (pas encore reçue), et sa clé. */
-function activeOrder(now = Date.now()): { key: string; order: PlacedOrder } | null {
-  let best: { key: string; order: StoredOrder } | null = null;
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key?.startsWith(ORDER_KEY)) continue;
-    try {
-      const order = JSON.parse(localStorage.getItem(key) ?? "null") as StoredOrder | null;
-      if (!order || order.receivedAt || Date.parse(order.arrivesAt) + ARRIVED_KEPT_MS < now) continue;
-      if (!best || order.placedAt > best.order.placedAt) best = { key, order };
-    } catch {
-      // Valeur illisible : ignorée.
-    }
-  }
-  return best;
-}
 
 /** « J'ai reçu ma commande » : la pastille disparaît. */
 function markReceived(code: string) {
@@ -524,8 +505,19 @@ function RoundAction({ icon, label, href, onClick, badge }: { icon: string; labe
  * prend la place libre, la fiche du bas tient tout l'essentiel (état, heure,
  * code, livreur) et les boutons ouvrent des volets pour le reste.
  * Plein écran sur téléphone, colonne à droite sur ordinateur.
+ * `floating` : une carte parmi d'autres, côte à côte dans OrderGroup (qui pose le fond flouté).
  */
-function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: ReturnType<typeof useOrderClock>; onClose: () => void }) {
+function OrderPanel({
+  order,
+  clock,
+  onClose,
+  floating = false,
+}: {
+  order: PlacedOrder;
+  clock: ReturnType<typeof useOrderClock>;
+  onClose: () => void;
+  floating?: boolean;
+}) {
   const { phase, now, placed, ready, arrives, accepted } = clock;
   const arrived = phase === 2 && accepted;
   // Ce panneau recouvre les boutons du vocal : on ne laisse pas le micro ouvert derrière lui.
@@ -542,7 +534,12 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
   const panel = useRef<HTMLDivElement>(null);
   const messageCount = useCourierMessageCount(order.code);
   // Sans animation (réglage « réduire les animations »), rien ne signalerait la fin de la sortie : fermeture immédiate.
-  const close = () => (window.matchMedia("(prefers-reduced-motion: reduce)").matches ? onClose() : setClosing(true));
+  const close = () => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return onClose();
+    setClosing(true);
+    // Carte côte à côte : retirée même si la fin de l'animation ne vient pas (onglet caché…).
+    if (floating) window.setTimeout(onClose, 300);
+  };
   // Le panneau se ferme d'abord en douceur, puis la pastille dit merci (sinon le panneau la cacherait).
   const finish = () => {
     close();
@@ -573,21 +570,29 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
     if (clock.delivered && arrived) tear("courier");
   }, [clock.delivered, arrived, tear]);
 
-  // Échap ferme d'abord le volet ouvert, puis le panneau.
-  const escapeRef = useRef(close);
+  // Échap ferme d'abord le volet ouvert, puis le panneau. Carte côte à côte : son volet seulement
+  // (preventDefault), le reste est fermé d'un coup par OrderGroup.
+  const escapeRef = useRef<(e: KeyboardEvent) => void>(() => {});
   useEffect(() => {
-    escapeRef.current = () => (sheet ? setSheet(null) : close());
+    escapeRef.current = (e) => {
+      if (sheet) {
+        e.preventDefault();
+        setSheet(null);
+      } else if (!floating) close();
+    };
   });
 
   useEffect(() => {
-    const opener = document.activeElement as HTMLElement | null;
-    panel.current?.focus();
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && escapeRef.current();
+    const opener = floating ? null : (document.activeElement as HTMLElement | null);
+    if (!floating) panel.current?.focus();
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && escapeRef.current(e);
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("keydown", onKey);
       opener?.focus();
     };
+    // floating ne change pas pendant la vie du panneau.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Trajet : le restaurant, la livraison, et le livreur qui avance au rythme du suivi.
@@ -619,17 +624,20 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
     )}`;
   const steps = ["Préparation", "En route", "Arrivé"];
 
-  return createPortal(
-    <div className="fixed inset-0 z-[70]" data-closing={closing || undefined}>
-      <div aria-hidden="true" onClick={close} className="order-backdrop absolute inset-0 bg-black/40 backdrop-blur-md" />
+  const content = (
       <div
         ref={panel}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Suivi de la commande"
+        role={floating ? "group" : "dialog"}
+        aria-modal={floating ? undefined : true}
+        aria-label={floating ? `Suivi de la commande ${order.restaurant}` : "Suivi de la commande"}
         tabIndex={-1}
+        data-closing={floating && closing ? true : undefined}
         onAnimationEnd={(e) => closing && e.target === e.currentTarget && onClose()}
-        className="order-sheet absolute inset-0 flex flex-col overflow-hidden bg-bg shadow-2xl outline-none sm:inset-y-3 sm:right-3 sm:left-auto sm:w-[440px] sm:rounded-3xl sm:border sm:border-border"
+        className={
+          floating
+            ? "order-card relative flex h-full w-full flex-col overflow-hidden rounded-3xl border border-border bg-bg shadow-2xl outline-none"
+            : "order-sheet absolute inset-0 flex flex-col overflow-hidden bg-bg shadow-2xl outline-none sm:inset-y-3 sm:right-3 sm:left-auto sm:w-[440px] sm:rounded-3xl sm:border sm:border-border"
+        }
       >
         {/* Carte en direct : prend toute la place libre. Livreur arrivé : la carte laisse place au QR code. */}
         <div className="relative min-h-[8rem] flex-1">
@@ -944,6 +952,113 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
           </SubSheet>
         ) : null}
       </div>
+  );
+  if (floating) return content;
+  return createPortal(
+    <div className="fixed inset-0 z-[70]" data-closing={closing || undefined}>
+      <div aria-hidden="true" onClick={close} className="order-backdrop absolute inset-0 bg-black/40 backdrop-blur-md" />
+      {content}
+    </div>,
+    document.body,
+  );
+}
+
+/** Une commande dans OrderGroup : son horloge, et son suivi en carte. */
+function FloatingOrder({ order, onClose }: { order: PlacedOrder; onClose: () => void }) {
+  const clock = useOrderClock(order);
+  return <OrderPanel order={order} clock={clock} onClose={onClose} floating />;
+}
+
+/** Une commande seule, ouverte depuis une notification : le suivi habituel. */
+function SingleOrder({ order, onClose }: { order: PlacedOrder; onClose: () => void }) {
+  const clock = useOrderClock(order);
+  return <OrderPanel order={order} clock={clock} onClose={onClose} />;
+}
+
+/** Horloge seule (rien à l'écran) : les notifications de chaque commande en cours arrivent, même sans sa pastille. */
+function OrderClock({ order }: { order: PlacedOrder }) {
+  useOrderClock(order);
+  return null;
+}
+
+/**
+ * Plusieurs commandes en cours (une notification ou la pastille touchée) : leurs suivis
+ * s'ouvrent côte à côte, en cartes qui flottent au-dessus de la conversation floutée.
+ * Téléphone : une carte par écran, on glisse pour passer à l'autre (le bord de la
+ * suivante dépasse). Ordinateur : toutes visibles, centrées.
+ */
+function OrderGroup({ orders, focus, onClose }: { orders: PlacedOrder[]; focus: string; onClose: () => void }) {
+  const [open, setOpen] = useState(orders);
+  const [closing, setClosing] = useState(false);
+  const row = useRef<HTMLDivElement>(null);
+  useEffect(hangUpVoice, []);
+
+  // Minuteur de sortie : annulé si la vue est remplacée entre-temps (rouverte aussitôt), pour ne pas fermer la nouvelle.
+  const leaving = useRef(0);
+  useEffect(() => () => window.clearTimeout(leaving.current), []);
+  const closeAll = useCallback(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return onClose();
+    setClosing(true);
+    window.clearTimeout(leaving.current);
+    leaving.current = window.setTimeout(onClose, 280);
+  }, [onClose]);
+
+  // La commande touchée est au centre (téléphone : c'est elle qu'on voit d'abord).
+  useEffect(() => {
+    const card = row.current?.querySelector<HTMLElement>(`[data-order="${CSS.escape(focus)}"]`);
+    card?.scrollIntoView({ inline: "center", block: "nearest", behavior: "instant" });
+    row.current?.focus({ preventScroll: true });
+  }, [focus]);
+
+  // Échap : un volet ouvert se ferme d'abord (la carte s'en charge), sinon tout se ferme.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && !e.defaultPrevented && closeAll();
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [closeAll]);
+
+  // Dernière carte fermée : la vue s'en va.
+  useEffect(() => {
+    if (open.length === 0) onClose();
+  }, [open.length, onClose]);
+
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-label={`${open.length} commandes en cours`} className="fixed inset-0 z-[70] flex flex-col" data-closing={closing || undefined}>
+      <div aria-hidden="true" onClick={closeAll} className="order-backdrop absolute inset-0 bg-black/40 backdrop-blur-md" />
+      <div className="order-backdrop pointer-events-none relative flex items-center justify-between gap-3 px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-2 text-white">
+        <p className="text-sm font-semibold drop-shadow">{open.length > 1 ? `${open.length} commandes en cours` : "Ta commande"}</p>
+        <button
+          type="button"
+          onClick={closeAll}
+          aria-label="Fermer les suivis"
+          className="pointer-events-auto grid size-10 place-items-center rounded-full bg-white/15 backdrop-blur transition hover:bg-white/25"
+        >
+          <X aria-hidden="true" className="size-5" />
+        </button>
+      </div>
+      <div
+        ref={row}
+        tabIndex={-1}
+        onClick={(e) => e.target === e.currentTarget && closeAll()}
+        className="scrollbar-none relative flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overscroll-x-contain outline-none"
+      >
+        {/* Marges auto : centrées quand tout tient, défilables sinon (sans couper la première). shrink-0 : la rangée garde sa largeur. */}
+        <div
+          onClick={(e) => e.target === e.currentTarget && closeAll()}
+          className="m-auto flex w-max shrink-0 items-center gap-3 px-[7vw] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:gap-5 sm:px-6"
+        >
+          {open.map((order, i) => (
+            <div
+              key={order.code}
+              data-order={order.code}
+              style={{ "--i": i } as CSSProperties}
+              className="h-[min(46rem,calc(100dvh-5.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] w-[86vw] shrink-0 snap-center sm:w-[min(25rem,calc((100vw-4rem)/2))]"
+            >
+              <FloatingOrder order={order} onClose={() => setOpen((list) => list.filter((o) => o.code !== order.code))} />
+            </div>
+          ))}
+        </div>
+      </div>
     </div>,
     document.body,
   );
@@ -953,17 +1068,29 @@ function OrderPanel({ order, clock, onClose }: { order: PlacedOrder; clock: Retu
  * Pastille « Ma commande », toujours visible pendant la conversation : on
  * retrouve le suivi sans remonter jusqu'au message de la commande. Un clic
  * ouvre le panneau ; elle disparaît quand la commande est reçue.
+ * Plusieurs commandes en cours : elle montre la plus récente avec leur nombre, et
+ * ouvre (comme une notification de commande touchée) tous les suivis côte à côte.
  */
 export function ActiveOrderTab() {
-  const [active, setActive] = useState<PlacedOrder | null>(null);
+  const [active, setActive] = useState<PlacedOrder[]>([]);
   // Commande tout juste marquée reçue : la pastille dit merci avant de partir.
   const [thanks, setThanks] = useState<PlacedOrder | null>(null);
   const thanked = useCallback(() => setThanks(null), []);
+  // Suivis ouverts depuis une notification ou la pastille : toutes les commandes en cours, et celle touchée.
+  // `at` : chaque ouverture est une nouvelle vue (clé), même rouverte pendant la sortie de la précédente.
+  const [shown, setShown] = useState<{ orders: PlacedOrder[]; focus: string; at: number } | null>(null);
+  const hide = useCallback(() => setShown(null), []);
 
   useEffect(() => {
-    const read = () => setActive(activeOrder()?.order ?? null);
+    const read = () => setActive(activeOrders<PlacedOrder & { receivedAt?: string }>());
     const onThanks = (e: Event) => setThanks((e as CustomEvent<PlacedOrder>).detail);
+    const onOpen = (e: Event) => {
+      const orders = activeOrders<PlacedOrder & { receivedAt?: string }>();
+      const focus = (e as CustomEvent<string>).detail;
+      if (orders.some((o) => o.code === focus)) setShown({ orders, focus, at: Date.now() });
+    };
     window.addEventListener(THANKS_EVENT, onThanks);
+    window.addEventListener(OPEN_ORDERS_EVENT, onOpen);
     read();
     window.addEventListener(ORDER_EVENT, read);
     window.addEventListener("storage", read);
@@ -971,14 +1098,39 @@ export function ActiveOrderTab() {
     const timer = window.setInterval(read, 60_000);
     return () => {
       window.removeEventListener(THANKS_EVENT, onThanks);
+      window.removeEventListener(OPEN_ORDERS_EVENT, onOpen);
       window.removeEventListener(ORDER_EVENT, read);
       window.removeEventListener("storage", read);
       window.clearInterval(timer);
     };
   }, []);
 
-  if (thanks) return <ThanksPill key={thanks.code} order={thanks} onDone={thanked} />;
-  return active ? <OrderPill key={active.code} order={active} /> : null;
+  const latest = active.at(-1);
+  return (
+    <>
+      {/* Chaque commande en cours a son horloge : ses notifications arrivent même sans sa pastille. */}
+      {active.slice(0, -1).map((order) => (
+        <OrderClock key={order.code} order={order} />
+      ))}
+      {thanks ? (
+        <ThanksPill key={thanks.code} order={thanks} onDone={thanked} />
+      ) : latest ? (
+        <OrderPill
+          key={latest.code}
+          order={latest}
+          count={active.length}
+          onOpenAll={() => setShown({ orders: active, focus: latest.code, at: Date.now() })}
+        />
+      ) : null}
+      {shown ? (
+        shown.orders.length > 1 ? (
+          <OrderGroup key={shown.at} orders={shown.orders} focus={shown.focus} onClose={hide} />
+        ) : (
+          <SingleOrder key={shown.at} order={shown.orders[0]} onClose={hide} />
+        )
+      ) : null}
+    </>
+  );
 }
 
 /** Durée du remerciement avant que la pastille s'en aille. */
@@ -1037,17 +1189,18 @@ function ThanksPill({ order, onDone }: { order: PlacedOrder; onDone: () => void 
   );
 }
 
-function OrderPill({ order }: { order: PlacedOrder }) {
+function OrderPill({ order, count = 1, onOpenAll }: { order: PlacedOrder; count?: number; onOpenAll?: () => void }) {
   const clock = useOrderClock(order);
   const [open, setOpen] = useState(false);
   const { phase, now, arrives } = clock;
+  const several = count > 1 && onOpenAll;
   return (
     <>
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => (several ? onOpenAll() : setOpen(true))}
         aria-haspopup="dialog"
-        aria-label="Suivre ma commande"
+        aria-label={several ? `Suivre mes ${count} commandes` : "Suivre ma commande"}
         className="order-pill absolute top-14 right-3 z-30 sm:right-16 flex items-center gap-2.5 overflow-hidden rounded-full border border-[var(--persona-border,var(--border))] bg-bg/95 py-1 pr-3 pl-1 text-left shadow-lg backdrop-blur transition duration-300 hover:-translate-y-0.5 hover:scale-[1.03] hover:shadow-xl active:scale-95 sm:top-3"
       >
         {/* Reflet qui balaie la pastille de temps en temps, et éclat à chaque nouvelle étape. */}
@@ -1072,6 +1225,12 @@ function OrderPill({ order }: { order: PlacedOrder }) {
         >
           <Pictogram of={clock.waiting ? "⏰" : phase === 0 ? "🍳" : phase === 1 ? "🛵" : "✅"} />
         </span>
+        {/* Plusieurs commandes : leur nombre, la pastille les ouvre toutes côte à côte. */}
+        {several ? (
+          <span aria-hidden="true" className="relative grid h-5 min-w-5 place-items-center rounded-full px-1 text-[10px] font-bold text-white" style={{ background: PERSONA }}>
+            {count}
+          </span>
+        ) : null}
       </button>
       {open ? <OrderPanel order={order} clock={clock} onClose={() => setOpen(false)} /> : null}
     </>
