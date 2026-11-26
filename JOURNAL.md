@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `933502b` (2026-11-26, develop et main)**
+**Dernier commit noté : `9b972af` (2026-11-26, main ; develop au même contenu)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -141,6 +141,10 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Tout develop envoyé sur main** (`9b972af`, 2026-11-26, à la demande de l'utilisateur). Fusion sans conflit, dans un dossier à part (la copie de travail a des changements en cours d'une autre session) ; main a exactement le contenu de develop `bfbd50a` (vérifié).
+
+- **Conversation : le fichier joint en petite vignette, sans passer par le Drive** (`8dbf405`, 2026-11-26, develop et main). Demande de l'utilisateur : la grande étiquette au-dessus de la barre (nom, « pose ta question à Tamilya », état du Drive) était moche, et le fichier partait dans le Drive sans qu'on le demande. Maintenant, comme sur Claude, le fichier s'affiche dans la barre au-dessus du texte : une vignette de 56 px pour une image, une petite carte (nom, « PDF ») sinon, bord rouge et raison si Tamilya ne sait pas le lire ; une petite croix le retire (au survol sur ordinateur, toujours visible au doigt). Le « + » de la conversation ne range plus rien dans le Drive : le fichier part seulement avec la question suivante (le rangement reste dans Mes documents). Nouvel emplacement `attachments` du `Composer`. L'aperçu de la page d'accueil (sans `onFile`) n'a pas changé. Testé en local sans fenêtre (ordinateur 1440×900 et téléphone 390×844, comptes utilisateur et admin de test) : image et PDF affichés, retrait, envoi avec la question puis vignette effacée, aucune requête vers le Drive.
 
 - **Tout develop envoyé sur main** (`933502b`, 2026-11-26, à la demande de l'utilisateur). Avant, main avait exactement le contenu de develop `98f391d` (vérifié) ; fusion sans conflit, faite dans un dossier à part pour ne pas toucher aux changements en cours de la copie de travail ; main a maintenant exactement le contenu de develop `5b9b3a4` (vérifié).
 
