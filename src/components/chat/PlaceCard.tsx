@@ -11,7 +11,7 @@ import { findTown, type Town } from "@/lib/mayotte/towns";
 import { ISLAND_NAME } from "@/lib/mayotte/place-intent";
 import type { TripResponse } from "@/server/controllers/trip/trip.controller";
 import type { TripPlan } from "@/server/services/trip/plan";
-import { bigIndex, closeBigPage, enterAppFullscreen } from "./app-fullscreen";
+import { closeBigPage, enterAppFullscreen, isBigPage, whenBigOpen } from "./app-fullscreen";
 import { isFreshCard } from "./fresh-card";
 import { TripPanel } from "./TripCard";
 
@@ -110,8 +110,10 @@ export function PlaceCard({ place }: { place: string }) {
   const button = useRef<HTMLButtonElement>(null);
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState(false);
-  // Page en grand de l'app : seulement le panneau, ouvert d'emblée ; la petite carte n'y est pas dessinée.
-  const [big] = useState(() => bigIndex() !== null);
+  // Page en grand de l'app : seulement le panneau, ouvert quand l'app le demande ; la petite carte n'y est pas dessinée.
+  const [big] = useState(isBigPage);
+  const [bigOpen, setBigOpen] = useState(false);
+  useEffect(() => (big ? whenBigOpen(() => setBigOpen(true)) : undefined), [big]);
   usePlaceMap(frame, big ? null : town, big ? false : island, () => setFailed(true));
   // Dans l'app, le bouton (data-grand) ouvre la page en grand ; ancienne app : plein écran d'abord.
   const show = () => void enterAppFullscreen().then(() => setOpen(true));
@@ -133,7 +135,13 @@ export function PlaceCard({ place }: { place: string }) {
   if (!town && !island) return null;
   const title = town?.name ?? ISLAND_NAME;
   const detail = !town ? "Grande-Terre et Petite-Terre" : town.isCommune ? "Commune de Mayotte" : `Village de la commune de ${town.commune}`;
-  if (big) return <PlacePanel town={town} island={island} title={title} detail={detail} onClose={closeBigPage} />;
+  if (big) {
+    const closeBig = () => {
+      setBigOpen(false);
+      closeBigPage();
+    };
+    return bigOpen ? <PlacePanel town={town} island={island} title={title} detail={detail} onClose={closeBig} /> : null;
+  }
   return (
     <>
       <div className="booking-step carte-cadre w-full overflow-hidden">
