@@ -79,14 +79,22 @@ export function MessageThread({ children }: { children: ReactNode }) {
 /**
  * Zone du bas, collée : la barre pour écrire et ce qui l'entoure. Hors accueil
  * (`empty` faux), un fondu vers la teinte de la conversation : les messages passent dessous en douceur.
+ * Ce fondu cacherait les courbes du lagon : il les redessine, calées sur celles de la page (voir globals.css).
  */
 export function ComposerDock({ empty, before, children }: { empty: boolean; /** Posé au-dessus de la zone (bouton « revenir en bas »). */ before?: ReactNode; children: ReactNode }) {
   return (
     <div
       className={`composer-dock sticky bottom-0 z-10 shrink-0 px-2.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:px-6 sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] ${
-        empty ? "pt-1" : "bg-[linear-gradient(to_top,var(--persona-surface,var(--bg))_80%,transparent)] pt-4"
+        empty ? "pt-1" : "pt-4"
       }`}
     >
+      {empty ? null : (
+        <div aria-hidden="true" className="composer-dock-fond">
+          <div>
+            <div className="fond-lagon" />
+          </div>
+        </div>
+      )}
       {before}
       <div className="mx-auto w-full max-w-3xl space-y-2">{children}</div>
     </div>

@@ -161,8 +161,9 @@ html[data-theme="dark"] {
   );
   /* Thème clair : plus discret que le sombre, sinon les lignes roses salissent le blanc. */
   opacity: 0.12;
+  /* Motif calé en bas à gauche : la copie sous la barre pour écrire (.composer-dock-fond) tombe pile dessus. */
   mask:
-    url("/fond/lagon.svg") 50% 0 / 640px repeat,
+    url("/fond/lagon.svg") 0 100% / 640px repeat,
     radial-gradient(ellipse 50% 60% at 50% 46%, transparent 45%, #000 100%) no-repeat,
     linear-gradient(to bottom, transparent 3.5rem, #000 10rem) no-repeat;
   mask-composite: intersect;
@@ -171,6 +172,33 @@ html[data-theme="dark"] {
 .fond-lagon--page {
   position: fixed;
   z-index: 0;
+}
+
+/*
+ * Zone du bas de la conversation (ComposerDock) : le fondu qui cache les messages
+ * passant dessous, et par-dessus une copie des courbes du lagon, de la hauteur de
+ * l'écran et collée en bas, donc alignée sur celles de la page. La copie suit le
+ * même fondu : là où le fond est encore transparent, on voit les lignes d'origine,
+ * sans les doubler.
+ */
+.composer-dock-fond {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+  background: linear-gradient(to top, var(--persona-surface, var(--bg)) 80%, transparent);
+}
+
+.composer-dock-fond > div {
+  position: absolute;
+  inset: 0;
+  mask: linear-gradient(to top, #000 80%, transparent);
+}
+
+.composer-dock-fond .fond-lagon {
+  top: auto;
+  height: 100dvh;
 }
 
 /* Verrou admin : à l'ouverture, les courbes du lagon montent doucement, puis la carte arrive. Une seule fois. */
@@ -265,7 +293,7 @@ html[data-theme="dark"] {
   .fond-lagon {
     opacity: 0.1;
     mask:
-      url("/fond/lagon.svg") 50% 0 / 460px repeat,
+      url("/fond/lagon.svg") 0 100% / 460px repeat,
       radial-gradient(ellipse 80% 42% at 50% 45%, transparent 20%, #000 90%) no-repeat,
       linear-gradient(to bottom, transparent 3.5rem, #000 9rem) no-repeat;
     mask-composite: intersect;
