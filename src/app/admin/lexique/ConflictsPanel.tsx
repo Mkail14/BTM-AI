@@ -3,7 +3,7 @@
 import { Check } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
-import { secondaryButton } from "@/components/admin/form";
+import { inputClass, primaryButton, secondaryButton } from "@/components/admin/form";
 import type { ActionResult } from "@/server/middlewares/admin-auth";
 import { lostOk } from "@/lib/safe-action";
 import { keepBothAction, setTranslationAction } from "./actions";
@@ -12,6 +12,8 @@ import type { ConflictRow } from "./limits";
 function ConflictItem({ row, onResult }: { row: ConflictRow; onResult: (result: ActionResult) => void }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  const [writing, setWriting] = useState(false);
+  const [own, setOwn] = useState("");
 
   const run = (action: () => Promise<ActionResult>) =>
     startTransition(async () => {
@@ -52,7 +54,51 @@ function ConflictItem({ row, onResult }: { row: ConflictRow; onResult: (result: 
         >
           Toutes se disent
         </button>
+        {writing ? null : (
+          <button
+            type="button"
+            onClick={() => setWriting(true)}
+            disabled={pending}
+            title="Aucune n'est juste : écrire la bonne traduction"
+            className="shrink-0 rounded-lg px-2 text-sm text-fg-muted hover:bg-bg-muted hover:text-fg disabled:opacity-50"
+          >
+            Aucune, j&apos;écris la bonne
+          </button>
+        )}
       </div>
+      {writing ? (
+        <form
+          className="mt-2 flex gap-2"
+          onSubmit={(event) => {
+            event.preventDefault();
+            const shimaore = own.trim();
+            if (!shimaore) return;
+            run(() => setTranslationAction({ french: row.french, shimaore, category: row.category }));
+          }}
+        >
+          <input
+            autoFocus
+            value={own}
+            onChange={(event) => setOwn(event.target.value)}
+            placeholder="La bonne traduction en shimaoré"
+            aria-label={`Bonne traduction de « ${row.french} »`}
+            className={inputClass}
+          />
+          <button type="submit" disabled={pending || !own.trim()} className={`${primaryButton} shrink-0`}>
+            Valider
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setWriting(false);
+              setOwn("");
+            }}
+            className="shrink-0 rounded-lg px-2 text-sm text-fg-muted hover:bg-bg-muted hover:text-fg"
+          >
+            Annuler
+          </button>
+        </form>
+      ) : null}
     </li>
   );
 }
