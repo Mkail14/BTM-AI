@@ -10,6 +10,8 @@
 export const ORDER_KEY = "btm-food-order:";
 /** Une commande arrivée et jamais marquée reçue disparaît d'elle-même après ce délai. */
 export const ARRIVED_KEPT_MS = 20 * 60_000;
+/** Commandes en cours en même temps, au plus : la suivante attend qu'une arrive (ou soit annulée). */
+export const MAX_ACTIVE_ORDERS = 4;
 /** Demande d'ouvrir les suivis en cours (detail : code de la commande touchée). */
 export const OPEN_ORDERS_EVENT = "btm-food-open-orders";
 

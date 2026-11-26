@@ -985,7 +985,8 @@ function OrderClock({ order }: { order: PlacedOrder }) {
  * Plusieurs commandes en cours (une notification ou la pastille touchée) : leurs suivis
  * s'ouvrent côte à côte, en cartes qui flottent au-dessus de la conversation floutée.
  * Téléphone : une carte par écran, on glisse pour passer à l'autre (le bord de la
- * suivante dépasse). Ordinateur : toutes visibles, centrées.
+ * suivante dépasse). Ordinateur : deux restent à droite (comme le suivi seul), trois ou
+ * quatre (au plus, MAX_ACTIVE_ORDERS) sont centrées ; trop étroit, on fait défiler.
  */
 function OrderGroup({ orders, focus, onClose }: { orders: PlacedOrder[]; focus: string; onClose: () => void }) {
   const [open, setOpen] = useState(orders);
@@ -1042,17 +1043,26 @@ function OrderGroup({ orders, focus, onClose }: { orders: PlacedOrder[]; focus: 
         onClick={(e) => e.target === e.currentTarget && closeAll()}
         className="scrollbar-none relative flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overscroll-x-contain outline-none"
       >
-        {/* Marges auto : centrées quand tout tient, défilables sinon (sans couper la première). shrink-0 : la rangée garde sa largeur. */}
+        {/* Marges auto : centrées quand tout tient, défilables sinon (sans couper la première). shrink-0 : la rangée garde sa largeur.
+            Ordinateur : deux commandes restent à droite, comme le suivi seul ; trois ou quatre, centrées. */}
         <div
           onClick={(e) => e.target === e.currentTarget && closeAll()}
-          className="m-auto flex w-max shrink-0 items-center gap-3 px-[7vw] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:gap-5 sm:px-6"
+          className={`m-auto flex w-max shrink-0 items-center gap-3 px-[7vw] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:gap-5 ${
+            open.length > 2 ? "sm:px-6" : "sm:mr-0 sm:gap-3 sm:px-3"
+          }`}
         >
           {open.map((order, i) => (
             <div
               key={order.code}
               data-order={order.code}
               style={{ "--i": i } as CSSProperties}
-              className="h-[min(46rem,calc(100dvh-5.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] w-[86vw] shrink-0 snap-center sm:w-[min(25rem,calc((100vw-4rem)/2))]"
+              className={`h-[min(46rem,calc(100dvh-5.5rem-env(safe-area-inset-top)-env(safe-area-inset-bottom)))] w-[86vw] shrink-0 snap-center ${
+                open.length > 3
+                  ? "sm:w-[clamp(19rem,calc((100vw-6.75rem)/4),25rem)]"
+                  : open.length > 2
+                    ? "sm:w-[clamp(19rem,calc((100vw-5.5rem)/3),25rem)]"
+                    : "sm:w-[min(27.5rem,calc((100vw-2.25rem)/2))]"
+              }`}
             >
               <FloatingOrder order={order} onClose={() => setOpen((list) => list.filter((o) => o.code !== order.code))} />
             </div>

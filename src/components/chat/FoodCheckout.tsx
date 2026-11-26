@@ -18,6 +18,7 @@ import { formatEuros } from "@/lib/wallet/limits";
 import { speak } from "@/lib/chat/voice";
 import type { PlacedOrder } from "./OrderTracker";
 import { askPayPin } from "@/lib/wallet/pay-pin";
+import { activeOrders, MAX_ACTIVE_ORDERS } from "@/lib/food/active-orders";
 
 const INPUT_CLASS =
   "mt-1.5 w-full rounded-xl border border-border bg-bg px-3.5 py-3 text-base outline-none transition-colors focus:border-[var(--persona,var(--accent))] focus:ring-2 focus:ring-[color-mix(in_srgb,var(--persona,var(--accent))_20%,transparent)] sm:py-2.5 sm:text-sm";
@@ -243,6 +244,11 @@ export function FoodCheckout({
     if (where === "here" && !spot) return void locate();
     if (!delivery || !hasAddress || zoneError) return where === "home" ? setEditingAddress(true) : undefined;
     if (phoneError) return;
+    // Pas plus de MAX_ACTIVE_ORDERS repas en cours : la suivante attend qu'une arrive (rien n'est encaissé).
+    if (activeOrders().length >= MAX_ACTIVE_ORDERS) {
+      setError(`Tu as déjà ${MAX_ACTIVE_ORDERS} commandes en cours : attends qu'une arrive (ou annules-en une) avant d'en passer une autre.`);
+      return;
+    }
     if (scheduled && !refreshSlots()) {
       setError("Ce créneau est passé : choisis une autre heure.");
       return;
