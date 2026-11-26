@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `a5de3fc` (2026-11-26, develop)**
+**Dernier commit noté : `40f23f8` (2026-11-26, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -142,6 +142,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **2026-11-26** — Page Mayotte (ordinateur) : le titre « Tamilya connectée à Mayotte » et sa phrase descendent au milieu de l'espace libre au-dessus de « À la une » (avant : collés en haut, alignés sur la carte, avec un grand vide en dessous), à la demande de l'utilisateur.  (`40f23f8` sur develop)
 
 - **2026-11-26** — Nos partenaires : les 5 partenaires inventés (Saveurs de l'Île, Traversée Express, Auto-École Horizon, Panier Local, Santé Proche) sont retirés, à la demande de l'utilisateur : ils n'existent pas. Seul GROUPE BTM reste, daté novembre 2026 (avant : septembre 2025). La ligne de la frise continue vide jusqu'au bord, pour la place des prochains. « (Exemples) » retiré sous le titre. (`a5de3fc` sur develop)
 
