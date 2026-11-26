@@ -24,12 +24,15 @@ export default function MayottePage() {
       >
         <div aria-hidden="true" className="landing-aurora" />
 
-        <div className="shrink-0 text-center md:flex-1 md:text-left">
+        {/* Ordinateur : même hauteur que la carte de l'île, le titre en haut et la une en bas, alignés sur ses bords. */}
+        <div className="shrink-0 text-center md:flex md:h-full md:max-h-[640px] md:flex-1 md:flex-col md:text-left">
           <h1 className="landing-rise text-[clamp(1.25rem,6.2vw,2rem)] leading-[1.05] font-[650] tracking-[-0.035em] whitespace-nowrap md:text-[clamp(1.25rem,3vw,2rem)]">
             Tamilya connectée à <MapResetWord />
           </h1>
           <p className="landing-rise mt-3 text-[15px] text-fg-muted [animation-delay:100ms]">Toutes les infos de l&apos;île, au même endroit.</p>
-          <MayotteHeadlines />
+          <div className="md:mt-auto">
+            <MayotteHeadlines />
+          </div>
         </div>
 
         <div className="landing-rise min-h-0 flex-1 overflow-hidden rounded-3xl border border-black/[0.08] shadow-sm [animation-delay:200ms] md:h-full md:max-h-[640px] dark:border-white/[0.1]">

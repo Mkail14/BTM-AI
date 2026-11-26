@@ -110,10 +110,20 @@ export function MayotteHeadlines() {
     window.dispatchEvent(new CustomEvent<MapNewsDetail>(MAP_NEWS_EVENT, { detail: current.place }));
   }, [current]);
 
-  // Photo du titre suivant chargée d'avance : elle apparaît sans attendre.
+  // Toutes les photos chargées d'avance dès que les titres arrivent : chacune apparaît sans attendre.
+  // La suivante d'abord, puis les autres.
   useEffect(() => {
     if (next?.image) new Image().src = next.image;
   }, [next]);
+  useEffect(() => {
+    for (const h of headlines ?? []) {
+      if (!h.image) continue;
+      const img = new Image();
+      img.referrerPolicy = "no-referrer";
+      img.decoding = "async";
+      img.src = h.image;
+    }
+  }, [headlines]);
 
   const advance = useCallback(() => {
     setIndex((i) => (headlines?.length ? (i + 1) % headlines.length : 0));
@@ -199,6 +209,8 @@ export function MayotteHeadlines() {
               alt=""
               referrerPolicy="no-referrer"
               decoding="async"
+              loading="eager"
+              fetchPriority="high"
               onError={() => setBrokenImages((s) => new Set(s).add(current.image!))}
               className="absolute inset-0 size-full object-cover transition-transform duration-[6s] ease-out group-hover:scale-[1.04]"
             />
