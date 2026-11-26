@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `98229b1` (2026-11-26, develop et main)**
+**Dernier commit noté : `d1851df` (2026-11-26, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -141,6 +141,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Carte en grand dans l'app : page préparée à l'avance** (`d1851df` sur develop, `8f99965` sur main, 2026-11-26 ; app : `e1da146` sur feat/coeur-natif). En ligne, la page en grand mettait environ 3 s à s'ouvrir, car elle était chargée seulement au clic. Maintenant la petite carte demande à l'app de la préparer, cachée (`?grand=attente`) ; au clic, l'app la montre et lui dit quel panneau ouvrir (`window.__tamilyaGrand`), même si elle charge encore. Une seule page préparée à la fois. Essai dans Chrome : panneau ouvert en 72 à 94 ms après la demande, fermeture qui prévient l'app. Pas encore vérifié sur la Pad 6 (débranchée).
 
 - **Barre pour écrire plus fine, comme ChatGPT** (`98229b1`, 2026-11-26, develop et main). Demande de l'utilisateur : la barre était épaisse. Même forme qu'avant (le + à part, la barre, le bouton rose plein), mais tout passe de 50-54 px à 44 px de haut, le micro à 32 px, ombre plus légère. Même changement dans l'APK natif (feat/coeur-natif, `a6be0a1`). Les changements avaient d'abord été pris dans une sauvegarde d'une autre personne (`1dc6647`, branche sauvegarde-claude-2026-11-25) : remis seuls sur develop, dans un dossier à part.
 
