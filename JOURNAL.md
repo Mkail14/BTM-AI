@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `e15f52d` (2026-11-26, develop et main)**
+**Dernier commit noté : `ffc77ac` (2026-11-26, develop et main ; `98f391d` de l'autre session reste à noter)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -141,6 +141,10 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Tout develop envoyé sur main** (`ffc77ac`, 2026-11-26, à la demande de l'utilisateur). Fusion sans conflit, main a exactement le contenu de develop `15f6acb` (vérifié). Le commit `98f391d` (menu du compte, autre session) est arrivé sur develop juste après : il n'est pas encore sur main.
+
+- **Plusieurs commandes de repas : suivis côte à côte** (`15f6acb`, 2026-11-26, develop). Avec deux commandes ou plus, toucher leur notification ne faisait rien, et la pastille « Ma commande » ne suivait que la dernière. Maintenant une notification de commande en cours (ou la pastille, qui affiche leur nombre) ouvre tous les suivis côte à côte, en cartes flottantes sur la conversation floutée (`OrderGroup` dans `OrderTracker.tsx`) : centrées sur ordinateur ; sur téléphone une carte par écran, on glisse et elle se cale. La croix d'une carte ferme celle-là ; le fond, la croix du haut ou Échap ferment tout. Une seule commande : le suivi habituel. Chaque commande en cours a son horloge, donc ses notifications. Liste partagée des commandes en cours : `src/lib/food/active-orders.ts`. Testé dans un Chromium sans fenêtre (ordinateur 1440×900 et téléphone 390×844, comptes utilisateur et admin de test).
 
 - **Tout develop envoyé sur main** (`e15f52d`, 2026-11-26, à la demande de l'utilisateur). Main avait le même contenu que develop `dcfc5c8` (vérifié avant) ; il reçoit les courbes du lagon jusqu'en bas de la conversation.
 
