@@ -100,6 +100,13 @@ html[data-theme="dark"] {
   initial-value: #c8295f;
 }
 
+/* Barre latérale repliée : elle flotte sur la page, le contenu garde sa place à côté. */
+@media (min-width: 768px) {
+  body:has([data-rail]) #contenu {
+    padding-left: 76px;
+  }
+}
+
 .persona-surface {
   --persona-surface: color-mix(in srgb, var(--persona) 4%, var(--bg));
   --persona-soft: color-mix(in srgb, var(--persona) 11%, var(--bg));
