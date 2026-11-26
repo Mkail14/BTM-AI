@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `8c299c8` (2026-11-26, develop)**
+**Dernier commit noté : `6a9af72` (2026-11-26, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -142,6 +142,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Page d'accueil reconnue même mal écrite** (`6a9af72`, 2026-11-26, develop, pas encore sur main). L'admin a écrit « la page dacceuil » : le serveur ne cherchait que « accueil » bien écrit, donc Tamilya n'a pas reçu les phrases et a répondu qu'elle ne les voyait pas. `mentionsLanding` accepte maintenant les fautes courantes (dacceuil, acueil, page d'entrée). Test : `tests/admin-prompt.test.ts`.
 
 - **Tamilya reconnaît son administrateur** (`8c299c8` sur develop, `45a43c5` sur main, 2026-11-26). Quand l'admin l'interrogeait sur le shimaoré de l'accueil, elle faisait l'étonnée et inventait une liste. Nouveau bloc ADMIN (hors mode maître) : elle sait que l'admin l'a construite, connaît son fonctionnement (Gemini, consignes assemblées par le serveur, cerveau modifiable dans /admin, shimaoré validé seulement), en parle franchement, lui demande l'aide et les infos qui lui manquent, et lui signale ce qui ne va pas. Quand l'admin parle de l'accueil, la conversation d'exemple affichée lui est donnée pour qu'elle la recopie telle quelle. Test : `tests/admin-prompt.test.ts`.
 
