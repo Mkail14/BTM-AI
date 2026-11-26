@@ -42,7 +42,7 @@ function RotatingHint({ texts }: { texts: readonly string[] }) {
   }, [texts.length]);
   const text = texts[index % texts.length];
   return (
-    <span aria-hidden="true" className="pointer-events-none absolute inset-x-1.5 top-0 overflow-hidden py-1.5 text-base sm:inset-x-2 leading-6 text-fg-muted">
+    <span aria-hidden="true" className="pointer-events-none absolute inset-x-1.5 top-0 overflow-hidden py-1 text-base sm:inset-x-2 leading-6 text-fg-muted">
       <span key={text} className="composer-hint block truncate">
         {text}
       </span>
@@ -128,7 +128,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         }}
         // Une seule ligne fine partout (ton, texte, micro, envoi) ; le champ grandit seulement si on écrit long.
         // Couleurs de la personnalité (--persona) si elles sont définies, sinon celles du site.
-        className="composer flex min-w-0 flex-1 flex-wrap items-end gap-1 rounded-[1.6rem] border p-1.5 pl-1.5 sm:gap-1.5 border-[var(--persona-border,var(--border))] bg-bg shadow-[0_8px_30px_-12px_rgb(0_0_0/0.25)] transition-[border-color,box-shadow] focus-within:border-[var(--persona,var(--accent))] pointer-fine:focus-within:ring-4 pointer-fine:focus-within:ring-[color-mix(in_srgb,var(--persona,var(--accent))_12%,transparent)]"
+        className="composer flex min-w-0 flex-1 flex-wrap items-end gap-1 rounded-[1.6rem] border p-[5px] sm:gap-1.5 border-[var(--persona-border,var(--border))] bg-bg shadow-[0_4px_16px_-10px_rgb(0_0_0/0.2)] transition-[border-color,box-shadow] focus-within:border-[var(--persona,var(--accent))] pointer-fine:focus-within:ring-4 pointer-fine:focus-within:ring-[color-mix(in_srgb,var(--persona,var(--accent))_12%,transparent)]"
       >
         {attachments ? <div className="order-0 flex basis-full gap-2 px-1.5 pt-1.5 pb-1 sm:px-2">{attachments}</div> : null}
         <label htmlFor="composer" className="sr-only">
@@ -147,7 +147,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
             placeholder={disabled && disabledReason ? disabledReason : placeholder}
             aria-describedby="composer-hint"
             aria-invalid={tooLong || undefined}
-            className={`relative block max-h-[160px] w-full resize-none bg-transparent py-1.5 text-base sm:max-h-[220px] sm:py-1.5 leading-6 outline-none placeholder:text-fg-muted disabled:cursor-not-allowed ${
+            className={`relative block max-h-[160px] w-full resize-none bg-transparent py-1 text-base sm:max-h-[220px] leading-6 outline-none placeholder:text-fg-muted disabled:cursor-not-allowed ${
               rotating ? "placeholder:text-transparent" : ""
             }`}
           />
@@ -162,7 +162,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         <div className="order-1 flex shrink-0">{leading}</div>
         {trailing ? <div className="order-4 flex shrink-0 items-center gap-0.5 sm:gap-1.5">{trailing}</div> : null}
       </form>
-      {/* Hauteur de la barre sur une ligne ; ombre teintée de la couleur de Tamilya. */}
+      {/* Même hauteur que la barre sur une ligne (44 px, fine comme ChatGPT) ; ombre teintée de la couleur de Tamilya. */}
       {isStreaming ? (
         <button
           type="button"
@@ -170,7 +170,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           aria-label="Arrêter la génération"
           aria-keyshortcuts="Escape"
           title="Arrêter (Échap)"
-          className="grid size-[50px] shrink-0 place-items-center rounded-full bg-fg text-bg shadow-[0_8px_30px_-12px_rgb(0_0_0/0.35)] transition-transform pointer-coarse:size-[54px] hover:scale-105 active:scale-95"
+          className="grid size-11 shrink-0 place-items-center rounded-full bg-fg text-bg shadow-[0_8px_30px_-12px_rgb(0_0_0/0.35)] transition-transform hover:scale-105 active:scale-95"
         >
           <IconStop />
         </button>
@@ -180,7 +180,7 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
           form="composer-form"
           disabled={!canSend}
           aria-label="Envoyer le message"
-          className="grid size-[50px] shrink-0 place-items-center rounded-full bg-[var(--persona,var(--accent))] text-white shadow-[0_8px_24px_-8px_var(--persona,var(--accent))] transition-[transform,filter,opacity,box-shadow] pointer-coarse:size-[54px] hover:scale-105 hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-[0_8px_30px_-12px_rgb(0_0_0/0.25)] disabled:hover:scale-100 disabled:hover:brightness-100"
+          className="grid size-11 shrink-0 place-items-center rounded-full bg-[var(--persona,var(--accent))] text-white shadow-[0_8px_24px_-8px_var(--persona,var(--accent))] transition-[transform,filter,opacity,box-shadow] hover:scale-105 hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-[0_8px_30px_-12px_rgb(0_0_0/0.25)] disabled:hover:scale-100 disabled:hover:brightness-100"
         >
           <IconSend />
         </button>

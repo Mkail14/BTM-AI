@@ -154,7 +154,7 @@ export function PlusMenu({ disabled = false, onFile }: { disabled?: boolean; onF
         aria-haspopup="menu"
         title="Photo ou document"
         // Bulle ronde à part, de la hauteur de la barre (une ligne) et avec son bord et son ombre : le + flotte à côté.
-        className={`group grid size-[50px] shrink-0 place-items-center rounded-full border bg-bg text-fg-muted shadow-[0_8px_30px_-12px_rgb(0_0_0/0.25)] transition-[transform,color,border-color] pointer-coarse:size-[54px] hover:scale-105 hover:border-[var(--persona,var(--accent))] hover:text-[var(--persona,var(--accent))] active:scale-95 disabled:opacity-45 disabled:hover:scale-100 ${
+        className={`group grid size-11 shrink-0 place-items-center rounded-full border bg-bg text-fg-muted shadow-[0_4px_16px_-10px_rgb(0_0_0/0.2)] transition-[transform,color,border-color] hover:scale-105 hover:border-[var(--persona,var(--accent))] hover:text-[var(--persona,var(--accent))] active:scale-95 disabled:opacity-45 disabled:hover:scale-100 ${
           open ? "border-[var(--persona,var(--accent))] text-[var(--persona,var(--accent))]" : "border-[var(--persona-border,var(--border))]"
         }`}
       >
