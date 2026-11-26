@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `f94a5ff` (2026-11-26, develop)**
+**Dernier commit noté : `a343681` (2026-11-26, develop ; `0902ce8` sur main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -142,6 +142,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Barre de défilement floutée** (`a343681` sur develop, `0902ce8` sur main, 2026-11-26). Demandé par l’utilisateur : sur ordinateur, la barre du navigateur laissait une bande noire à droite. Le navigateur ne sait pas flouter sa propre barre, donc elle est cachée et remplacée par `PageScrollbar` (`src/components/layout/PageScrollbar.tsx`) : bande fixe à droite, même flou que la barre du haut, curseur rose qu’on glisse ou clic pour sauter. Elle suit la page ou le cadre qui défile (`.landing`). Souris seulement, jamais dans l’app Android.
 
 - **Page Mayotte : les unes des journaux à côté de la carte** (`f94a5ff` sur develop, 2026-11-26). Demandé par l’utilisateur : sous « Tamilya connectée à Mayotte », les unes de l’île qui tournent toutes les 5 s, se mettent à jour seules, ouvrent l’article quand on les touche, et la carte qui zoome sur la ville de l’article ; sans les API de Tamilya (l’IA ne sert que quand on touche le globe). Nouvelle route publique `/api/mayotte/une` : 12 titres au plus (4 par journal), lus dans les flux RSS de news.ts, avec photo (`imageOf`) et lieu (`newsPlace` : nom de ville ou village cherché dans le titre, sinon dans le résumé s’il n’en cite qu’un ; sinon toute l’île). `MayotteHeadlines` : un trait par titre qui se remplit, pause au survol, relecture toutes les 10 min. La carte suit par un évènement (`MAP_NEWS_EVENT`), vol court de 2,2 s, et arrête de suivre 45 s après un geste ou une ville montrée par Tamilya. Au passage, news.ts garde les anciens articles d’un journal lent au lieu de les perdre pendant 15 min.
 
