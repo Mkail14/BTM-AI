@@ -24,13 +24,16 @@ export default function MayottePage() {
       >
         <div aria-hidden="true" className="landing-aurora" />
 
-        {/* Ordinateur : même hauteur que la carte de l'île, le titre en haut et la une en bas, alignés sur ses bords. */}
+        {/* Ordinateur : même hauteur que la carte de l'île, la une en bas, alignée sur son bord. */}
         <div className="shrink-0 text-center md:flex md:h-full md:max-h-[640px] md:flex-1 md:flex-col md:text-left">
-          <h1 className="landing-rise text-[clamp(1.25rem,6.2vw,2rem)] leading-[1.05] font-[650] tracking-[-0.035em] whitespace-nowrap md:text-[clamp(1.25rem,3vw,2rem)]">
-            Tamilya connectée à <MapResetWord />
-          </h1>
-          <p className="landing-rise mt-3 text-[15px] text-fg-muted [animation-delay:100ms]">Toutes les infos de l&apos;île, au même endroit.</p>
-          <div className="md:mt-auto">
+          {/* Ordinateur : le titre descend au milieu de l'espace libre, plus près de la une (demande du 2026-11-26). */}
+          <div className="md:my-auto">
+            <h1 className="landing-rise text-[clamp(1.25rem,6.2vw,2rem)] leading-[1.05] font-[650] tracking-[-0.035em] whitespace-nowrap md:text-[clamp(1.25rem,3vw,2rem)]">
+              Tamilya connectée à <MapResetWord />
+            </h1>
+            <p className="landing-rise mt-3 text-[15px] text-fg-muted [animation-delay:100ms]">Toutes les infos de l&apos;île, au même endroit.</p>
+          </div>
+          <div>
             <MayotteHeadlines />
           </div>
         </div>
