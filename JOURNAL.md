@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `63a73d9` (2026-11-26, develop)**
+**Dernier commit noté : `f94a5ff` (2026-11-26, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -142,6 +142,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Page Mayotte : les unes des journaux à côté de la carte** (`f94a5ff` sur develop, 2026-11-26). Demandé par l’utilisateur : sous « Tamilya connectée à Mayotte », les unes de l’île qui tournent toutes les 5 s, se mettent à jour seules, ouvrent l’article quand on les touche, et la carte qui zoome sur la ville de l’article ; sans les API de Tamilya (l’IA ne sert que quand on touche le globe). Nouvelle route publique `/api/mayotte/une` : 12 titres au plus (4 par journal), lus dans les flux RSS de news.ts, avec photo (`imageOf`) et lieu (`newsPlace` : nom de ville ou village cherché dans le titre, sinon dans le résumé s’il n’en cite qu’un ; sinon toute l’île). `MayotteHeadlines` : un trait par titre qui se remplit, pause au survol, relecture toutes les 10 min. La carte suit par un évènement (`MAP_NEWS_EVENT`), vol court de 2,2 s, et arrête de suivre 45 s après un geste ou une ville montrée par Tamilya. Au passage, news.ts garde les anciens articles d’un journal lent au lieu de les perdre pendant 15 min.
 
 - **Tamilya connaît ses fonctions et ses chiffres** (`63a73d9` sur develop, `9694781` sur main, 2026-11-26). Demandé par l'utilisateur : qu'elle soit au courant de chacun de ses systèmes, de leur fonctionnement et de ce qu'ils valent. Pour un admin (hors mode maître), un bloc `adminSelfReport` (`src/server/services/ai/self-report.ts`) lui donne ce qui est toujours là (recherche Wikipédia, cartes, shimaoré, mémoire, Android), chaque fonction de /admin/fonctionnalites (lue dans `FEATURES` : description, allumée pour tous ou non, accord attendu, coût Gemini) et ses chiffres : mots, phrases, règles de grammaire, fiches de connaissances, mots et questions en attente (comptés en 2 s au plus, gardés 1 min). Essai sur la vraie base : 1890 mots, 181 phrases, 15 règles, 1 mot et 104 questions en attente.
 
