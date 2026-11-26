@@ -1477,6 +1477,13 @@ input::-ms-clear {
   animation-delay: 2.3s;
 }
 
+/* Carte en mouvement (MayotteMap) : les ondes du repère s'arrêtent et se cachent, toute la place va au vol. */
+[data-moving] .town-pin::before,
+[data-moving] .town-pin::after {
+  visibility: hidden;
+  animation-play-state: paused;
+}
+
 /*
  * Les « unes » de la page Mayotte (MayotteHeadlines) : un trait par titre, celui affiché se
  * remplit (sa fin passe au titre suivant), le titre et la photo arrivent en fondu.

@@ -59,6 +59,8 @@ export const MAP_RESET_EVENT = "tamilya:carte-mayotte-depart";
 /** Envoyé par les « unes » (MayotteHeadlines) à chaque titre : detail = le lieu de l'article, ou null (toute l'île). */
 export const MAP_NEWS_EVENT = "tamilya:carte-mayotte-une";
 export type MapNewsDetail = NewsPlace | null;
+/** Envoyé avec le lieu du titre suivant : la carte charge ses morceaux d'avance. */
+export const MAP_NEWS_NEXT_EVENT = "tamilya:carte-mayotte-une-suivante";
 
 /** Vol vers le lieu d'une « une » : plus court et moins penché que pour Tamilya (un titre reste 5 s). */
 const NEWS_FLIGHT_MS = 2_200;
@@ -69,6 +71,39 @@ const NEWS_HOLD_MS = 45_000;
 
 const isDark = () => document.documentElement.dataset.theme === "dark";
 const isCalm = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/** Morceaux de carte déjà demandés d'avance (adresse complète). */
+const prefetched = new Set<string>();
+
+/**
+ * Charge d'avance les morceaux de carte autour d'un lieu, au zoom d'arrivée d'une « une »
+ * (3 × 3 autour du lieu, plus le niveau au-dessus pour le lointain incliné). Le navigateur les
+ * garde : au vol suivant, la carte les trouve tout de suite au lieu de les attendre.
+ * Rien en mode économie de données.
+ */
+function prefetchTiles(view: MapLibreMap, point: { lat: number; lng: number }) {
+  if ((navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData) return;
+  const templates = Object.entries(view.getStyle()?.sources ?? {})
+    .filter(([, source]) => source.type === "vector")
+    .map(([id]) => (view.getSource(id) as { tiles?: string[] } | undefined)?.tiles?.[0])
+    .filter((t): t is string => Boolean(t));
+  const rad = (point.lat * Math.PI) / 180;
+  for (const template of templates) {
+    for (const [z, around] of [[Math.floor(NEWS_ZOOM), 1], [Math.floor(NEWS_ZOOM) - 1, 1]] as const) {
+      const n = 2 ** z;
+      const x = Math.floor(((point.lng + 180) / 360) * n);
+      const y = Math.floor(((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2) * n);
+      for (let dx = -around; dx <= around; dx++) {
+        for (let dy = -around; dy <= around; dy++) {
+          const url = template.replace("{z}", String(z)).replace("{x}", String(x + dx)).replace("{y}", String(y + dy));
+          if (prefetched.has(url)) continue;
+          prefetched.add(url);
+          void fetch(url, { priority: "low" } as RequestInit).catch(() => prefetched.delete(url));
+        }
+      }
+    }
+  }
+}
 
 /** Pose (ou remplace) le tracé du trajet sur la carte. */
 function drawRoute(view: MapLibreMap, line: [number, number][]) {
@@ -95,6 +130,8 @@ export function MayotteMap() {
   const newsHeldUntil = useRef(0);
   /** La carte a fini son premier chargement. */
   const loaded = useRef(false);
+  /** Départ du vol d'une « une », attendu deux images (requestAnimationFrame). */
+  const flightFrame = useRef(0);
   /** Lieu de la « une » montré en ce moment ("" : l'île entière), pour ne pas revoler au même endroit. */
   const newsShown = useRef<string | null>(null);
   /** Dernier lieu reçu des « unes », montré dès que la carte est prête. */
@@ -134,6 +171,9 @@ export function MayotteMap() {
       };
       created.on("dragstart", hold);
       created.on("zoomstart", hold);
+      // Pendant que la carte bouge, les ondes du repère s'arrêtent : toute la place va au mouvement.
+      created.on("movestart", () => frame.current?.setAttribute("data-moving", ""));
+      created.on("moveend", () => frame.current?.removeAttribute("data-moving"));
       // Changement de fond (thème) : le tracé du trajet est effacé avec l'ancien fond, on le repose.
       created.on("style.load", () => {
         if (created && routeLine.current) drawRoute(created, routeLine.current);
@@ -239,12 +279,12 @@ export function MayotteMap() {
   );
 
   /** Retour à l'île entière, vue du dessus, sans repère. */
-  const showIsland = useCallback(() => {
+  const showIsland = useCallback((duration = 1_100) => {
     const view = map.current;
     if (!view) return false;
     clearMarks();
     view.stop();
-    view.fitBounds(ISLAND, { padding: 24, pitch: 0, bearing: 0, duration: isCalm() ? 0 : 1_100, essential: true });
+    view.fitBounds(ISLAND, { padding: 24, pitch: 0, bearing: 0, duration: isCalm() ? 0 : duration, essential: true });
     return true;
   }, [clearMarks]);
 
@@ -264,19 +304,39 @@ export function MayotteMap() {
       const key = place?.name ?? "";
       if (newsShown.current === key) return;
       newsShown.current = key;
-      if (!place) {
-        showIsland();
-        return;
-      }
-      clearMarks();
-      addPin(place, true);
-      view.stop();
-      const center: [number, number] = [place.point.lng, place.point.lat];
-      if (isCalm()) view.jumpTo({ center, zoom: NEWS_ZOOM, pitch: 0, bearing: 0 });
-      else view.flyTo({ center, zoom: NEWS_ZOOM, pitch: NEWS_PITCH, bearing: Math.random() * 40 - 20, duration: NEWS_FLIGHT_MS, curve: 1.3, essential: true });
+      // Le vol part deux images plus tard : le nouveau titre et sa photo s'affichent d'abord, sans voler d'image à la carte.
+      cancelAnimationFrame(flightFrame.current);
+      flightFrame.current = requestAnimationFrame(() => {
+        flightFrame.current = requestAnimationFrame(() => {
+          if (!place) {
+            showIsland(NEWS_FLIGHT_MS * 0.8);
+            return;
+          }
+          clearMarks();
+          addPin(place, true);
+          view.stop();
+          const center: [number, number] = [place.point.lng, place.point.lat];
+          if (isCalm()) view.jumpTo({ center, zoom: NEWS_ZOOM, pitch: 0, bearing: 0 });
+          else view.flyTo({ center, zoom: NEWS_ZOOM, pitch: NEWS_PITCH, bearing: Math.random() * 40 - 20, duration: NEWS_FLIGHT_MS, curve: 1.3, essential: true });
+        });
+      });
     },
     [addPin, clearMarks, showIsland],
   );
+
+  // Lieu du titre suivant : ses morceaux de carte sont chargés d'avance, pour que le prochain vol arrive sur une carte déjà dessinée.
+  useEffect(() => {
+    const onNext = (event: Event) => {
+      const place = (event as CustomEvent<MapNewsDetail>).detail;
+      const view = map.current;
+      if (place && view && loaded.current) prefetchTiles(view, place.point);
+    };
+    window.addEventListener(MAP_NEWS_NEXT_EVENT, onNext);
+    return () => {
+      window.removeEventListener(MAP_NEWS_NEXT_EVENT, onNext);
+      cancelAnimationFrame(flightFrame.current);
+    };
+  }, []);
 
   // Carte prête : elle montre tout de suite le lieu de la « une » déjà affichée.
   useEffect(() => {

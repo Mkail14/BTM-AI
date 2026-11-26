@@ -3,7 +3,7 @@
 import { ArrowUpRight, MapPin, Newspaper } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { Headline } from "@/lib/mayotte/news-place";
-import { MAP_NEWS_EVENT, type MapNewsDetail } from "./MayotteMap";
+import { MAP_NEWS_EVENT, MAP_NEWS_NEXT_EVENT, type MapNewsDetail } from "./MayotteMap";
 
 /**
  * Les « unes » des journaux de Mayotte, à côté de la carte (page « Mayotte ») :
@@ -114,6 +114,8 @@ export function MayotteHeadlines() {
   // La suivante d'abord, puis les autres.
   useEffect(() => {
     if (next?.image) new Image().src = next.image;
+    // Et la carte du lieu suivant, pour un vol sans attente.
+    if (next?.place) window.dispatchEvent(new CustomEvent<MapNewsDetail>(MAP_NEWS_NEXT_EVENT, { detail: next.place }));
   }, [next]);
   useEffect(() => {
     for (const h of headlines ?? []) {
