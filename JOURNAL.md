@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `a521f29` (2026-11-26, develop et main)**
+**Dernier commit noté : `e15f52d` (2026-11-26, develop et main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -141,6 +141,10 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Tout develop envoyé sur main** (`e15f52d`, 2026-11-26, à la demande de l'utilisateur). Main avait le même contenu que develop `dcfc5c8` (vérifié avant) ; il reçoit les courbes du lagon jusqu'en bas de la conversation.
+
+- **Conversation : les courbes du lagon descendent jusqu'en bas** (`ac6c577`, 2026-11-26, develop). Les lignes du fond s'arrêtaient net au-dessus de la barre pour écrire : la zone du bas a un fond plein (fondu vers la teinte de la conversation) pour cacher les messages qui passent dessous, et ce fond cachait aussi les lignes. Maintenant ce fond porte une copie des courbes (`.composer-dock-fond` dans `globals.css`, posée par `ComposerDock`), haute comme l'écran et collée en bas ; le motif du lagon est calé en bas à gauche (`0 100%` au lieu de `50% 0`) pour que la copie tombe pile sur les lignes de la page, même avec la barre de défilement. La copie suit le même fondu, donc pas de lignes doublées. Testé en local (compte de test utilisateur) : ordinateur et téléphone, thème sombre et clair, texte qui défile sous la barre. Compte admin pas testé (reconnexion pas aboutie), le changement ne dépend pas du rôle.
 
 - **Tout develop envoyé sur main** (`acef4a1`, 2026-11-26, à la demande de l'utilisateur). Main avait le même contenu que develop `9ef4a98` (vérifié avant) ; il reçoit la recherche internet sans Google et la suite des questions sur l'eau.
 
