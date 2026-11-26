@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `7dec5e7` (2026-11-26, develop)**
+**Dernier commit noté : `61f8c9a` (2026-11-26, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -142,6 +142,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **2026-11-26** — Barre latérale repliée (ordinateur) : la boîte du bas (documents + profil) remonte de 4 px pour que son bas soit au niveau du bas de la barre pour écrire (12 px du bord, avant 8 px), à la demande de l'utilisateur. (`61f8c9a` sur develop)
 
 - **2026-11-26** — Lexique admin, conflits : nouveau bouton « Aucune, j'écris la bonne ». Parfois toutes les traductions proposées sont fausses ; on tape la bonne, elle remplace les autres et le conflit disparaît. (`7dec5e7` sur develop)
 
