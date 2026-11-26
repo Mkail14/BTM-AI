@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `e1fecc6` (2026-11-26, develop)**
+**Dernier commit noté : `a00e71a` (2026-11-26, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -142,6 +142,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Carte Mayotte plus fluide** (`a00e71a` sur develop, 2026-11-26). L’utilisateur voyait le zoom et le dézoom saccader par moments ; il a accepté qu’on arrête les ondes du point rose pendant le mouvement, et demandé une solution qui ne retire rien au reste (même zoom, même inclinaison). Pendant qu’un titre est affiché, la carte charge d’avance les morceaux de carte (tuiles) autour du lieu du titre suivant : 3 × 3 aux niveaux 12 et 11, gardés par le navigateur (OpenFreeMap les garde 10 ans), rien en mode économie de données. Le vol part deux images après le changement de titre, pour que la photo s’affiche d’abord. Le retour sur l’île passe de 1,1 s à 1,8 s pour être plus doux. Pendant le mouvement, les ondes du repère sont cachées (`data-moving`). Vérifié sur le site local : 29 tuiles chargées d’avance et 13 vols en 75 s. La fluidité image par image n’a pas pu être mesurée (navigateur de test sans carte graphique).
 
 - **2026-11-26** — Squelettes de chargement (blocs gris qui clignotent) sur 30 pages de plus : toute l'admin, aide, pages légales, Mayotte, Partenaires, Développeurs, Entreprise, Bienvenue, Voix. Chaque squelette a la forme de sa page, pour que rien ne saute à l'affichage. Les messages « Connexion faible », « Connexion rétablie » et « Pas de connexion » sont retirés à la demande de l'utilisateur (le fichier ConnectionNotice est parti dans `4069e20`). (`e1fecc6`)
 
