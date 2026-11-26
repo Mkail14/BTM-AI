@@ -143,6 +143,8 @@ export function PartnerFrise({ partners }: { partners: readonly Partner[] }) {
             </button>
           </li>
         ))}
+        {/* Peu de partenaires : la ligne continue, vide, à droite. */}
+        <li aria-hidden="true" className="frise-suite min-w-0 flex-1" />
       </ol>
 
       <div className={`mt-[clamp(0.5rem,calc(5vh-1rem),1.5rem)] flex shrink-0 justify-center gap-3 ${edges.start && edges.end ? "invisible" : ""}`}>
