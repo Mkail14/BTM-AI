@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `7f2bfb4` (2026-11-26, develop et main)**
+**Dernier commit noté : `5951ed1` (2026-11-26, develop ; main reste à `7f2bfb4`)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -141,6 +141,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Commandes : 4 repas en cours au plus, et la place des suivis selon leur nombre** (`5951ed1`, 2026-11-26, develop). Demande de l'utilisateur : pas plus de 4 commandes en même temps. Avec 4 en cours, « Payer » (au doigt ou par Tamilya à la voix, qui appuie sur le même bouton) s'arrête avant le code de paiement et explique d'attendre qu'une arrive ou d'en annuler une ; rien n'est envoyé au serveur. Le nombre est `MAX_ACTIVE_ORDERS` (`active-orders.ts`). Vérifié seulement sur l'appareil : il n'y a pas de table des commandes, le serveur ne garde que la dernière dans un cookie (deux appareils pourraient dépasser 4). Sur ordinateur, 2 suivis restent côte à côte collés à droite, comme le suivi seul d'avant, au lieu d'être centrés ; 3 ou 4 sont centrés (les 4 tiennent sur un écran de 1440 px, on fait défiler sur plus étroit). Téléphone inchangé. Testé en local sans fenêtre : positions mesurées pour 2, 3 et 4 commandes ; avec 4, message et aucun envoi ; avec 3, le code de paiement s'ouvre (compte admin de test, la commande de repas n'est pas encore ouverte au compte utilisateur).
 
 - **Menu du compte : le solde reste sur une ligne** (`98f391d`, 2026-11-26, develop et main). Barre latérale repliée, « 111,50 € (démo) » passait sur deux lignes à côté de « Portefeuille » alors qu'il restait de la place : il manquait moins d'un demi-pixel (94,3 px demandés, 93,9 disponibles), le navigateur coupait le texte et le bloc ne gardait que la largeur du plus long morceau. Le montant ne peut plus passer à la ligne (`whitespace-nowrap` dans `AccountMenu.tsx`). Mesuré avec les styles de l'appli : 2 lignes avant, 1 après, toujours dans le cadre.
 
