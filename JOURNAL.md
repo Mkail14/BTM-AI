@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `1c37222` (2026-11-26, develop)**
+**Dernier commit noté : `4069e20` (2026-11-26, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -142,6 +142,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **2026-11-26** — Accueil plus sobre : les 4 cartes d'idées n'ont plus de halo rose ni de flou au survol (ça ne faisait pas pro), la phrase « Je suis Tamilya… » est retirée, et la barre latérale repliée devient deux blocs arrondis qui flottent sur le fond de la page (on voit le fond entre les deux). (`4069e20`)
 
 - **Page Mayotte : la une alignée sur la carte, photos plus rapides** (`1c37222`, 2026-11-26, develop, pas encore poussé). Demande de l'utilisateur (capture avec une ligne rouge) : le bas de la carte « À la une » n'était pas au niveau du bas de la carte de l'île. Sur ordinateur, la colonne de gauche prend maintenant la hauteur de la carte : le titre en haut, la une en bas, mêmes bords (mesuré : 177 px et 817 px des deux côtés). Photos : avant, seule la suivante était chargée d'avance ; maintenant toutes, dès que les titres arrivent, et celle affichée passe en priorité.
 
