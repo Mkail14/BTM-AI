@@ -774,6 +774,21 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
               {voice.error}
             </p>
           ) : null}
+          {/* La petite ligne d'avertissement passe au-dessus de la barre (demande du 2026-11-26). */}
+          {!userId && !anonymousLimitReached && guestSent > 0 ? (
+            <ChatFootnote>
+              Encore {guestLeft} message{guestLeft > 1 ? "s" : ""} sans compte ·{" "}
+              <button
+                type="button"
+                onClick={() => openAuthDialog({ mode: "signup", reason: "Crée ton compte gratuit pour continuer à parler avec Tamilya." })}
+                className="font-semibold text-[var(--persona,var(--accent))] hover:underline"
+              >
+                Créer mon compte gratuit
+              </button>
+            </ChatFootnote>
+          ) : (
+            <ChatFootnote>{CHAT_DISCLAIMER}</ChatFootnote>
+          )}
           {/* Le + (photo ou document, si « documents » est allumé : /admin/fonctionnalites) flotte à gauche de la barre, dans sa propre bulle. */}
           {/* Au repos, la ligne s'aligne sur les cartes et les messages ; dès qu'on écrit, elle s'étire en douceur sur toute la largeur. */}
           <ComposerRow>
@@ -819,20 +834,6 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
               />
             </div>
           </ComposerRow>
-          {!userId && !anonymousLimitReached && guestSent > 0 ? (
-            <ChatFootnote>
-              Encore {guestLeft} message{guestLeft > 1 ? "s" : ""} sans compte ·{" "}
-              <button
-                type="button"
-                onClick={() => openAuthDialog({ mode: "signup", reason: "Crée ton compte gratuit pour continuer à parler avec Tamilya." })}
-                className="font-semibold text-[var(--persona,var(--accent))] hover:underline"
-              >
-                Créer mon compte gratuit
-              </button>
-            </ChatFootnote>
-          ) : (
-            <ChatFootnote>{CHAT_DISCLAIMER}</ChatFootnote>
-          )}
       </ComposerDock>
 
       <p className="sr-only" role="status" aria-live="polite">

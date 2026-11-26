@@ -122,7 +122,7 @@ export function MicButton({ onClick, disabled = false }: { onClick?: () => void;
   );
 }
 
-/** Petite ligne sous la barre pour écrire. */
+/** Petite ligne au-dessus de la barre pour écrire. */
 export function ChatFootnote({ children }: { children: ReactNode }) {
   return <p className="text-center text-[11px] text-fg-muted">{children}</p>;
 }

@@ -296,9 +296,9 @@ export function NotificationBell() {
 
                 {items.length === 0 ? (
                   <div className="px-6 py-12 text-center">
-                    <p className="text-3xl" aria-hidden="true">
+                    <div className="flex justify-center text-3xl text-fg-muted" aria-hidden="true">
                       <Bell size="1em" strokeWidth={1.8} aria-hidden="true" />
-                    </p>
+                    </div>
                     <p className="mt-2 text-sm font-medium">Rien pour l&apos;instant</p>
                     <p className="mt-1 text-xs text-fg-muted">Tes livraisons, paiements et réservations s&apos;afficheront ici.</p>
                   </div>
