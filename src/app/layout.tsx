@@ -4,7 +4,6 @@ import { AuthProvider, type AuthUser } from "@/components/auth/AuthProvider";
 import { BRAND } from "@/components/brand/brand";
 import { SplashReady } from "@/components/brand/SplashReady";
 import { SplashScreen } from "@/components/brand/SplashScreen";
-import { ConnectionNotice } from "@/components/layout/ConnectionNotice";
 import { HelpBubble } from "@/components/help/HelpBubble";
 import { EnvBadge } from "@/components/layout/EnvBadge";
 import { PageScrollbar } from "@/components/layout/PageScrollbar";
@@ -91,7 +90,6 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
           {/* Rond d'aide déplaçable : questions fréquentes, assistant d'aide, e-mail à l'équipe. */}
           <HelpBubble />
         </AuthProvider>
-        <ConnectionNotice />
         <PressHaptics />
         <DialogHost />
         <PayPinHost />

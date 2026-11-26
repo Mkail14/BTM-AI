@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `4069e20` (2026-11-26, develop)**
+**Dernier commit noté : `e1fecc6` (2026-11-26, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -142,6 +142,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **2026-11-26** — Squelettes de chargement (blocs gris qui clignotent) sur 30 pages de plus : toute l'admin, aide, pages légales, Mayotte, Partenaires, Développeurs, Entreprise, Bienvenue, Voix. Chaque squelette a la forme de sa page, pour que rien ne saute à l'affichage. Les messages « Connexion faible », « Connexion rétablie » et « Pas de connexion » sont retirés à la demande de l'utilisateur (le fichier ConnectionNotice est parti dans `4069e20`). (`e1fecc6`)
 
 - **2026-11-26** — Accueil plus sobre : les 4 cartes d'idées n'ont plus de halo rose ni de flou au survol (ça ne faisait pas pro), la phrase « Je suis Tamilya… » est retirée, et la barre latérale repliée devient deux blocs arrondis qui flottent sur le fond de la page (on voit le fond entre les deux). (`4069e20`)
 
