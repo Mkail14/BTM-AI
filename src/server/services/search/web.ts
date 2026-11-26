@@ -80,8 +80,19 @@ async function duckDuckGo(query: string, signal: AbortSignal): Promise<WebResult
   return results;
 }
 
+/** Mots qui n'aident pas la recherche de Wikipédia (elle cherche tous les mots : une phrase entière ne trouve rien). */
+const EMPTY_WORDS = new Set(
+  "qui que quoi quel quelle quels quelles quand comment combien pourquoi est sont c ce cet cette ces le la les l un une des de du d et ou où a au aux en dans sur pour par avec depuis actuel actuelle actuellement aujourd hui maintenant moment s il elle y t tu me moi je on nous vous dis sais connais savoir stp svp tamilya".split(" "),
+);
+
+/** « Qui est le maire de Mamoudzou ? » → « maire Mamoudzou ». */
+export function searchTerms(query: string): string {
+  const words = query.replace(/[?!.,;:«»"()]/g, " ").split(/[\s']+/).filter((w) => w && !EMPTY_WORDS.has(w.toLowerCase()));
+  return words.join(" ") || query;
+}
+
 async function wikipedia(query: string, signal: AbortSignal): Promise<WebResult[]> {
-  const url = `https://fr.wikipedia.org/w/api.php?${new URLSearchParams({ action: "query", list: "search", srsearch: query, srlimit: "3", format: "json", utf8: "1" })}`;
+  const url = `https://fr.wikipedia.org/w/api.php?${new URLSearchParams({ action: "query", list: "search", srsearch: searchTerms(query), srlimit: "3", format: "json", utf8: "1" })}`;
   const response = await fetch(url, { headers: { "User-Agent": BOT_UA }, signal });
   if (!response.ok) throw new Error(`Wikipédia ${response.status}`);
   const json = (await response.json()) as { query?: { search?: { title: string; snippet: string }[] } };
