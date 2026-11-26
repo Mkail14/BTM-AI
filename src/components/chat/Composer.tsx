@@ -16,6 +16,8 @@ type ComposerProps = {
   leading?: ReactNode;
   /** Élément affiché juste avant le bouton d'envoi (micro). */
   trailing?: ReactNode;
+  /** Fichier joint, affiché dans la barre au-dessus du texte (comme Claude). */
+  attachments?: ReactNode;
   /** Texte d'invitation du champ vide. */
   placeholder?: string;
   /** Exemples qui défilent dans le champ vide, à la place du texte fixe (le premier : placeholder). */
@@ -49,7 +51,7 @@ function RotatingHint({ texts }: { texts: readonly string[] }) {
 }
 
 export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Composer(
-  { isStreaming, disabled, disabledReason, onSend, onStop, leading, trailing, placeholder = "Écris à Tamilya…", examples },
+  { isStreaming, disabled, disabledReason, onSend, onStop, leading, trailing, attachments, placeholder = "Écris à Tamilya…", examples },
   ref,
 ) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -126,8 +128,9 @@ export const Composer = forwardRef<ComposerHandle, ComposerProps>(function Compo
         }}
         // Une seule ligne fine partout (ton, texte, micro, envoi) ; le champ grandit seulement si on écrit long.
         // Couleurs de la personnalité (--persona) si elles sont définies, sinon celles du site.
-        className="composer flex min-w-0 flex-1 flex-nowrap items-end gap-1 rounded-[1.6rem] border p-1.5 pl-1.5 sm:gap-1.5 border-[var(--persona-border,var(--border))] bg-bg shadow-[0_8px_30px_-12px_rgb(0_0_0/0.25)] transition-[border-color,box-shadow] focus-within:border-[var(--persona,var(--accent))] pointer-fine:focus-within:ring-4 pointer-fine:focus-within:ring-[color-mix(in_srgb,var(--persona,var(--accent))_12%,transparent)]"
+        className="composer flex min-w-0 flex-1 flex-wrap items-end gap-1 rounded-[1.6rem] border p-1.5 pl-1.5 sm:gap-1.5 border-[var(--persona-border,var(--border))] bg-bg shadow-[0_8px_30px_-12px_rgb(0_0_0/0.25)] transition-[border-color,box-shadow] focus-within:border-[var(--persona,var(--accent))] pointer-fine:focus-within:ring-4 pointer-fine:focus-within:ring-[color-mix(in_srgb,var(--persona,var(--accent))_12%,transparent)]"
       >
+        {attachments ? <div className="order-0 flex basis-full gap-2 px-1.5 pt-1.5 pb-1 sm:px-2">{attachments}</div> : null}
         <label htmlFor="composer" className="sr-only">
           Message à Tamilya
         </label>

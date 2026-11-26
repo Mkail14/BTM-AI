@@ -12,18 +12,17 @@ import type { ChatAttachment } from "@/lib/chat/types";
 /**
  * Le « + » à gauche de la barre de conversation : prendre une photo, ou envoyer un document
  * (une image aussi). Rien d'autre (demande de l'utilisateur, 2026-11-10 : cyclones, attestation
- * et livres en sont sortis). Le fichier est rangé dans le Google Drive de la personne, dans le
- * dossier deviné d'après son nom (Mes documents). Une copie reste jointe à la conversation
- * (onFile) : Tamilya la lit avec la question suivante.
+ * et livres en sont sortis). Dans la conversation (onFile), le fichier est seulement joint à la
+ * question suivante, comme sur Claude : rien n'est rangé dans le Drive sans qu'on le demande
+ * (demande de l'utilisateur, 2026-11-26). Sans onFile (aperçu de l'accueil), il part dans le Drive.
  */
 
-/** Fichier envoyé par le « + » : rangé dans le Drive, et joint à la prochaine question si Tamilya sait le lire. */
+/** Fichier joint par le « + » à la prochaine question, si Tamilya sait le lire. */
 export type SentFile = {
   name: string;
   /** null : format ou poids que Tamilya ne sait pas lire (`unreadable` dit pourquoi). */
   attachment: ChatAttachment | null;
   unreadable: string | null;
-  drive: "sending" | "done" | "not-connected" | string;
 };
 
 const ITEM = "flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm font-medium hover:bg-bg-muted disabled:cursor-progress";
@@ -114,7 +113,7 @@ export function PlusMenu({ disabled = false, onFile }: { disabled?: boolean; onF
     };
   }, [open]);
 
-  /** Photo, scan, image ou PDF : rangé dans le Google Drive de la personne, et joint à la conversation. */
+  /** Photo, scan, image ou PDF : joint à la conversation (onFile), sinon rangé dans le Google Drive de la personne. */
   const send = async (input: HTMLInputElement, photo = false) => {
     const picked = input.files?.[0];
     input.value = "";
@@ -123,12 +122,9 @@ export function PlusMenu({ disabled = false, onFile }: { disabled?: boolean; onF
     setProblem(null);
     setSent(null);
     if (onFile) {
-      // Le menu se ferme : l'étiquette au-dessus de la barre montre que le fichier est dans la conversation.
-      const readable = await readForChat(file);
-      onFile({ name: file.name, ...readable, drive: "sending" });
+      // Le menu se ferme : la vignette dans la barre montre que le fichier est joint.
       setOpen(false);
-      const failure = await uploadToDrive(file, guessDriveFolder(file.name));
-      onFile({ name: file.name, ...readable, drive: failure ? (failure === "not-connected" ? failure : DRIVE_UPLOAD_MESSAGES[failure]) : "done" });
+      onFile({ name: file.name, ...(await readForChat(file)) });
       return;
     }
     setSending(`Envoi de ${file.name}…`);
@@ -182,7 +178,7 @@ export function PlusMenu({ disabled = false, onFile }: { disabled?: boolean; onF
               Prendre une photo
             </Item>
             <Item icon={CloudUpload} onClick={() => picker.current?.click()} disabled={sending !== null}>
-              Envoyer un document ou une image
+              {onFile ? "Joindre une image ou un PDF" : "Envoyer un document ou une image"}
             </Item>
           </div>
           {sending ? (

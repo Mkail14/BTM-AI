@@ -148,7 +148,7 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
 
   // Mode vocal du maître de Tamilya (administrateur) : il lui parle, elle répond à voix haute.
   const sendRef = useRef<(text: string, spoken?: boolean) => void>(() => {});
-  // Photo ou document envoyé par le « + » : affiché au-dessus de la barre, joint à la prochaine question.
+  // Photo ou document joint par le « + » : vignette dans la barre, part avec la prochaine question.
   const [sentFile, setSentFile] = useState<SentFile | null>(null);
   // Message dicté : le serveur le sait, Tamilya répond court, pour être écoutée.
   const legacyVoice = useVoiceConversation((text) => sendRef.current(text, true));
@@ -778,23 +778,22 @@ export function ChatView({ conversationId: initialConversationId, initialMessage
             </p>
           ) : null}
           {/* Le + (photo ou document, si « documents » est allumé : /admin/fonctionnalites) flotte à gauche de la barre, dans sa propre bulle. */}
-          {sentFile ? <SentFileChip file={sentFile} onRemove={() => setSentFile(null)} /> : null}
           {/* Au repos, la ligne s'aligne sur les cartes et les messages ; dès qu'on écrit, elle s'étire en douceur sur toute la largeur. */}
           <ComposerRow>
             {user?.features?.includes("documents") ? (
               <PlusMenu
                 disabled={blocked || !online || isStreaming}
                 onFile={(file) => {
-                  // Fin du rangement dans le Drive : seulement si l'étiquette est toujours là (pas déjà envoyée ou retirée).
-                  setSentFile((current) => (file.drive === "sending" || current?.name === file.name ? file : current));
+                  setSentFile(file);
                   // Le fichier est là : on peut taper la question tout de suite.
-                  if (file.drive === "sending") composerRef.current?.focus();
+                  composerRef.current?.focus();
                 }}
               />
             ) : null}
             <div className="min-w-0 flex-1">
               <Composer
                 ref={composerRef}
+                attachments={sentFile ? <SentFileChip file={sentFile} onRemove={() => setSentFile(null)} /> : null}
                 isStreaming={isStreaming}
                 disabled={blocked || !online}
                 disabledReason={!online ? "Hors ligne" : importing ? "Enregistrement…" : "Conversation terminée"}
