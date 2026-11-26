@@ -115,7 +115,7 @@ export function MicButton({ onClick, disabled = false }: { onClick?: () => void;
       disabled={disabled}
       aria-label="Parler à Tamilya"
       title="Parler à Tamilya"
-      className="grid size-9 shrink-0 place-items-center rounded-full text-fg-muted transition pointer-coarse:size-10 hover:bg-bg-muted hover:text-fg disabled:opacity-45"
+      className="grid size-8 shrink-0 place-items-center rounded-full text-fg-muted transition hover:bg-bg-muted hover:text-fg disabled:opacity-45"
     >
       <IconMic />
     </button>
