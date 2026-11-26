@@ -141,7 +141,7 @@ export function Sidebar({ open, onClose }: { open: boolean; onClose: () => void 
         // Repliée (ordinateur) : deux blocs arrondis qui flottent sur le fond, rien entre les deux.
         data-rail={collapsed ? "" : undefined}
         className={`fixed inset-y-0 left-0 z-40 flex w-72 max-w-[85vw] flex-col overflow-x-hidden border-r border-border bg-bg-subtle transition-[width,translate] duration-200 ease-out md:translate-x-0 ${
-          collapsed ? "md:absolute md:z-30 md:w-[76px] md:border-r-0 md:bg-transparent md:p-2" : "md:static md:z-auto md:w-72"
+          collapsed ? "md:absolute md:z-30 md:w-[76px] md:border-r-0 md:bg-transparent md:p-2 md:pb-3" :"md:static md:z-auto md:w-72"
         } ${open ? "visible translate-x-0" : "invisible -translate-x-full md:visible"}`}
         aria-label="Navigation"
         role={open ? "dialog" : undefined}
