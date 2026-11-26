@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `d1c0044` (2026-11-26, develop)**
+**Dernier commit noté : `8c299c8` (2026-11-26, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -142,6 +142,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Tamilya reconnaît son administrateur** (`8c299c8` sur develop, 2026-11-26). Quand l'admin l'interrogeait sur le shimaoré de l'accueil, elle faisait l'étonnée et inventait une liste. Nouveau bloc ADMIN (hors mode maître) : elle sait que l'admin l'a construite, connaît son fonctionnement (Gemini, consignes assemblées par le serveur, cerveau modifiable dans /admin, shimaoré validé seulement), en parle franchement, lui demande l'aide et les infos qui lui manquent, et lui signale ce qui ne va pas. Quand l'admin parle de l'accueil, la conversation d'exemple affichée lui est donnée pour qu'elle la recopie telle quelle. Test : `tests/admin-prompt.test.ts`.
 
 - **Recherche : DuckDuckGo retiré, Wikipédia seulement** (`d1c0044`, 2026-11-26, develop). Demandé par l'utilisateur après les essais : DuckDuckGo bloque Vercel (403), le relais Cloudflare d'essai `tamilya-search-relay` (créé puis supprimé le même jour) n'a marché qu'environ une fois sur deux en « lite », puis plus du tout ; Mojeek bloque Cloudflare. `web.ts` ne cherche plus que dans Wikipédia (mots utiles seulement) et lit les 3 premiers articles. Voir « Choix techniques ».
 
