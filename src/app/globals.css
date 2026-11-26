@@ -4415,6 +4415,22 @@ body:has([data-voice-touch]) .voice-edge[data-on] {
   right: 50%;
 }
 
+/* Après le dernier partenaire : la ligne continue, vide, jusqu'au bord (la place des suivants). */
+.frise-suite {
+  position: relative;
+}
+
+.frise-suite::before {
+  content: "";
+  position: absolute;
+  top: calc(2.75rem - 1px);
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, #4285f4, #9b72cb, var(--persona, var(--accent)), #ea4335, #fbbc05, #34a853) fixed;
+  opacity: 0.55;
+}
+
 .frise-point {
   position: absolute;
   top: calc(100% + 0.75rem - 7px);
