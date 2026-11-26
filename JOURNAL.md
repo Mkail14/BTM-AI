@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `d2f00aa` (2026-11-25, develop)**
+**Dernier commit noté : `a521f29` (2026-11-26, develop et main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -141,6 +141,10 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Tout develop envoyé sur main** (`acef4a1`, 2026-11-26, à la demande de l'utilisateur). Main avait le même contenu que develop `9ef4a98` (vérifié avant) ; il reçoit la recherche internet sans Google et la suite des questions sur l'eau.
+
+- **Eau : « et à Trévani ? » garde le sujet de l'eau** (`a521f29`, 2026-11-26, develop). Après « ya de l'eau a kawéni ? », la suite « et a trévani ? » ne contient pas le mot « eau » : le serveur n'ouvrait ni le planning SMAE ni la carte, et Tamilya répondait « aucune information, regarde le Facebook de la SMAE ». Maintenant une suite (understand → followUp) d'une question sur l'eau, ou juste après une réponse avec la carte de l'eau, rouvre la carte sur le lieu du nouveau message (`followsWater` dans `src/lib/water/intent.ts`). Testé par les tests automatiques seulement : pas de clé d'IA en local, et la fenêtre Playwright était prise par une autre session.
 
 - **Tamilya cherche sur internet sans Google ni facturation** (`a7f5125`, `516f9ed`, `199ec92`, `bc43889`, `88ccacb`, `09a2779`, `d2f00aa`, 2026-11-25, develop). Les clés Gemini sans facturation refusent la recherche Google, et l'aiguilleur envoie souvent les questions à NVIDIA, qui ne pouvait pas chercher : Tamilya répondait « je ne sais pas ». Ce qui a été fait : moteur du serveur `src/server/services/search/web.ts` (DuckDuckGo en GET, le POST est bloqué ; Wikipédia avec les seuls mots utiles ; lecture des 3 meilleures pages ; résultats gardés 15 min) ; outil `chercher_sur_internet` commun à Gemini et aux API compatibles OpenAI (`search/tool.ts`) ; pour une demande d'information (`web-intent.ts` : qui, quel, prix, horaire, résultat…), le serveur cherche dès l'arrivée du message (4,5 s au plus), parce que le petit NVIDIA oublie son outil avec les longues consignes ; la phrase « pas d'accès à internet » est retirée des règles quand la recherche est permise ; « Je cherche sur internet… » s'affiche pendant l'outil. Mesuré sur dev.tamilya.yt : « président du gouvernement de la Nouvelle-Calédonie » répondu juste avec sources Wikipédia, premier mot côté serveur 2,9 s (avant : « je ne sais pas »). Limite : DuckDuckGo refuse les serveurs de Vercel (403), seul Wikipédia marche en ligne ; piste : passer DuckDuckGo par le relais Cloudflare.
 
