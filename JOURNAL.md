@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `d1851df` (2026-11-26, develop)**
+**Dernier commit noté : `d1c0044` (2026-11-26, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -22,6 +22,7 @@ Comment le tenir :
 | Base de données et comptes | Supabase (Postgres) | Comptes, base et règles de sécurité au même endroit ; pgvector pour la bibliothèque Mayotte | — |
 | IA | Gemini (Google) uniquement | Crédit Gemini payé ; une seule IA à suivre | OpenRouter et toute API de secours, refusés le 2026-11-02 |
 | Gemini bloqué à Mayotte | Relais par le site en ligne (serveur en Irlande) | Google refuse les appels venant de Mayotte ; le relais garde Gemini | Changer d'IA |
+| Recherche sur internet | Wikipédia (API ouverte aux robots), plus Google quand une clé Gemini l'accepte | Gratuit, sans clé, autorisé ; marche depuis Vercel | DuckDuckGo (bloque Vercel, Cloudflare, puis le poste local ; essayé et retiré le 2026-11-26), Mojeek (bloque Cloudflare), Bing (plus d'API publique depuis 2025), Google en direct (bloque les robots). Piste payante ou gratuite avec compte : Tavily (1 000 recherches par mois), pas encore décidé |
 | Vocal | Gemini Live (parole à parole) | Première voix en 1 à 2 s au lieu de 4 à 6 s avec texte puis voix | Dictée Chrome + TTS phrase par phrase (gardé en secours) |
 | Bouclier anti-script | CSP souple (scripts du site et de Google seulement, pas de plugin, pas de cadre étranger) | Bloque les scripts venus d'ailleurs sans risquer la voix, les cartes ni la connexion Google | CSP stricte à « nonce » : plus sûre, mais pages fixes et moteur de voix à revoir ; remise à plus tard |
 | Relais vocal | Cloudflare Worker en Durable Object | Vercel ne tient pas les connexions WebSocket ; le Worker simple était coupé après 5 à 9 s (limite de calcul gratuite), le Durable Object non | Serveur payant dédié |
@@ -141,6 +142,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Recherche : DuckDuckGo retiré, Wikipédia seulement** (`d1c0044`, 2026-11-26, develop). Demandé par l'utilisateur après les essais : DuckDuckGo bloque Vercel (403), le relais Cloudflare d'essai `tamilya-search-relay` (créé puis supprimé le même jour) n'a marché qu'environ une fois sur deux en « lite », puis plus du tout ; Mojeek bloque Cloudflare. `web.ts` ne cherche plus que dans Wikipédia (mots utiles seulement) et lit les 3 premiers articles. Voir « Choix techniques ».
 
 - **Carte en grand dans l'app : page préparée à l'avance** (`d1851df` sur develop, `8f99965` sur main, 2026-11-26 ; app : `e1da146` sur feat/coeur-natif). En ligne, la page en grand mettait environ 3 s à s'ouvrir, car elle était chargée seulement au clic. Maintenant la petite carte demande à l'app de la préparer, cachée (`?grand=attente`) ; au clic, l'app la montre et lui dit quel panneau ouvrir (`window.__tamilyaGrand`), même si elle charge encore. Une seule page préparée à la fois. Essai dans Chrome : panneau ouvert en 72 à 94 ms après la demande, fermeture qui prévient l'app. Pas encore vérifié sur la Pad 6 (débranchée).
 
