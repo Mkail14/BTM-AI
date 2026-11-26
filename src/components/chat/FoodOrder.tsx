@@ -87,7 +87,8 @@ function DishPicture({ dish, className = "" }: { dish: Dish; className?: string 
       <div className={`relative overflow-hidden ${className}`}>
         {/* eslint-disable-next-line @next/next/no-img-element -- petite vignette locale, déjà compressée. */}
         <img src={dish.illustration} alt="" loading="lazy" className="size-full object-cover" />
-        <span className="absolute bottom-1 left-1 rounded bg-black/55 px-1 text-[9px] leading-tight text-white">Illustration</span>
+        {/* « ! » (prioritaire) : la liste des restaurants grossit les span (pour l'emoji), l'étiquette doit rester petite. */}
+        <span className="absolute bottom-1 left-1 rounded bg-black/55 px-1 text-[9px]! leading-tight! text-white">Illustration</span>
       </div>
     );
   }
