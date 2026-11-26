@@ -16,6 +16,8 @@ export type NewsItem = {
   summary: string;
   /** Début du texte complet, quand le journal le publie (Mayotte Hebdo, L'info Kwézi) : pour le journal parlé. */
   body?: string;
+  /** Photo de l'article, quand le flux en donne une (page « Mayotte »). */
+  image?: string;
 };
 
 /** Texte complet gardé par article (assez pour raconter l'article en détail). */
@@ -44,6 +46,20 @@ function clean(raw: string): string {
 
 const tag = (item: string, name: string) => item.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)</${name}>`))?.[1] ?? "";
 
+/** Photo de l'article : celle du flux (media:content, enclosure), sinon la première image du texte (pas les icônes .svg). */
+export function imageOf(item: string): string | undefined {
+  const declared = [...item.matchAll(/<(?:media:content|media:thumbnail|enclosure)\b[^>]*>/g)]
+    .map(([m]) => m)
+    .filter((m) => !/\b(?:medium|type)="(?:video|audio)/.test(m))
+    .map((m) => m.match(/\burl="([^"]+)"/)?.[1]);
+  const inText = [...item.matchAll(/(?:<|&lt;)img\b[^>]*?\bsrc=(?:"|&quot;)(.*?)(?:"|&quot;)/g)].map(([, src]) => src);
+  for (const raw of [...declared, ...inText]) {
+    const url = raw?.replace(/&amp;/g, "&").trim();
+    if (url && /^https:\/\//.test(url) && !/\.(?:svg|gif|mp4|mp3)(?:\?|$)/i.test(url)) return url;
+  }
+  return undefined;
+}
+
 /** Lecture minimale d'un flux RSS : titre, lien, date, résumé et, s'il est publié, début du texte complet. */
 export function parseRss(xml: string, source: string): NewsItem[] {
   return [...xml.matchAll(/<item[\s>][\s\S]*?<\/item>/g)].flatMap(([item]) => {
@@ -51,6 +67,7 @@ export function parseRss(xml: string, source: string): NewsItem[] {
     const link = clean(tag(item, "link"));
     if (!title || !/^https?:\/\//.test(link)) return [];
     const date = new Date(clean(tag(item, "pubDate")));
+    const image = imageOf(item);
     return [
       {
         source,
@@ -59,6 +76,7 @@ export function parseRss(xml: string, source: string): NewsItem[] {
         date: Number.isNaN(date.getTime()) ? null : date.toISOString(),
         summary: clean(tag(item, "description")).slice(0, 280),
         ...(tag(item, "content:encoded") ? { body: clean(tag(item, "content:encoded")).slice(0, BODY_CHARS) } : {}),
+        ...(image ? { image } : {}),
       },
     ];
   });
@@ -80,10 +98,11 @@ async function readFeed(source: (typeof NEWS_SOURCES)[number]): Promise<NewsItem
 export async function getMayotteNews({ fresh = false } = {}): Promise<NewsItem[]> {
   if (!fresh && cache && Date.now() - cache.at < CACHE_MS) return cache.items;
   const results = await Promise.allSettled(NEWS_SOURCES.map(readFeed));
-  const items = results.flatMap((result) => {
+  const items = results.flatMap((result, i) => {
     if (result.status === "fulfilled") return result.value;
     console.error("[actu] Flux illisible", result.reason);
-    return [];
+    // Journal lent ou en panne cette fois : ses articles déjà lus restent.
+    return cache?.items.filter((item) => item.source === NEWS_SOURCES[i].name) ?? [];
   });
   items.sort((a, b) => (b.date ?? "").localeCompare(a.date ?? ""));
   // Un échec complet n'est pas mis en cache : on réessaie au message suivant, en gardant les anciens articles.
