@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `a343681` (2026-11-26, develop ; `0902ce8` sur main)**
+**Dernier commit noté : `1c37222` (2026-11-26, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -142,6 +142,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **Page Mayotte : la une alignée sur la carte, photos plus rapides** (`1c37222`, 2026-11-26, develop, pas encore poussé). Demande de l'utilisateur (capture avec une ligne rouge) : le bas de la carte « À la une » n'était pas au niveau du bas de la carte de l'île. Sur ordinateur, la colonne de gauche prend maintenant la hauteur de la carte : le titre en haut, la une en bas, mêmes bords (mesuré : 177 px et 817 px des deux côtés). Photos : avant, seule la suivante était chargée d'avance ; maintenant toutes, dès que les titres arrivent, et celle affichée passe en priorité.
 
 - **Barre de défilement floutée** (`a343681` sur develop, `0902ce8` sur main, 2026-11-26). Demandé par l’utilisateur : sur ordinateur, la barre du navigateur laissait une bande noire à droite. Le navigateur ne sait pas flouter sa propre barre, donc elle est cachée et remplacée par `PageScrollbar` (`src/components/layout/PageScrollbar.tsx`) : bande fixe à droite, même flou que la barre du haut, curseur rose qu’on glisse ou clic pour sauter. Elle suit la page ou le cadre qui défile (`.landing`). Souris seulement, jamais dans l’app Android.
 
