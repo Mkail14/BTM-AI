@@ -15,3 +15,20 @@ describe("Tamilya et son administrateur", () => {
     assert.doesNotMatch(buildSystemPrompt(undefined, { admin: true, teacher: true }), /TON ADMINISTRATEUR/);
   });
 });
+
+describe("L'admin parle de la page d'accueil", () => {
+  it("reconnu même mal écrit", async () => {
+    const { mentionsLanding } = await import("@/lib/site/landing-demo-script");
+    for (const text of ["la page d'accueil", "reeccris le phrases ue tu expose a la page dacceuil", "l'acueil", "la page d'entrée"]) assert.ok(mentionsLanding(text), text);
+    for (const text of ["bonjour", "un recueil de poèmes", "c'est ton systeme"]) assert.ok(!mentionsLanding(text), text);
+  });
+});
+
+describe("Tamilya connaît ses fonctions", () => {
+  it("le bloc est donné à l'admin, jamais à un client ni en mode maître", () => {
+    const systems = "TES FONCTIONS ET TES CHIFFRES (essai)";
+    assert.match(buildSystemPrompt(undefined, { admin: true, adminSystems: systems }), /TES FONCTIONS ET TES CHIFFRES/);
+    assert.doesNotMatch(buildSystemPrompt(undefined, { adminSystems: systems }), /TES FONCTIONS ET TES CHIFFRES/);
+    assert.doesNotMatch(buildSystemPrompt(undefined, { admin: true, teacher: true, adminSystems: systems }), /TES FONCTIONS ET TES CHIFFRES/);
+  });
+});
