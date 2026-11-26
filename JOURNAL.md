@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `eb084ec` (2026-11-26, develop)**
+**Dernier commit noté : `a5de3fc` (2026-11-26, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -142,6 +142,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **2026-11-26** — Nos partenaires : les 5 partenaires inventés (Saveurs de l'Île, Traversée Express, Auto-École Horizon, Panier Local, Santé Proche) sont retirés, à la demande de l'utilisateur : ils n'existent pas. Seul GROUPE BTM reste, daté novembre 2026 (avant : septembre 2025). La ligne de la frise continue vide jusqu'au bord, pour la place des prochains. « (Exemples) » retiré sous le titre. (`a5de3fc` sur develop)
 
 - **2026-11-26** — Livraison, liste « … près de toi » : l'étiquette « Illustration » des photos d'exemple s'affichait en géant (« tio n » sur la photo de Tasty Snack), parce que la liste grossit les textes de la vignette pour l'emoji. Elle reste maintenant petite dans le coin. (`eb084ec` sur develop, envoyé sur main)
 
