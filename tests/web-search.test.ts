@@ -2,27 +2,20 @@ import assert from "node:assert/strict";
 import { afterEach, describe, it, mock } from "node:test";
 import { createProvider } from "../src/server/services/ai";
 import type { AIConfig } from "@/lib/ai/config";
-import { pageText, parseDuckDuckGo, searchTerms } from "../src/server/services/search/web";
+import { pageText, searchTerms } from "../src/server/services/search/web";
 import { withoutNoInternetRule } from "../src/lib/ai/system-prompt";
 
-const DDG_HTML = `
-<div class="result results_links results_links_deep result--ad"><a class="result__a" href="https://duckduckgo.com/y.js?ad=1">Annonce</a></div>
-<div class="result results_links results_links_deep web-result">
-  <a rel="nofollow" class="result__a" href="https://gouv.nc/le-president">Le <b>président</b> du gouvernement</a>
-  <a class="result__snippet" href="https://gouv.nc/le-president">Il dirige l&#x27;administration de la <b>Nouvelle-Calédonie</b>.</a>
-</div>
-<div class="result results_links results_links_deep web-result">
-  <a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fexemple.fr%2Fpage&amp;rut=x">Exemple</a>
-</div>`;
+const WIKI_TITLE = "Président du gouvernement de la Nouvelle-Calédonie";
+const WIKI_URL = `https://fr.wikipedia.org/wiki/${encodeURIComponent(WIKI_TITLE.replace(/ /g, "_"))}`;
+const WIKI_SOURCE = { url: WIKI_URL, title: `${WIKI_TITLE} — Wikipédia` };
 
+/** Faux Wikipédia : la recherche trouve un article, la page de l'article donne la réponse. */
+function fakeWikipedia(url: string): Response | null {
+  if (url.includes("wikipedia.org/w/api.php")) return Response.json({ query: { search: [{ title: WIKI_TITLE, snippet: "Le <b>président</b> du gouvernement" }] } });
+  if (url.startsWith(WIKI_URL)) return new Response(`<article><p>${"Le président est Jean Exemple, élu en juillet 2026. ".repeat(10)}</p></article>`, { headers: { "content-type": "text/html" } });
+  return null;
+}
 describe("Recherche sans Google", () => {
-  it("lit les résultats de DuckDuckGo, sans les annonces", () => {
-    assert.deepEqual(parseDuckDuckGo(DDG_HTML), [
-      { title: "Le président du gouvernement", url: "https://gouv.nc/le-president", snippet: "Il dirige l'administration de la Nouvelle-Calédonie." },
-      { title: "Exemple", url: "https://exemple.fr/page", snippet: "" },
-    ]);
-  });
-
   it("retire « pas d'accès à internet » des règles quand la recherche est permise", () => {
     assert.equal(
       withoutNoInternetRule("Limites : tu n'as pas accès à internet ni à des données en temps réel. Si tu n'es pas sûre, dis-le.\nAutre règle."),
@@ -61,10 +54,8 @@ describe("NVIDIA (API compatible OpenAI) : Tamilya cherche avec l'outil", () => 
   it("assemble l'appel reçu en morceaux, cherche, puis répond avec les sources", async () => {
     const bodies: { tools?: unknown[]; tool_choice?: string; messages: Record<string, unknown>[] }[] = [];
     mock.method(globalThis, "fetch", async (url: string, init?: RequestInit) => {
-      if (url.includes("html.duckduckgo.com")) return new Response(DDG_HTML);
-      if (url.includes("wikipedia.org")) return Response.json({ query: { search: [] } });
-      if (url.startsWith("https://gouv.nc")) return new Response(`<article><p>${"Le président est Jean Exemple, élu en juillet 2026. ".repeat(10)}</p></article>`, { headers: { "content-type": "text/html" } });
-      if (url.startsWith("https://exemple.fr")) return new Response("introuvable", { status: 404 });
+      const web = fakeWikipedia(url);
+      if (web) return web;
       const body = JSON.parse(init!.body as string);
       bodies.push(body);
       const events =
@@ -91,7 +82,7 @@ describe("NVIDIA (API compatible OpenAI) : Tamilya cherche avec l'outil", () => 
     assert.deepEqual(chunks, [
       { type: "searching", query: "président Nouvelle-Calédonie" },
       { type: "text", text: "C'est Jean Exemple." },
-      { type: "sources", sources: [{ url: "https://gouv.nc/le-president", title: "Le président du gouvernement" }] },
+      { type: "sources", sources: [WIKI_SOURCE] },
       { type: "finish", reason: "stop" },
     ]);
     assert.equal(bodies.length, 2);
@@ -121,10 +112,8 @@ describe("Gemini : recherche Google refusée, Tamilya cherche elle-même", () =>
   it("appelle l'outil, le serveur cherche, puis elle répond avec les sources", async () => {
     const bodies: { tools?: unknown[]; contents: unknown[] }[] = [];
     mock.method(globalThis, "fetch", async (url: string, init?: RequestInit) => {
-      if (url.includes("html.duckduckgo.com")) return new Response(DDG_HTML);
-      if (url.includes("wikipedia.org")) return Response.json({ query: { search: [] } });
-      if (url.startsWith("https://gouv.nc")) return new Response(`<article><p>${"Le président est Jean Exemple, élu en juillet 2026. ".repeat(10)}</p></article>`, { headers: { "content-type": "text/html" } });
-      if (url.startsWith("https://exemple.fr")) return new Response("introuvable", { status: 404 });
+      const web = fakeWikipedia(url);
+      if (web) return web;
       const body = JSON.parse(init!.body as string);
       bodies.push(body);
       if (body.tools?.[0]?.googleSearch) return Response.json({ error: { message: "Search grounding is not available" } }, { status: 429 });
@@ -149,7 +138,7 @@ describe("Gemini : recherche Google refusée, Tamilya cherche elle-même", () =>
     assert.deepEqual(chunks, [
       { type: "searching", query: "président gouvernement Nouvelle-Calédonie" },
       { type: "text", text: "C'est Jean Exemple." },
-      { type: "sources", sources: [{ url: "https://gouv.nc/le-president", title: "Le président du gouvernement" }] },
+      { type: "sources", sources: [WIKI_SOURCE] },
       { type: "finish", reason: "stop" },
     ]);
     // Dernier envoi : l'appel de l'outil (avec sa signature) puis les résultats, lus dans la page.
