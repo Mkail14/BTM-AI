@@ -3,7 +3,8 @@ import { describe, it } from "node:test";
 import { mayotteTime, readPlanning, sectorNow, type DayCell, type WaterPlanning } from "@/lib/water/schedule";
 import { buildWaterMap, namedSpots, waterSummary } from "@/lib/water/map";
 import { findZone } from "@/lib/water/zones";
-import { detectWater } from "@/lib/water/intent";
+import { detectWater, followsWater } from "@/lib/water/intent";
+import { understand } from "@/lib/ai/understanding";
 
 /** Lieux du planning officiel de la SMAE du 02 au 22/11/2026, recopiés de son image. */
 const SECTORS = {
@@ -129,4 +130,27 @@ describe("tours d'eau : questions reconnues", () => {
   for (const q of ["je veux boire de l'eau", "une bouteille d'eau coûte combien", "l'eau de coco c'est bon ?", "il y a un cyclone ?"]) {
     it(`non : ${q}`, () => assert.equal(detectWater(q), false));
   }
+});
+
+describe("tours d'eau : suite d'une question sur l'eau", () => {
+  // 2026-11-26 : « et a trévani ? » après l'eau à Kawéni → « aucune information, regarde le Facebook de la SMAE ».
+  it("« et à Trévani ? » après « ya de l'eau a kawéni ? » : toujours l'eau", () => {
+    const follows = understand("et a trévani ?", [
+      { role: "user", content: "ya de l'eau a kawéni ?" },
+      { role: "assistant", content: "Pas d'eau à Kawéni village.\n\n```carte-eau\nKawéni village\n```" },
+    ]);
+    assert.equal(follows.followUp, true);
+    assert.equal(followsWater(follows.previousAsks[0]), true);
+  });
+  it("la carte de l'eau dans la dernière réponse suffit", () => {
+    assert.equal(followsWater("le planning ?", "Voici.\n\n```carte-eau\n\n```"), true);
+  });
+  it("pas une suite, ou une suite d'autre chose : non", () => {
+    assert.equal(followsWater(undefined, "```carte-eau\n\n```"), false);
+    assert.equal(followsWater("il y a un cyclone ?", "Rien en vue."), false);
+  });
+  it("le lieu de la suite est retrouvé sur la carte", () => {
+    const map = buildWaterMap(planning, [], at("2026-11-03", 12));
+    assert.ok(namedSpots(map, "et a trévani ?").some((s) => s.name.startsWith("Trévani")));
+  });
 });

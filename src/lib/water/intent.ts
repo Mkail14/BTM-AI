@@ -28,3 +28,12 @@ export function detectWater(message: string): boolean {
   if (SURE.test(text)) return true;
   return WATER.test(text) && ASK.test(text) && !OTHER.test(text);
 }
+
+/**
+ * Suite d'une question sur l'eau (« et à Trévani ? ») : la demande d'avant parlait de l'eau,
+ * ou la carte de l'eau était dans la dernière réponse. `previousAsk` : présent seulement quand
+ * le message est une suite (understand → followUp).
+ */
+export function followsWater(previousAsk: string | undefined, lastReply = ""): boolean {
+  return previousAsk !== undefined && (detectWater(previousAsk) || lastReply.includes("```" + WATER_BLOCK));
+}

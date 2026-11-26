@@ -8,7 +8,7 @@ import { CYCLONE_BLOCK, cycloneBlock, cycloneZoneFor, detectCyclone } from "@/li
 import { ISLAND_FACTS, PLACE_BLOCK, detectPlace, placeBlock } from "@/lib/mayotte/place-intent";
 import { describeTown } from "@/lib/mayotte/towns";
 import { communePopulation } from "@/server/services/live/communes";
-import { WATER_BLOCK, detectWater, waterBlock } from "@/lib/water/intent";
+import { WATER_BLOCK, detectWater, followsWater, waterBlock } from "@/lib/water/intent";
 import { waterContext } from "@/server/services/water/context";
 import { detectJobs, fixJobsSpec, JOBS_BLOCK, jobsBlock, jobsSpecOf, jobsTownFor, matchJobs } from "@/lib/emploi/intent";
 import { getMayotteJobs, jobsSources } from "@/server/services/live/jobs";
@@ -525,7 +525,15 @@ export async function POST(request: NextRequest) {
   // Cyclones demandés (« il y a un cyclone ? ») : la carte des cyclones s'ouvre à coup sûr, sur le monde si la personne parle des autres.
   const cyclone = !body.voice && features.includes("cyclone") && detectCyclone(body.message) ? cycloneZoneFor(body.message) : null;
   // Eau courante demandée (« y a de l'eau à Koungou ? ») : la carte de l'eau s'ouvre à coup sûr (planning officiel de la SMAE).
-  const water = !body.voice && features.includes("eau") && detectWater(body.message) ? await waterContext(body.message).catch(() => null) : null;
+  // Suite d'une question sur l'eau (« et à Trévani ? ») : même carte, sur le lieu de ce message.
+  // 2026-11-26 : « et à trévani ? » juste après l'eau à Kawéni → « aucune information, regarde le Facebook de la SMAE ».
+  const lastReply = [...history].reverse().find((turn) => turn.role === "assistant")?.content ?? "";
+  const water =
+    !body.voice && features.includes("eau") && (detectWater(body.message) || followsWater(follows, lastReply))
+      ? await waterContext(body.message)
+          .then(async (found) => (found.place || !follows ? found : waterContext(`${body.message} ${follows}`)))
+          .catch(() => null)
+      : null;
   // Offres d'emploi demandées (« montre-moi les offres », « qui recrute à Koungou ? ») : la liste s'ouvre à coup sûr,
   // avec les sites lus (Emploi Territorial toujours, France Travail quand l'accès est accordé).
   // Les offres elles-mêmes (gardées 30 min, lues en 3 s au plus) : Tamilya sait ce qui existe vraiment, et le bloc
