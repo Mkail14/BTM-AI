@@ -132,7 +132,8 @@ export function AccountMenu({
             <Link prefetch={false} href="/portefeuille" role="menuitem" onClick={close} className={`${itemClass} max-md:hidden`}>
               <IconWallet /> Portefeuille
               {balance !== null ? (
-                <span className="ml-auto text-xs font-semibold text-fg-muted tabular-nums">
+                // Sur une ligne : à un demi-pixel près, « 111,50 € (démo) » passait sur deux lignes.
+                <span className="ml-auto text-xs font-semibold whitespace-nowrap text-fg-muted tabular-nums">
                   {formatEuros(balance.cents)}
                   {balance.demo ? " (démo)" : ""}
                 </span>
