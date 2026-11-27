@@ -17,6 +17,12 @@ const NAV_LINKS = [
   { href: "/mayotte", label: "Mayotte", hide: "" },
 ] as const;
 
+/** Panneau qui s'ouvre au survol de « Tamilya » (ordinateur) ; sous-lignes du menu ☰ (téléphone). */
+const TAMILYA_LINKS = [
+  { href: "/tamilya-connect", label: "Tamilya Connect" },
+  { href: "/tamilya-game", label: "Tamilya Game" },
+] as const;
+
 /** Sur le site, ces liens sont dans le pied de page ; l'application n'en a pas. */
 const APP_LINKS = [
   { href: "/aide", label: "Aide" },
@@ -31,7 +37,17 @@ const APP_LINKS = [
  */
 const goesHome = (href: string) => href.startsWith("#") || href === "/" || href.startsWith("/#");
 
-function NavLink({ href, ...props }: { href: string; className: string; onClick?: () => void; "aria-label"?: string; children: ReactNode }) {
+type NavLinkProps = {
+  href: string;
+  className: string;
+  onClick?: () => void;
+  onMouseEnter?: () => void;
+  onFocus?: () => void;
+  "aria-label"?: string;
+  children: ReactNode;
+};
+
+function NavLink({ href, ...props }: NavLinkProps) {
   return goesHome(href) ? <a href={href} {...props} /> : <Link href={href} {...props} />;
 }
 
@@ -46,6 +62,8 @@ function NavLink({ href, ...props }: { href: string; className: string; onClick?
 export function LandingNav({ scrolled = false, onHome }: { scrolled?: boolean; onHome?: () => void }) {
   const { user, openAuthDialog } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
+  // Panneau Tamilya (ordinateur) : ouvert au survol ou au clavier, fermé en quittant la barre.
+  const [subOpen, setSubOpen] = useState(false);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
   // Menu ☰ du téléphone : le bouton retour le ferme au lieu de quitter la page.
   const dismissMenu = useBackToClose(menuOpen, closeMenu, "(max-width: 767px)");
@@ -58,6 +76,13 @@ export function LandingNav({ scrolled = false, onHome }: { scrolled?: boolean; o
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [menuOpen, dismissMenu]);
 
+  useEffect(() => {
+    if (!subOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => event.key === "Escape" && setSubOpen(false);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [subOpen]);
+
   // Sur l'accueil, « Tamilya » descend à sa section sans recharger la page.
   const linkHref = (href: string) => (onHome && href.startsWith("/#") ? href.slice(1) : href);
   const logo = <BrandLogo size="sm" className="text-[#1d1d1f]! dark:text-[#f5f5f7]!" />;
@@ -66,9 +91,13 @@ export function LandingNav({ scrolled = false, onHome }: { scrolled?: boolean; o
     "app-hide btn-rose btn-rose--lagon h-10 rounded-full border-y-4 border-transparent bg-clip-padding px-3.5 font-medium whitespace-nowrap md:h-7 md:border-y-0";
 
   return (
+    <>
     <header
       data-scrolled={scrolled || undefined}
-      className="landing-nav sticky top-0 z-20 border-b border-black/[0.06] bg-[rgb(255_255_255/0.5)] pt-[env(safe-area-inset-top)] text-[#1d1d1f] backdrop-blur-2xl backdrop-saturate-[1.8] transition-colors data-[scrolled]:bg-[rgb(255_255_255/0.58)] dark:border-white/[0.08] dark:bg-[rgb(58_58_60/0.62)] dark:text-[#e8e8ed] dark:data-[scrolled]:bg-[rgb(58_58_60/0.72)]"
+      data-sub={subOpen || undefined}
+      onMouseLeave={() => setSubOpen(false)}
+      onBlur={(event) => !event.currentTarget.contains(event.relatedTarget) && setSubOpen(false)}
+      className="landing-nav sticky top-0 z-30 border-b border-black/[0.06] bg-[rgb(255_255_255/0.5)] pt-[env(safe-area-inset-top)] text-[#1d1d1f] backdrop-blur-2xl backdrop-saturate-[1.8] transition-colors duration-300 data-[scrolled]:bg-[rgb(255_255_255/0.58)] data-[sub]:border-transparent data-[sub]:bg-[#fafafc]! dark:border-white/[0.08] dark:bg-[rgb(58_58_60/0.62)] dark:text-[#e8e8ed] dark:data-[scrolled]:bg-[rgb(58_58_60/0.72)] dark:data-[sub]:bg-[#1d1d1f]!"
     >
       <div className="mx-auto flex h-12 max-w-[1024px] items-center justify-between gap-3 px-4 text-[13px] sm:px-6 md:h-11 md:text-xs">
         {onHome ? (
@@ -81,11 +110,55 @@ export function LandingNav({ scrolled = false, onHome }: { scrolled?: boolean; o
           </NavLink>
         )}
         <nav aria-label="Navigation" className="hidden flex-1 items-center justify-evenly md:flex">
-          {NAV_LINKS.map(({ href, label, hide }) => (
-            <NavLink key={href} href={linkHref(href)} className={`${hide} px-2 py-1 tracking-[0.01em] opacity-80 transition pointer-coarse:py-3 hover:opacity-100`}>
-              {label}
-            </NavLink>
-          ))}
+          {NAV_LINKS.map(({ href, label, hide }) => {
+            const isTamilya = label === "Tamilya";
+            // Survoler une autre rubrique referme le panneau Tamilya.
+            const openSub = () => setSubOpen(isTamilya);
+            return (
+              <NavLink
+                key={href}
+                href={linkHref(href)}
+                onMouseEnter={openSub}
+                onFocus={openSub}
+                className={`${hide} px-2 py-1 tracking-[0.01em] transition pointer-coarse:py-3 hover:opacity-100 ${isTamilya && subOpen ? "opacity-100" : "opacity-80"}`}
+              >
+                {label}
+              </NavLink>
+            );
+          })}
+          {/*
+           * Panneau Tamilya, façon Apple : il prolonge la barre (même fond plein, sans filet entre les deux),
+           * se déplie vers le bas, et ses liens apparaissent l'un après l'autre.
+           */}
+          <div
+            data-open={subOpen || undefined}
+            className="group/sub app-hide invisible absolute inset-x-0 top-full grid grid-rows-[0fr] bg-[#fafafc] transition-[grid-template-rows,visibility] duration-300 ease-[cubic-bezier(0.4,0,0.6,1)] data-[open]:visible data-[open]:grid-rows-[1fr] dark:bg-[#1d1d1f]"
+          >
+            <div className="overflow-hidden">
+              <div className="mx-auto max-w-[1024px] px-6 pt-6 pb-8">
+                <p className="text-xs text-[#6e6e73] opacity-0 transition-opacity duration-300 group-data-[open]/sub:opacity-100 group-data-[open]/sub:delay-100 dark:text-[#86868b]">
+                  Découvrir Tamilya
+                </p>
+                <ul className="mt-3 flex flex-col gap-2">
+                  {TAMILYA_LINKS.map(({ href, label }, index) => (
+                    <li
+                      key={href}
+                      style={{ transitionDelay: subOpen ? `${120 + index * 40}ms` : "0ms" }}
+                      className="-translate-y-1 opacity-0 transition-[opacity,translate] duration-300 group-data-[open]/sub:translate-y-0 group-data-[open]/sub:opacity-100"
+                    >
+                      <NavLink
+                        href={href}
+                        onClick={() => setSubOpen(false)}
+                        className="text-2xl leading-tight font-semibold tracking-[-0.015em] text-[#1d1d1f] transition-colors hover:text-[var(--accent)] dark:text-[#f5f5f7]"
+                      >
+                        {label}
+                      </NavLink>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
           {APP_LINKS.map(({ href, label }) => (
             <NavLink key={href} href={href} data-app-link="" className="app-only px-2 py-1 tracking-[0.01em] opacity-80 transition pointer-coarse:py-3 hover:opacity-100">
               {label}
@@ -137,6 +210,17 @@ export function LandingNav({ scrolled = false, onHome }: { scrolled?: boolean; o
                 <NavLink href={linkHref(href)} onClick={() => setMenuOpen(false)} className="block py-3.5 text-[17px] font-medium">
                   {label}
                 </NavLink>
+                {label === "Tamilya" ? (
+                  <ul className="-mt-1 pb-2 pl-4">
+                    {TAMILYA_LINKS.map((sub) => (
+                      <li key={sub.href}>
+                        <NavLink href={sub.href} onClick={() => setMenuOpen(false)} className="block py-2.5 text-[15px] opacity-80">
+                          {sub.label}
+                        </NavLink>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
               </li>
             ))}
             {APP_LINKS.map(({ href, label }) => (
@@ -165,5 +249,12 @@ export function LandingNav({ scrolled = false, onHome }: { scrolled?: boolean; o
         </nav>
       ) : null}
     </header>
+    {/* Panneau Tamilya ouvert : la page derrière se floute et s'assombrit un peu (hors de la barre : son flou capturerait le fixed). */}
+    <div
+      aria-hidden="true"
+      data-open={subOpen || undefined}
+      className="app-hide pointer-events-none fixed inset-0 z-20 hidden bg-black/0 backdrop-blur-none transition-[background-color,backdrop-filter] duration-300 data-[open]:bg-black/20 data-[open]:backdrop-blur-md md:block"
+    />
+    </>
   );
 }
