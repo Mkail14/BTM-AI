@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `40f23f8` (2026-11-26, develop)**
+**Dernier commit noté : `1bbeb22` (2026-11-27, develop)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -142,6 +142,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **2026-11-27** — Barre du haut : au survol de « Tamilya », un panneau façon Apple se déplie (barre opaque, page derrière floutée) avec Tamilya Connect et Tamilya Game ; au téléphone, les deux liens sont en sous-lignes du menu. Demandé par l’utilisateur : la première sous-barre était transparente et « pas pro ». Nouvelle page /tamilya-connect qui explique Connect (de téléphone en téléphone, 5 sauts, chiffré, 24 h, SOS par e-mail aux proches), uniquement dans l’application ; le paiement de barge et de repas par Connect n’y est pas présenté (encore en démonstration). /tamilya-game : « Bientôt disponible ». (`1bbeb22` sur develop)
 
 - **2026-11-26** — Page Mayotte (ordinateur) : le titre « Tamilya connectée à Mayotte » et sa phrase descendent au milieu de l'espace libre au-dessus de « À la une » (avant : collés en haut, alignés sur la carte, avec un grand vide en dessous), à la demande de l'utilisateur.  (`40f23f8` sur develop)
 
