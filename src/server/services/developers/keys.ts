@@ -99,6 +99,22 @@ export async function findDeveloperKey(token: string): Promise<{ id: string; use
   return { id: data.id, userId: data.user_id, label: data.label };
 }
 
+/**
+ * Voix de Tamilya (/api/v1/tamilya/voice) : réservée aux codes autorisés à la main par BTM
+ * (colonne voice_enabled, fausse par défaut). Lue à part de findDeveloperKey, pour que l'API
+ * texte marche même si la migration n'est pas appliquée. null : colonne ou base illisible.
+ */
+export async function hasVoiceAccess(id: string): Promise<boolean | null> {
+  const admin = getSupabaseAdminClient();
+  if (!admin) return null;
+  const { data, error } = await admin.from("developer_keys").select("voice_enabled").eq("id", id).maybeSingle();
+  if (error) {
+    console.error("[developpeurs] Accès à la voix illisible (migration 20261228000000_voix_api_developpeurs.sql appliquée ?)", error.code);
+    return null;
+  }
+  return data?.voice_enabled === true;
+}
+
 /** Date de dernière utilisation, affichée sur /developpeurs (appelée après la réponse, avec after()). */
 export async function touchDeveloperKey(id: string): Promise<void> {
   const { error } = (await getSupabaseAdminClient()?.from("developer_keys").update({ last_used_at: new Date().toISOString() }).eq("id", id)) ?? {};

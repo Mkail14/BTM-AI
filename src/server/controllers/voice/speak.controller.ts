@@ -2,9 +2,7 @@ import { canUse } from "@/server/services/site/features";
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { AIProviderError } from "@/server/services/ai";
-import { relaySpeech, relayUrl } from "@/server/services/ai/relay";
-import { keysSecret } from "@/lib/ai/secret-box";
-import { streamSpeech } from "@/server/services/ai/voice/stream-tts";
+import { speakAsTamilya, speechResponse } from "@/server/services/ai/voice/speak";
 import { loadVoice } from "@/server/services/ai/voice/settings";
 import { isGeminiVoice, SPEECH_MAX_CHARS, type GeminiVoiceId } from "@/lib/ai/voice/voices";
 import { getAuthContext } from "@/server/middlewares/session";
@@ -41,25 +39,9 @@ export async function POST(request: NextRequest) {
   // Voix d'un personnage : histoires des administrateurs, et livres quand ils sont ouverts à tous (/admin/fonctionnalites).
   const voices = Boolean(parsed.data.voice) && (user.isAdmin || (await canUse(user, "livres")));
   const voice: GeminiVoiceId = voices ? (parsed.data.voice as GeminiVoiceId) : await loadVoice();
-  const startedAt = Date.now();
   try {
-    // Développement local : Google refuse Gemini depuis Mayotte, le site en ligne lit à la place.
-    const relay = relayUrl();
-    const secret = keysSecret();
     // Son en continu : la réponse part dès le premier morceau de voix de Gemini.
-    let stream: ReadableStream<Uint8Array> | null;
-    let firstAudioMs: number;
-    if (relay && secret) {
-      const upstream = await relaySpeech(relay, secret, { text: parsed.data.text, voice }, request.signal);
-      stream = upstream.body;
-      firstAudioMs = Number(upstream.headers.get("x-voice-ms")) || Date.now() - startedAt;
-    } else {
-      ({ stream, firstAudioMs } = await streamSpeech(parsed.data.text, voice, request.signal));
-    }
-    return new Response(stream, {
-      // x-voice-ms : temps jusqu'au premier son sur le serveur (chronométrage, /admin/voix).
-      headers: { "Content-Type": "audio/mpeg", "Cache-Control": "no-store", "x-voice-ms": String(firstAudioMs) },
-    });
+    return speechResponse(await speakAsTamilya(parsed.data.text, voice, request.signal));
   } catch (error) {
     if (error instanceof AIProviderError && error.code === "aborted") return new Response(null, { status: 499 });
     console.error("[voix] Lecture impossible", error);

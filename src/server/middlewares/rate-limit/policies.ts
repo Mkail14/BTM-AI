@@ -76,6 +76,12 @@ export const RATE_LIMIT_POLICIES = {
   // Tous les codes d'un même compte additionnés : créer 5 codes ne donne pas 5 fois plus de messages.
   developerAccount: [{ name: "dev-account-day", limit: 300, windowSeconds: 86_400 }],
   developerAll: [{ name: "dev-all-day", limit: 3_000, windowSeconds: 86_400 }],
+  // Voix de Tamilya par l'API (codes autorisés seulement), comptée à part des questions texte.
+  developerVoiceKey: [
+    { name: "dev-voice-key-min", limit: 20, windowSeconds: 60 },
+    { name: "dev-voice-key-day", limit: 300, windowSeconds: 86_400 },
+  ],
+  developerVoiceAccount: [{ name: "dev-voice-account-day", limit: 300, windowSeconds: 86_400 }],
   // Création de codes d'accès : assez pour se tromper, pas pour en fabriquer à la chaîne.
   developerKeyCreate: [{ name: "dev-key-create-day", limit: 10, windowSeconds: 86_400 }],
   // Widget à coller sur un site : c'est BTM qui paie, donc limites basses. L'identifiant du widget
