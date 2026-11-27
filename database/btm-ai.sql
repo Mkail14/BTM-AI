@@ -8,7 +8,7 @@
 -- Sur Supabase : à jouer sur un projet vide (Auth fournit le schéma auth).
 -- Sur un PostgreSQL local : jouer d'abord database/imitation-supabase.sql (voir database/README.md).
 --
--- 71 migrations · 44 tables dans le schéma public :
+-- 72 migrations · 44 tables dans le schéma public :
 --   ai_providers, ai_usage, app_reviews, awa_branches, awa_cleanup_ignored, awa_grammar,
 --   awa_knowledge, awa_lexicon, awa_library_chunks, awa_library_documents, awa_memories,
 --   awa_partner_keys, awa_personalities, awa_questions, awa_settings, awa_word_requests,
@@ -5241,3 +5241,22 @@ alter table public.site_settings
   drop column if exists bank_name,
   drop column if exists bank_iban,
   drop column if exists bank_bic;
+
+-- ============================================================================
+-- 20261228000000_voix_api_developpeurs.sql
+-- ============================================================================
+
+-- BTM AI — Voix de Tamilya pour l'API des développeurs (route /api/v1/tamilya/voice)
+--
+-- La voix coûte plus cher que le texte : elle n'est pas ouverte à tous les codes.
+-- Seuls les codes autorisés à la main par BTM (voice_enabled = true) peuvent
+-- l'utiliser ; tous les autres reçoivent 403 « voice_not_allowed ».
+--
+-- Autoriser un code (dans l'éditeur SQL de Supabase), d'après son début affiché
+-- sur /developpeurs :
+--   update public.developer_keys set voice_enabled = true
+--   where prefix like 'tml\_XXXX%' and revoked_at is null;
+-- Retirer l'accès : même requête avec false.
+
+alter table public.developer_keys
+  add column if not exists voice_enabled boolean not null default false;
