@@ -3,7 +3,7 @@
 Ce journal raconte la construction du site : ce qui a été fait, quand, et surtout **pourquoi**.
 Il est mis à jour après chaque commit.
 
-**Dernier commit noté : `1bbeb22` (2026-11-27, develop)**
+**Dernier commit noté : `27ddfc1` (2026-11-28, develop ; `bb4fe98` sur main)**
 
 Comment le tenir :
 - après chaque commit, ajouter une ligne datée en haut de la partie « Journal » : ce qui change et pourquoi ;
@@ -142,6 +142,8 @@ Comment le tenir :
 ---
 
 ## Journal (le plus récent en haut)
+
+- **2026-11-28** — API des développeurs : voix de Tamilya (`POST /api/v1/tamilya/voice`). Demande de l’utilisateur : son application familiale Mario House (Worker Cloudflare) appelle déjà l’API texte mais lit les réponses avec la voix de l’appareil ; il veut la vraie voix de Tamilya sans l’ouvrir à tous les développeurs. Même vérification du code que l’API texte, puis accès seulement si `developer_keys.voice_enabled` est vrai (migration `20261228000000_voix_api_developpeurs.sql`, faux par défaut, **à coller dans Supabase** ; sans elle la route répond 503 et l’API texte n’est pas touchée). Corps `{ "text" }` seul (1 à 2 000 caractères ; champs inconnus refusés, `voice` compris : c’est toujours la voix de Tamilya), 64 Ko au plus ; réponse MP3 en continu, `no-store`, `x-voice-ms`. Quotas à part : 20/min et 300/jour par code, 300/jour par compte. Ni texte ni code dans les journaux, pas de CORS (appel de serveur), pas documentée sur /developpeurs (réservée). La lecture est sortie dans `speakAsTamilya` (`services/ai/voice/speak.ts`), partagée avec `/api/voice/speak`, dont le comportement ne change pas. Copié seul sur main (`bb4fe98`) : le main local contenait une fusion non envoyée du panneau Tamilya (`1bbeb22`), laissée telle quelle. Vérifié : types, lint, 6 tests nouveaux ; 1 test déjà en échec avant (route `mayotte/une` sans vérification de l’appelant, pas touchée ici). (`27ddfc1` sur develop)
 
 - **2026-11-27** — Barre du haut : au survol de « Tamilya », un panneau façon Apple se déplie (barre opaque, page derrière floutée) avec Tamilya Connect et Tamilya Game ; au téléphone, les deux liens sont en sous-lignes du menu. Demandé par l’utilisateur : la première sous-barre était transparente et « pas pro ». Nouvelle page /tamilya-connect qui explique Connect (de téléphone en téléphone, 5 sauts, chiffré, 24 h, SOS par e-mail aux proches), uniquement dans l’application ; le paiement de barge et de repas par Connect n’y est pas présenté (encore en démonstration). /tamilya-game : « Bientôt disponible ». (`1bbeb22` sur develop)
 
